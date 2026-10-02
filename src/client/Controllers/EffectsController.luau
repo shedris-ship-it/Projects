@@ -26,7 +26,7 @@ local FX = Config.PostFX
 
 local lights = {} -- light -> { base brightness }
 local flickering = {} -- light -> until
-local dust = {} -- ParticleEmitter -> true
+local dust = {} -- ParticleEmitter -> air-current phase
 local hunt = { state = nil, started = 0, duration = 0 }
 
 function EffectsController:Init(controllers)
@@ -114,8 +114,9 @@ end
 
 local lowEnd = false
 
--- Dust drifting in the light (docs/ART.md): one emitter filling each room. The
--- specks take the scene's lighting, so they only show where light falls.
+-- Dust drifting in the light (docs/ART.md): one emitter per room, gathered
+-- around its key light. The motes are soft blobs drawn additively and lit by
+-- the scene, so they only show where light falls, like dust in a lamp beam.
 local function addDust(part: Instance)
 	if not part:FindFirstChild("KeyLight") then
 		return
@@ -133,6 +134,15 @@ local function addDust(part: Instance)
 	if not floor or room:FindFirstChild("Dust") then
 		return
 	end
+	-- A box around the light, leaning towards the room centre where its pool
+	-- falls, kept inside the room.
+	local halfRoom = Vector3.new(floor.Size.X / 2 - 1, 0, floor.Size.Z / 2 - 1)
+	local roomMin = floor.Position - halfRoom
+	local roomMax = floor.Position + halfRoom
+	local focus = (part :: BasePart).Position:Lerp(floor.Position, 0.35)
+	local half = FX.DustSpan / 2
+	local lo = Vector3.new(math.max(focus.X - half, roomMin.X), 0, math.max(focus.Z - half, roomMin.Z))
+	local hi = Vector3.new(math.min(focus.X + half, roomMax.X), 0, math.min(focus.Z + half, roomMax.Z))
 	local box = Instance.new("Part")
 	box.Name = "Dust"
 	box.Anchored = true
@@ -141,32 +151,37 @@ local function addDust(part: Instance)
 	box.CanTouch = false
 	box.CastShadow = false
 	box.Transparency = 1
-	box.Size = Vector3.new(floor.Size.X - 2, FX.DustHeight, floor.Size.Z - 2)
-	box.CFrame = floor.CFrame * CFrame.new(0, floor.Size.Y / 2 + FX.DustHeight / 2, 0)
+	box.Size = Vector3.new(math.max(hi.X - lo.X, 2), FX.DustHeight, math.max(hi.Z - lo.Z, 2))
+	box.CFrame =
+		CFrame.new((lo.X + hi.X) / 2, floor.Position.Y + floor.Size.Y / 2 + FX.DustHeight / 2, (lo.Z + hi.Z) / 2)
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Texture = Assets.DustTexture
 	emitter.Shape = Enum.ParticleEmitterShape.Box
 	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 	emitter.Rate = FX.DustRate
 	emitter.Lifetime = NumberRange.new(FX.DustLifetime[1], FX.DustLifetime[2])
-	emitter.Speed = NumberRange.new(0.05, 0.25)
+	emitter.Speed = NumberRange.new(0.02, 0.1)
 	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Acceleration = Vector3.new(0, -0.03, 0)
-	emitter.RotSpeed = NumberRange.new(-20, 20)
-	emitter.Size = NumberSequence.new(FX.DustSize)
+	emitter.Drag = 0.4
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, FX.DustSize, FX.DustSizeVariance),
+		NumberSequenceKeypoint.new(1, FX.DustSize, FX.DustSizeVariance),
+	})
+	-- Fade in and out, glinting brighter and dimmer as each mote turns.
 	emitter.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.2, 0.4),
-		NumberSequenceKeypoint.new(0.8, 0.4),
+		NumberSequenceKeypoint.new(0.15, 0.55, 0.3),
+		NumberSequenceKeypoint.new(0.5, 0.35, 0.35),
+		NumberSequenceKeypoint.new(0.85, 0.55, 0.3),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 244, 228))
 	emitter.LightInfluence = 1
-	emitter.LightEmission = 0
+	emitter.LightEmission = 1
 	emitter.Enabled = not lowEnd
 	emitter.Parent = box
 	box.Parent = room
-	dust[emitter] = true
+	dust[emitter] = math.random() * 10 -- phase of this room's air current
 end
 
 local function trackLight(part: Instance)
@@ -327,6 +342,8 @@ function EffectsController:_update(dt: number)
 	color.Brightness = inRun and lerp(0.02, -0.04, t) or 0.02
 	self.tint.BackgroundTransparency = 1 - math.clamp(huntRed, 0, 0.35)
 
+	self.bloom.Threshold = inRun and FX.BloomThreshold or FX.BloomThresholdHub
+
 	for _, frame in self.vignette do
 		frame.BackgroundTransparency = inRun and lerp(0.35, 0.05, t) or 0.6
 	end
@@ -337,6 +354,18 @@ function EffectsController:_update(dt: number)
 		self.grain.ImageTransparency = settings.reduceGrain and 1
 			or (inRun and lerp(FX.GrainCalm, FX.GrainCollapse, t) or 1)
 		self.grain.Position = UDim2.fromOffset(-math.random(0, FX.GrainTile), -math.random(0, FX.GrainTile))
+	end
+
+	-- The air in each room drifts slowly, carrying its dust together.
+	local clock = os.clock()
+	for emitter, phase in dust do
+		if emitter.Parent then
+			emitter.Acceleration = Vector3.new(
+				math.sin(clock * 0.11 + phase),
+				math.sin(clock * 0.05 + phase * 2) * 0.4,
+				math.cos(clock * 0.09 + phase)
+			) * FX.DustCurrent
+		end
 	end
 
 	-- Lights near The Guest's body sag, easing in and out, so you feel it

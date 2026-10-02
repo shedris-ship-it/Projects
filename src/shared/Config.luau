@@ -166,6 +166,7 @@ Config.Focus = {
 -- image"). Subtle on purpose: heavy bloom and blur read as dreamy, not dreary.
 Config.PostFX = {
 	BloomThreshold = 1.15, -- lamps, windows and screens halo; lit pale surfaces (faces) do not
+	BloomThresholdHub = 2.2, -- the hub is brightly lit, so only its brightest lights halo
 	BloomIntensity = 0.7,
 	BloomSize = 30,
 	-- Depth of field: sharp out to about 40 studs, so the Guest still reads at
@@ -177,12 +178,16 @@ Config.PostFX = {
 	GrainShade = 70, -- darkens the noise so grain adds texture without lifting blacks
 	GrainCalm = 0.8, -- grain transparency at Drift 0
 	GrainCollapse = 0.7, -- and at Drift 100
-	-- Dust drifting in the light: particles take the scene's lighting, so they
-	-- only show inside lamp and window light.
+	-- Dust drifting in the light: soft additive motes lit by the scene, so they
+	-- only show inside lamp and window light. Each room's dust gathers around
+	-- its key light and drifts together on a slow, wandering air current.
 	DustRate = 18, -- per room, per second
 	DustLifetime = { 8, 14 },
-	DustSize = 0.06,
+	DustSize = 0.08,
+	DustSizeVariance = 0.04, -- each mote is DustSize plus or minus this
 	DustHeight = 8, -- studs above the floor the dust fills
+	DustSpan = 26, -- width of the dust volume around the light, in studs
+	DustCurrent = 0.03, -- strength of the drifting air current
 	-- The Guest's presence: lights near its body sag, easing in and out.
 	GuestDimRadius = 30, -- starts dimming lights this close
 	GuestDimFull = 12, -- fully dimmed this close

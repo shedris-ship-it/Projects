@@ -29,7 +29,8 @@ Assets.Sounds = {
 -- noise tile that ships with every Roblox client, so nothing needs uploading.
 Assets.GrainTexture = "rbxasset://textures/noise.dds"
 
--- Soft speck for the dust drifting in lamp light (also ships with the client).
-Assets.DustTexture = "rbxasset://textures/particles/sparkles_main.dds"
+-- Soft round blob for the dust drifting in lamp light (ships with the client).
+-- It has no alpha, so it's drawn additively: black adds nothing.
+Assets.DustTexture = "rbxasset://textures/shadowblurmask.png"
 
 return Assets
