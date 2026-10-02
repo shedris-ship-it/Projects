@@ -52,6 +52,7 @@
         "Brightness": 0.4,
         "ClockTime": 0.5,
         "GlobalShadows": true,
+        "ShadowSoftness": 0.6,
         "EnvironmentDiffuseScale": 0.15,
         "EnvironmentSpecularScale": 0.4,
         "ExposureCompensation": 0

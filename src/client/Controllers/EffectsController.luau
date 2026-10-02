@@ -12,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 
@@ -21,8 +22,11 @@ local player = Players.LocalPlayer
 
 local EffectsController = {}
 
+local FX = Config.PostFX
+
 local lights = {} -- light -> { base brightness }
 local flickering = {} -- light -> until
+local dust = {} -- ParticleEmitter -> true
 local hunt = { state = nil, started = 0, duration = 0 }
 
 function EffectsController:Init(controllers)
@@ -39,17 +43,19 @@ function EffectsController:_createEffects()
 	self.color = Instance.new("ColorCorrectionEffect")
 	self.color.Name = "ConsensusColor"
 	self.color.Parent = camera
+	-- Bloom and a gentle depth of field take the clinical edge off Roblox's
+	-- rendering: practical lights halo, and the far room goes slightly soft.
 	self.bloom = Instance.new("BloomEffect")
 	self.bloom.Name = "ConsensusBloom"
-	self.bloom.Intensity = 0.35
-	self.bloom.Size = 22
-	self.bloom.Threshold = 1.6
+	self.bloom.Intensity = FX.BloomIntensity
+	self.bloom.Size = FX.BloomSize
+	self.bloom.Threshold = FX.BloomThreshold
 	self.bloom.Parent = camera
 	self.dof = Instance.new("DepthOfFieldEffect")
 	self.dof.Name = "ConsensusDof"
-	self.dof.FarIntensity = 0.12
-	self.dof.FocusDistance = 30
-	self.dof.InFocusRadius = 40
+	self.dof.FarIntensity = FX.FarBlur
+	self.dof.FocusDistance = FX.FocusDistance
+	self.dof.InFocusRadius = FX.InFocusRadius
 	self.dof.NearIntensity = 0
 	self.dof.Parent = camera
 	self.atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -97,20 +103,100 @@ function EffectsController:_createEffects()
 			Size = UDim2.fromScale(2, 2),
 			BackgroundTransparency = 1,
 			Image = Assets.GrainTexture,
+			ImageColor3 = Color3.fromRGB(FX.GrainShade, FX.GrainShade, FX.GrainShade),
 			ScaleType = Enum.ScaleType.Tile,
-			TileSize = UDim2.fromOffset(256, 256),
+			TileSize = UDim2.fromOffset(FX.GrainTile, FX.GrainTile),
 			ImageTransparency = 1,
 			Parent = gui,
 		})
 	end
 end
 
+local lowEnd = false
+
+-- Dust drifting in the light (docs/ART.md): one emitter filling each room. The
+-- specks take the scene's lighting, so they only show where light falls.
+local function addDust(part: Instance)
+	if not part:FindFirstChild("KeyLight") then
+		return
+	end
+	-- The room model sits directly under the level folder.
+	local room = part.Parent
+	while room and room.Parent and room.Parent.Name ~= "ConsensusLevel" do
+		room = room.Parent
+	end
+	if not room or not room.Parent then
+		return
+	end
+	-- The floor can replicate a moment after the light does.
+	local floor = room:WaitForChild("Floor", 5)
+	if not floor or room:FindFirstChild("Dust") then
+		return
+	end
+	local box = Instance.new("Part")
+	box.Name = "Dust"
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Transparency = 1
+	box.Size = Vector3.new(floor.Size.X - 2, FX.DustHeight, floor.Size.Z - 2)
+	box.CFrame = floor.CFrame * CFrame.new(0, floor.Size.Y / 2 + FX.DustHeight / 2, 0)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = Assets.DustTexture
+	emitter.Shape = Enum.ParticleEmitterShape.Box
+	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	emitter.Rate = FX.DustRate
+	emitter.Lifetime = NumberRange.new(FX.DustLifetime[1], FX.DustLifetime[2])
+	emitter.Speed = NumberRange.new(0.05, 0.25)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Acceleration = Vector3.new(0, -0.03, 0)
+	emitter.RotSpeed = NumberRange.new(-20, 20)
+	emitter.Size = NumberSequence.new(FX.DustSize)
+	emitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.2, 0.4),
+		NumberSequenceKeypoint.new(0.8, 0.4),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 244, 228))
+	emitter.LightInfluence = 1
+	emitter.LightEmission = 0
+	emitter.Enabled = not lowEnd
+	emitter.Parent = box
+	box.Parent = room
+	dust[emitter] = true
+end
+
 local function trackLight(part: Instance)
 	local light = part:FindFirstChild("KeyLight") or part:FindFirstChildWhichIsA("Light")
-	if light then
-		-- Remember whether it was built to cast shadows: fills never do.
-		lights[light] = { base = light.Brightness, part = part, shadows = light.Shadows }
+	if not light then
+		-- The house replicates in chunks, so the light can arrive a moment after
+		-- its tagged part. Track it when it does.
+		local connection
+		connection = part.ChildAdded:Connect(function(child)
+			if child:IsA("Light") then
+				connection:Disconnect()
+				trackLight(part)
+			end
+		end)
+		return
 	end
+	-- Remember whether it was built to cast shadows.
+	lights[light] = { base = light.Brightness, part = part, shadows = light.Shadows, dim = 1 }
+	task.spawn(addDust, part)
+end
+
+-- Where The Guest's body is, or nil while it's parked out of the house.
+local function guestPosition(): Vector3?
+	local level = Workspace:FindFirstChild("ConsensusLevel")
+	local guest = level and level:FindFirstChild("Stalker")
+	if not guest or not guest:IsA("Model") then
+		return nil
+	end
+	local position = guest:GetPivot().Position
+	return position.Y < 200 and position or nil
 end
 
 function EffectsController:Start()
@@ -173,6 +259,14 @@ function EffectsController:_applyQuality(settings)
 	for light, info in lights do
 		if light:IsA("PointLight") or light:IsA("SpotLight") or light:IsA("SurfaceLight") then
 			light.Shadows = info.shadows and not settings.lowEnd
+		end
+	end
+	lowEnd = settings.lowEnd == true
+	for emitter in dust do
+		if emitter.Parent then
+			emitter.Enabled = not lowEnd
+		else
+			dust[emitter] = nil
 		end
 	end
 end
@@ -240,24 +334,38 @@ function EffectsController:_update(dt: number)
 		self.atmosphere.Density = inRun and lerp(0.32, 0.46, t) or 0.25
 	end
 	if self.grain then
-		self.grain.ImageTransparency = settings.reduceGrain and 1 or (inRun and lerp(0.92, 0.75, t) or 1)
-		self.grain.Position = UDim2.fromOffset(-math.random(0, 256), -math.random(0, 256))
+		self.grain.ImageTransparency = settings.reduceGrain and 1
+			or (inRun and lerp(FX.GrainCalm, FX.GrainCollapse, t) or 1)
+		self.grain.Position = UDim2.fromOffset(-math.random(0, FX.GrainTile), -math.random(0, FX.GrainTile))
 	end
 
-	-- Light flicker. Reduced-flicker mode dims smoothly instead of strobing.
+	-- Lights near The Guest's body sag, easing in and out, so you feel it
+	-- before you see it. Shared decay: every player sees the same dimming
+	-- (docs/ART.md rule 6). Flicker plays on top. Reduced-flicker mode dims
+	-- smoothly instead of strobing.
+	local guest = guestPosition()
+	local ease = math.clamp(dt * FX.GuestDimEase, 0, 1)
 	local now = os.clock()
 	for light, info in lights do
 		if light.Parent then
+			local target = 1
+			if guest then
+				local distance = (info.part.Position - guest).Magnitude
+				local near = math.clamp((FX.GuestDimRadius - distance) / (FX.GuestDimRadius - FX.GuestDimFull), 0, 1)
+				target = lerp(1, FX.GuestDimTo, near)
+			end
+			info.dim += (target - info.dim) * ease
+			local base = info.base * info.dim
 			local untilTime = flickering[light]
 			if untilTime and now < untilTime then
 				if settings.reduceFlicker then
-					light.Brightness = info.base * 0.35
+					light.Brightness = base * 0.35
 				else
-					light.Brightness = math.random() < 0.45 and info.base * math.random() * 0.3 or info.base
+					light.Brightness = math.random() < 0.45 and base * math.random() * 0.3 or base
 				end
-			elseif untilTime then
+			else
 				flickering[light] = nil
-				light.Brightness = info.base
+				light.Brightness = base
 			end
 		end
 	end

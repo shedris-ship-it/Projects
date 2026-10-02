@@ -150,6 +150,37 @@ Config.Lighting = {
 	},
 }
 
+-- Post-processing and atmosphere on the client (docs/ART.md, "Softening the
+-- image"). Subtle on purpose: heavy bloom and blur read as dreamy, not dreary.
+Config.PostFX = {
+	BloomThreshold = 1.15, -- lamps, windows and screens halo; lit pale surfaces (faces) do not
+	BloomIntensity = 0.7,
+	BloomSize = 30,
+	-- Depth of field: sharp out to about 40 studs, so the Guest still reads at
+	-- 30 (doc section 8), softening beyond that like a real lens.
+	FocusDistance = 16,
+	InFocusRadius = 24,
+	FarBlur = 0.3,
+	GrainTile = 64, -- pixels per tile of the 32 px noise, so each grain is about 2 px
+	GrainShade = 70, -- darkens the noise so grain adds texture without lifting blacks
+	GrainCalm = 0.8, -- grain transparency at Drift 0
+	GrainCollapse = 0.7, -- and at Drift 100
+	-- Dust drifting in the light: particles take the scene's lighting, so they
+	-- only show inside lamp and window light.
+	DustRate = 18, -- per room, per second
+	DustLifetime = { 8, 14 },
+	DustSize = 0.06,
+	DustHeight = 8, -- studs above the floor the dust fills
+	-- The Guest's presence: lights near its body sag, easing in and out.
+	GuestDimRadius = 30, -- starts dimming lights this close
+	GuestDimFull = 12, -- fully dimmed this close
+	GuestDimTo = 0.55, -- fraction of normal brightness when fully dimmed
+	GuestDimEase = 1.5, -- higher reacts faster
+	-- Flashlight drag: the beam's aim trails the camera slightly on quick turns.
+	-- Higher follows faster. The camera itself never moves (doc section 4).
+	FlashlightFollow = 12,
+}
+
 Config.Evidence = {
 	TrueTells = { 3, 4 }, -- (doc)
 	RedHerrings = { 1, 2 }, -- (doc)

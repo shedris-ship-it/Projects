@@ -34,6 +34,7 @@ local stamina = P.StaminaMax
 local exhausted = false
 local cameraLight: SpotLight? = nil
 local lightPart: BasePart? = nil
+local flashlightAim: CFrame? = nil
 local peekYaw, peekPitch = 0, 0
 
 function ActionController:Init(controllers)
@@ -171,7 +172,7 @@ function ActionController:Start()
 
 	RunService.RenderStepped:Connect(function(dt)
 		self:_updateMovement(dt)
-		self:_updateFlashlight()
+		self:_updateFlashlight(dt)
 		self:_updateHiddenCamera()
 	end)
 	UserInputService.InputChanged:Connect(function(input)
@@ -283,8 +284,10 @@ function ActionController:_updateMovement(dt: number)
 end
 
 -- Flashlight: a light on the camera for you; the server's head light is
--- what everyone else sees, so it's hidden locally to avoid doubling up.
-function ActionController:_updateFlashlight()
+-- what everyone else sees, so it's hidden locally to avoid doubling up. Its
+-- aim trails the camera slightly on quick turns, like a handheld torch; the
+-- camera itself never moves (doc section 4, comfort-safe).
+function ActionController:_updateFlashlight(dt: number)
 	local on = player:GetAttribute(PA.Flashlight) == true
 	if not lightPart then
 		lightPart = Instance.new("Part")
@@ -308,7 +311,10 @@ function ActionController:_updateFlashlight()
 	if lightPart.Parent ~= Workspace.CurrentCamera then
 		lightPart.Parent = Workspace.CurrentCamera
 	end
-	lightPart.CFrame = Workspace.CurrentCamera.CFrame * CFrame.new(0.6, -0.5, 0)
+	local target = Workspace.CurrentCamera.CFrame * CFrame.new(0.6, -0.5, 0)
+	local follow = math.clamp(dt * Config.PostFX.FlashlightFollow, 0, 1)
+	flashlightAim = flashlightAim and flashlightAim:Lerp(target.Rotation, follow) or target.Rotation
+	lightPart.CFrame = CFrame.new(target.Position) * flashlightAim
 	cameraLight.Enabled = on
 	local head = player.Character and player.Character:FindFirstChild("Head")
 	local headLight = head and head:FindFirstChild("Flashlight")

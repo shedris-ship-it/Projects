@@ -25,7 +25,11 @@ Assets.Sounds = {
 	HuntSting = "",
 }
 
--- Optional full-screen film grain texture (a tiling noise image).
-Assets.GrainTexture = ""
+-- Full-screen film grain texture (a tiling noise image). The default is a 32 px
+-- noise tile that ships with every Roblox client, so nothing needs uploading.
+Assets.GrainTexture = "rbxasset://textures/noise.dds"
+
+-- Soft speck for the dust drifting in lamp light (also ships with the client).
+Assets.DustTexture = "rbxasset://textures/particles/sparkles_main.dds"
 
 return Assets

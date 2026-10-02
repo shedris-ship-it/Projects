@@ -128,6 +128,20 @@ Every room keeps **one motivated key light** that casts shadows, as the doc requ
 
 **Hub:** the one warm, fully lit, safe-feeling space: an investigators' field office, the opposite of the house. Signs get consistent text sizes, and the menu shouldn't collide with Roblox's chat hint.
 
+## Softening the image
+
+Roblox renders everything perfectly sharp, clean and evenly in focus, which reads as clinical. Four subtle layers take that edge off. Each is subtle on purpose, because heavy bloom and blur read as dreamy, not dreary. Values live in `Config.PostFX`.
+
+- **Bloom:** threshold just above lit surfaces, so lamps, windows and screens halo but a lit face doesn't glow.
+- **Film grain:** a fine animated noise over the image (the 32 px noise tile that ships with Roblox, so nothing to upload). The noise is darkened so it adds texture without lifting the blacks. It thickens as Drift rises, and "Reduce grain" turns it off.
+- **Depth of field:** sharp out to about 40 studs, so The Guest still reads at 30, then softening like a real lens. The room beyond a doorway goes slightly soft.
+- **Softer shadows:** `Lighting.ShadowSoftness` 0.6.
+- **Atmosphere haze doesn't help indoors.** Roblox's Atmosphere is built for outdoor distances; even at double density it barely shows across a 40-stud room. Depth of field does that job instead.
+
+The real cure for "clinical" is still geometry and materials: bevelled trim, worn textures and grime (steps 3–4 below). Post-processing can only soften what's there.
+
+**Atmosphere effects in play:** dust specks drift in each room and only show inside lamp and window light. Lights within 30 studs of The Guest's body sag to as low as 55%, easing in and out, so you feel it before you see it. The flashlight's aim trails slightly behind quick turns, like a handheld torch, while the camera itself never moves.
+
 ## The Guest
 
 **Concept:** a dinner guest who stayed far too long. Polite, patient and wrong.
