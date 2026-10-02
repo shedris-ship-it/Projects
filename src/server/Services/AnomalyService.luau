@@ -183,7 +183,7 @@ function AnomalyService:_placeSite(index: number, tellId: string, isRedHerring: 
 				return site
 			end
 		elseif tell.slot == "wall" then
-			local slot = self.World:TakeWallSlot(roomId, rng)
+			local slot = self.World:TakeWallSlot(roomId, rng, tell.outside)
 			if slot then
 				site.cframe = slot.cframe
 				site.position = slot.cframe.Position + slot.cframe.LookVector * 0.5

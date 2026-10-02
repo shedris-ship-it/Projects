@@ -13,6 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
 
@@ -189,6 +190,12 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 	local function neighbourAt(room, dirName)
 		local d = WORLD_DIRS[dirName]
 		return cells[(room.gx + d.X) .. "," .. (room.gz + d.Z)]
+	end
+
+	-- Whether a wall position from template data ({ side, along }) is on an
+	-- outer wall. Closet faces ({ x, z, face }) are always indoors.
+	local function facesOutside(room, slot): boolean
+		return slot.side ~= nil and neighbourAt(room, LevelGraph.worldSide(slot.side, room.rotation)) == nil
 	end
 
 	-- Pick the exit side before walls go up.
@@ -388,6 +395,12 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				end
 			end
 			for _, decor in template.decor do
+				-- A window that still faces another room after LevelGraph turned the
+				-- room is left out; if it was the key light, the ceiling lamp below
+				-- takes over.
+				if decor.kind == "Window" and not facesOutside(room, decor) then
+					continue
+				end
 				local cf = slotCFrame(roomCF, decor, decor.y)
 				local decorModel, lightPart = PropFactory.buildDecor(decor.kind, cf, model, room.id * 100 + #decor.id)
 				decorModel:SetAttribute(Attr.CId, "decor:" .. room.id .. ":" .. decor.id)
@@ -455,8 +468,13 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		end
 
 		-- Slots for tells and Sources.
+		-- `outside` marks slots on an outer wall, for tells that need one (a window).
 		for _, slot in template.wallSlots do
-			table.insert(record.wallSlots, { cframe = slotCFrame(roomCF, slot, slot.y or 6.5), used = false })
+			table.insert(record.wallSlots, {
+				cframe = slotCFrame(roomCF, slot, slot.y or 6.5),
+				outside = facesOutside(room, slot),
+				used = false,
+			})
 		end
 		for _, slot in template.floorSlots do
 			local pos = roomCF:PointToWorldSpace(Vector3.new(slot.x, 0, slot.z))

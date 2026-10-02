@@ -8,7 +8,8 @@
 --      that rescue deep dead ends. Loops are what make chases survivable.
 --   3. Pick the exit (farthest room on the edge), the Deliberation Table on
 --      the critical path, and 1-2 Lantern rooms.
---   4. Assign templates, avoiding three rooms of the same mood in a row.
+--   4. Assign templates, avoiding three rooms of the same mood in a row, and
+--      turn rooms with windows so the windows face outside.
 --   5. Validate (Logic/LayoutValidator); retry with the next seed, then fall
 --      back to an authored layout.
 
@@ -177,16 +178,69 @@ local function addLoops(rng, rooms, adjacent, edges, config)
 	return added
 end
 
+-- Whether a room's wall on a world side faces outside the house.
+local function isOuterSide(room, cells, dirName: string): boolean
+	local dir = LevelGraph.Dirs[dirName]
+	return cells[cellKey(room.gx + dir.dx, room.gz + dir.dz)] == nil
+end
+LevelGraph.isOuterSide = isOuterSide
+
 local function hasOuterSide(room, cells): boolean
 	for _, dirName in LevelGraph.DirOrder do
-		local dir = LevelGraph.Dirs[dirName]
-		if not cells[cellKey(room.gx + dir.dx, room.gz + dir.dz)] then
+		if isOuterSide(room, cells, dirName) then
 			return true
 		end
 	end
 	return false
 end
 LevelGraph.hasOuterSide = hasOuterSide
+
+-- The world side a template's side ends up on once the room is turned by
+-- `rotation` quarter turns (LevelBuilder turns rooms with CFrame.Angles, so
+-- each turn takes N to W, W to S, and so on).
+function LevelGraph.worldSide(side: string, rotation: number): string
+	local index = table.find(LevelGraph.DirOrder, side) :: number
+	return LevelGraph.DirOrder[(index - 1 - rotation) % 4 + 1]
+end
+
+-- A template's windows: wall decor of kind Window, on its outer walls.
+function LevelGraph.windows(template)
+	local list = {}
+	for _, decor in template.decor or {} do
+		if decor.kind == "Window" and decor.side then
+			table.insert(list, decor)
+		end
+	end
+	return list
+end
+
+-- Windows look outside (docs/ART.md, owner's playtest 2026-10-02): turn each
+-- room that has windows so they land on outer walls. Tries the rolled
+-- rotation first, then each further quarter turn, and keeps the first that
+-- puts the most windows outside, the window that lights the room counting
+-- most. Uses no randomness, so the rest of the house a seed builds is the
+-- same. LevelBuilder leaves out any window still facing another room.
+local function orientWindows(rooms, cells, templatesById)
+	for _, room in rooms do
+		local windows = LevelGraph.windows(templatesById[room.template])
+		if #windows > 0 then
+			local best, bestScore = room.rotation, -1
+			for turn = 0, 3 do
+				local rotation = (room.rotation + turn) % 4
+				local score = 0
+				for _, window in windows do
+					if isOuterSide(room, cells, LevelGraph.worldSide(window.side, rotation)) then
+						score += window.key and 10 or 1
+					end
+				end
+				if score > bestScore then
+					best, bestScore = rotation, score
+				end
+			end
+			room.rotation = best
+		end
+	end
+end
 
 -- Choose exit, deliberation room and Lantern rooms.
 local function assignRoles(rng, rooms, cells, adj, config)
@@ -351,6 +405,11 @@ local function finish(rng, rooms, cells, edges, templates, config, extra)
 	local adj = Graph.adjacency(ids, edges)
 	local roles = assignRoles(rng, rooms, cells, adj, config)
 	assignTemplates(rng, rooms, adj, roles, templates)
+	local templatesById = {}
+	for _, template in templates do
+		templatesById[template.id] = template
+	end
+	orientWindows(rooms, cells, templatesById)
 
 	local adjacent = adjacentPairs(rooms, cells)
 	local edgeSet = {}

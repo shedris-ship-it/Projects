@@ -222,14 +222,16 @@ function WorldService:IsLanternRoom(id: number?): boolean
 	return room ~= nil and room.shrine ~= nil and room.shrine.lit
 end
 
-function WorldService:TakeWallSlot(roomId: number, rng)
+-- outside: only slots on an outer wall (LevelBuilder marks them), for tells
+-- such as a window that would make no sense between two rooms.
+function WorldService:TakeWallSlot(roomId: number, rng, outside: boolean?)
 	local room = self:Room(roomId)
 	if not room then
 		return nil
 	end
 	local free = {}
 	for _, slot in room.wallSlots do
-		if not slot.used then
+		if not slot.used and (slot.outside or not outside) then
 			table.insert(free, slot)
 		end
 	end

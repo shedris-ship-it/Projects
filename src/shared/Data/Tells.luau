@@ -11,6 +11,7 @@
 --   HiddenWriting   writing that only shows up in your own flashlight beam
 --   PortraitEyes    a portrait whose eyes follow one viewer
 -- slot:   where the generator may place it ("seam", "wall" or "floor")
+-- outside: a wall tell that only makes sense on an outer wall (a window)
 -- social: only meaningful when two Witnesses compare what they perceive
 -- camera: the Witness Camera can confirm it, so a lone player can check it
 
@@ -62,6 +63,7 @@ local Tells = {
 		presentation = "VariantProp",
 		model = "Window",
 		slot = "wall",
+		outside = true,
 		variants = { "open", "bricked" },
 		social = true,
 		camera = true,

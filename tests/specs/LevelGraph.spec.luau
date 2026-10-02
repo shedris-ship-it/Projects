@@ -104,6 +104,73 @@ return function(test, check, Shared, require)
 		check.equal(connected, #layout.edges, "every edge has a seam")
 	end)
 
+	test("worldSide matches how LevelBuilder turns a room", function()
+		-- LevelBuilder turns rooms with CFrame.Angles(0, r * pi / 2, 0), which
+		-- maps (x, z) to (x cos + z sin, -x sin + z cos).
+		local vectors = { N = { 0, -1 }, E = { 1, 0 }, S = { 0, 1 }, W = { -1, 0 } }
+		for side, v in vectors do
+			for rotation = 0, 3 do
+				local a = rotation * math.pi / 2
+				local x = v[1] * math.cos(a) + v[2] * math.sin(a)
+				local z = -v[1] * math.sin(a) + v[2] * math.cos(a)
+				local world = LevelGraph.worldSide(side, rotation)
+				check.near(x, vectors[world][1], 1e-9, side .. " turned " .. rotation .. " x")
+				check.near(z, vectors[world][2], 1e-9, side .. " turned " .. rotation .. " z")
+			end
+		end
+	end)
+
+	test("windows are turned to face outside whenever the room has room for them", function()
+		local byId = Rooms.ById
+		local windows, outside, keyRooms, keyLost = 0, 0, 0, 0
+		for seed = 1, 1000 do
+			local layout = LevelGraph.generate(seed * 13 + 1, Rooms.List, level)
+			for _, room in layout.rooms do
+				local list = LevelGraph.windows(byId[room.template])
+				local function score(rotation)
+					local s, keyOut, count = 0, nil, 0
+					for _, window in list do
+						local out =
+							LevelGraph.isOuterSide(room, layout.cells, LevelGraph.worldSide(window.side, rotation))
+						if out then
+							s += window.key and 10 or 1
+							count += 1
+						end
+						if window.key then
+							keyOut = out
+						end
+					end
+					return s, keyOut, count
+				end
+				if #list > 0 then
+					local s, keyOut, count = score(room.rotation)
+					for rotation = 0, 3 do
+						check.atMost(score(rotation), s, room.template .. " could turn more windows outside")
+					end
+					windows += #list
+					outside += count
+					if keyOut ~= nil then
+						keyRooms += 1
+						if not keyOut then
+							keyLost += 1
+						end
+					end
+				end
+			end
+		end
+		print(
+			string.format(
+				"      windows outside %.1f%%, rooms lit by a window that lost it %.1f%%",
+				outside / windows * 100,
+				keyLost / math.max(keyRooms, 1) * 100
+			)
+		)
+		-- The rest sit on walls shared with other rooms, so LevelBuilder leaves
+		-- them out. A room in the middle of the house has no outer wall at all.
+		check.atLeast(outside / windows, 0.75, "too few windows face outside")
+		check.atMost(keyLost / math.max(keyRooms, 1), 0.2, "too many window-lit rooms lose their window")
+	end)
+
 	test("no three rooms of one mood in a row along the BFS tree (when avoidable)", function()
 		local violations = 0
 		for seed = 1, 200 do
