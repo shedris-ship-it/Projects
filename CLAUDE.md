@@ -60,6 +60,10 @@ rojo build default.project.json -o Consensus.rbxlx
 
 All must pass. When MCP is available, also start a play session and check the console for errors. Report results honestly: if something wasn't checked in Studio, say so.
 
+## Roblox skill
+
+`.claude/skills/roblox-game-development` is the general Roblox skill the owner chose (MIT, from `greedychipmunk/agent-skills`). Use it for Roblox best practices, performance, debugging and doc templates. This project's own patterns win where they differ. Don't copy the skill's helper scripts (`DataManager`, `RemoteManager`, …) into `src/`; the project already has `DataService`, `Net.luau` and the rest.
+
 ## Code conventions
 
 - **Services and controllers:**
