@@ -19,6 +19,44 @@ return function(test, check, Shared, require)
 		{ inner, half, lane, half },
 	}
 
+	-- In a corridor the band is filled by closets; furniture goes in the eight
+	-- strips between the doorway lanes and the closet walls.
+	local function strips(h)
+		return {
+			{ lane, h, -half, -h },
+			{ -h, -lane, -half, -h },
+			{ lane, h, h, half },
+			{ -h, -lane, h, half },
+			{ h, half, lane, h },
+			{ h, half, -h, -lane },
+			{ -half, -h, lane, h },
+			{ -half, -h, -h, -lane },
+		}
+	end
+
+	local function zonesFor(template)
+		return template.corridor and strips(template.corridor.halfWidth) or bands
+	end
+
+	-- A { x, z, face } wall position sits on a closet face, facing into the
+	-- corridor, at least `margin` from the junction and the outer wall.
+	local function onClosetFace(template, slot, margin)
+		if not template.corridor then
+			return false
+		end
+		local h = template.corridor.halfWidth
+		local eps = 1e-6
+		local function within(v)
+			return math.abs(v) >= h + margin - eps and math.abs(v) <= half - margin + eps
+		end
+		if math.abs(math.abs(slot.z) - h) < eps then
+			return slot.face == (slot.z < 0 and "S" or "N") and within(slot.x)
+		elseif math.abs(math.abs(slot.x) - h) < eps then
+			return slot.face == (slot.x < 0 and "E" or "W") and within(slot.z)
+		end
+		return false
+	end
+
 	local function footprint(kindName, x, z, ry)
 		local kind = Props.Kinds[kindName]
 		local w, d = kind.size[1], kind.size[3]
@@ -60,7 +98,7 @@ return function(test, check, Shared, require)
 				if kind.collide ~= false then
 					local rect = footprint(prop.kind, prop.x, prop.z, prop.ry)
 					local ok = false
-					for _, band in bands do
+					for _, band in zonesFor(template) do
 						if inside(rect, band) then
 							ok = true
 						end
@@ -109,7 +147,7 @@ return function(test, check, Shared, require)
 		for _, template in Rooms.List do
 			local rect = footprint("Shrine", template.shrine.x, template.shrine.z, 0)
 			local ok = false
-			for _, band in bands do
+			for _, band in zonesFor(template) do
 				if inside(rect, band) then
 					ok = true
 				end
@@ -122,15 +160,48 @@ return function(test, check, Shared, require)
 		local clearance = Config.Level.DoorWidth / 2 + 2.5
 		for _, template in Rooms.List do
 			for _, slot in template.wallSlots do
-				check.truthy(math.abs(slot.along) >= clearance, template.id .. " wall slot too close to a doorway")
-				check.truthy(math.abs(slot.along) <= half - 2, template.id .. " wall slot past the corner")
+				if slot.face then
+					check.truthy(onClosetFace(template, slot, 2.5), template.id .. " wall slot is not on a closet face")
+				else
+					check.truthy(math.abs(slot.along) >= clearance, template.id .. " wall slot too close to a doorway")
+					check.truthy(math.abs(slot.along) <= half - 2, template.id .. " wall slot past the corner")
+				end
 			end
 			for _, decor in template.decor do
 				local width = Props.WallDecor[decor.kind].size[1]
-				check.truthy(
-					math.abs(decor.along) - width / 2 >= Config.Level.DoorWidth / 2,
-					template.id .. "." .. decor.id .. " overlaps a doorway"
-				)
+				if decor.face then
+					check.truthy(
+						onClosetFace(template, decor, width / 2),
+						template.id .. "." .. decor.id .. " is not on a closet face"
+					)
+				else
+					check.truthy(
+						math.abs(decor.along) - width / 2 >= Config.Level.DoorWidth / 2,
+						template.id .. "." .. decor.id .. " overlaps a doorway"
+					)
+				end
+			end
+		end
+	end)
+
+	test("corridors keep the lanes clear and their floor slots inside the corridor", function()
+		for _, template in Rooms.List do
+			if template.corridor then
+				local h = template.corridor.halfWidth
+				check.truthy(h > lane, template.id .. " corridor is narrower than the doorway lanes")
+				check.truthy(h < inner, template.id .. " corridor is no narrower than an ordinary room")
+				for _, slot in template.floorSlots do
+					local ok = false
+					for _, strip in strips(h) do
+						if inside({ slot.x, slot.x, slot.z, slot.z }, strip) then
+							ok = true
+						end
+					end
+					check.truthy(
+						ok,
+						string.format("%s floor slot %.1f,%.1f is not in the corridor", template.id, slot.x, slot.z)
+					)
+				end
 			end
 		end
 	end)

@@ -70,6 +70,18 @@ local function wallCFrame(roomCF: CFrame, side: string, along: number, y: number
 end
 LevelBuilder.wallCFrame = wallCFrame
 
+-- A wall position from template data: on an outer wall ({ side, along }) or on
+-- any inner wall face, such as a corridor closet ({ x, z, face }, face being
+-- the direction it faces). LookVector points into the room.
+local function slotCFrame(roomCF: CFrame, slot, y: number): CFrame
+	if slot.face then
+		local pos = roomCF:PointToWorldSpace(Vector3.new(slot.x, y, slot.z))
+		local normal = roomCF:VectorToWorldSpace(WORLD_DIRS[slot.face])
+		return CFrame.lookAt(pos, pos + normal)
+	end
+	return wallCFrame(roomCF, slot.side, slot.along, y)
+end
+
 local function tag(instance: Instance, tagName: string)
 	CollectionService:AddTag(instance, tagName)
 end
@@ -250,6 +262,29 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			record.sides[dirName] = { neighbour = neighbour, panel = panel, exit = isExitSide }
 		end
 
+		-- Corridor rooms: closets fill the four corners, leaving a plus-shaped
+		-- hallway (docs/ART.md, Scale). They match the walls exactly so nothing
+		-- marks them out, and the doorway lanes and centre stay clear for the
+		-- stalker's Navigator.
+		if template.corridor then
+			local h = template.corridor.halfWidth
+			local depth = INNER - h
+			local c = (h + INNER) / 2
+			for _, sx in { -1, 1 } do
+				for _, sz in { -1, 1 } do
+					PropFactory.part(
+						model,
+						"Closet",
+						Vector3.new(depth, HEIGHT, depth),
+						roomCF * CFrame.new(sx * c, HEIGHT / 2, sz * c),
+						wallColor,
+						wallMaterial
+					)
+				end
+			end
+			record.corridor = h
+		end
+
 		-- Furniture: a hand-built prefab if one exists, otherwise the grey-box.
 		local prefab = prefabs and prefabs:FindFirstChild(template.id)
 		local keyLightPart, keyLightKind = nil, nil
@@ -353,7 +388,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				end
 			end
 			for _, decor in template.decor do
-				local cf = wallCFrame(roomCF, decor.side, decor.along, decor.y)
+				local cf = slotCFrame(roomCF, decor, decor.y)
 				local decorModel, lightPart = PropFactory.buildDecor(decor.kind, cf, model, room.id * 100 + #decor.id)
 				decorModel:SetAttribute(Attr.CId, "decor:" .. room.id .. ":" .. decor.id)
 				if decor.key and lightPart then
@@ -421,10 +456,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 
 		-- Slots for tells and Sources.
 		for _, slot in template.wallSlots do
-			table.insert(
-				record.wallSlots,
-				{ cframe = wallCFrame(roomCF, slot.side, slot.along, slot.y or 6.5), used = false }
-			)
+			table.insert(record.wallSlots, { cframe = slotCFrame(roomCF, slot, slot.y or 6.5), used = false })
 		end
 		for _, slot in template.floorSlots do
 			local pos = roomCF:PointToWorldSpace(Vector3.new(slot.x, 0, slot.z))

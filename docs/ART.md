@@ -54,7 +54,7 @@ Using a standard character (about 5.5 studs, so 1 stud ≈ 0.32 m):
 Roblox spaces are normally built about 1.5× real size so the camera and movement feel good. Ours are 2.5–3×, which is a big part of why the rooms feel like empty warehouses. P.T. lives on tightness.
 
 - **Ceilings drop to about 10 studs** (3.2 m). This is visual only, and it also puts The Guest's head (8.4 studs) close to the ceiling, which is exactly the kind of wrong proportion we want. Doorways stay 6 × 8 studs for squads and chases.
-- **Corridor rooms become real corridors (approved as a prototype).** Inside the 40-stud cell, the corners are walled off into closets and alcoves, leaving a T, L or plus-shaped hallway about 10–12 studs wide. Doorway lanes and the centre stay clear, so the stalker's Navigator still works. It changes chase space and moves the hallway tell slots, so it gets prototyped on one template and tested before the rest.
+- **Corridor rooms become real corridors (prototype built on the `hallway` template, 2026-10-02).** Inside the 40-stud cell, four closets fill the corners, leaving a plus-shaped hallway 14 studs wide (`corridor = { halfWidth = 7 }` in `Data/Rooms.luau`). The closets match the walls exactly. Arms that lead to an outside wall become short dead-end alcoves. Furniture, floor slots and the Lantern shrine sit in the 3-stud strips between the doorway lanes and the closets; wall slots and paintings hang on the closet faces. Doorway lanes and the centre stay clear, and the stalker's standing spots move inside the junction. Tested in Studio: The Guest walks the corridor's centre line and never enters a closet. Next, once the owner has played it: roll it out to `hallway_runner` and `attic_landing`, and decide whether dead-end arms should be filled to make true L and T shapes.
 - **The 40-stud grid itself stays.** Shrinking it would touch the generator, the navigation and the tests. Too big for a visual pass.
 
 ## Palette
@@ -140,7 +140,23 @@ Roblox renders everything perfectly sharp, clean and evenly in focus, which read
 
 The real cure for "clinical" is still geometry and materials: bevelled trim, worn textures and grime (steps 3–4 below). Post-processing can only soften what's there.
 
-**Atmosphere effects in play:** dust specks drift in each room and only show inside lamp and window light. Lights within 30 studs of The Guest's body sag to as low as 55%, easing in and out, so you feel it before you see it. The flashlight's aim trails slightly behind quick turns, like a handheld torch, while the camera itself never moves.
+**Atmosphere effects in play:**
+- **Dust:** soft round motes of varied size gather around each room's key light. They're drawn additively and lit by the scene, so they only show where light falls, and they glint as they drift. A slow, wandering air current carries each room's dust together. Roblox has no volumetric light, so these are what sell "dust in a lamp beam"; light shafts (step 5) will make them read even better.
+- **Lights near The Guest:** lights within 30 studs of its body sag to as low as 55%, easing in and out, so you feel it before you see it.
+- **Flashlight:** its aim trails slightly behind quick turns, like a handheld torch. The camera itself never moves.
+
+## Interface
+
+There's **no crosshair**. Whatever you're close to and looking at gets a small marker attached to the object itself (`UI/FocusMarkers`), so the screen stays clear and the house does the talking.
+
+- **What a marker shows:** a thin brass ring on the object, its name in the typewriter font, and keycap hints for what you can do: `[E] Open`, `[Q] Witness`.
+- **One marker per object:** a door's Open, Brace and Witness share one marker.
+- **When it appears:** Witnessable objects show their marker within 14 studs when you look at them; holding Q shows it at any range. Prompts (doors, hiding spots, revives) show when Roblox says they're in reach, at full strength when you look straight at them and faint at the edge of view.
+- **Hold progress** is a hairline under the actions.
+- **Input:** keys match your input (keyboard, gamepad glyphs), and on touch the action rows are tappable.
+- **Cursor:** the mouse cursor is hidden in first person; menus that free the mouse bring it back.
+- **Accessibility:** a "Centre dot (aiming aid)" toggle in Settings, off by default.
+- **Hub bloom:** the hub uses a higher bloom threshold than the house, because it's brightly lit.
 
 ## The Guest
 
@@ -172,7 +188,7 @@ The design doc says audio does at least half the work, and P.T. proves it. That'
 Each step is small, gets before and after screenshots from the baseline angles, then passes the checks before it's committed:
 
 1. **Lighting, grade and scale:** the five family light recipes, the P.T. grade, fixing the too-dark rooms (rule 1), and lowering ceilings to about 10 studs.
-2. **Corridor prototype:** one hallway template rebuilt as a narrow corridor, tested with the stalker before the others.
+2. **Corridor prototype:** one hallway template rebuilt as a narrow corridor, tested with the stalker before the others. *(Built 2026-10-02; waiting on the owner's playtest before the rollout.)*
 3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour.
 4. **Materials:** wallpapers, floors and ceilings through `generate_material`, plus the grime decals.
 5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts.

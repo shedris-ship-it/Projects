@@ -358,7 +358,17 @@ function StalkerService:_spots()
 	local spots = {}
 	for id, room in world.rooms do
 		table.insert(spots, { position = room.center, roomId = id })
-		for _, offset in { Vector3.new(8, 0, 8), Vector3.new(-8, 0, 8), Vector3.new(8, 0, -8), Vector3.new(-8, 0, -8) } do
+		-- Inner corners; in a corridor they're the junction's corners, since
+		-- the room's own corners are closets.
+		local inset = room.corridor and room.corridor - 1.5 or 8
+		for _, offset in
+			{
+				Vector3.new(inset, 0, inset),
+				Vector3.new(-inset, 0, inset),
+				Vector3.new(inset, 0, -inset),
+				Vector3.new(-inset, 0, -inset),
+			}
+		do
 			table.insert(spots, { position = room.center + offset, roomId = id })
 		end
 		for _, n in self.services.WorldService:Neighbours(id) do

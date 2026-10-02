@@ -12,6 +12,10 @@
 -- Coordinates are local: x east, z south, origin at the floor centre.
 -- Wall "along" is x for N/S walls and z for E/W walls.
 -- "family" picks the lighting recipe in Config.Lighting.Families (docs/ART.md).
+-- "corridor" (optional) fills the corners with closets, leaving a plus-shaped
+-- hallway halfWidth studs either side of the centre lines. Its furniture,
+-- shrine and floor slots go in the strips between the lanes and the closets,
+-- and its wall slots and decor use { x, z, face } on the closet faces.
 --
 -- To use a hand-built prefab instead of the grey-box, put a Model named after
 -- the template id in ServerStorage.RoomPrefabs (see README).
@@ -52,27 +56,32 @@ local Rooms = {
 		family = "corridor",
 		weight = 3,
 		max = 3,
+		-- Corridor prototype (docs/ART.md, Scale): closets fill the four corners,
+		-- leaving a plus-shaped hallway 14 studs wide. Furniture sits in the
+		-- strips between the doorway lanes and the closet walls. Wall slots and
+		-- paintings hang on closet faces: x, z on the face and the way it faces.
+		corridor = { halfWidth = 7 },
 		floor = { material = "WoodPlanks", color = { 70, 50, 38 } },
 		wall = { material = "Plaster", color = { 100, 88, 78 } },
 		reverb = "CarpettedHallway",
 		light = { brightness = 0.9, range = 22 },
 		props = {
-			{ id = "plant", kind = "Plant", x = 17, z = -17 },
-			{ id = "clock", kind = "GrandfatherClock", x = -18.5, z = -14, ry = 90 },
-			{ id = "bench", kind = "Bench", x = -12, z = 18.25, ry = 180 },
+			{ id = "clock", kind = "GrandfatherClock", x = 6, z = -13, ry = 270 },
+			{ id = "bench", kind = "Bench", x = -5.75, z = 13, ry = 90 },
+			{ id = "plant", kind = "Plant", x = 13, z = 5.75 },
 		},
 		decor = {
-			{ id = "painting1", kind = "Painting", side = "N", along = -10, y = 6.5 },
-			{ id = "painting2", kind = "Painting", side = "S", along = 12, y = 6.5 },
+			{ id = "painting1", kind = "Painting", x = -7, z = -13, face = "E", y = 6.5 },
+			{ id = "painting2", kind = "Painting", x = 7, z = 13, face = "W", y = 6.5 },
 		},
 		wallSlots = {
-			{ side = "E", along = -10 },
-			{ side = "E", along = 10 },
-			{ side = "N", along = 12 },
-			{ side = "W", along = 12 },
+			{ x = 13, z = -7, face = "S" },
+			{ x = -13, z = 7, face = "N" },
+			{ x = -13, z = -7, face = "S" },
+			{ x = 13, z = 7, face = "N" },
 		},
-		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 }, { x = -8, z = -8 } },
-		shrine = { x = 16, z = 16 },
+		floorSlots = { { x = -5.5, z = -13 }, { x = 5.5, z = 13 }, { x = -13, z = 5.5 }, { x = 13, z = -5.5 } },
+		shrine = { x = -13, z = -5.5 },
 	},
 	{
 		id = "hallway_runner",
