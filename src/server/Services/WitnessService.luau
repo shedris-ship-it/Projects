@@ -550,7 +550,7 @@ function WitnessService:_tick(dt: number)
 					end
 				end
 			end
-			if not near and companionPos and (companionPos - pos).Magnitude <= W.TeammateRadius then
+			if not near and companionPos and (companionPos - pos).Magnitude <= W.CompanionRadius then
 				near = true
 			end
 			local rate = near and W.RegenNearTeammate or W.RegenAlone

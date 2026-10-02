@@ -3,6 +3,8 @@
 -- joins your Witness windows when it can see what you're looking at, backs
 -- up your stare, and pulls you up if you go down. It perceives only the true
 -- house, so it can't confirm what only you see; it just agrees you're looking.
+-- It keeps a little distance and carries no light, so it reads as a second
+-- person searching the house with you, not a lamp at your heels.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,7 +17,9 @@ local Constants = require(Shared.Constants)
 
 local CompanionService = {}
 
-local FOLLOW_DISTANCE = 6
+local FOLLOW_NEAR = 8 -- it stops this far away and lets you move
+local FOLLOW_FAR = 16 -- beyond this it walks back towards you
+local CATCH_UP = 40 -- beyond this it reappears behind you, out of view
 local WITNESS_DELAY = 1.3
 local SIGHT_RANGE = 40
 
@@ -110,7 +114,7 @@ function CompanionService:Begin(players: { Player }, spawnCFrame: CFrame)
 	model.Name = "Companion"
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	humanoid.DisplayName = "Companion"
-	humanoid.WalkSpeed = Config.Player.SprintSpeed
+	humanoid.WalkSpeed = Config.Player.WalkSpeed
 	humanoid.MaxHealth = math.huge
 	humanoid.Health = math.huge
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
@@ -121,11 +125,6 @@ function CompanionService:Begin(players: { Player }, spawnCFrame: CFrame)
 			d.CollisionGroup = Constants.CollisionGroups.Players
 		end
 	end
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 210, 150)
-	light.Range = 10
-	light.Brightness = 0.6
-	light.Parent = root
 	model:PivotTo(spawnCFrame * CFrame.new(3, 0, 3))
 	model.Parent = self.services.WorldService.folder
 	pcall(function()
@@ -176,29 +175,49 @@ function CompanionService:_follow()
 	end
 	npc.reviveStart = nil
 
-	if distance > 32 then
-		-- Catch up out of sight rather than getting lost.
-		local seen = services.StalkerService and services.StalkerService:GetPosition()
-		npc.model:PivotTo(CFrame.new(target + Vector3.new(2, 0, 2)))
-		npc.lastMove = os.clock()
-		if seen then
-			return
-		end
-	elseif distance > FOLLOW_DISTANCE then
-		npc.humanoid:MoveTo(target)
-	else
-		npc.humanoid:MoveTo(here)
-	end
-
-	-- Face whatever its Witness is looking at, so it backs up a stare.
 	local view = services.WitnessService:GetView(player)
-	if view and distance <= FOLLOW_DISTANCE + 1 then
-		local look = view.LookVector
-		local flatLook = Vector3.new(look.X, 0, look.Z)
-		if flatLook.Magnitude > 0.1 then
-			npc.root.CFrame = CFrame.lookAt(here, here + flatLook)
+	if distance > CATCH_UP then
+		-- Lost: reappear behind its Witness, where they aren't looking.
+		npc.model:PivotTo(CFrame.new(self:_behind(player, target, view)))
+		npc.lastMove = os.clock()
+		npc.following = false
+		return
+	elseif distance > FOLLOW_FAR or (npc.following and distance > FOLLOW_NEAR) then
+		-- Walk back to the near edge of the band, staying on its own side.
+		npc.following = true
+		npc.humanoid.WalkSpeed = distance > FOLLOW_FAR * 1.5 and Config.Player.SprintSpeed or Config.Player.WalkSpeed
+		npc.humanoid:MoveTo(target + (here - target).Unit * FOLLOW_NEAR)
+		return
+	end
+	npc.following = false
+	npc.humanoid:MoveTo(here)
+
+	-- Turn towards whatever its Witness is looking at, so it backs up a stare.
+	if view then
+		local focus = view.Position + view.LookVector * 20
+		local flat = Vector3.new(focus.X - here.X, 0, focus.Z - here.Z)
+		if flat.Magnitude > 0.1 then
+			npc.root.CFrame = CFrame.lookAt(here, here + flat)
 		end
 	end
+end
+
+-- A floor point behind the Witness, short of any wall in the way.
+function CompanionService:_behind(player: Player, target: Vector3, view: CFrame?): Vector3
+	local look = view and Vector3.new(view.LookVector.X, 0, view.LookVector.Z)
+	if not look or look.Magnitude < 0.1 then
+		return target
+	end
+	local back = -look.Unit * FOLLOW_NEAR
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { self.npc.model, player.Character }
+	params.RespectCanCollide = true
+	local hit = Workspace:Raycast(target, back, params)
+	if hit then
+		return target + back.Unit * math.max(hit.Distance - 1.5, 0)
+	end
+	return target + back
 end
 
 return CompanionService

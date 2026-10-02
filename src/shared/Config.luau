@@ -58,6 +58,7 @@ Config.Witness = {
 	RegenNearTeammate = 5,
 	RegenLanternBonus = 6,
 	TeammateRadius = 10, -- (doc)
+	CompanionRadius = 16, -- the solo Companion keeps 8-16 studs back, so it counts as near across that band
 	MaxRange = 45,
 	ResolveRadius = 6,
 	MinInterval = 0.35,
@@ -114,25 +115,38 @@ Config.Level = {
 	BandDepth = 8, -- furniture lives within this many studs of a wall
 }
 
--- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room keeps
--- one shadow-casting key light (doc section 8); a shadowless fill under the
--- ceiling centre keeps it readable without the flashlight (ART.md rule 1).
--- Values tuned in Studio against the baseline screenshots.
+-- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room has
+-- one motivated key light that casts shadows (doc section 8), with a long reach
+-- so it throws a pool of light that fades into real darkness. Values tuned in
+-- Studio against the baseline screenshots and the owner's playtest notes.
 Config.Lighting = {
 	Lamp = { 232, 194, 126 }, -- sickly tungsten, yellower than a cosy orange
 	Moonlight = { 120, 150, 220 },
 	Fluorescent = { 215, 235, 225 }, -- slightly green on purpose
 	Screen = { 140, 170, 255 }, -- CRT glow
-	FillRange = 30,
-	FillDrop = 2, -- studs below the ceiling
-	-- A room lit by a window or TV has no lamp, so its fill stands in for one.
-	FillWithoutLamp = 0.42,
+	LampRange = 44,
+	LampBrightness = 2.4,
+	WindowRange = 40,
+	WindowBrightness = 2.25,
+	ScreenRange = 40,
+	ScreenBrightness = 3.1,
+	SurfaceAngle = 120,
+	CeilingRangeScale = 1.5, -- on top of each template's light range
+	CeilingMaxRange = 40,
+	CeilingBrightnessScale = 1.3,
+	-- A room lit only by a window or TV gets a soft bounce light in front of
+	-- it, standing in for light off the walls. It casts shadows so it can't
+	-- leak through into the next room.
+	BounceRange = 34,
+	BounceBrightness = 0.5,
+	BounceOffset = 3, -- studs into the room from the window or screen
+	-- Ceiling-light colour per room family.
 	Families = {
-		living = { fill = "Lamp", brightness = 0.28 },
-		corridor = { fill = "Lamp", brightness = 0.28 },
-		bedroom = { fill = "Moonlight", brightness = 0.22 },
-		utility = { fill = "Fluorescent", brightness = 0.28 },
-		windows = { fill = "Moonlight", brightness = 0.22 },
+		living = { ceiling = "Lamp" },
+		corridor = { ceiling = "Lamp" },
+		bedroom = { ceiling = "Lamp" },
+		utility = { ceiling = "Fluorescent" },
+		windows = { ceiling = "Lamp" },
 	},
 }
 

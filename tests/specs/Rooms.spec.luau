@@ -135,12 +135,12 @@ return function(test, check, Shared, require)
 		end
 	end)
 
-	test("every template has a lighting family with a fill colour", function()
+	test("every template has a lighting family with a ceiling colour", function()
 		for _, template in Rooms.List do
 			local family = Config.Lighting.Families[template.family or ""]
 			check.truthy(family, template.id .. " has unknown lighting family " .. tostring(template.family))
 			if family then
-				check.truthy(Config.Lighting[family.fill], template.id .. " fill colour " .. family.fill)
+				check.truthy(Config.Lighting[family.ceiling], template.id .. " ceiling colour " .. family.ceiling)
 			end
 		end
 	end)

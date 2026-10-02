@@ -116,30 +116,30 @@ local function lightFor(kind: string, parentPart: BasePart, template)
 	if kind == "lamp" then
 		light = Instance.new("PointLight")
 		light.Color = PropFactory.rgb(palette.Lamp)
-		light.Range = 26
-		light.Brightness = 1.7
+		light.Range = palette.LampRange
+		light.Brightness = palette.LampBrightness
 	elseif kind == "tv" then
 		light = Instance.new("SurfaceLight")
 		light.Face = Enum.NormalId.Back
 		light.Color = PropFactory.rgb(palette.Screen)
-		light.Range = 22
-		light.Brightness = 2.2
-		light.Angle = 100
+		light.Range = palette.ScreenRange
+		light.Brightness = palette.ScreenBrightness
+		light.Angle = palette.SurfaceAngle
 	elseif kind == "window" then
 		light = Instance.new("SurfaceLight")
 		light.Face = Enum.NormalId.Front
 		light.Color = PropFactory.rgb(palette.Moonlight)
-		light.Range = 24
-		light.Brightness = 1.6
-		light.Angle = 75
+		light.Range = palette.WindowRange
+		light.Brightness = palette.WindowBrightness
+		light.Angle = palette.SurfaceAngle
 	else
 		-- Ceiling light: fluorescent in utility rooms, tungsten everywhere else.
 		local settings = template.light or {}
+		local family = palette.Families[template.family] or palette.Families.living
 		light = Instance.new("PointLight")
-		light.Color =
-			PropFactory.rgb(settings.color or (template.family == "utility" and palette.Fluorescent or palette.Lamp))
-		light.Range = settings.range or 24
-		light.Brightness = settings.brightness or 1.2
+		light.Color = PropFactory.rgb(settings.color or palette[family.ceiling])
+		light.Range = math.min((settings.range or 24) * palette.CeilingRangeScale, palette.CeilingMaxRange)
+		light.Brightness = (settings.brightness or 1.2) * palette.CeilingBrightnessScale
 	end
 	light.Name = "KeyLight"
 	light.Shadows = true
@@ -388,30 +388,36 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		record.lightPart = keyLightPart
 		record.lightBrightness = light.Brightness
 
-		-- Fill: a soft, shadowless light under the ceiling centre so the room
-		-- reads without the flashlight (docs/ART.md rule 1). Tagged like the key
-		-- light so flickers and blackouts take it too.
-		local lighting = Config.Lighting
-		local family = lighting.Families[template.family] or lighting.Families.living
-		local fillPart = PropFactory.part(
-			model,
-			"FillLight",
-			Vector3.new(0.2, 0.2, 0.2),
-			CFrame.new(center + Vector3.new(0, HEIGHT - lighting.FillDrop, 0)),
-			Color3.new(),
-			PropFactory.material("SmoothPlastic"),
-			{ collide = false, transparency = 1, query = false, castShadow = false }
-		)
-		local fill = Instance.new("PointLight")
-		fill.Name = "FillLight"
-		fill.Shadows = false
-		fill.Range = lighting.FillRange
-		fill.Color = PropFactory.rgb(lighting[family.fill])
-		fill.Brightness = light:IsA("SurfaceLight") and lighting.FillWithoutLamp or family.brightness
-		fill.Parent = fillPart
-		fillPart:SetAttribute(Attr.RoomId, room.id)
-		tag(fillPart, Tags.RoomLight)
-		record.fill = fill
+		-- Bounce: a room lit only by a window or TV gets a soft light in front of
+		-- it, standing in for light off the walls (warm for a TV, moonlight for a
+		-- window). It casts shadows so it can't leak into the next room, and it's
+		-- tagged like the key light so flickers and blackouts take it too.
+		if light:IsA("SurfaceLight") then
+			local lighting = Config.Lighting
+			local facing = light.Face == Enum.NormalId.Back and -keyLightPart.CFrame.LookVector
+				or keyLightPart.CFrame.LookVector
+			local flat = Vector3.new(facing.X, 0, facing.Z)
+			local offset = flat.Magnitude > 0.1 and flat.Unit * lighting.BounceOffset or Vector3.zero
+			local bouncePart = PropFactory.part(
+				model,
+				"BounceLight",
+				Vector3.new(0.2, 0.2, 0.2),
+				CFrame.new(keyLightPart.Position + offset + Vector3.new(0, 1.5, 0)),
+				Color3.new(),
+				PropFactory.material("SmoothPlastic"),
+				{ collide = false, transparency = 1, query = false, castShadow = false }
+			)
+			local bounce = Instance.new("PointLight")
+			bounce.Name = "BounceLight"
+			bounce.Shadows = true
+			bounce.Range = lighting.BounceRange
+			bounce.Brightness = lighting.BounceBrightness
+			bounce.Color = PropFactory.rgb(keyLightKind == "tv" and lighting.Lamp or lighting.Moonlight)
+			bounce.Parent = bouncePart
+			bouncePart:SetAttribute(Attr.RoomId, room.id)
+			tag(bouncePart, Tags.RoomLight)
+			record.bounce = bounce
+		end
 
 		-- Slots for tells and Sources.
 		for _, slot in template.wallSlots do

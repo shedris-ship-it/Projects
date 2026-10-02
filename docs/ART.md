@@ -34,7 +34,7 @@ P.T. (Kojima Productions, 2014) is the touchstone for mood. It fits Consensus un
 
 ## Rules that beat everything else
 
-1. **Dark, but readable.** At default settings and *without* the flashlight, a player standing in any room can see its doorways and the shapes of its furniture. Aim for no more than about a third of the frame in pure black. P.T. is dark too, but you always see the hallway's shape. The flashlight is for reading details such as notes, clocks and faces, not for finding the exit. (The baseline fails this: most rooms are more than half black.)
+1. **Pools of light, real darkness.** Each light source reaches far and fades gradually into true black, like a lamp in a real house at night, never a flat, evenly lit room (owner's playtest note, 2026-10-02). Corners and far walls may fall to black. What must stay readable without the flashlight is the lit path through the room and at least one way out. Where a room's darkness hides its doorways, fix it with lighter door trim or light spilling through from the next room, not by flattening the light.
 2. **Art never hides evidence.** Tell props must be readable at 6 studs under the flashlight. Keep PropFactory's child names (`Dial/Face/Time`, `Paper/Writing/Text`, …) when restyling.
 3. **Seams must be invisible.** Seam panels, fake walls and phantom doors use exactly the same material, colour and trim as the wall around them. If a texture lines up badly on a seam, players learn to spot divergences by texture. That would break the core mechanic.
 4. **Exits always read.** Door frames get lighter trim than the walls, and a real doorway never sits in pure black (doc section 3, the fairness contract).
@@ -103,7 +103,7 @@ P.T. shows that a handful of believable everyday objects does more than a room f
 
 ## Lighting mood by room family
 
-Every room keeps **one motivated key light** that casts shadows, as the doc requires. Fill lights don't cast shadows. The 22 templates fall into five families:
+Every room keeps **one motivated key light** that casts shadows, as the doc requires, with a long reach (lamps 44 studs) so it throws a pool that fades across the room. There are no flat fill lights: they made rooms look evenly lit, and because fills cast no shadows they leaked through walls. A room lit only by a window or TV gets one soft **bounce light** just in front of it, which does cast shadows. Ambient light is kept low, so darkness is real. Values live in `Config.Lighting`. The 22 templates fall into five families:
 
 | Family | Rooms | Key light | Mood |
 | --- | --- | --- | --- |
@@ -147,10 +147,11 @@ The design doc says audio does at least half the work, and P.T. proves it. That'
 
 ## Performance budget
 
-- 4–6 shadow-casting lights visible at once (doc section 8). Today all 17 room lights cast shadows; fill lights will be shadowless.
+- 4–6 shadow-casting lights visible at once (doc section 8). Every room has one; window and TV rooms have two (key plus bounce). That fits as long as only a few rooms are in view, but it still needs a MicroProfiler check in a focused Studio window (an unfocused Studio window is throttled to about 15 fps, so it can't be measured through the MCP tools).
+- **Lighting changes take a few seconds to settle** in Future lighting. Any effect that changes a light's range or enables a light suddenly should expect a short delay; brightness flicker is fine.
 - About 8–10 MaterialVariants for the house, with textures of 1024 px or less.
 - Merge static trim per room so the instance count stays low.
-- Low-end mode turns off grain, depth of field and key-light shadows. Fill lights stay on, because they're shadowless and cheap and they're what keeps rooms readable. Every lighting change also gets checked at low graphics quality.
+- Low-end mode turns off grain, depth of field and light shadows. Every lighting change also gets checked at low graphics quality.
 
 ## How the visual pass will run
 

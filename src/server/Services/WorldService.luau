@@ -208,8 +208,8 @@ function WorldService:SetRoomLight(id: number, on: boolean)
 	end
 	room.lightOn = on
 	room.light.Enabled = on
-	if room.fill then
-		room.fill.Enabled = on
+	if room.bounce then
+		room.bounce.Enabled = on
 	end
 	room.lightPart:SetAttribute("Lit", on)
 end
