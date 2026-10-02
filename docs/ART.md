@@ -1,52 +1,104 @@
 # Art direction: The Halfway House
 
-> **Status:** draft for the owner's OK (2026-10-02). Nothing below is built yet. The before-shots it refers to are in [`baseline/2026-10-02`](baseline/2026-10-02/README.md).
+> **Status:** draft (2026-10-02). The owner approved the 1988 setting, The Guest concept and P.T. as the reference. Two decisions are still open, marked **(open)** below. The before-shots it refers to are in [`baseline/2026-10-02`](baseline/2026-10-02/README.md).
 
 This is the short guide every visual change follows. It applies design doc section 8: spend on **lighting first, then materials, then composition, then props**, and keep the stalker's silhouette readable.
 
 ## The look in one line
 
-**A lived-in suburban home, about 1988, at two in the morning: someone left a few lamps on, and the house is pretending nothing is wrong.**
+**A lived-in suburban home in 1988, at two in the morning, shot like P.T.: dim, sickly lamplight, far too quiet, and every time you look back something is slightly different.**
 
-The late-80s setting gives us patterned wallpaper, wood panelling, brass fixtures, a CRT TV and a grandfather clock. The room list already includes a sewing room, a music room and a den, so the props fit. The house should feel ordinary first. The horror comes from small things being wrong, not from the house looking haunted.
+The late-80s setting gives us patterned wallpaper, wood panelling, brass fixtures, a CRT TV, a radio and a grandfather clock. The house should feel ordinary first. The horror comes from small things being wrong, not from the house looking haunted.
+
+## The reference: P.T.
+
+P.T. (Kojima Productions, 2014) is the touchstone for mood. It fits Consensus unusually well: its whole idea is *the same ordinary place, slightly different each time you look*, which is our divergence mechanic.
+
+**What we take (the method):**
+
+1. **The mundane carries the horror.** An ordinary hallway, a radio, a clock, family photos, a bathroom door left ajar. Nothing looks like a horror set. It looks like somebody's house, and that's worse.
+2. **Repetition makes small changes loud.** Because the place is so consistent, a photo that moved or a door that's open now is a jolt. Our dressing must be consistent and restrained, so that divergences and tells stand out.
+3. **Few, weak, practical lights.** A hanging ceiling lamp, a table lamp, light spilling from a doorway. Sickly yellow-green tungsten, deep shadows, heavy film grain and a vignette.
+4. **The presence behind you.** You mostly *hear* the threat first: breathing, a floorboard, footsteps that stop when you stop. Turning around is the scare. Our Guest already moves only when unobserved, which is the same idea.
+5. **Silence as a tool.** Long stretches of near-silence, then a creak, a muffled broadcast, something from another room. Loud stingers are rare, so they land.
+6. **Escalation by decay.** At first it's just uneasy. Later the place itself turns: darker, redder, photos gone wrong, the radio seemingly talking about *you*. This becomes our Drift arc (below).
+
+**What we leave out:**
+
+- **Gore.** P.T.'s blood, its bathroom sink scene and its ghost's face would push us past Roblox's Mild rating (doc section 9). We translate them into implication: rust and water stains, a sound from a room nobody's in, faces in photos turned away or blurred. **(open: stay at Mild?)**
+- **Camera tricks.** No head-bob, tilt or roll (doc section 4, comfort-safe). Grain, vignette and depth of field are fine, and players can turn grain off.
+- **Copying.** We borrow the method, not the content: no recreating P.T.'s hallway layout, its ghost, its radio script or any of its assets. Copying a Konami game's specifics risks takedowns, and it would also make ours feel like a fan tribute instead of its own thing.
+
+**Honest limit:** Roblox can't do P.T.'s photoreal detail. It *can* get close on mood: lighting, grade, composition, pacing and sound. Anything that looks "Roblox" breaks the spell, so the art avoids plastic, saturated colours, chunky block props and bright UI.
 
 ## Rules that beat everything else
 
-1. **Dark, but readable.** At default settings and *without* the flashlight, a player standing in any room can see its doorways and the shapes of its furniture. Aim for no more than about a third of the frame in pure black. The flashlight is for reading details such as notes, clocks and faces, not for finding the exit. (The baseline fails this: most rooms are more than half black.)
+1. **Dark, but readable.** At default settings and *without* the flashlight, a player standing in any room can see its doorways and the shapes of its furniture. Aim for no more than about a third of the frame in pure black. P.T. is dark too, but you always see the hallway's shape. The flashlight is for reading details such as notes, clocks and faces, not for finding the exit. (The baseline fails this: most rooms are more than half black.)
 2. **Art never hides evidence.** Tell props must be readable at 6 studs under the flashlight. Keep PropFactory's child names (`Dial/Face/Time`, `Paper/Writing/Text`, …) when restyling.
 3. **Seams must be invisible.** Seam panels, fake walls and phantom doors use exactly the same material, colour and trim as the wall around them. If a texture lines up badly on a seam, players learn to spot divergences by texture. That would break the core mechanic.
 4. **Exits always read.** Door frames get lighter trim than the walls, and a real doorway never sits in pure black (doc section 3, the fairness contract).
-5. **Mild fear only** (doc section 9). No blood, wounds or gore. Wrongness comes from proportion, stillness and implication.
+5. **Implication over gore** (doc section 9). Wrongness comes from proportion, stillness, sound and things being slightly off.
+6. **Decay is shared; divergence is personal.** Drift-driven changes (photos going wrong, lights dimming, red hunt lamps) happen identically for every player, and they're never registered as things you can Witness. Only the divergence system makes players see different things. Otherwise atmosphere gets mistaken for evidence, and the design doc lists "divergence feels confusing instead of scary" as a top risk (section 13).
+
+## Scale
+
+Using a standard character (about 5.5 studs, so 1 stud ≈ 0.32 m):
+
+| | Ours now | Real house |
+| --- | --- | --- |
+| Room | 40 studs ≈ 12.7 m square | 4–5 m; a hallway about 1.1 m wide |
+| Ceiling | 12 studs ≈ 3.8 m | 2.4–2.7 m |
+| Doorway | 6 × 8 studs ≈ 1.9 × 2.5 m | 0.9 × 2.0 m |
+
+Roblox spaces are normally built about 1.5× real size so the camera and movement feel good. Ours are 2.5–3×, which is a big part of why the rooms feel like empty warehouses. P.T. lives on tightness.
+
+- **Ceilings drop to about 10 studs** (3.2 m). This is visual only, and it also puts The Guest's head (8.4 studs) close to the ceiling, which is exactly the kind of wrong proportion we want. Doorways stay 6 × 8 studs for squads and chases.
+- **Corridor rooms become real corridors (open).** Inside the 40-stud cell, the corners are walled off into closets and alcoves, leaving a T, L or plus-shaped hallway about 10–12 studs wide. Doorway lanes and the centre stay clear, so the stalker's Navigator still works. It changes chase space and moves the hallway tell slots, so it gets prototyped on one template and tested before the rest.
+- **The 40-stud grid itself stays.** Shrinking it would touch the generator, the navigation and the tests. Too big for a visual pass.
 
 ## Palette
 
 | Role | Hex | Notes |
 | --- | --- | --- |
-| Wall base, "nicotine plaster" | `#8C7B63` | Default wall tone; wallpapers sit near it |
-| Wallpaper: faded sage | `#6E7462` | Study, guest room, hallways |
+| Wall base, dirty cream | `#A39A82` | Hallways and the default wall; stained, never clean white |
+| Wall base, nicotine plaster | `#8C7B63` | Living spaces |
+| Wallpaper: faded sage | `#6E7462` | Study, guest room |
 | Wallpaper: dusty rose | `#8A6C6C` | Dining room, sewing room, master bedroom |
 | Wallpaper: ink blue | `#4A5468` | Nursery, kids' bedroom, music room |
-| Wood, dark walnut | `#4A3324` | Trim, formal furniture, panelling |
+| Wood, dark walnut | `#4A3324` | Doors, trim, formal furniture, panelling |
 | Wood, honey oak | `#7A5536` | Floors, kitchen cabinets |
 | Fabric: mustard / rust / bottle green | `#8F7434` `#7A3F2C` `#34473A` | Sofas, curtains, rugs: muted, never bright |
-| Light: tungsten lamp | `#FFB878` | Every warm practical light |
+| Light: P.T. tungsten | `#E8C27E` | Every warm practical light. Yellower and sicklier than a cosy orange |
 | Light: moonlight | `#7896DC` | Windows only |
 | Light: fluorescent | `#D7EBE1` | Utility rooms; slightly green on purpose |
 | Light: CRT glow | `#8CAAFF` | TVs |
-| Light: Lantern (safe) | `#FFBE6E` | Lit Lantern rooms; the warmest light in the game |
+| Light: Lantern (safe) | `#FFBE6E` | Lit Lantern rooms; the only truly warm, comforting light |
+| Shadow tint | `#23261E` | Shadows lean olive, not neutral black (the P.T. grade) |
 
 **Reserved colours.** These carry meaning, so the house never uses them as decoration:
 - **Brass `#C4965C`:** truth and the interface: anchored objects, Case Board pins, the Witness Camera flash, UI accents (already `Ui.Theme.accent`).
-- **Hunt red `#B8322A`:** only the hunt telegraph. Never on props or lights.
+- **Hunt red `#B8322A`:** hunts only. In the P.T. spirit, the house's **actual lamps** turn this red during a hunt, not just a screen tint.
 - **Decay green-grey `#CDE1D7`:** what Drift pulls the image towards (already `EffectsController`'s tint target).
 
 ## Materials
 
-- **Walls:** patterned wallpaper in three families (sage, rose, blue) plus plain plaster. Formal rooms get a dark wood **dado rail and wainscot** on the lower third. Every room gets **baseboards and crown moulding**; trim catching light is the cheapest way to make a box read as a room.
-- **Floors:** worn oak planks in living spaces, low-pile carpet with faint stains in bedrooms, checkerboard linoleum in the kitchen and laundry, small hex tile in the bathroom, stained concrete in the garage.
+- **Walls:** patterned wallpaper in three families (sage, rose, blue), plus dirty cream and nicotine plaster. Formal rooms get a dark wood **dado rail and wainscot** on the lower third. Every room gets **baseboards and crown moulding**; trim catching light is the cheapest way to make a box read as a room.
+- **Floors:** worn oak planks in living spaces and corridors, low-pile carpet with faint stains in bedrooms, checkerboard linoleum in the kitchen and laundry, small hex tile in the bathroom, stained concrete in the garage.
 - **Ceilings:** popcorn plaster slightly darker than the walls, with a water stain in a few rooms.
-- **Grime layer:** one shared set of decals (water stains, scuffs by door frames, dust shadows where pictures hung), so the whole house ages consistently.
-- **How they're made:** `generate_material` makes about 8–10 `MaterialVariant`s for the whole house (3 wallpapers, plaster, 2 woods, carpet, linoleum, tile, concrete). Hero props get `SurfaceAppearance`. Textures are 1024 px at most. Every external asset goes in a licensing note, and asset ids go in `Assets.luau`.
+- **Doors:** dark panelled wood with brass knobs. Some real doors rest slightly ajar with darkness behind them (P.T.'s bathroom door).
+- **Grime layer:** one shared set of decals (water and rust stains, scuffs by door frames, dust shadows where pictures hung), so the whole house ages consistently.
+- **How they're made:** `generate_material` makes about 8–10 `MaterialVariant`s for the whole house (3 wallpapers, 2 plasters, 2 woods, carpet, linoleum, tile, concrete). Hero props get `SurfaceAppearance`. Textures are 1024 px at most. Every external asset goes in a licensing note, and asset ids go in `Assets.luau`.
+
+## Hero props
+
+P.T. shows that a handful of believable everyday objects does more than a room full of furniture. These get real meshes and materials before anything else:
+
+- **Radio** on a side table, with a muffled broadcast. It ties into the Radio tool and the future Dead Air anomaly.
+- **Clocks** (wall clock and grandfather clock). Decorative clocks show ordinary, varied times from the same pool as the "Clocks disagree" tell, so a clue clock can't be spotted by its time alone. Comparing with a teammate stays the only way.
+- **Family photos** in frames on walls and side tables. As Drift rises, the faces turn away, blur or go missing.
+- **Ceiling pendant lamps, table lamps and sconces** with fabric shades: the light sources themselves.
+- **Doors**, with frames, knobs and hinges.
+- **Telephone** on a hallway table, for later scares.
 
 ## Lighting mood by room family
 
@@ -54,25 +106,26 @@ Every room keeps **one motivated key light** that casts shadows, as the doc requ
 
 | Family | Rooms | Key light | Mood |
 | --- | --- | --- | --- |
-| **Lamp-lit living** | foyer, living room, den, dining room, study, music room, sewing room | Shaded tungsten lamps, 1–2 pools | Warm pools with soft falloff and darkness between them. "Someone left the lamps on." |
-| **Moonlit bedrooms** | master, guest, kids', nursery | Moonlight through the window, plus a small warm night-light or bedside lamp | Cool/warm split: blue floor shapes from the window, one small warm point. Quietest rooms. |
-| **Utility** | kitchen, bathroom, laundry, pantry, mudroom, garage | Overhead fluorescent tube or a bare bulb | Flat, harsh, slightly green. The place lights flicker first as Drift rises. |
-| **Corridors** | hallway, hallway runner, attic landing | Small sconces, with light spilling in from the far room | The darkest family. Framed so a figure at the far end is backlit: the doc's first "thumbnail moment". |
+| **Corridors (the P.T. rooms)** | hallway, hallway runner, attic landing | One hanging pendant lamp, plus light spilling in from the next room | The signature space: narrow, dirty cream walls, one pool of sickly light, long sightlines. Framed so a figure at the far end is backlit (the doc's first "thumbnail moment"). |
+| **Lamp-lit living** | foyer, living room, den, dining room, study, music room, sewing room | Shaded tungsten lamps, 1–2 pools | Pools of light with darkness between them. "Someone left the lamps on." |
+| **Moonlit bedrooms** | master, guest, kids', nursery | Moonlight through the window, plus a small night-light or bedside lamp | Cool/warm split: blue floor shapes from the window, one small warm point. The quietest rooms. |
+| **Utility** | kitchen, bathroom, laundry, pantry, mudroom, garage | Overhead fluorescent tube or a bare bulb | Flat, harsh, slightly green, with a fridge-hum feel. The first lights to flicker as Drift rises. |
 | **Big windows** | sunroom, playroom | Moonlight, large window shapes across the floor (light shafts) | The most open and eerie rooms, where the outside feels close. |
 
 **Mood tags adjust the recipe.** *Open* rooms get a second pool of light; *tight* rooms get one closer, dimmer source; *watched* rooms get a light behind or across the room, so silhouettes read.
 
-**The run's arc** (already wired to Drift in `EffectsController`; this sets the target look):
+**The run's arc**, with P.T.'s escalation mapped onto Drift (colour and flicker are already wired in `EffectsController`; this sets the target):
 
-| Drift | Look |
-| --- | --- |
-| Calm (0–20) | Warm and clean. The house looks ordinary. |
-| Uneasy (20–40) | Slightly cooler and less saturated. |
-| Fraying (40–60) | Utility lights start flickering; grain becomes visible. |
-| Breaking (60–80) | Contrast up, colour drains towards decay green-grey, the vignette closes in. |
-| Collapsing (80–99) | Nearly monochrome. Only Lantern rooms keep their warmth: islands of safety. |
+| Drift | Look | P.T. beat |
+| --- | --- | --- |
+| Calm (0–20) | Yellow-green tungsten grade, light grain. The house looks ordinary. | The first loop: it's just a hallway |
+| Uneasy (20–40) | Slightly cooler and less saturated. | Small things moved; a door that was closed is ajar |
+| Fraying (40–60) | Utility lights flicker; grain thickens. | Footsteps and breathing that aren't yours |
+| Breaking (60–80) | Contrast up, colour drains towards decay green-grey, the vignette closes in. Photos go wrong. | The house turns on you |
+| Collapsing (80–99) | Nearly monochrome; lamps dim. Only Lantern rooms keep their warmth. | The red-light loops |
+| During any hunt | The house's lamps turn hunt red. | |
 
-**Hub:** the one warm, fully lit, safe-feeling space. It should feel like an investigators' field office, the opposite of the house. Signs get consistent text sizes, and the menu shouldn't collide with Roblox's chat hint.
+**Hub:** the one warm, fully lit, safe-feeling space: an investigators' field office, the opposite of the house. Signs get consistent text sizes, and the menu shouldn't collide with Roblox's chat hint.
 
 ## The Guest
 
@@ -80,25 +133,31 @@ Every room keeps **one motivated key light** that casts shadows, as the doc requ
 
 - **Silhouette first.** Tall (8.4 studs, already in `Archetypes`) and thin, with arms a little too long, narrow shoulders and a small head. It must read at 30 studs against a lit doorway (doc section 8). The baseline fails this: today the head is the only visible part.
 - **Clothes:** a dated, slightly too-big dark suit (`#121114`, already set). The cuffs and collar of a pale shirt give the body edges you can see in low light.
-- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and no mouth. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear, so being looked at by it is felt. Nothing gory.
+- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and no mouth. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear. Nothing gory.
 - **Posture:** hands clasped in front, a slight bow, the head tilted 14° (already set). "Polite posture" is the archetype's rule.
 - **Movement:** stillness, then short bursts. Joints bend a little too far. Budget 6–10 animations, as the doc says: idle-watch, turn, stalk-walk, run, peek, intrude, grab, retreat.
+- **P.T.'s lessons:** heard before it's seen (a breath or a floorboard right behind a lone player); rarely seen in full; standing in the doorway you just walked through; never runs into view in the early tiers. It is simply *there* when you turn around. Late in a run it appears closer, and in the light.
 - **Build:** a custom **R15 rig** made from generated meshes (`generate_mesh`), not one static mesh, so it can be animated and the existing code keeps working.
+
+## Sound (for the later audio pass)
+
+The design doc says audio does at least half the work, and P.T. proves it. That's a separate pass, but the art serves it: every hero prop that could make a sound (radio, clocks, fridge, phone, pipes) is placed so the sound has a believable source. The P.T. lessons for that pass: near-silence as the default, a muffled radio, creaks with a location, breathing behind a lone player, and rare loud stingers.
 
 ## Performance budget
 
 - 4–6 shadow-casting lights visible at once (doc section 8). Today all 17 room lights cast shadows; fill lights will be shadowless.
 - About 8–10 MaterialVariants for the house, with textures of 1024 px or less.
 - Merge static trim per room so the instance count stays low.
-- Low-end mode turns off grain and depth of field and drops fill lights. Every lighting change gets checked at low graphics quality too.
+- Low-end mode turns off grain and depth of field and drops fill lights. Every lighting change also gets checked at low graphics quality.
 
 ## How the visual pass will run
 
 Each step is small, gets before and after screenshots from the baseline angles, then passes the checks before it's committed:
 
-1. **Lighting and exposure:** the five family light recipes, and fixing the too-dark rooms (rule 1).
-2. **Trim kit:** baseboards, crown moulding, door and window frames, wainscot. Window panes get a moonlit glass look instead of flat colour.
-3. **Materials:** wallpapers, floors and ceilings through `generate_material`, plus the grime decals.
-4. **Fixtures and atmosphere:** real lamp, sconce and tube models, dust particles, window light shafts.
-5. **The Guest:** model, then animations.
-6. **Hub polish:** signs, layout, the chat-hint overlap.
+1. **Lighting, grade and scale:** the five family light recipes, the P.T. grade, fixing the too-dark rooms (rule 1), and lowering ceilings to about 10 studs.
+2. **Corridor prototype (if approved):** one hallway template rebuilt as a narrow corridor, tested with the stalker before the others.
+3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour.
+4. **Materials:** wallpapers, floors and ceilings through `generate_material`, plus the grime decals.
+5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts.
+6. **The Guest:** model, then animations.
+7. **Hub polish:** signs, layout, the chat-hint overlap.
