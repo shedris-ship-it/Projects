@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox, built on one rule: **reality only h
 
 This repository is the code for the vertical slice described in [`docs/DesignDoc.md`](docs/DesignDoc.md): one location (The Halfway House), its stalker (The Guest), and three playable anomalies (Phantom Architecture, Counterfeit, Gaze). The Case Board deduction covers all 12 anomalies. It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status:** the full game loop is implemented and compiles. The pure game logic is unit-tested (39 tests, including 1,000 generated layouts). It has **not yet been played in Studio**: this repo was written outside Roblox, so expect a round of in-engine tuning and bug fixing before your first playtest. Art and audio are grey-box placeholders by design (doc section 10, Phase 1).
+> **Status:** the full game loop is implemented and compiles. The pure game logic is unit-tested (39 tests, including 1,000 generated layouts). It builds and runs in Studio, but it hasn't had an in-engine tuning pass or a squad playtest yet. Art and audio are grey-box placeholders by design (doc section 10, Phase 1).
 
 ---
 
