@@ -11,3 +11,6 @@
 /DevPackages
 sourcemap.json
 .DS_Store
+
+# Rojo serve mirror (tools/serve-mirror.sh)
+/.rojo-mirror

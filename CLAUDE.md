@@ -19,7 +19,7 @@ Read these before starting real work:
 
 - Code lives in `src/` and is synced into Studio by Rojo. Run `rojo serve` in the repo folder, then click **Connect** in Studio's Rojo plugin.
 - **Never edit scripts inside Studio** (including the MCP `multi_edit` tool). Rojo overwrites those edits. Edit the files.
-- Rojo 7.7.1 can crash (`change_processor.rs` line 172, "cannot find the file specified") when a file is saved through a temporary-file rename, which Claude's edit tools do. Changes saved during a crash are missed. Run it in a restart loop from Git Bash (`while true; do rojo serve; sleep 1; done`), and restart it once after a batch of edits so Studio gets every change. The Studio plugin reconnects by itself.
+- Rojo 7.7.1 crashes (`change_processor.rs` line 172, "cannot find the file specified") when a file is saved through a temporary-file rename, which Claude's edit tools do. Each crash leaves the Studio plugin on an error that needs **Okay → Connect**. In Claude sessions, serve with **`bash tools/serve-mirror.sh`** (Git Bash, in the background): it copies `src/` and `assets/` into `.rojo-mirror/` in place and serves that, so Rojo never sees a temp file. Zero crashes since. The owner can keep using plain `rojo serve`, because normal editors save in place.
 - `rojo build default.project.json -o Consensus.rbxlx` makes a **fresh** place. Anything made by hand in Studio that isn't in the Rojo tree is lost in that file.
 - `ServerStorage` isn't in the Rojo tree yet. When you start making Studio-authored content (room prefabs for `ServerStorage.RoomPrefabs`, generated meshes, materials):
   1. Save it into the repo as `.rbxm` files (for example under `assets/`).
