@@ -108,7 +108,8 @@ end
 local function trackLight(part: Instance)
 	local light = part:FindFirstChild("KeyLight") or part:FindFirstChildWhichIsA("Light")
 	if light then
-		lights[light] = { base = light.Brightness, part = part }
+		-- Remember whether it was built to cast shadows: fills never do.
+		lights[light] = { base = light.Brightness, part = part, shadows = light.Shadows }
 	end
 end
 
@@ -169,9 +170,9 @@ function EffectsController:_applyQuality(settings)
 			end
 		end
 	end
-	for light in lights do
+	for light, info in lights do
 		if light:IsA("PointLight") or light:IsA("SpotLight") or light:IsA("SurfaceLight") then
-			light.Shadows = not settings.lowEnd
+			light.Shadows = info.shadows and not settings.lowEnd
 		end
 	end
 end
@@ -205,10 +206,12 @@ function EffectsController:_update(dt: number)
 	local downed = playerState == Constants.PlayerStates.Downed
 	local echo = playerState == Constants.PlayerStates.Lost
 
-	-- Colour: the house loses colour and gains contrast as it drifts.
-	local saturation = inRun and lerp(-0.05, -0.6, t) or 0.05
-	local contrast = inRun and lerp(0.05, 0.28, t) or 0.05
-	local tint = inRun and Color3.fromRGB(255, 250, 240):Lerp(Color3.fromRGB(205, 225, 215), t)
+	-- Colour: the house starts on a sickly yellow-green grade (docs/ART.md,
+	-- the P.T. reference), then loses colour and gains contrast as it drifts.
+	-- The hub keeps a warm, neutral grade.
+	local saturation = inRun and lerp(-0.22, -0.65, t) or 0.05
+	local contrast = inRun and lerp(0.15, 0.3, t) or 0.05
+	local tint = inRun and Color3.fromRGB(236, 236, 200):Lerp(Color3.fromRGB(205, 225, 215), t)
 		or Color3.fromRGB(255, 240, 225)
 	if downed then
 		saturation = -0.9

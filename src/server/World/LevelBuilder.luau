@@ -111,31 +111,33 @@ local function buildWall(parent, center: Vector3, dirName: string, gap: boolean,
 end
 
 local function lightFor(kind: string, parentPart: BasePart, template)
+	local palette = Config.Lighting
 	local light
 	if kind == "lamp" then
 		light = Instance.new("PointLight")
-		light.Color = Color3.fromRGB(255, 190, 130)
+		light.Color = PropFactory.rgb(palette.Lamp)
 		light.Range = 26
 		light.Brightness = 1.7
 	elseif kind == "tv" then
 		light = Instance.new("SurfaceLight")
 		light.Face = Enum.NormalId.Back
-		light.Color = Color3.fromRGB(140, 170, 255)
+		light.Color = PropFactory.rgb(palette.Screen)
 		light.Range = 22
 		light.Brightness = 2.2
 		light.Angle = 100
 	elseif kind == "window" then
 		light = Instance.new("SurfaceLight")
 		light.Face = Enum.NormalId.Front
-		light.Color = Color3.fromRGB(140, 160, 230)
+		light.Color = PropFactory.rgb(palette.Moonlight)
 		light.Range = 24
 		light.Brightness = 1.6
 		light.Angle = 75
 	else
+		-- Ceiling light: fluorescent in utility rooms, tungsten everywhere else.
 		local settings = template.light or {}
 		light = Instance.new("PointLight")
-		local c = settings.color or { 255, 210, 170 }
-		light.Color = Color3.fromRGB(c[1], c[2], c[3])
+		light.Color =
+			PropFactory.rgb(settings.color or (template.family == "utility" and palette.Fluorescent or palette.Lamp))
 		light.Range = settings.range or 24
 		light.Brightness = settings.brightness or 1.2
 	end
@@ -385,6 +387,31 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		record.light = light
 		record.lightPart = keyLightPart
 		record.lightBrightness = light.Brightness
+
+		-- Fill: a soft, shadowless light under the ceiling centre so the room
+		-- reads without the flashlight (docs/ART.md rule 1). Tagged like the key
+		-- light so flickers and blackouts take it too.
+		local lighting = Config.Lighting
+		local family = lighting.Families[template.family] or lighting.Families.living
+		local fillPart = PropFactory.part(
+			model,
+			"FillLight",
+			Vector3.new(0.2, 0.2, 0.2),
+			CFrame.new(center + Vector3.new(0, HEIGHT - lighting.FillDrop, 0)),
+			Color3.new(),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, transparency = 1, query = false, castShadow = false }
+		)
+		local fill = Instance.new("PointLight")
+		fill.Name = "FillLight"
+		fill.Shadows = false
+		fill.Range = lighting.FillRange
+		fill.Color = PropFactory.rgb(lighting[family.fill])
+		fill.Brightness = light:IsA("SurfaceLight") and lighting.FillWithoutLamp or family.brightness
+		fill.Parent = fillPart
+		fillPart:SetAttribute(Attr.RoomId, room.id)
+		tag(fillPart, Tags.RoomLight)
+		record.fill = fill
 
 		-- Slots for tells and Sources.
 		for _, slot in template.wallSlots do

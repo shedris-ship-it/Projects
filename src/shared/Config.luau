@@ -114,6 +114,28 @@ Config.Level = {
 	BandDepth = 8, -- furniture lives within this many studs of a wall
 }
 
+-- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room keeps
+-- one shadow-casting key light (doc section 8); a shadowless fill under the
+-- ceiling centre keeps it readable without the flashlight (ART.md rule 1).
+-- Values tuned in Studio against the baseline screenshots.
+Config.Lighting = {
+	Lamp = { 232, 194, 126 }, -- sickly tungsten, yellower than a cosy orange
+	Moonlight = { 120, 150, 220 },
+	Fluorescent = { 215, 235, 225 }, -- slightly green on purpose
+	Screen = { 140, 170, 255 }, -- CRT glow
+	FillRange = 30,
+	FillDrop = 2, -- studs below the ceiling
+	-- A room lit by a window or TV has no lamp, so its fill stands in for one.
+	FillWithoutLamp = 0.42,
+	Families = {
+		living = { fill = "Lamp", brightness = 0.28 },
+		corridor = { fill = "Lamp", brightness = 0.28 },
+		bedroom = { fill = "Moonlight", brightness = 0.22 },
+		utility = { fill = "Fluorescent", brightness = 0.28 },
+		windows = { fill = "Moonlight", brightness = 0.22 },
+	},
+}
+
 Config.Evidence = {
 	TrueTells = { 3, 4 }, -- (doc)
 	RedHerrings = { 1, 2 }, -- (doc)

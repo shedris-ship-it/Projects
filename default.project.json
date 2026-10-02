@@ -47,21 +47,21 @@
     "Lighting": {
       "$properties": {
         "Technology": "Future",
-        "Ambient": [0.07, 0.065, 0.08],
+        "Ambient": [0.137, 0.149, 0.118],
         "OutdoorAmbient": [0.05, 0.05, 0.07],
         "Brightness": 0.4,
         "ClockTime": 0.5,
         "GlobalShadows": true,
         "EnvironmentDiffuseScale": 0.15,
         "EnvironmentSpecularScale": 0.4,
-        "ExposureCompensation": -0.15
+        "ExposureCompensation": 0
       },
       "Atmosphere": {
         "$className": "Atmosphere",
         "$properties": {
           "Density": 0.32,
           "Offset": 0,
-          "Color": [0.07, 0.065, 0.08],
+          "Color": [0.137, 0.149, 0.118],
           "Decay": [0.04, 0.04, 0.05],
           "Glare": 0,
           "Haze": 1.4

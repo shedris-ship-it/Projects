@@ -135,6 +135,16 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("every template has a lighting family with a fill colour", function()
+		for _, template in Rooms.List do
+			local family = Config.Lighting.Families[template.family or ""]
+			check.truthy(family, template.id .. " has unknown lighting family " .. tostring(template.family))
+			if family then
+				check.truthy(Config.Lighting[family.fill], template.id .. " fill colour " .. family.fill)
+			end
+		end
+	end)
+
 	test("every template has at least 3 floor slots and 3 wall slots", function()
 		for _, template in Rooms.List do
 			check.atLeast(#template.floorSlots, 3, template.id .. " floor slots")

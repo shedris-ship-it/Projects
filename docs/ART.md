@@ -150,7 +150,7 @@ The design doc says audio does at least half the work, and P.T. proves it. That'
 - 4–6 shadow-casting lights visible at once (doc section 8). Today all 17 room lights cast shadows; fill lights will be shadowless.
 - About 8–10 MaterialVariants for the house, with textures of 1024 px or less.
 - Merge static trim per room so the instance count stays low.
-- Low-end mode turns off grain and depth of field and drops fill lights. Every lighting change also gets checked at low graphics quality.
+- Low-end mode turns off grain, depth of field and key-light shadows. Fill lights stay on, because they're shadowless and cheap and they're what keeps rooms readable. Every lighting change also gets checked at low graphics quality.
 
 ## How the visual pass will run
 
