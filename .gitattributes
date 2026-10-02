@@ -1,0 +1,11 @@
+# Check text files out with LF on every machine. StyLua is set to Unix line
+# endings, so Windows checkouts with core.autocrlf=true would fail `stylua --check`.
+* text=auto eol=lf
+
+# Studio binaries and media: never convert.
+*.rbxm binary
+*.rbxl binary
+*.png binary
+*.jpg binary
+*.ogg binary
+*.mp3 binary
