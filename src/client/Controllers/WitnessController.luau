@@ -1,4 +1,5 @@
--- Witnessing from the client side (doc section 6): aiming, the hold-to-
+-- Witnessing from the client side (doc section 6): aiming (the centre of the
+-- view; there is no crosshair, UI/FocusMarkers shows the target), the hold-to-
 -- Witness gesture, camera view reports for the observation rule, pings,
 -- structured callouts, and the world markers that show them.
 
@@ -20,12 +21,11 @@ local player = Players.LocalPlayer
 
 local WitnessController = {
 	HoldChanged = Signal.new(), -- (progress 0..1 or nil)
-	AimChanged = Signal.new(), -- (label or nil)
+	aim = nil, -- what the view points at this frame, during a run (UI/FocusMarkers)
 }
 
 local holdStarted = nil
 local holdTarget = nil
-local lastLabel = nil
 
 function WitnessController:Init(controllers)
 	self.controllers = controllers
@@ -70,6 +70,11 @@ function WitnessController:EndWitness()
 	holdStarted = nil
 	holdTarget = nil
 	self.HoldChanged:Fire(nil)
+end
+
+-- The target of a Witness hold in progress, or nil.
+function WitnessController:HoldAim()
+	return holdStarted and holdTarget or nil
 end
 
 function WitnessController:SendPing(pingType: string)
@@ -235,18 +240,8 @@ function WitnessController:Start()
 				self.HoldChanged:Fire(nil)
 			end
 		end
-		-- Reticle label
-		if self.state:InRun() then
-			local aim = self:Aim()
-			local label = aim.distance <= Config.Witness.MaxRange and aim.label or nil
-			if label ~= lastLabel then
-				lastLabel = label
-				self.AimChanged:Fire(label)
-			end
-		elseif lastLabel then
-			lastLabel = nil
-			self.AimChanged:Fire(nil)
-		end
+		-- What the view points at, for the focus markers.
+		self.aim = self.state:InRun() and self:Aim() or nil
 		-- View reports drive the observation rule on the server.
 		reportClock += dt
 		if reportClock >= 1 / 12 and self.state:InRun() then

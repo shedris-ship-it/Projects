@@ -180,6 +180,7 @@ function DataService:Start()
 				"subtitles",
 				"colorblind",
 				"lowEnd",
+				"centerDot",
 				"fov",
 				"masterVolume",
 				"sfxVolume",

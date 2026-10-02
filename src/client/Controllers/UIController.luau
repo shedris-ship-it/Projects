@@ -27,6 +27,7 @@ function UIController:Start()
 	for _, name in
 		{
 			"Hud",
+			"FocusMarkers",
 			"Toasts",
 			"PingWheel",
 			"CaseFile",

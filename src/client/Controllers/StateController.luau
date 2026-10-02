@@ -35,6 +35,7 @@ local StateController = {
 		subtitles = true,
 		colorblind = false,
 		lowEnd = false,
+		centerDot = false, -- opt-in aiming aid; the game has no crosshair
 		fov = 70,
 		masterVolume = 1,
 		sfxVolume = 1,

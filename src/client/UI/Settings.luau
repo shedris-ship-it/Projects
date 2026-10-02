@@ -67,6 +67,7 @@ function Settings.new(ctx)
 			{ key = "subtitles", label = "Subtitles for sound cues" },
 			{ key = "colorblind", label = "Colour-blind-safe pings" },
 			{ key = "lowEnd", label = "Low-end graphics (phones)" },
+			{ key = "centerDot", label = "Centre dot (aiming aid)" },
 		}
 	do
 		local button = Ui.button(

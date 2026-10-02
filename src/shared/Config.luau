@@ -150,6 +150,18 @@ Config.Lighting = {
 	},
 }
 
+-- Focus markers replace the crosshair: whatever you're close to and looking at
+-- gets a small marker attached to it, with its name and actions (docs/ART.md,
+-- "Interface").
+Config.Focus = {
+	WitnessDistance = 14, -- a Witnessable object shows its marker this close
+	FadeSeconds = 0.25,
+	GazeFull = 0.97, -- dot product with the view: full strength when looked at this directly
+	GazeNone = 0.8, -- ...and fading out by here
+	PromptMinAlpha = 0.35, -- an action in reach stays faintly visible off-centre
+	MaxDistance = 60, -- markers are never drawn beyond this
+}
+
 -- Post-processing and atmosphere on the client (docs/ART.md, "Softening the
 -- image"). Subtle on purpose: heavy bloom and blur read as dreamy, not dreary.
 Config.PostFX = {

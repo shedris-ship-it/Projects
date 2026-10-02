@@ -1,6 +1,6 @@
 -- The HUD is deliberately small (doc section 8): a Focus ring, the current
--- tool, a reticle, and the squad. Drift is never a bar; you read it from the
--- world, and from one word.
+-- tool and the squad. There is no crosshair (UI/FocusMarkers marks what you
+-- look at). Drift is never a bar; you read it from the world, and from one word.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -48,46 +48,17 @@ function Hud.new(ctx)
 	local gui = Ui.screen("ConsensusHud", 5, ctx.playerGui)
 	self.gui = gui
 
-	-- Reticle, aim label and Witness hold progress.
+	-- No crosshair by default: objects show their own markers (UI/FocusMarkers).
+	-- The centre dot is an opt-in aiming aid in Settings.
 	self.reticle = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(6, 6),
+		Size = UDim2.fromOffset(4, 4),
 		BackgroundColor3 = Ui.Theme.text,
-		BackgroundTransparency = 0.3,
-		Parent = gui,
-	}, { Ui.corner(3) })
-	self.aimLabel = Ui.label("", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.5, 14),
-		Size = UDim2.fromOffset(300, 20),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextSize = 14,
-		TextColor3 = Ui.Theme.text,
-		TextStrokeTransparency = 0.5,
-		Parent = gui,
-	})
-	local holdFrame = Ui.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.5, 36),
-		Size = UDim2.fromOffset(120, 4),
-		BackgroundColor3 = Ui.Theme.panelLight,
+		BackgroundTransparency = 0.5,
 		Visible = false,
 		Parent = gui,
 	}, { Ui.corner(2) })
-	self.holdFill = Ui.new(
-		"Frame",
-		{ Size = UDim2.fromScale(0, 1), BackgroundColor3 = Ui.Theme.accent, Parent = holdFrame },
-		{ Ui.corner(2) }
-	)
-	self.holdFrame = holdFrame
-	ctx.controllers.WitnessController.HoldChanged:Connect(function(progress)
-		holdFrame.Visible = progress ~= nil
-		self.holdFill.Size = UDim2.fromScale(progress or 0, 1)
-	end)
-	ctx.controllers.WitnessController.AimChanged:Connect(function(label)
-		self.aimLabel.Text = label and (label .. "  ·  hold Q to Witness") or ""
-	end)
 
 	-- Focus ring: pips arranged in a circle (bottom left).
 	local ring = Ui.new("Frame", {
@@ -305,8 +276,7 @@ function Hud:Update()
 	end
 	local myState = state:PlayerState()
 	local active = myState == PS.Active
-	self.reticle.Visible = active and not state:IsHidden()
-	self.aimLabel.Visible = self.reticle.Visible
+	self.reticle.Visible = active and not state:IsHidden() and state.settings.centerDot == true
 
 	-- Focus pips
 	local focus = (player:GetAttribute(PA.Focus) or 100) / Config.Witness.FocusMax
