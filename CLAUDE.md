@@ -53,7 +53,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (39 at handoff)
+lune run tests/run        # unit tests (41 as of 2026-10-02)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -103,16 +103,39 @@ All must pass. When MCP is available, also start a play session and check the co
 
 ## Roadmap: where we are and what's next
 
-Done: design doc Phase 1, most of the code side of Phase 2, plus some of Phase 3 (13 tactics, the squad profile, Marks and Clearance).
+Done: design doc Phase 1, most of the code side of Phase 2, plus some of Phase 3 (13 tactics, the squad profile, Marks and Clearance). Played in Studio on 2026-10-02: the full loop runs with no console errors.
+
+**Session start checklist:**
+1. Work in the repo clone at `A:\111- Projects\Github\Projects`. The owner's `Games\Concensus` folder is an old ZIP copy; don't edit it.
+2. Start `bash tools/serve-mirror.sh` as a background task, and ask the owner to click **Connect** (or **Okay → Connect**) in Studio's Rojo panel.
+3. Check `list_roblox_studios` sees Studio.
+4. Run the checks.
+5. In play tests, confirm `seed 1800820264` with its on-screen reply before `start`, and wait about 6 s after moving the camera before `screen_capture`, or the lighting comes out black.
 
 The agreed plan, in order:
 1. **Studio findings.** Fix anything the owner reports, and any console errors you find in play mode.
-2. **Visual pass.** This is Claude's job, since there is no artist. Ask the owner whether this or step 3 comes first; it was still undecided at handoff.
-   1. Write a short art-direction guide (`docs/ART.md`): palette, materials, lighting moods per room type, the stalker's silhouette. Section 8 of the design doc puts the budget into lighting and audio.
-   2. Make textures and decals: wallpaper, floorboards, stains, grime, notes, portraits. Use `generate_material` and generated images; upload via Studio or Asphalt.
-   3. Upgrade `World/LevelBuilder` and `World/PropFactory`: trim and moldings, real light fixtures, dust particles, light shafts, per-room lighting.
-   4. Model the stalker (The Guest), probably with `generate_mesh`, and give it custom animations.
-   5. Iterate with `screen_capture`.
+2. **Visual pass (in progress, chosen first).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
+   - Done (2026-10-02):
+     - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)
+     - 10-stud ceilings
+     - softening (bloom, film grain, depth of field, soft shadows)
+     - dust motes, Guest-proximity light dimming, flashlight drag
+     - no crosshair: `UI/FocusMarkers`
+     - a non-glowing Companion that keeps its distance
+     - the corridor prototype on the `hallway` template
+   - Waiting on the owner's playtest:
+     - fps from F2, and the low-graphics check
+     - grain strength and flashlight drag feel
+     - marker timing
+     - whether moonlit bedrooms are too dark
+     - corridor rollout to `hallway_runner` and `attic_landing`, and whether to fill dead-end arms
+   - Next, in order:
+     - ART.md step 3, trim and doors: baseboards, crown moulding, lighter door frames so exits read, doors ajar, window glass
+     - step 4, materials: `generate_material` wallpapers and floors, grime decals; ask before uploading anything to the owner's account, and save Studio-made assets into `assets/` per the rules above
+     - step 5, hero props and fixtures: radio, clocks, photos, pendant lamps, light shafts, hunt-red lamps
+     - step 6, The Guest model and animations
+     - step 7, hub polish
+   - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.
    - Their tells already exist in `Data/Tells.luau`.
    - For each one, write `src/server/Rituals/<Id>.luau` (`prepare`, `new`, `Start`, `Update`, `Destroy`, a `Completed` signal; follow the existing three).
@@ -124,9 +147,9 @@ The agreed plan, in order:
 
 Design doc rule (section 10): don't pile content onto a core that hasn't passed **Gate 2**, meaning the slice is fun with friends. Keep nudging the owner to run a 2–4 person squad playtest and ask testers *"Did it ever feel like it cheated?"*
 
-## Known limitations at handoff
+## Known limitations
 
-- The house is grey-box parts. Audio is built-in `rbxasset://` placeholders; room tone, Drift layers and stingers are empty in `Assets.luau`.
-- The stalker uses default walk animations.
+- The house is still grey-box geometry and flat materials, though lighting and post-processing are done (see the visual pass above). Audio is built-in `rbxasset://` placeholders; room tone, Drift layers and stingers are empty in `Assets.luau`.
+- The stalker is a default R15 body with default walk animations.
 - Voice is plain proximity chat: no routing through the audio API, no radio or muffling.
 - Hub and run share one place.
