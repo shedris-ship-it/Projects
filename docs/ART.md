@@ -1,6 +1,6 @@
 # Art direction: The Halfway House
 
-> **Status:** draft (2026-10-02). The owner approved the 1988 setting, The Guest concept and P.T. as the reference. Two decisions are still open, marked **(open)** below. The before-shots it refers to are in [`baseline/2026-10-02`](baseline/2026-10-02/README.md).
+> **Status:** approved (2026-10-02). The owner chose the 1988 setting, The Guest concept, P.T. as the reference, a **Moderate** content rating, and a narrow-corridor prototype. The before-shots it refers to are in [`baseline/2026-10-02`](baseline/2026-10-02/README.md).
 
 This is the short guide every visual change follows. It applies design doc section 8: spend on **lighting first, then materials, then composition, then props**, and keep the stalker's silhouette readable.
 
@@ -25,7 +25,8 @@ P.T. (Kojima Productions, 2014) is the touchstone for mood. It fits Consensus un
 
 **What we leave out:**
 
-- **Gore.** P.T.'s blood, its bathroom sink scene and its ghost's face would push us past Roblox's Mild rating (doc section 9). We translate them into implication: rust and water stains, a sound from a room nobody's in, faces in photos turned away or blurred. **(open: stay at Mild?)**
+- **Anything past Moderate.** We target Roblox's **Moderate** rating (design doc section 9, decided 2026-10-02). It allows realistic blood (pools, smears, spatter), bleeding eyes, disfigured faces and wounds, so most of P.T.'s imagery is available. Severed body parts, dismemberment and the like are **Restricted** (18+ only), so P.T.'s bathroom sink scene stays out. Nothing that breaks Roblox's Community Standards either: no self-harm, and violence against family stays implied, never shown.
+- **Gore up front.** Blood is a late-game escalation, not wallpaper. Early on the house is clean and ordinary. Gore that shows up from minute one stops being scary by minute five.
 - **Camera tricks.** No head-bob, tilt or roll (doc section 4, comfort-safe). Grain, vignette and depth of field are fine, and players can turn grain off.
 - **Copying.** We borrow the method, not the content: no recreating P.T.'s hallway layout, its ghost, its radio script or any of its assets. Copying a Konami game's specifics risks takedowns, and it would also make ours feel like a fan tribute instead of its own thing.
 
@@ -37,7 +38,7 @@ P.T. (Kojima Productions, 2014) is the touchstone for mood. It fits Consensus un
 2. **Art never hides evidence.** Tell props must be readable at 6 studs under the flashlight. Keep PropFactory's child names (`Dial/Face/Time`, `Paper/Writing/Text`, …) when restyling.
 3. **Seams must be invisible.** Seam panels, fake walls and phantom doors use exactly the same material, colour and trim as the wall around them. If a texture lines up badly on a seam, players learn to spot divergences by texture. That would break the core mechanic.
 4. **Exits always read.** Door frames get lighter trim than the walls, and a real doorway never sits in pure black (doc section 3, the fairness contract).
-5. **Implication over gore** (doc section 9). Wrongness comes from proportion, stillness, sound and things being slightly off.
+5. **Implication first, gore late** (Moderate ceiling, doc section 9). Wrongness comes from proportion, stillness, sound and things being slightly off. Blood appears only from Breaking onwards (see the Drift arc), and never past Moderate.
 6. **Decay is shared; divergence is personal.** Drift-driven changes (photos going wrong, lights dimming, red hunt lamps) happen identically for every player, and they're never registered as things you can Witness. Only the divergence system makes players see different things. Otherwise atmosphere gets mistaken for evidence, and the design doc lists "divergence feels confusing instead of scary" as a top risk (section 13).
 
 ## Scale
@@ -53,7 +54,7 @@ Using a standard character (about 5.5 studs, so 1 stud ≈ 0.32 m):
 Roblox spaces are normally built about 1.5× real size so the camera and movement feel good. Ours are 2.5–3×, which is a big part of why the rooms feel like empty warehouses. P.T. lives on tightness.
 
 - **Ceilings drop to about 10 studs** (3.2 m). This is visual only, and it also puts The Guest's head (8.4 studs) close to the ceiling, which is exactly the kind of wrong proportion we want. Doorways stay 6 × 8 studs for squads and chases.
-- **Corridor rooms become real corridors (open).** Inside the 40-stud cell, the corners are walled off into closets and alcoves, leaving a T, L or plus-shaped hallway about 10–12 studs wide. Doorway lanes and the centre stay clear, so the stalker's Navigator still works. It changes chase space and moves the hallway tell slots, so it gets prototyped on one template and tested before the rest.
+- **Corridor rooms become real corridors (approved as a prototype).** Inside the 40-stud cell, the corners are walled off into closets and alcoves, leaving a T, L or plus-shaped hallway about 10–12 studs wide. Doorway lanes and the centre stay clear, so the stalker's Navigator still works. It changes chase space and moves the hallway tell slots, so it gets prototyped on one template and tested before the rest.
 - **The 40-stud grid itself stays.** Shrinking it would touch the generator, the navigation and the tests. Too big for a visual pass.
 
 ## Palette
@@ -121,8 +122,8 @@ Every room keeps **one motivated key light** that casts shadows, as the doc requ
 | Calm (0–20) | Yellow-green tungsten grade, light grain. The house looks ordinary. | The first loop: it's just a hallway |
 | Uneasy (20–40) | Slightly cooler and less saturated. | Small things moved; a door that was closed is ajar |
 | Fraying (40–60) | Utility lights flicker; grain thickens. | Footsteps and breathing that aren't yours |
-| Breaking (60–80) | Contrast up, colour drains towards decay green-grey, the vignette closes in. Photos go wrong. | The house turns on you |
-| Collapsing (80–99) | Nearly monochrome; lamps dim. Only Lantern rooms keep their warmth. | The red-light loops |
+| Breaking (60–80) | Contrast up, colour drains towards decay green-grey, the vignette closes in. Photos go wrong; the first stains turn out to be blood. | The house turns on you |
+| Collapsing (80–99) | Nearly monochrome except the blood; lamps dim. Only Lantern rooms keep their warmth. | The red-light loops |
 | During any hunt | The house's lamps turn hunt red. | |
 
 **Hub:** the one warm, fully lit, safe-feeling space: an investigators' field office, the opposite of the house. Signs get consistent text sizes, and the menu shouldn't collide with Roblox's chat hint.
@@ -133,7 +134,8 @@ Every room keeps **one motivated key light** that casts shadows, as the doc requ
 
 - **Silhouette first.** Tall (8.4 studs, already in `Archetypes`) and thin, with arms a little too long, narrow shoulders and a small head. It must read at 30 studs against a lit doorway (doc section 8). The baseline fails this: today the head is the only visible part.
 - **Clothes:** a dated, slightly too-big dark suit (`#121114`, already set). The cuffs and collar of a pale shirt give the body edges you can see in low light.
-- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and no mouth. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear. Nothing gory.
+- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and no mouth. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear.
+- **Late form (Moderate):** from Breaking onwards, and in the final hunt, the porcelain is cracked and the eye hollows bleed. The polite guest was never a guest. Earlier tiers keep the clean face, so the change itself is a scare.
 - **Posture:** hands clasped in front, a slight bow, the head tilted 14° (already set). "Polite posture" is the archetype's rule.
 - **Movement:** stillness, then short bursts. Joints bend a little too far. Budget 6–10 animations, as the doc says: idle-watch, turn, stalk-walk, run, peek, intrude, grab, retreat.
 - **P.T.'s lessons:** heard before it's seen (a breath or a floorboard right behind a lone player); rarely seen in full; standing in the doorway you just walked through; never runs into view in the early tiers. It is simply *there* when you turn around. Late in a run it appears closer, and in the light.
@@ -155,7 +157,7 @@ The design doc says audio does at least half the work, and P.T. proves it. That'
 Each step is small, gets before and after screenshots from the baseline angles, then passes the checks before it's committed:
 
 1. **Lighting, grade and scale:** the five family light recipes, the P.T. grade, fixing the too-dark rooms (rule 1), and lowering ceilings to about 10 studs.
-2. **Corridor prototype (if approved):** one hallway template rebuilt as a narrow corridor, tested with the stalker before the others.
+2. **Corridor prototype:** one hallway template rebuilt as a narrow corridor, tested with the stalker before the others.
 3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour.
 4. **Materials:** wallpapers, floors and ceilings through `generate_material`, plus the grime decals.
 5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts.

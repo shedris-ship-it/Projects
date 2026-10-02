@@ -409,7 +409,7 @@ Spend the art budget on lighting, composition and sound before polygons. A few h
 
 - **Silhouette first.** It must read instantly at 30 studs in low light.
 - **Wrongness through animation.** Stillness, a head tilt slightly off human, joints that bend a little too far, and movement in short bursts.
-- **Implication over gore.** Keep scares inside the Mild fear tier of Roblox's questionnaire (section 9). Fear comes from what you almost see.
+- **Implication over gore.** Keep scares inside the Mild fear tier of Roblox's questionnaire (section 9). Fear comes from what you almost see. *(2026-10-02: the owner chose Moderate as the ceiling; see section 9. Implication still leads, and gore is held back for late escalation.)*
 - Budget 6–10 custom animations per stalker: idle-watch, turn, stalk-walk, run, peek, intrude, grab, retreat.
 
 ### UI and accessibility
@@ -482,6 +482,8 @@ Prices are starting hypotheses to test, in Robux.
 Your label comes from your honest answers to Roblox's questionnaire, so choose your content ceiling on purpose. Mild fear covers heavy breathing, screaming, creepy-looking NPCs, jump scares, ominous music and suspense, which is what implication-driven horror uses. Moderate fear is triggered by realistic blood, visible organs, open wounds or bleeding eyes ([Creator Docs](https://create.roblox.com/docs/production/promotion/content-maturity)).
 
 Keep the stalker free of that imagery and the game most likely lands at Mild, which is eligible for Roblox Kids (ages 5–8) and Roblox Select (ages 9–15) once extra publishing requirements are met. Choosing Moderate imagery limits reach to Select and standard Roblox (ages 16 and up).
+
+> **Decision (2026-10-02): target Moderate.** The owner chose Moderate so the late game can reach P.T.'s level of dread (see `docs/ART.md`). That gives up Roblox Kids (5–8) only. The ceiling is Moderate's: realistic blood, bleeding eyes, disfigured faces and wounds are allowed; severed body parts, dismemberment and anything else in Restricted are not.
 
 - Retake the questionnaire whenever an update changes an answer. A missing or inaccurate label can restrict playability for everyone.
 - Avoid free-form drawing or writing by players, including chalk marks and Case Board notes. Free-form user creation limits access to players 16 and older, so use stamped markers and preset labels.
