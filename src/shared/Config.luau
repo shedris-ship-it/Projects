@@ -181,12 +181,24 @@ Config.PostFX = {
 	-- Dust drifting in the light: soft additive motes lit by the scene, so they
 	-- only show inside lamp and window light. Each room's dust gathers around
 	-- its key light and drifts together on a slow, wandering air current.
-	DustRate = 18, -- per room, per second
 	DustLifetime = { 8, 14 },
 	DustSize = 0.08,
 	DustSizeVariance = 0.04, -- each mote is DustSize plus or minus this
-	DustHeight = 8, -- studs above the floor the dust fills
-	DustSpan = 26, -- width of the dust volume around the light, in studs
+	DustHeight = 9.5, -- studs above the floor the dust can fill
+	-- Nested layers around the light, from the core outwards: half-width in
+	-- studs, motes per 1,000 cubic studs, and how bright that layer's motes
+	-- get at their peak (0-1). They add up to dense, bright dust at the lamp
+	-- thinning to faint at the edge, so the dust fades out with the light
+	-- instead of stopping at the edge of a box (owner's playtest, 2026-10-02).
+	-- Density, not a fixed count, so a lamp in a corner, whose layers the walls
+	-- cut short, doesn't pack its motes tighter.
+	DustLayers = {
+		{ half = 4, density = 22, glow = 0.8 },
+		{ half = 8, density = 15, glow = 0.55 },
+		{ half = 13, density = 10, glow = 0.32 },
+		{ half = 19, density = 7, glow = 0.14 },
+	},
+	DustSurfaceReach = 5, -- a window or TV's dust gathers this far in front of it
 	DustCurrent = 0.03, -- strength of the drifting air current
 	-- The Guest's presence: lights near its body sag, easing in and out.
 	GuestDimRadius = 30, -- starts dimming lights this close

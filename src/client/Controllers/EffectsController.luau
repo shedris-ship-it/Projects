@@ -114,11 +114,43 @@ end
 
 local lowEnd = false
 
--- Dust drifting in the light (docs/ART.md): one emitter per room, gathered
--- around its key light. The motes are soft blobs drawn additively and lit by
--- the scene, so they only show where light falls, like dust in a lamp beam.
+-- Dust drifting in the light (docs/ART.md): nested layers of motes around
+-- each room's key light, dense and bright at the lamp and thinning out
+-- towards the edge, so the dust fades with the light rather than ending at a
+-- hard edge. The motes are soft blobs drawn additively and lit by the scene,
+-- so they only show where light falls, like dust in a lamp beam.
+local function dustEmitter(glow: number, rate: number): ParticleEmitter
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = Assets.DustTexture
+	emitter.Shape = Enum.ParticleEmitterShape.Box
+	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	emitter.Rate = rate
+	emitter.Lifetime = NumberRange.new(FX.DustLifetime[1], FX.DustLifetime[2])
+	emitter.Speed = NumberRange.new(0.02, 0.1)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Drag = 0.4
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, FX.DustSize, FX.DustSizeVariance),
+		NumberSequenceKeypoint.new(1, FX.DustSize, FX.DustSizeVariance),
+	})
+	-- Fade in and out, glinting brighter and dimmer as each mote turns.
+	emitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, 1 - glow * 0.7, glow * 0.45),
+		NumberSequenceKeypoint.new(0.5, 1 - glow, glow * 0.5),
+		NumberSequenceKeypoint.new(0.85, 1 - glow * 0.7, glow * 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 244, 228))
+	emitter.LightInfluence = 1
+	emitter.LightEmission = 1
+	emitter.Enabled = not lowEnd
+	return emitter
+end
+
 local function addDust(part: Instance)
-	if not part:FindFirstChild("KeyLight") then
+	local light = part:FindFirstChild("KeyLight")
+	if not light then
 		return
 	end
 	-- The room model sits directly under the level folder.
@@ -134,54 +166,54 @@ local function addDust(part: Instance)
 	if not floor or room:FindFirstChild("Dust") then
 		return
 	end
-	-- A box around the light, leaning towards the room centre where its pool
-	-- falls, kept inside the room.
-	local halfRoom = Vector3.new(floor.Size.X / 2 - 1, 0, floor.Size.Z / 2 - 1)
-	local roomMin = floor.Position - halfRoom
-	local roomMax = floor.Position + halfRoom
-	local focus = (part :: BasePart).Position:Lerp(floor.Position, 0.35)
-	local half = FX.DustSpan / 2
-	local lo = Vector3.new(math.max(focus.X - half, roomMin.X), 0, math.max(focus.Z - half, roomMin.Z))
-	local hi = Vector3.new(math.min(focus.X + half, roomMax.X), 0, math.min(focus.Z + half, roomMax.Z))
-	local box = Instance.new("Part")
-	box.Name = "Dust"
-	box.Anchored = true
-	box.CanCollide = false
-	box.CanQuery = false
-	box.CanTouch = false
-	box.CastShadow = false
-	box.Transparency = 1
-	box.Size = Vector3.new(math.max(hi.X - lo.X, 2), FX.DustHeight, math.max(hi.Z - lo.Z, 2))
-	box.CFrame =
-		CFrame.new((lo.X + hi.X) / 2, floor.Position.Y + floor.Size.Y / 2 + FX.DustHeight / 2, (lo.Z + hi.Z) / 2)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Texture = Assets.DustTexture
-	emitter.Shape = Enum.ParticleEmitterShape.Box
-	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	emitter.Rate = FX.DustRate
-	emitter.Lifetime = NumberRange.new(FX.DustLifetime[1], FX.DustLifetime[2])
-	emitter.Speed = NumberRange.new(0.02, 0.1)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Drag = 0.4
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, FX.DustSize, FX.DustSizeVariance),
-		NumberSequenceKeypoint.new(1, FX.DustSize, FX.DustSizeVariance),
-	})
-	-- Fade in and out, glinting brighter and dimmer as each mote turns.
-	emitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.15, 0.55, 0.3),
-		NumberSequenceKeypoint.new(0.5, 0.35, 0.35),
-		NumberSequenceKeypoint.new(0.85, 0.55, 0.3),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 244, 228))
-	emitter.LightInfluence = 1
-	emitter.LightEmission = 1
-	emitter.Enabled = not lowEnd
-	emitter.Parent = box
-	box.Parent = room
-	dust[emitter] = math.random() * 10 -- phase of this room's air current
+	-- Dust gathers around a lamp; a window or TV throws its light into the
+	-- room, so its dust gathers a little in front of it.
+	local source = part :: BasePart
+	local focus = source.Position
+	if light:IsA("SurfaceLight") then
+		local facing = light.Face == Enum.NormalId.Back and -source.CFrame.LookVector or source.CFrame.LookVector
+		local flat = Vector3.new(facing.X, 0, facing.Z)
+		if flat.Magnitude > 0.1 then
+			focus += flat.Unit * FX.DustSurfaceReach
+		end
+	end
+	-- Every layer stays inside the room, so no dust shows through a wall.
+	local floorTop = floor.Position.Y + floor.Size.Y / 2
+	local roomMin =
+		Vector3.new(floor.Position.X - floor.Size.X / 2 + 1, floorTop + 0.3, floor.Position.Z - floor.Size.Z / 2 + 1)
+	local roomMax = Vector3.new(
+		floor.Position.X + floor.Size.X / 2 - 1,
+		floorTop + FX.DustHeight,
+		floor.Position.Z + floor.Size.Z / 2 - 1
+	)
+	local folder = Instance.new("Folder")
+	folder.Name = "Dust"
+	local phase = math.random() * 10 -- one air current per room
+	for i, layer in FX.DustLayers do
+		local reach = Vector3.new(layer.half, layer.half, layer.half)
+		local lo = (focus - reach):Max(roomMin)
+		local hi = (focus + reach):Min(roomMax)
+		local size = hi - lo
+		if size.X > 1 and size.Y > 1 and size.Z > 1 then
+			local box = Instance.new("Part")
+			box.Name = "DustLayer" .. i
+			box.Anchored = true
+			box.CanCollide = false
+			box.CanQuery = false
+			box.CanTouch = false
+			box.CastShadow = false
+			box.Transparency = 1
+			box.Size = size
+			box.CFrame = CFrame.new((lo + hi) / 2)
+			local lifetime = (FX.DustLifetime[1] + FX.DustLifetime[2]) / 2
+			local rate = layer.density / 1000 * size.X * size.Y * size.Z / lifetime
+			local emitter = dustEmitter(layer.glow, rate)
+			emitter.Parent = box
+			box.Parent = folder
+			dust[emitter] = phase
+		end
+	end
+	folder.Parent = room
 end
 
 local function trackLight(part: Instance)
