@@ -95,7 +95,7 @@ Config.Player = {
 
 Config.Level = {
 	CellSize = 40,
-	WallHeight = 12,
+	WallHeight = 10, -- about 3.2 m: closer to a real house, so rooms feel tight (docs/ART.md, Scale)
 	WallThickness = 0.5,
 	DoorWidth = 6,
 	DoorHeight = 8,
