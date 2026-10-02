@@ -48,12 +48,12 @@ How the code implements the design doc. The design reasons themselves live in [`
 | WitnessController | Aiming, hold-to-Witness, 12 Hz view reports, ping and callout sending, world markers |
 | ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden), the camera flashlight, plumb-line beams |
 | AudioController | Sound groups with volume settings, room reverb, Drift layers, ducking, positional one-shots, captions |
-| EffectsController | Drift-driven colour, vignette and atmosphere; light flicker; hunt tint; photo flash; low-end mode |
+| EffectsController | Drift-driven colour, vignette and atmosphere; bloom, grain and depth of field; dust in each room's light; light flicker and dimming near The Guest; hunt tint; photo flash; low-end mode |
 | UIController | Every screen in `UI/` |
 
 ## A run, end to end
 
-1. **Lobby → Generating.** `LobbyService` starts the run when everyone in the hub is ready. `RunOrchestrator` picks a seed. `LevelGraph.generate` grows a layout and `LayoutValidator` checks it, retrying with the next seed up to 10 times, then falling back to an authored layout. `WorldService` builds the house unparented and parents it once.
+1. **Lobby → Generating.** `LobbyService` starts the run when everyone in the hub is ready. `RunOrchestrator` picks a seed. `LevelGraph.generate` grows a layout and `LayoutValidator` checks it, retrying with the next seed up to 10 times, then falling back to an authored layout. Rooms with windows are turned so the windows face outside. `WorldService` builds the house unparented and parents it once; corridor rooms fill any arm that ends at an outside wall (`Logic/Corridor`), and a window still facing another room is left out.
 2. **Setup.** `AnomalyService` picks an anomaly the location supports, lets its ritual reserve what it needs (`prepare`), plans 3–4 true tells and 1–2 red herrings, and places tell sites in wall, floor and seam slots. `DivergenceService` turns the sites into per-player rules. The planner guarantees two things: social tells look different to different Witnesses, and every Witness has something a teammate can disprove. Base props are then built showing the true state.
 3. **Arrival → Investigation.** Witnessing a tell site with a second Witness anchors it: a true tell is confirmed (Drift −6), a herring is debunked. A lone Witness's observation becomes an unconfirmed claim. The Witness Camera confirms alone (Drift −3).
 4. **Stalker.** At 1 Hz the Director turns Drift and run state into a target tier and hunt timing (`Logic/DirectorModel`) and plays the scare deck. At 15 Hz the body perceives, applies the observation rule and acts out its mode. During hunts the Tactician scores 13 tactics against the squad profile at about 1.5 Hz and picks one of the top three.

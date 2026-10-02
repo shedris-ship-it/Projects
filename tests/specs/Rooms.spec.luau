@@ -174,6 +174,15 @@ return function(test, check, Shared, require)
 						onClosetFace(template, decor, width / 2),
 						template.id .. "." .. decor.id .. " is not on a closet face"
 					)
+				elseif template.corridor and decor.kind == "Window" then
+					-- A corridor window closes the end of an arm. Windows are only
+					-- built on outside walls, which never have a doorway, and
+					-- corridors never take a role, so never hold the exit door.
+					check.truthy(next(template.roles) == nil, template.id .. " corridor with a role")
+					check.truthy(
+						math.abs(decor.along) + width / 2 <= template.corridor.halfWidth,
+						template.id .. "." .. decor.id .. " is wider than its corridor arm"
+					)
 				else
 					check.truthy(
 						math.abs(decor.along) - width / 2 >= Config.Level.DoorWidth / 2,

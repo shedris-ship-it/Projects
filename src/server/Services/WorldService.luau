@@ -272,13 +272,22 @@ function WorldService:RoomIds(): { number }
 end
 
 -- Random walkable point inside a room's clear centre area. In a corridor it
--- stays inside one arm of the plus, clear of the corner closets.
+-- stays inside the junction or one open arm, clear of the closets and of
+-- arms that were filled in.
 function WorldService:RandomPointIn(roomId: number, rng): Vector3
 	local room = self:Room(roomId)
 	local along = rng:NextNumber(-9, 9)
 	if room.corridor then
-		local across = rng:NextNumber(-(room.corridor - 1.5), room.corridor - 1.5)
-		local offset = rng:Chance(0.5) and Vector3.new(along, 0, across) or Vector3.new(across, 0, along)
+		local inner = room.corridor - 1.5
+		local across = rng:NextNumber(-inner, inner)
+		local alongX = rng:Chance(0.5)
+		local open = room.corridorOpen or {}
+		if along < -inner and not open[alongX and "W" or "N"] then
+			along = -inner
+		elseif along > inner and not open[alongX and "E" or "S"] then
+			along = inner
+		end
+		local offset = alongX and Vector3.new(along, 0, across) or Vector3.new(across, 0, along)
 		return room.center + offset
 	end
 	return room.center + Vector3.new(along, 0, rng:NextNumber(-9, 9))

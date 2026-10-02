@@ -13,6 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
@@ -270,9 +271,20 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		end
 
 		-- Corridor rooms: closets fill the four corners, leaving a plus-shaped
-		-- hallway (docs/ART.md, Scale). They match the walls exactly so nothing
+		-- hallway (docs/ART.md, Scale), and arms that end at an outside wall are
+		-- filled in too (Logic/Corridor). They match the walls exactly so nothing
 		-- marks them out, and the doorway lanes and centre stay clear for the
-		-- stalker's Navigator.
+		-- stalker's Navigator. Anything the template put in a filled arm is
+		-- left out.
+		local filledArms = Corridor.filledArms(template, room, cells)
+		local function inFilledArm(x: number, z: number): boolean
+			local arm = template.corridor and Corridor.armOf(template.corridor.halfWidth, x, z)
+			return arm ~= nil and filledArms[arm] == true
+		end
+		local function wallInFilledArm(slot): boolean
+			local arm = template.corridor and Corridor.armOfWall(template.corridor.halfWidth, slot)
+			return arm ~= nil and filledArms[arm] == true
+		end
 		if template.corridor then
 			local h = template.corridor.halfWidth
 			local depth = INNER - h
@@ -289,7 +301,25 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					)
 				end
 			end
+			-- The world sides whose arms stay open, for picking walkable points.
 			record.corridor = h
+			record.corridorOpen = {}
+			for _, side in { "N", "E", "S", "W" } do
+				if filledArms[side] then
+					local axis = SIDE_LOCAL[side](0, 0).Unit
+					local size = axis.Z ~= 0 and Vector3.new(2 * h, HEIGHT, depth) or Vector3.new(depth, HEIGHT, 2 * h)
+					PropFactory.part(
+						model,
+						"Closet",
+						size,
+						roomCF * CFrame.new(axis * c + Vector3.new(0, HEIGHT / 2, 0)),
+						wallColor,
+						wallMaterial
+					)
+				else
+					record.corridorOpen[LevelGraph.worldSide(side, room.rotation)] = true
+				end
+			end
 		end
 
 		-- Furniture: a hand-built prefab if one exists, otherwise the grey-box.
@@ -343,6 +373,9 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			end
 		else
 			for _, prop in template.props do
+				if inFilledArm(prop.x, prop.z) then
+					continue
+				end
 				local cf = roomCF * CFrame.new(prop.x, 0, prop.z) * CFrame.Angles(0, math.rad(prop.ry or 0), 0)
 				local propModel, lightPart = PropFactory.build(prop.kind, cf, model, { name = prop.id })
 				local propId = "prop:" .. room.id .. ":" .. prop.id
@@ -398,7 +431,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				-- A window that still faces another room after LevelGraph turned the
 				-- room is left out; if it was the key light, the ceiling lamp below
 				-- takes over.
-				if decor.kind == "Window" and not facesOutside(room, decor) then
+				if (decor.kind == "Window" and not facesOutside(room, decor)) or wallInFilledArm(decor) then
 					continue
 				end
 				local cf = slotCFrame(roomCF, decor, decor.y)
@@ -470,13 +503,18 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		-- Slots for tells and Sources.
 		-- `outside` marks slots on an outer wall, for tells that need one (a window).
 		for _, slot in template.wallSlots do
-			table.insert(record.wallSlots, {
-				cframe = slotCFrame(roomCF, slot, slot.y or 6.5),
-				outside = facesOutside(room, slot),
-				used = false,
-			})
+			if not wallInFilledArm(slot) then
+				table.insert(record.wallSlots, {
+					cframe = slotCFrame(roomCF, slot, slot.y or 6.5),
+					outside = facesOutside(room, slot),
+					used = false,
+				})
+			end
 		end
 		for _, slot in template.floorSlots do
+			if inFilledArm(slot.x, slot.z) then
+				continue
+			end
 			local pos = roomCF:PointToWorldSpace(Vector3.new(slot.x, 0, slot.z))
 			table.insert(record.floorSlots, {
 				-- face the room centre
