@@ -1,0 +1,111 @@
+-- Furniture kinds used by room templates. size = { width (x), height, depth (z) }
+-- before rotation; a prop's "front" faces +Z in its own frame, toward the room.
+--
+-- hide:     hiding spot category the stalker learns ("locker", "bed", ...)
+-- capacity: Witnesses that fit at once (doc: 1-2)
+-- noise:    noise radius when someone enters or leaves the spot
+-- light:    the prop carries a light ("lamp", "tv")
+-- collide = false props are decor the stalker and players can pass through.
+
+local Props = {
+	Bed = { size = { 7, 3, 10 }, hide = "bed", capacity = 1, noise = 6, color = { 108, 88, 118 }, material = "Fabric" },
+	Wardrobe = {
+		size = { 6, 9, 3 },
+		hide = "wardrobe",
+		capacity = 2,
+		noise = 12,
+		color = { 92, 64, 44 },
+		material = "Wood",
+	},
+	Cabinet = {
+		size = { 6, 8, 3 },
+		hide = "wardrobe",
+		capacity = 2,
+		noise = 12,
+		color = { 80, 70, 58 },
+		material = "Wood",
+	},
+	Locker = {
+		size = { 3, 8, 3 },
+		hide = "locker",
+		capacity = 1,
+		noise = 14,
+		color = { 86, 98, 104 },
+		material = "Metal",
+	},
+	Table = {
+		size = { 8, 3.4, 5 },
+		hide = "table",
+		capacity = 2,
+		noise = 4,
+		color = { 104, 76, 52 },
+		material = "Wood",
+	},
+	Desk = {
+		size = { 7, 3.4, 3.5 },
+		hide = "table",
+		capacity = 1,
+		noise = 4,
+		color = { 74, 54, 40 },
+		material = "Wood",
+	},
+	Curtain = {
+		size = { 6, 10, 1.5 },
+		hide = "curtain",
+		capacity = 1,
+		noise = 3,
+		color = { 120, 40, 44 },
+		material = "Fabric",
+	},
+	Bathtub = {
+		size = { 8, 3, 4 },
+		hide = "curtain",
+		capacity = 1,
+		noise = 8,
+		color = { 214, 214, 206 },
+		material = "Marble",
+	},
+
+	DiningTable = { size = { 6, 3.4, 12 }, color = { 90, 60, 40 }, material = "Wood" },
+	Sofa = { size = { 9, 3.5, 4 }, color = { 70, 82, 96 }, material = "Fabric" },
+	Armchair = { size = { 4, 4, 4 }, color = { 110, 70, 60 }, material = "Fabric" },
+	Counter = { size = { 12, 3.6, 3 }, color = { 180, 176, 166 }, material = "Granite" },
+	Fridge = { size = { 4, 8, 3.5 }, color = { 210, 210, 204 }, material = "SmoothPlastic" },
+	Stove = { size = { 4, 3.6, 3.5 }, color = { 60, 60, 62 }, material = "Metal" },
+	Shelf = { size = { 8, 9, 2 }, color = { 96, 70, 50 }, material = "Wood" },
+	Sink = { size = { 3, 3.5, 2.5 }, color = { 220, 220, 214 }, material = "Marble" },
+	Toilet = { size = { 2.5, 3, 3.5 }, color = { 226, 226, 220 }, material = "Marble" },
+	Crib = { size = { 5, 4, 3 }, color = { 200, 190, 170 }, material = "Wood" },
+	Washer = { size = { 3.5, 4, 3.5 }, color = { 220, 220, 216 }, material = "SmoothPlastic" },
+	Boxes = { size = { 4, 4, 4 }, color = { 150, 120, 84 }, material = "Cardboard" },
+	Workbench = { size = { 10, 3.6, 3.5 }, color = { 110, 86, 60 }, material = "WoodPlanks" },
+	Car = { size = { 7, 5, 14 }, color = { 60, 72, 66 }, material = "Metal" },
+	Piano = { size = { 7, 5, 3 }, color = { 24, 22, 22 }, material = "SmoothPlastic" },
+	TVStand = { size = { 6, 3, 2 }, light = "tv", color = { 50, 40, 34 }, material = "Wood" },
+	Dresser = { size = { 6, 4.5, 2.5 }, color = { 112, 82, 58 }, material = "Wood" },
+	Plant = { size = { 2, 5, 2 }, color = { 54, 80, 50 }, material = "Grass" },
+	GrandfatherClock = { size = { 2.5, 8, 2 }, color = { 70, 44, 30 }, material = "Wood" },
+	CoatRack = { size = { 2, 7, 2 }, color = { 60, 44, 34 }, material = "Wood" },
+	Bench = { size = { 8, 2.5, 2.5 }, color = { 96, 74, 54 }, material = "Wood" },
+	WaterHeater = { size = { 3, 7, 3 }, color = { 190, 190, 184 }, material = "Metal" },
+	Chest = { size = { 5, 3, 3 }, color = { 86, 58, 38 }, material = "Wood" },
+	Mannequin = { size = { 2, 6.5, 2 }, color = { 214, 200, 180 }, material = "SmoothPlastic" },
+	FloorLamp = { size = { 1.5, 6, 1.5 }, light = "lamp", color = { 40, 36, 30 }, material = "Metal" },
+	Shrine = { size = { 3, 4, 3 }, color = { 70, 60, 48 }, material = "Wood" },
+
+	-- Decor that never blocks movement.
+	Chair = { size = { 2.5, 4, 2.5 }, collide = false, color = { 96, 70, 50 }, material = "Wood" },
+	Rug = { size = { 10, 0.1, 14 }, collide = false, color = { 110, 50, 44 }, material = "Fabric" },
+}
+
+-- Wall decor kinds, mounted flat on a wall.
+local WallDecor = {
+	Painting = { size = { 5, 4 } },
+	Window = { size = { 6, 5 }, light = "window" },
+	Mirror = { size = { 3, 5 } },
+}
+
+return {
+	Kinds = Props,
+	WallDecor = WallDecor,
+}

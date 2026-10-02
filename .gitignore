@@ -1,0 +1,13 @@
+# Build output
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+!assets/**/*.rbxm
+
+# Tooling
+/Packages
+/ServerPackages
+/DevPackages
+sourcemap.json
+.DS_Store

@@ -1,0 +1,84 @@
+{
+  "name": "Consensus",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+
+    "StarterPlayer": {
+      "$properties": {
+        "CharacterWalkSpeed": 12,
+        "CharacterUseJumpPower": false,
+        "CharacterJumpHeight": 4,
+        "CameraMaxZoomDistance": 14,
+        "EnableMouseLockOption": false,
+        "LoadCharacterAppearance": true
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false,
+        "FallenPartsDestroyHeight": -500
+      }
+    },
+
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "Ambient": [0.07, 0.065, 0.08],
+        "OutdoorAmbient": [0.05, 0.05, 0.07],
+        "Brightness": 0.4,
+        "ClockTime": 0.5,
+        "GlobalShadows": true,
+        "EnvironmentDiffuseScale": 0.15,
+        "EnvironmentSpecularScale": 0.4,
+        "ExposureCompensation": -0.15
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.32,
+          "Offset": 0,
+          "Color": [0.07, 0.065, 0.08],
+          "Decay": [0.04, 0.04, 0.05],
+          "Glare": 0,
+          "Haze": 1.4
+        }
+      }
+    },
+
+    "SoundService": {
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    },
+
+    "VoiceChatService": {
+      "$properties": {
+        "UseAudioApi": "Enabled"
+      }
+    }
+  }
+}

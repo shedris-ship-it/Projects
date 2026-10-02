@@ -1,0 +1,120 @@
+# Architecture
+
+How the code implements the design doc. The design reasons themselves live in [`DesignDoc.md`](DesignDoc.md); this file covers the mechanics.
+
+## Principles
+
+- **The server decides outcomes.** It owns verdicts, catches, ritual success, Drift, evidence and the stalker's position. Clients only change how their own player *sees* the world (doc section 7).
+- **The server sends rules, not world state.** Each client gets a perception profile (a list of rules) and applies it to its own copy of the house. A client's changes to replicated parts don't replicate back, which is what makes per-player divergence cheap on Roblox.
+- **Data-driven content.** Anomalies, tells, rooms, props, tactics, archetypes, tools and pings are data modules. Adding content mostly means adding data.
+- **Pure logic is engine-free.** Everything in `src/shared/Logic` runs under Lune and is unit-tested: generation, validation, deduction, Drift, verdicts, AI scoring and pacing.
+- **Determinism.** Every random choice in a run comes from one seeded RNG (`Lib/Rng`, Park–Miller) forked per subsystem. The seed is logged, shown in the debug overlay and Dossier, and can be forced with `seed <n>`.
+
+## Server services
+
+`Main.server.luau` requires every ModuleScript in `Services/`, calls `Init(services)` on each (in name order) and then `Start()`. Services hold references to each other and talk through methods and `Signal`s. There are no shared globals.
+
+| Service | Owns |
+| --- | --- |
+| RunOrchestrator | The phase state machine, run setup and teardown, win/lose, extraction, rewards, resync for late clients |
+| LobbyService | The hub: tool pedestals, difficulty, ready-up countdown, character loading |
+| WorldService | Builds and clears the house (`World/LevelBuilder`). Spatial queries: room at a position, doorways, lights, slots. Collision groups |
+| PlayerStateService | Active / Downed / Lost (Echo) / Extracted. Revives, isolation for Drift, movement noise, the speed sanity check, flashlight and battery, AFK |
+| WitnessService | Witnessable registry, Witness windows and anchoring, Focus, camera view reports, line-of-sight helpers, pings, callouts |
+| DriftService | Wraps `Logic/DriftModel`, publishes Drift to `ReplicatedStorage.RunState` |
+| DivergenceService | Runs `Logic/PerceptionPlanner`, sends per-player profiles, registers divergent targets, sends one-off scares |
+| AnomalyService | Picks the anomaly, plans evidence (`Logic/EvidencePlanner`), places tell sites and base props, prepares the Source, runs the ritual, Witness Camera photos |
+| CaseBoardService | Confirmed, debunked and claimed tells, suspects (`Logic/CaseBoard`), the physical corkboard |
+| VerdictService | The Deliberation Table and vote rules (`Logic/Verdict`) |
+| HidingService | Hiding spots, capacity, peek camera, hold breath and gasps, stalker inspections |
+| DoorService | Opening, closing and bracing doors; stalker door delays; knocks |
+| ToolService | Witness Camera, Lantern and shrines, Radio, Plumb Line |
+| NoiseService | Noise events the stalker hears |
+| SquadProfileService | Habit counters with decay (`Logic/SquadProfile`) and the end-of-run Dossier |
+| StalkerService | The stalker's body and mode machine. Uses `Stalker/Director`, `Stalker/Tactician`, `Stalker/Perception`, `Stalker/Navigator` and `Stalker/StalkerModel` |
+| CompanionService | The solo Companion Witness |
+| DataService | Session-locked DataStore profiles with versioned migrations, retry with backoff, autosave |
+| Telemetry | Event log lines and AnalyticsService custom events |
+| DebugService | Debug commands and the overlay feed |
+
+## Client controllers
+
+`Main.client.luau` mirrors the server: every module in `Controllers/` gets `Init(controllers)`, then `Start()`.
+
+| Controller | Owns |
+| --- | --- |
+| StateController | RunState and player attributes as signals; layout, case board, lobby and profile snapshots; settings |
+| PerceptionController | Applies and reverts perception rules: seam flips, phantom props, variant props, phantom sounds, unobserved shifts, ghost trails, hidden teammates, hidden writing, portrait eyes. Also stalker visibility and dissolve, scares, ritual flickers, key labels |
+| WitnessController | Aiming, hold-to-Witness, 12 Hz view reports, ping and callout sending, world markers |
+| ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden), the camera flashlight, plumb-line beams |
+| AudioController | Sound groups with volume settings, room reverb, Drift layers, ducking, positional one-shots, captions |
+| EffectsController | Drift-driven colour, vignette and atmosphere; light flicker; hunt tint; photo flash; low-end mode |
+| UIController | Every screen in `UI/` |
+
+## A run, end to end
+
+1. **Lobby → Generating.** `LobbyService` starts the run when everyone in the hub is ready. `RunOrchestrator` picks a seed. `LevelGraph.generate` grows a layout and `LayoutValidator` checks it, retrying with the next seed up to 10 times, then falling back to an authored layout. `WorldService` builds the house unparented and parents it once.
+2. **Setup.** `AnomalyService` picks an anomaly the location supports, lets its ritual reserve what it needs (`prepare`), plans 3–4 true tells and 1–2 red herrings, and places tell sites in wall, floor and seam slots. `DivergenceService` turns the sites into per-player rules. The planner guarantees two things: social tells look different to different Witnesses, and every Witness has something a teammate can disprove. Base props are then built showing the true state.
+3. **Arrival → Investigation.** Witnessing a tell site with a second Witness anchors it: a true tell is confirmed (Drift −6), a herring is debunked. A lone Witness's observation becomes an unconfirmed claim. The Witness Camera confirms alone (Drift −3).
+4. **Stalker.** At 1 Hz the Director turns Drift and run state into a target tier and hunt timing (`Logic/DirectorModel`) and plays the scare deck. At 15 Hz the body perceives, applies the observation rule and acts out its mode. During hunts the Tactician scores 13 tactics against the squad profile at about 1.5 Hz and picks one of the top three.
+5. **Verdict → Resolution.** A correct verdict starts the ritual and the final hunt. A wrong one costs Drift and forces a hunt.
+6. **Extraction → Debrief.** The exit opens. Rewards are granted and the Dossier is sent. Everything is torn down and players return to the hub.
+
+## Divergence model
+
+Rules look like `{ id, kind, target, minDrift, params }`. A rule is active when Drift ≥ `minDrift` and its target isn't anchored. Anchoring broadcasts `PerceptionAnchor(target, seconds)`, and every client reverts rules on that target until the anchor expires, so the truth shows for everyone.
+
+The layout makes this cheap. **Every wall between two rooms** is two wall pieces, a lintel and a doorway-sized seam panel. On a real doorway the panel is invisible and non-collidable; on a solid wall it is solid. A `SeamFlip` rule flips the panel for one client:
+
+- *Phantom door:* a real wall the client sees as a doorway and can walk through. The server tolerates this (Witness line-of-sight checks skip seam panels).
+- *Fake wall:* a real doorway the client sees as a wall. It is **visual only, never collidable**, so a divergence can't trap anyone in a chase (doc section 3, fairness contract).
+
+## The observation rule
+
+Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, *and* it is visible to that player (tier 1 shows it to one Witness only), for 0.3 seconds or more.
+
+| Watchers | Result |
+| --- | --- |
+| 0 | It repositions freely, relocating only to spots nobody is looking at |
+| 1 | It holds still and turns to face you; at tier 2 it takes a slow step closer after a reaction delay |
+| 2 or more | Frozen. Holding the stare together for 3 seconds (draining Focus) drives it off; during a normal hunt that ends the hunt |
+
+The Companion Witness counts as a second watcher only while a real player is also watching.
+
+## Remote protocol
+
+Every client → server remote goes through `Net.onServer`, which applies a per-call interval, a sliding one-second burst cap, and a type schema (NaN and infinities are rejected).
+
+| Remote | Direction | Payload | Limits |
+| --- | --- | --- | --- |
+| ReportView | C→S unreliable | `CFrame` | ≥1/30 s, must be within 30 studs of the head |
+| Witness | C→S | `targetId: string?`, `position: Vector3` | 0.35 s, burst 4; range, line of sight and Focus checked |
+| Ping | C→S | `type: string`, `position: Vector3` | 0.8 s, burst 3; Echoes once a minute |
+| Callout | C→S | `type: string`, `position: Vector3` | 2 s |
+| UseTool | C→S | `targetId: string?`, `position: Vector3?` | 0.25 s; film, cooldowns and range checked |
+| SetFlashlight, HoldBreath, SetReady | C→S | `boolean` | 0.05–0.2 s |
+| SelectTool, SetDifficulty, CastVote | C→S | `string` | 0.2–0.3 s; whitelisted values |
+| LeaveHiding, RequestSync | C→S | none | 0.3 s / 2 s |
+| RitualAction | C→S | `table?` | 0.2 s; only during Resolution |
+| SaveSettings | C→S | `table` | 1 s; keys whitelisted, numbers range-checked |
+| DebugCommand | C→S | `string` | 0.2 s; Studio or allow-listed users only |
+| PerceptionProfile, PerceptionAnchor, StalkerVisibility, Scare, ItemLabels | S→C | per player | |
+| Pinged, CalloutHeard, WitnessFeedback, Notify, HuntState, CaseBoard, VerdictState, Layout, LobbyState, RitualState, PlumbLine | S→C | broadcast | |
+| PhotoResult, Dossier, ProfileData | S→C | per player | |
+| DebugState | S→C unreliable | snapshot | 2 Hz to overlay users |
+
+## Security model
+
+- Clients can't decide outcomes: verdicts, catches, anchors, Drift, evidence and ritual progress are all server-side.
+- Hidden truth is sent only when earned. Clients never learn which tells are red herrings, where the Source is, or which key is genuine. Fake stalker pings look identical to real ones.
+- An exploiter *can* strip their own divergences (accepted in doc section 7). That never decides anyone else's outcome.
+- Movement: characters are client-simulated, so the server snaps a character back if it covers ground at more than 2.2× sprint speed twice in a row. Server teleports grant a short grace period.
+- Saves: a session lock prevents two servers writing the same profile. Values are clamped and reconciled on load.
+
+## Performance notes
+
+- The level is an estimated 1,500–3,000 parts for 10–16 rooms (bookshelves are the biggest share). Check the real count with the `perf` debug command. It is built unparented and parented once. Streaming is off: levels are small, and the doc calls for avoiding streaming complexity.
+- Stalker body updates run at 15 Hz, the Tactician at about 1.5 Hz, the Director at 1 Hz, and Witness, Focus and player-state upkeep at 4–10 Hz.
+- Navigation needs no navmesh. Templates keep room centres and doorway lanes clear, so the route centre → doorway → centre is always walkable. A stuck detector nudges the stalker when nobody is looking.
+- One shadow-casting key light per room. Low-end mode turns off shadows from small clutter, depth of field and bloom.
+- Measure with the debug overlay (FPS, memory, instances, server heartbeat) and with the MicroProfiler on a real phone.
