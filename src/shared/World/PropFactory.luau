@@ -72,6 +72,9 @@ function PropFactory.part(
 	if o.reflectance then
 		p.Reflectance = o.reflectance
 	end
+	if o.variant then
+		p.MaterialVariant = o.variant
+	end
 	p.Parent = parent
 	return p
 end

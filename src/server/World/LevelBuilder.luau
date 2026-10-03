@@ -225,6 +225,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		local floorColor = PropFactory.rgb(template.floor.color)
 		local wallColor = PropFactory.rgb(template.wall.color)
 		local wallMaterial = PropFactory.material(template.wall.material)
+		local wallSurface = { color = wallColor, material = wallMaterial }
 		PropFactory.part(
 			model,
 			"Floor",
@@ -260,6 +261,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			hidingSpots = {},
 			props = {},
 			lightOn = true,
+			wallSurface = wallSurface,
 		}
 		world.rooms[room.id] = record
 
@@ -689,8 +691,16 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		local faceA = roomA.center + WORLD_DIRS[dirA] * INNER
 		local faceB = roomB.center + WORLD_DIRS[dirB] * INNER
 		Trim.seam(record, {
-			{ parent = roomA.model, face = CFrame.lookAt(faceA, faceA - WORLD_DIRS[dirA]) },
-			{ parent = roomB.model, face = CFrame.lookAt(faceB, faceB - WORLD_DIRS[dirB]) },
+			{
+				parent = roomA.model,
+				face = CFrame.lookAt(faceA, faceA - WORLD_DIRS[dirA]),
+				surface = roomA.wallSurface,
+			},
+			{
+				parent = roomB.model,
+				face = CFrame.lookAt(faceB, faceB - WORLD_DIRS[dirB]),
+				surface = roomB.wallSurface,
+			},
 		}, midpoint, normal)
 
 		if seam.connected and seam.door then

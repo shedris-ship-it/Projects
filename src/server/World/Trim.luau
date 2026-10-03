@@ -10,6 +10,12 @@
 -- it's a doorway. PerceptionController flips both with the seam, so a phantom
 -- doorway is framed like a real one and a hidden doorway leaves an unbroken
 -- baseboard.
+--
+-- The wall surface flips the same way. Roblox starts a material's pattern
+-- afresh on every part, so a patterned wall built from pieces and a seam panel
+-- would show a door-shaped outline. A thin skin over the wall face hides that:
+-- one unbroken piece while the seam reads as a wall, three pieces around the
+-- opening while it reads as a doorway.
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -27,6 +33,7 @@ local DOOR_W = Config.Level.DoorWidth
 local DOOR_H = Config.Level.DoorHeight
 local EDGE = DOOR_W / 2 + T.CasingWidth -- where the baseboard meets a casing
 
+local SKIN_DEPTH = 0.02 -- behind every wall-mounted prop and tell, the closest at 0.025
 local UP = Vector3.new(0, 1, 0)
 local NO_BLOCK = { collide = false, query = false, castShadow = false }
 
@@ -216,9 +223,24 @@ function Trim.exitCasing(parent, face: CFrame)
 	casing(parent, face, function() end)
 end
 
+-- A skin over part of a wall face (face-local x and y ranges), in the same
+-- surface as the wall.
+local function skin(parent, face: CFrame, x0, x1, y0, y1, surface): BasePart
+	return PropFactory.part(
+		parent,
+		"WallSkin",
+		Vector3.new(x1 - x0, y1 - y0, SKIN_DEPTH),
+		face * CFrame.new((x0 + x1) / 2, (y0 + y1) / 2, -SKIN_DEPTH),
+		surface.color,
+		surface.material,
+		{ collide = false, query = false, castShadow = false, variant = surface.variant }
+	)
+end
+
 -- Trim that flips with a seam. `faces` are the two rooms' wall faces at the
 -- seam (centre at floor level, LookVector into each room, with the room
--- model to parent to); `through` is the unit vector from room A to room B.
+-- model to parent to and its wall `surface`: color, material, variant);
+-- `through` is the unit vector from room A to room B.
 function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 	local function tagger(role: string)
 		return function(p: BasePart?)
@@ -253,6 +275,13 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 			)
 		)
 		casing(f.parent, f.face, asDoor)
+		-- The wall surface: whole while it's a wall, around the opening while
+		-- it's a doorway.
+		local half = DOOR_W / 2
+		asWall(skin(f.parent, f.face, -INNER, INNER, 0, HEIGHT, f.surface))
+		asDoor(skin(f.parent, f.face, -INNER, -half, 0, HEIGHT, f.surface))
+		asDoor(skin(f.parent, f.face, half, INNER, 0, HEIGHT, f.surface))
+		asDoor(skin(f.parent, f.face, -half, half, DOOR_H, HEIGHT, f.surface))
 	end
 	-- Lining for the sides and top of the opening, through both wall layers.
 	local paintColor, paintMaterial = paint()
