@@ -17,6 +17,7 @@ local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
+local Dressing = require(script.Parent.Dressing)
 local Grime = require(script.Parent.Grime)
 local Trim = require(script.Parent.Trim)
 
@@ -808,6 +809,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 	-- Grime last, so it can keep clear of everything placed before it. Its own
 	-- fork, so it changes nothing else a seed builds.
 	Grime.build(world, rng:Fork("grime"))
+	Dressing.build(world, rng:Fork("dressing"))
 
 	world.rng = rng
 	return world

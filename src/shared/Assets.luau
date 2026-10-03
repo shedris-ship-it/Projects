@@ -65,4 +65,26 @@ Assets.Grime = {
 	PictureGhost = "rbxassetid://91613317867163",
 }
 
+-- Family photos (docs/ART.md, Hero props), drawn by tools/textures.py and
+-- uploaded 2026-10-02. Each snapshot has three states the client swaps
+-- between as Drift rises: normal, blurred, faces gone. Shared decay, never
+-- Witnessable (rule 6).
+Assets.Photos = {
+	{
+		normal = "rbxassetid://93593792403354",
+		blurred = "rbxassetid://88847923447051",
+		faceless = "rbxassetid://112610928737804",
+	},
+	{
+		normal = "rbxassetid://79528651347044",
+		blurred = "rbxassetid://110600633771474",
+		faceless = "rbxassetid://138887055186799",
+	},
+	{
+		normal = "rbxassetid://137179035919061",
+		blurred = "rbxassetid://77790508697041",
+		faceless = "rbxassetid://134121802581437",
+	},
+}
+
 return Assets

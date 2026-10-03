@@ -27,6 +27,8 @@ local FX = Config.PostFX
 local lights = {} -- light -> { base brightness }
 local flickering = {} -- light -> until
 local dust = {} -- ParticleEmitter -> air-current phase
+local photos = {} -- photo card -> its snapshot (Assets.Photos index)
+local photoState = "normal"
 local hunt = { state = nil, started = 0, duration = 0 }
 
 function EffectsController:Init(controllers)
@@ -235,6 +237,24 @@ local function trackLight(part: Instance)
 	task.spawn(addDust, part)
 end
 
+-- Family photos age with Drift (docs/ART.md, the run's arc): shared decay,
+-- the same for every player at the same Drift (rule 6).
+local function showPhoto(card: Instance)
+	local set = Assets.Photos[photos[card]]
+	local decal = card:FindFirstChild("Picture")
+	if set and decal and decal:IsA("Decal") then
+		decal.Texture = set[photoState] or set.normal
+	end
+end
+
+local function trackPhoto(card: Instance)
+	local set = card:GetAttribute("PhotoSet")
+	if type(set) == "number" then
+		photos[card] = set
+		showPhoto(card)
+	end
+end
+
 -- Where The Guest's body is, or nil while it's parked out of the house.
 local function guestPosition(): Vector3?
 	local level = Workspace:FindFirstChild("ConsensusLevel")
@@ -253,6 +273,15 @@ function EffectsController:Start()
 	end
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.RoomLight):Connect(function(part)
 		task.defer(trackLight, part)
+	end)
+	for _, card in CollectionService:GetTagged(Constants.Tags.Photo) do
+		trackPhoto(card)
+	end
+	CollectionService:GetInstanceAddedSignal(Constants.Tags.Photo):Connect(function(card)
+		task.defer(trackPhoto, card)
+	end)
+	CollectionService:GetInstanceRemovedSignal(Constants.Tags.Photo):Connect(function(card)
+		photos[card] = nil
 	end)
 	CollectionService:GetInstanceRemovedSignal(Constants.Tags.RoomLight):Connect(function(part)
 		for light, info in lights do
@@ -386,6 +415,17 @@ function EffectsController:_update(dt: number)
 		self.grain.ImageTransparency = settings.reduceGrain and 1
 			or (inRun and lerp(FX.GrainCalm, FX.GrainCollapse, t) or 1)
 		self.grain.Position = UDim2.fromOffset(-math.random(0, FX.GrainTile), -math.random(0, FX.GrainTile))
+	end
+
+	local dressing = Config.Dressing
+	local state = drift >= dressing.PhotoFacelessAt and "faceless"
+		or drift >= dressing.PhotoBlurAt and "blurred"
+		or "normal"
+	if state ~= photoState then
+		photoState = state
+		for card in photos do
+			showPhoto(card)
+		end
 	end
 
 	-- The air in each room drifts slowly, carrying its dust together.

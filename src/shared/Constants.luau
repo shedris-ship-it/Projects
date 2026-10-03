@@ -14,6 +14,7 @@ Constants.Tags = {
 	Stalker = "ConsensusStalker",
 	Companion = "ConsensusCompanion",
 	Item = "ConsensusItem",
+	Photo = "ConsensusPhoto", -- a family photo the client ages with Drift
 	Level = "ConsensusLevel",
 }
 

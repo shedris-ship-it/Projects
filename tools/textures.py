@@ -479,6 +479,127 @@ def grime_picture_ghost():
     print("wrote grime_picture_ghost")
 
 
+# Family photos (docs/ART.md, Hero props) -----------------------------------
+# Faded 1980s snapshots of an ordinary family, painted as simple shapes (no
+# real people). Each comes in three states the client swaps between as Drift
+# rises: normal, blurred, and with the faces gone.
+
+PHOTO_W, PHOTO_H = 400, 500
+SKIN = (214, 176, 146)
+
+
+def _figure(d, x, ground, height, shirt, hair, rng, child=False):
+    """One standing figure; returns the face box for the later states."""
+    head = height * (0.17 if child else 0.14)
+    body_w = head * 1.9
+    top = ground - height
+    face = (x - head / 2, top, x + head / 2, top + head * 1.15)
+    # Legs, body, arms, neck, head, hair.
+    d.rectangle((x - body_w * 0.35, ground - height * 0.42, x + body_w * 0.35, ground), fill=(58, 54, 60))
+    d.rounded_rectangle(
+        (x - body_w / 2, top + head * 1.05, x + body_w / 2, ground - height * 0.38), radius=head * 0.35, fill=shirt
+    )
+    d.rectangle((x - head * 0.18, top + head * 0.95, x + head * 0.18, top + head * 1.15), fill=SKIN)
+    d.ellipse(face, fill=SKIN)
+    d.chord((face[0] - 2, face[1] - head * 0.12, face[2] + 2, face[1] + head * 0.7), 180, 360, fill=hair)
+    return face
+
+
+def _features(d, face):
+    x0, y0, x1, y1 = face
+    w, h = x1 - x0, y1 - y0
+    for ex in (0.33, 0.67):
+        d.ellipse((x0 + w * ex - w * 0.06, y0 + h * 0.45, x0 + w * ex + w * 0.06, y0 + h * 0.53), fill=(50, 36, 30))
+    d.arc((x0 + w * 0.32, y0 + h * 0.55, x0 + w * 0.68, y0 + h * 0.8), 20, 160, fill=(120, 60, 50), width=2)
+
+
+def _scene(kind, rng):
+    img = Image.new("RGB", (PHOTO_W, PHOTO_H), (0, 0, 0))
+    d = ImageDraw.Draw(img)
+    faces = []
+    if kind == 0:
+        # The family on the front lawn, the house behind them.
+        d.rectangle((0, 0, PHOTO_W, 220), fill=(150, 176, 196))
+        d.rectangle((0, 220, PHOTO_W, PHOTO_H), fill=(92, 120, 70))
+        d.rectangle((40, 90, 360, 300), fill=(196, 182, 150))
+        d.polygon([(20, 100), (200, 30), (380, 100)], fill=(110, 70, 60))
+        d.rectangle((170, 200, 230, 300), fill=(90, 60, 44))
+        d.rectangle((0, 300, PHOTO_W, PHOTO_H), fill=(92, 120, 70))
+        people = [(110, 300, (140, 60, 50), (60, 44, 30)), (190, 290, (60, 80, 120), (40, 30, 24))]
+        kids = [(260, 170, (180, 150, 60), (90, 64, 40)), (320, 150, (200, 90, 90), (90, 64, 40))]
+        for x, h, shirt, hair in people:
+            faces.append(_figure(d, x, 440, h, shirt, hair, rng))
+        for x, h, shirt, hair in kids:
+            faces.append(_figure(d, x, 440, h, shirt, hair, rng, child=True))
+    elif kind == 1:
+        # A couple at the dining table, a birthday cake between them.
+        d.rectangle((0, 0, PHOTO_W, PHOTO_H), fill=(140, 110, 100))
+        d.rectangle((0, 0, PHOTO_W, 60), fill=(120, 92, 84))
+        d.rectangle((260, 70, 360, 170), fill=(80, 70, 60))
+        faces.append(_figure(d, 110, 470, 300, (120, 100, 70), (50, 36, 26), rng))
+        faces.append(_figure(d, 290, 470, 290, (90, 110, 90), (110, 70, 40), rng))
+        d.rectangle((0, 330, PHOTO_W, PHOTO_H), fill=(200, 196, 180))
+        d.rectangle((150, 270, 250, 330), fill=(232, 220, 200))
+        for cx in (170, 200, 230):
+            d.rectangle((cx - 2, 245, cx + 2, 270), fill=(220, 200, 120))
+            d.ellipse((cx - 4, 236, cx + 4, 248), fill=(255, 220, 140))
+    else:
+        # Grandmother on the sofa with a small child.
+        d.rectangle((0, 0, PHOTO_W, PHOTO_H), fill=(110, 116, 98))
+        d.rectangle((20, 250, 380, 420), fill=(120, 80, 60))
+        d.rectangle((20, 220, 380, 280), fill=(104, 70, 52))
+        faces.append(_figure(d, 160, 420, 260, (150, 140, 160), (210, 210, 205), rng))
+        faces.append(_figure(d, 270, 420, 170, (200, 170, 80), (80, 60, 36), rng, child=True))
+        d.rectangle((0, 420, PHOTO_W, PHOTO_H), fill=(90, 70, 56))
+    return img, d, faces
+
+
+def _finish(img, rng):
+    """Faded colour, grain, a soft vignette and the white print border."""
+    a = np.asarray(img, dtype=np.float64) / 255.0
+    lum = a @ np.array([0.3, 0.59, 0.11])
+    sepia = np.stack([lum * 1.07 + 0.06, lum * 0.95 + 0.04, lum * 0.78 + 0.02], axis=-1)
+    a = a * 0.45 + sepia * 0.55
+    a = a * 0.85 + 0.1  # lifted, faded blacks
+    a += rng.normal(0, 0.025, a.shape[:2])[..., None]
+    yy, xx = np.mgrid[0 : a.shape[0], 0 : a.shape[1]]
+    r = np.sqrt(((xx / a.shape[1]) - 0.5) ** 2 + ((yy / a.shape[0]) - 0.5) ** 2)
+    a *= (1 - 0.35 * np.clip(r - 0.3, 0, 1) * 2)[..., None]
+    pic = Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8), "RGB")
+    border = Image.new("RGB", (PHOTO_W + 40, PHOTO_H + 70), (226, 220, 204))
+    border.paste(pic, (20, 20))
+    return border
+
+
+def photos():
+    for kind in range(3):
+        for state in ("normal", "blurred", "faceless"):
+            rng = np.random.default_rng(1000 + kind)
+            img, d, faces = _scene(kind, rng)
+            if state != "faceless":
+                for face in faces:
+                    _features(d, face)
+            if state == "blurred":
+                # The faces smear first; the rest of the picture only softens.
+                soft = img.filter(ImageFilter.GaussianBlur(3))
+                smear = img.filter(ImageFilter.GaussianBlur(9))
+                mask = Image.new("L", img.size, 0)
+                md = ImageDraw.Draw(mask)
+                for x0, y0, x1, y1 in faces:
+                    md.ellipse((x0 - 10, y0 - 10, x1 + 10, y1 + 10), fill=255)
+                img = Image.composite(smear, soft, mask.filter(ImageFilter.GaussianBlur(6)))
+            elif state == "faceless":
+                # Blank faces, as if rubbed out, with dark smudges over them.
+                for x0, y0, x1, y1 in faces:
+                    d.ellipse((x0, y0 + (y1 - y0) * 0.25, x1, y1), fill=(196, 168, 146))
+                    d.ellipse((x0 + 2, y0 + (y1 - y0) * 0.35, x1 - 2, y1 - 4), fill=(150, 130, 116))
+                img = img.filter(ImageFilter.GaussianBlur(1.2))
+            out = _finish(img, np.random.default_rng(2000 + kind))
+            path = os.path.join(OUT, "photo_%d_%s.jpg" % (kind + 1, state))
+            out.save(path, quality=90)
+            print("wrote", os.path.relpath(path))
+
+
 if __name__ == "__main__":
     wallpaper_sprig()
     wallpaper_stripe()
@@ -495,3 +616,4 @@ if __name__ == "__main__":
     grime_rust_streak()
     grime_scuffs()
     grime_picture_ghost()
+    photos()

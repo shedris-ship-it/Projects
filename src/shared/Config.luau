@@ -182,7 +182,22 @@ Config.Trim = {
 -- on its own is never a giveaway.
 Config.Props = {
 	DecorClocks = 3, -- wall clocks per house, in wall slots no tell used
-	DecorRadios = 2, -- radios per house, in free floor slots of living rooms
+	DecorRadios = 2, -- radios per house, in free floor slots of living and bedroom rooms
+}
+
+-- Small things on furniture tops (World/Dressing): photos and a telephone.
+Config.Dressing = {
+	Telephones = 1, -- per house, in a hall, corridor or the foyer
+	TelephoneChance = 0.6, -- per suitable surface, until one is placed
+	MaxPhotos = 6,
+	PhotoChance = 0.45, -- per suitable surface
+	PhotoKinds = { Dresser = true, Chest = true, Piano = true, Desk = true },
+	SpotWidth = 1.4, -- studs of tabletop per item
+	Jitter = 18, -- degrees each item is turned off square
+	-- Photos age with Drift (docs/ART.md, the run's arc): normal, then the
+	-- faces blur from Breaking, then they're gone from Collapsing.
+	PhotoBlurAt = 60,
+	PhotoFacelessAt = 80,
 }
 
 -- The grime layer (World/Grime): shared decals placed from the seed.

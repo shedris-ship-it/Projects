@@ -1393,21 +1393,47 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 			end
 		end
 	elseif model == "Radio" then
+		-- A 1970s cabinet radio on a small side table (docs/ART.md, Hero
+		-- props). Decorative radios use this same builder, so a radio on its
+		-- own is never the clue.
+		local walnut = Color3.fromRGB(78, 54, 36)
 		part(
 			m,
 			"Table",
-			Vector3.new(2.4, 2.6, 2),
-			cf * CFrame.new(0, 1.3, 0),
-			Color3.fromRGB(90, 66, 46),
+			Vector3.new(2.4, 0.16, 1.9),
+			cf * CFrame.new(0, 2.52, 0),
+			walnut,
 			PropFactory.material("Wood"),
 			noCollide
 		)
+		part(
+			m,
+			"Shelf",
+			Vector3.new(2.1, 0.1, 1.6),
+			cf * CFrame.new(0, 0.8, 0),
+			walnut,
+			PropFactory.material("Wood"),
+			noCollide
+		)
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				part(
+					m,
+					"Leg",
+					Vector3.new(0.14, 2.44, 0.14),
+					cf * CFrame.new(sx * 1.05, 1.22, sz * 0.8),
+					walnut,
+					PropFactory.material("Wood"),
+					noCollide
+				)
+			end
+		end
 		local body = part(
 			m,
 			"Body",
-			Vector3.new(1.8, 1.2, 1),
-			cf * CFrame.new(0, 3.2, 0),
-			Color3.fromRGB(100, 70, 40),
+			Vector3.new(1.9, 1.05, 0.85),
+			cf * CFrame.new(0, 3.13, -0.1),
+			Color3.fromRGB(104, 70, 42),
 			PropFactory.material("Wood"),
 			noCollide
 		)
@@ -1415,20 +1441,52 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 		part(
 			m,
 			"Grille",
-			Vector3.new(1, 0.8, 0.05),
-			cf * CFrame.new(-0.3, 3.2, 0.52),
-			Color3.fromRGB(40, 30, 20),
+			Vector3.new(0.9, 0.78, 0.04),
+			cf * CFrame.new(-0.4, 3.13, 0.34),
+			Color3.fromRGB(70, 58, 44),
 			PropFactory.material("Fabric"),
-			noCollide
+			{ collide = false, castShadow = false }
 		)
-		part(
+		-- The tuning dial, faintly lit, with its needle.
+		local dial = part(
 			m,
 			"Dial",
-			Vector3.new(0.4, 0.4, 0.1),
-			cf * CFrame.new(0.55, 3.2, 0.52),
-			Color3.fromRGB(220, 200, 150),
+			Vector3.new(0.72, 0.3, 0.03),
+			cf * CFrame.new(0.45, 3.32, 0.34),
+			Color3.fromRGB(196, 150, 84),
+			PropFactory.material("Neon"),
+			{ collide = false, castShadow = false }
+		)
+		dial.Transparency = 0.45
+		part(
+			m,
+			"Needle",
+			Vector3.new(0.025, 0.26, 0.02),
+			cf * CFrame.new(0.38, 3.32, 0.36),
+			Color3.fromRGB(150, 40, 30),
 			PropFactory.material("SmoothPlastic"),
-			noCollide
+			{ collide = false, castShadow = false, query = false }
+		)
+		for _, kx in { 0.25, 0.65 } do
+			part(
+				m,
+				"Knob",
+				Vector3.new(0.12, 0.2, 0.2),
+				cf * CFrame.new(kx, 2.9, 0.38) * CFrame.Angles(0, math.pi / 2, 0),
+				Color3.fromRGB(196, 186, 160),
+				PropFactory.material("SmoothPlastic"),
+				{ collide = false, castShadow = false, shape = Enum.PartType.Cylinder, query = false }
+			)
+		end
+		-- A telescopic aerial, leaning back.
+		part(
+			m,
+			"Aerial",
+			Vector3.new(0.04, 1.6, 0.04),
+			cf * CFrame.new(0.7, 4.3, -0.4) * CFrame.Angles(math.rad(-25), 0, math.rad(-15)),
+			Color3.fromRGB(170, 170, 166),
+			PropFactory.material("Metal"),
+			{ collide = false, castShadow = false, query = false }
 		)
 	elseif model == "Portrait" then
 		part(

@@ -230,10 +230,11 @@ function AnomalyService:_placePortraits(rng, rooms)
 	end
 end
 
--- Decorative clocks in wall slots no tell used, so a wall clock on its own
--- is never the clue (docs/ART.md, Hero props). Same builder and the same
--- attributes as a tell's clock (a CId, no Label); times come from the clue
--- pool. Placed after the tells, so evidence placement is the same per seed.
+-- Decorative clocks in wall slots no tell used, and radios in free floor
+-- slots, so a clock or a radio on its own is never the clue (docs/ART.md,
+-- Hero props). Same builders and the same attributes as a tell's (a CId, no
+-- Label); clock times come from the clue pool. Placed after the tells, so
+-- evidence placement is the same per seed.
 function AnomalyService:_placeDecor(rng, rooms)
 	local clocks = 0
 	for _, roomId in rooms do
@@ -246,6 +247,23 @@ function AnomalyService:_placeDecor(rng, rooms)
 			local model = PropFactory.buildTellBase("Clock", slot.cframe, self.folder, PropFactory.decorClockTime(rng))
 			model:SetAttribute(Constants.Attributes.CId, "decor:clock:" .. clocks)
 			table.insert(self.decor, model)
+		end
+	end
+	local world = self.World.World
+	local radios = 0
+	for _, roomId in rooms do
+		if radios >= Config.Props.DecorRadios then
+			break
+		end
+		local family = world.rooms[roomId].template.family
+		if family == "living" or family == "bedroom" then
+			local slot = self.World:TakeFloorSlot(roomId, rng)
+			if slot then
+				radios += 1
+				local model = PropFactory.buildTellBase("Radio", slot.cframe, self.folder)
+				model:SetAttribute(Constants.Attributes.CId, "decor:radio:" .. radios)
+				table.insert(self.decor, model)
+			end
 		end
 	end
 end
