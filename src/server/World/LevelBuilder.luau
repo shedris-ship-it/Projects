@@ -17,6 +17,7 @@ local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
+local Trim = require(script.Parent.Trim)
 
 local Tags = Constants.Tags
 local Attr = Constants.Attributes
@@ -322,6 +323,20 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			end
 		end
 
+		-- Baseboards and crown on every wall face; doorway casings come with the
+		-- seams below, so they can flip with them.
+		local openings = {}
+		for dirName, side in record.sides do
+			openings[dirName] = side.neighbour ~= nil or side.exit
+		end
+		Trim.room(model, center, roomCF, WORLD_DIRS, openings, template.corridor and {
+			halfWidth = template.corridor.halfWidth,
+			filled = filledArms,
+			rotate = function(side)
+				return LevelGraph.worldSide(side, room.rotation)
+			end,
+		})
+
 		-- Furniture: a hand-built prefab if one exists, otherwise the grey-box.
 		local prefab = prefabs and prefabs:FindFirstChild(template.id)
 		local keyLightPart, keyLightKind = nil, nil
@@ -577,6 +592,8 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				side.panel:Destroy()
 				side.panel = nil
 			end
+			local face = center + dir * INNER
+			Trim.exitCasing(model, CFrame.lookAt(face, face - dir))
 			local size = dir.Z ~= 0 and Vector3.new(DOOR_W, DOOR_H, 0.6) or Vector3.new(0.6, DOOR_H, DOOR_W)
 			local exitDoor = PropFactory.part(
 				model,
@@ -632,7 +649,9 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		end
 	end
 
-	-- Seams and doors, once per pair of neighbouring rooms.
+	-- Seams and doors, once per pair of neighbouring rooms. Which doors rest
+	-- ajar comes from its own fork, so it changes nothing else a seed builds.
+	local ajarRng = rng:Fork("ajar")
 	for _, seam in layout.seams do
 		local roomA, roomB = world.rooms[seam.a], world.rooms[seam.b]
 		local delta = roomB.center - roomA.center
@@ -667,6 +686,12 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		roomA.sides[dirA].seam = record
 		roomB.sides[dirB].seam = record
 		world.seams[seam.id] = record
+		local faceA = roomA.center + WORLD_DIRS[dirA] * INNER
+		local faceB = roomB.center + WORLD_DIRS[dirB] * INNER
+		Trim.seam(record, {
+			{ parent = roomA.model, face = CFrame.lookAt(faceA, faceA - WORLD_DIRS[dirA]) },
+			{ parent = roomB.model, face = CFrame.lookAt(faceB, faceB - WORLD_DIRS[dirB]) },
+		}, midpoint, normal)
 
 		if seam.connected and seam.door then
 			local doorId = "door:" .. seam.a .. "-" .. seam.b
@@ -676,14 +701,32 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			)
 			local doorModel = Instance.new("Model")
 			doorModel.Name = "Door"
+			-- Dark panelled wood (docs/ART.md, Materials): four raised panels on
+			-- each face catch the light, with the knob on the lock rail.
+			local doorColor = PropFactory.rgb(Config.Trim.Wood)
 			local slab = PropFactory.part(
 				doorModel,
 				"Slab",
 				Vector3.new(DOOR_W - 0.2, DOOR_H - 0.2, 0.35),
 				closed,
-				Color3.fromRGB(96, 70, 50),
+				doorColor,
 				PropFactory.material("Wood")
 			)
+			for _, z in { -0.2, 0.2 } do
+				for _, x in { -1.25, 1.25 } do
+					for _, panel in { { y = 1.55, h = 3.6 }, { y = -2.2, h = 2.4 } } do
+						PropFactory.part(
+							doorModel,
+							"Panel",
+							Vector3.new(2, panel.h, 0.06),
+							closed * CFrame.new(x, panel.y, z),
+							PropFactory.shade(doorColor, 1.18),
+							PropFactory.material("Wood"),
+							{ collide = false, query = false, castShadow = false }
+						)
+					end
+				end
+			end
 			-- Hinge on the slab's +X edge, knob on the -X edge.
 			local hinge = (closed * CFrame.new(DOOR_W / 2 - 0.1, 0, 0)).Position
 			local knobOffset = -(DOOR_W / 2 - 0.7)
@@ -692,12 +735,25 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				"Knob",
 				Vector3.new(0.3, 0.3, 0.7),
 				closed * CFrame.new(knobOffset, -0.5, 0),
-				Color3.fromRGB(190, 170, 110),
+				PropFactory.rgb(Config.Trim.Knob),
 				PropFactory.material("Metal"),
 				{ collide = false }
 			)
 			slab.CollisionGroup = Constants.CollisionGroups.Door
 			doorModel.PrimaryPart = slab
+			-- Some doors rest slightly ajar with darkness behind them (docs/ART.md).
+			-- Still closed for play: it blocks the way until someone opens it.
+			local ajar = ajarRng:Chance(Config.Trim.AjarChance)
+			if ajar then
+				local swing = CFrame.new(hinge)
+					* CFrame.Angles(0, math.rad(Config.Trim.AjarAngle), 0)
+					* CFrame.new(-hinge)
+				for _, p in doorModel:GetChildren() do
+					if p:IsA("BasePart") then
+						p.CFrame = swing * p.CFrame
+					end
+				end
+			end
 			doorModel.Parent = roomA.model
 			setId(slab, doorId, "Door")
 			tag(slab, Tags.Door)
@@ -708,7 +764,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				b = seam.b,
 				model = doorModel,
 				slab = slab,
-				closedCFrame = doorModel:GetPivot(),
+				closedCFrame = closed,
 				hinge = hinge,
 				open = false,
 				bracedUntil = 0,

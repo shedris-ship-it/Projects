@@ -102,13 +102,17 @@ function DoorService:_setup(door)
 	door.bracePrompt = brace
 end
 
+-- Swing the slab and everything on it (panels, knob) together.
 function DoorService:_tweenTo(door, cf: CFrame)
 	local slab = door.slab
-	local knob = door.model:FindFirstChild("Knob")
-	local offset = slab.CFrame:ToObjectSpace(knob.CFrame)
 	local info = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	for _, p in door.model:GetChildren() do
+		if p:IsA("BasePart") and p ~= slab then
+			local offset = slab.CFrame:ToObjectSpace(p.CFrame)
+			TweenService:Create(p, info, { CFrame = cf * offset }):Play()
+		end
+	end
 	TweenService:Create(slab, info, { CFrame = cf }):Play()
-	TweenService:Create(knob, info, { CFrame = cf * offset }):Play()
 end
 
 -- Open toward room `b` side so the slab swings out of the doorway.

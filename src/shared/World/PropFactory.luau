@@ -7,6 +7,7 @@
 -- naming conventions (e.g. a Clock's "Face" SurfaceGui) are what the client
 -- PerceptionController relies on, so keep them if you replace a builder.
 
+local Config = require(script.Parent.Parent.Config)
 local Props = require(script.Parent.Parent.Data.Props)
 local Rng = require(script.Parent.Parent.Lib.Rng)
 
@@ -873,42 +874,103 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 		)
 		canvas.Name = "Canvas"
 	elseif kindName == "Window" then
+		-- A window you look into rather than a picture of one (docs/ART.md,
+		-- step 3): a painted casing and sill around the pane, and behind the
+		-- glass the night sky glowing faintly, lighter at the top, with the
+		-- muntins dark against it. The casing is lighter than any wall, like a
+		-- door's, and the inner opening leaves room for a Sealed window's bricks.
+		local paint = rgb(Config.Trim.Paint)
+		local cw, cd = 0.45, 0.18
+		local iw, ih = w - 2 * cw, h - 2 * cw
+		for _, edge in
+			{
+				{ 0, h / 2 - cw / 2, w, cw },
+				{ 0, -(h / 2 - cw / 2), w, cw },
+				{ -(w / 2 - cw / 2), 0, cw, ih },
+				{ w / 2 - cw / 2, 0, cw, ih },
+			}
+		do
+			part(
+				model,
+				"Frame",
+				Vector3.new(edge[3], edge[4], cd),
+				cf * CFrame.new(edge[1], edge[2], -cd / 2),
+				paint,
+				PropFactory.material("Wood"),
+				{ collide = false, castShadow = false }
+			)
+		end
 		part(
 			model,
-			"Frame",
-			Vector3.new(w, h, 0.3),
-			cf * CFrame.new(0, 0, -0.15),
-			Color3.fromRGB(200, 196, 186),
+			"Sill",
+			Vector3.new(w + 0.5, 0.18, 0.55),
+			cf * CFrame.new(0, -h / 2 - 0.09, -0.275),
+			paint,
 			PropFactory.material("Wood"),
-			noCollide
+			{ collide = false, castShadow = false }
 		)
+		-- Layers out from the wall: sky, room for a Sealed window's bricks,
+		-- glass, muntins, with clear gaps so nothing flickers.
+		local sky = part(
+			model,
+			"Sky",
+			Vector3.new(iw, ih, 0.02),
+			cf * CFrame.new(0, 0, -0.01),
+			Color3.new(0, 0, 0),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, query = false, castShadow = false }
+		)
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = "Night"
+		gui.Face = Enum.NormalId.Front
+		gui.LightInfluence = 0
+		gui.Brightness = 1.4
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 20
+		gui.Parent = sky
+		local fill = Instance.new("Frame")
+		fill.Size = UDim2.fromScale(1, 1)
+		fill.BorderSizePixel = 0
+		fill.BackgroundColor3 = Color3.new(1, 1, 1)
+		fill.Parent = gui
+		local gradient = Instance.new("UIGradient")
+		gradient.Rotation = 90
+		gradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(74, 94, 140)),
+			ColorSequenceKeypoint.new(0.6, Color3.fromRGB(34, 44, 68)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 16, 24)),
+		})
+		gradient.Parent = fill
+		-- A faintly tinted, nearly clear pane. Roblox's Glass material hides the
+		-- sky up close (so the window changed with distance), and reflectance
+		-- on a clear pane darkens whatever is behind it, a Sealed window's
+		-- bricks included.
 		local glass = part(
 			model,
 			"Glass",
-			Vector3.new(w - 0.6, h - 0.6, 0.05),
-			cf * CFrame.new(0, 0, -0.32),
-			Color3.fromRGB(60, 80, 120),
-			PropFactory.material("Glass"),
-			{ collide = false, transparency = 0.2, castShadow = false }
+			Vector3.new(iw, ih, 0.04),
+			cf * CFrame.new(0, 0, -0.07),
+			Color3.fromRGB(150, 170, 200),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, transparency = 0.9, castShadow = false }
 		)
-		glass.Reflectance = 0.15
 		part(
 			model,
 			"MuntinH",
-			Vector3.new(w - 0.6, 0.15, 0.1),
-			cf * CFrame.new(0, 0, -0.36),
-			Color3.fromRGB(200, 196, 186),
+			Vector3.new(iw, 0.12, 0.08),
+			cf * CFrame.new(0, 0, -0.12),
+			shade(paint, 0.55),
 			PropFactory.material("Wood"),
-			noCollide
+			{ collide = false, castShadow = false }
 		)
 		part(
 			model,
 			"MuntinV",
-			Vector3.new(0.15, h - 0.6, 0.1),
-			cf * CFrame.new(0, 0, -0.36),
-			Color3.fromRGB(200, 196, 186),
+			Vector3.new(0.12, ih, 0.08),
+			cf * CFrame.new(0, 0, -0.12),
+			shade(paint, 0.55),
 			PropFactory.material("Wood"),
-			noCollide
+			{ collide = false, castShadow = false }
 		)
 		lightPart = glass
 	elseif kindName == "Mirror" then
@@ -1135,16 +1197,23 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 		)
 	elseif model == "Window" then
 		PropFactory.buildDecor("Window", cf, m)
+		-- Bricks fill the opening just behind the glass, as if bricked up
+		-- from outside; the muntins and glass stay in front of them.
 		local bricks = part(
 			m,
 			"Bricks",
-			Vector3.new(5.6, 4.6, 0.3),
-			cf * CFrame.new(0, 0, -0.4),
+			Vector3.new(5.1, 4.1, 0.015),
+			cf * CFrame.new(0, 0, -0.0375),
 			Color3.fromRGB(120, 60, 50),
 			PropFactory.material("Brick"),
 			{ collide = false, transparency = value == "bricked" and 0 or 1 }
 		)
 		bricks.Name = "Bricks"
+		-- The night sky glow draws over anything just in front of it.
+		local night = m:FindFirstChild("Night", true)
+		if night then
+			night.Enabled = value ~= "bricked"
+		end
 	elseif model == "Lamp" then
 		local _, shadePart = PropFactory.build("FloorLamp", cf, m)
 		local light = Instance.new("PointLight")

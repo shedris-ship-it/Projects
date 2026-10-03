@@ -150,6 +150,26 @@ Config.Lighting = {
 	},
 }
 
+-- Trim and doors (docs/ART.md, step 3). Baseboards and crown moulding catch
+-- the light and make a box read as a room; door and window casings are
+-- painted lighter than any wall, so exits read even in a dark room (rule 4).
+Config.Trim = {
+	Wood = { 74, 51, 36 }, -- dark walnut (palette): baseboards, crown, door slabs
+	Paint = { 196, 188, 168 }, -- casings and window frames, lighter than every wall
+	Knob = { 150, 128, 84 }, -- tarnished brass, kept off the reserved brass (palette)
+	BaseboardHeight = 0.7,
+	BaseboardDepth = 0.14,
+	CrownHeight = 0.45,
+	CrownDepth = 0.3,
+	CasingWidth = 0.55,
+	CasingDepth = 0.18, -- a little proud of the baseboard, which butts into it
+	LiningDepth = 0.08, -- lines the sides and top of a doorway's opening
+	-- Some real doors rest slightly open with darkness behind them (the P.T.
+	-- bathroom door). An ajar door still blocks the way until it's opened.
+	AjarChance = 0.3,
+	AjarAngle = 16, -- degrees
+}
+
 -- Focus markers replace the crosshair: whatever you're close to and looking at
 -- gets a small marker attached to it, with its name and actions (docs/ART.md,
 -- "Interface").

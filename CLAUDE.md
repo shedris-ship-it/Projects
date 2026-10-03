@@ -12,7 +12,8 @@ Read these before starting real work:
 
 - The owner is a **solo developer** with no artist, sound designer or programmer. Claude is the whole team: code, art direction, assets, tuning and docs.
 - They're on **Windows, using PowerShell**, and newer to command-line tools. Give exact commands to copy and say which folder to run them in. Explain errors in plain words.
-- They test in Roblox Studio. The game builds and runs there. Before this session no in-engine tuning pass had been done, and no squad playtest had happened.
+- They test in Roblox Studio. The game builds and runs there. No squad playtest has happened yet.
+- The place is published (place id 81335718246692) and opened in Studio as a Team Create session. Studio's API access isn't on, so DataStore calls fail with 403 in play tests and the first-launch settings dialog appears each run (close it with Done at GUI ~961,588).
 - Ask before decisions that are theirs: design changes, spending money, publishing, anything on their Roblox account.
 
 ## Source of truth: the repo files, synced by Rojo
@@ -122,16 +123,16 @@ The agreed plan, in order:
      - dust motes, Guest-proximity light dimming, flashlight drag
      - no crosshair: `UI/FocusMarkers`
      - a non-glowing Companion that keeps its distance
-     - the corridor prototype on the `hallway` template
-   - Waiting on the owner's playtest:
-     - fps from F2, and the low-graphics check
-     - grain strength and flashlight drag feel
-     - marker timing
+     - playtest fixes: windows only on outside walls (`orientWindows` in `Logic/LevelGraph`), dust that fades with the light (`Config.PostFX.DustLayers`)
+     - corridors on all three corridor templates, with arms that end at an outside wall filled in (`Logic/Corridor`)
+     - step 3: trim, panelled doors (some ajar), casings, windows (`World/Trim.luau`, `Config.Trim`); seam trim flips with the seam
+   - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
+   - Waiting on the owner's next playtest:
+     - fps after step 3 (about 500 more trim parts), and the low-graphics check
+     - whether corridors now read as hallways
      - whether moonlit bedrooms are too dark
-     - corridor rollout to `hallway_runner` and `attic_landing`, and whether to fill dead-end arms
    - Next, in order:
-     - ART.md step 3, trim and doors: baseboards, crown moulding, lighter door frames so exits read, doors ajar, window glass
-     - step 4, materials: `generate_material` wallpapers and floors, grime decals; ask before uploading anything to the owner's account, and save Studio-made assets into `assets/` per the rules above
+     - step 4, materials (including the wainscot moved from step 3): `generate_material` wallpapers and floors, grime decals; ask before uploading anything to the owner's account, and save Studio-made assets into `assets/` per the rules above
      - step 5, hero props and fixtures: radio, clocks, photos, pendant lamps, light shafts, hunt-red lamps
      - step 6, The Guest model and animations
      - step 7, hub polish

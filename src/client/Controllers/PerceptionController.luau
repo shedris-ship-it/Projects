@@ -30,6 +30,7 @@ local applied = {} -- rule id -> handle
 local anchors = {} -- target id -> local expiry
 local objectIndex = {} -- CId -> Instance
 local seamIndex = {} -- SeamId -> { panels }
+local seamTrimIndex = {} -- SeamId -> { trim parts that flip with the seam }
 local indexDirty = true
 local lastIndex = 0
 
@@ -61,6 +62,7 @@ end
 local function rebuildIndex()
 	table.clear(objectIndex)
 	table.clear(seamIndex)
+	table.clear(seamTrimIndex)
 	local level = Workspace:FindFirstChild("ConsensusLevel")
 	if level then
 		for _, d in level:GetDescendants() do
@@ -72,6 +74,11 @@ local function rebuildIndex()
 			if seamId then
 				seamIndex[seamId] = seamIndex[seamId] or {}
 				table.insert(seamIndex[seamId], d)
+			end
+			local trimId = d:GetAttribute(Attr.SeamTrim)
+			if trimId then
+				seamTrimIndex[trimId] = seamTrimIndex[trimId] or {}
+				table.insert(seamTrimIndex[trimId], d)
 			end
 		end
 	end
@@ -160,6 +167,14 @@ Handlers.SeamFlip = function(rule)
 	end
 	local saved = {}
 	local doorParts = {}
+	-- Trim flips with the seam (docs/ART.md rule 3): the baseboard across it
+	-- shows while it's a wall, the doorway casing while it's a doorway.
+	local trim = seamTrimIndex[rule.target]
+	if not trim then
+		rebuildIndex()
+		trim = seamTrimIndex[rule.target] or {}
+	end
+	local savedTrim = {}
 	local seamDoor = findObject("door:" .. string.sub(rule.target, 6))
 	if seamDoor then
 		doorParts = partsOf(seamDoor.Parent or seamDoor)
@@ -190,9 +205,20 @@ Handlers.SeamFlip = function(rule)
 				p.LocalTransparencyModifier = on and 1 or 0
 			end
 		end
+		for _, p in trim do
+			if on then
+				local showsAsWall = rule.params.connected == true
+				p.Transparency = (p:GetAttribute(Attr.SeamTrimRole) == "wall") == showsAsWall and 0 or 1
+			else
+				p.Transparency = savedTrim[p]
+			end
+		end
 	end
 	for _, panel in panels do
 		saved[panel] = { t = panel.Transparency, c = panel.CanCollide, q = panel.CanQuery }
+	end
+	for _, p in trim do
+		savedTrim[p] = p.Transparency
 	end
 	set(true)
 	local handle = { on = true, nextFlip = os.clock() + math.random(6, 12) }
@@ -323,10 +349,19 @@ end
 Variants.Window = function(model, value)
 	local bricks = model:FindFirstChild("Bricks")
 	if bricks then
-		local old = bricks.Transparency
+		-- The night sky glow draws over anything just in front of it, so it goes
+		-- out while the window is bricked.
+		local night = model:FindFirstChild("Night", true)
+		local old, oldNight = bricks.Transparency, night and night.Enabled
 		bricks.Transparency = value == "bricked" and 0 or 1
+		if night then
+			night.Enabled = value ~= "bricked"
+		end
 		return function()
 			bricks.Transparency = old
+			if night then
+				night.Enabled = oldNight
+			end
 		end
 	end
 end
