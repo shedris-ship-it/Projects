@@ -56,7 +56,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (52 as of 2026-10-03)
+lune run tests/run        # unit tests (82 as of 2026-10-03)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -130,13 +130,20 @@ The agreed plan, in order:
      - step 3: trim, panelled doors (some ajar), casings, windows (`World/Trim.luau`, `Config.Trim`); seam trim flips with the seam
      - step 5: clocks with hands, decorative clocks and radios built like the clue versions (`AnomalyService:_placeDecor`), cabinet radio, rotary phone and family photos that age with Drift (`World/Dressing.luau`), pendant and fluorescent ceiling fixtures, drum floor lamps, hunt-red lamps (`EffectsController`); window light shafts tried and dropped
      - step 4: ten MaterialVariants (`Data/Materials.luau`, textures from `tools/textures.py`, Rojo files in `assets/materials/` via `lune run tools/materials`), wainscot in formal rooms, seam wall skins, grime decals (`World/Grime.luau`)
+   - Done (2026-10-03), step 6, The Guest, plus the owner's stalker brief (see `docs/progress/2026-10-03-step6*`):
+     - bleeding out: downs last 15 s (owner), red rim, slowing heartbeat, teammate markers (`UI/DownedMarkers`)
+     - body: a code-built R15-named rig (`Stalker/StalkerModel`, proportions in `Logic/GuestPose`); face, smile that grows with Drift, fingers built per client (`Lib/GuestFace`); every joint animated per client (`Controllers/GuestController`); no uploads
+     - behaviour: always physically in the house after three knocks at 90 s; tier 1 peeks and is yanked away when seen (seen only by his target); tier 2 creeps while unwatched, never attacks; tier 3 creeps even when one watches and lunges (fairness gates in `Logic/StalkRules`); never turns his back, retreats by backing away (`Stalker/Body`, `Stalker/Sight`, `Stalker/Stalk`, `Data/StalkMoves`); per-player gaze habits (`Logic/GazeHabits`)
+     - glass: reflections in windows and mirrors, a rare face at the window for one player (`Lib/GuestReflection`, `Logic/MirrorMath`); jumpscare on any catch
+     - sounds: licensed Creator Store library audio (APM, Pro Sound Effects); ids in `Assets.luau`
+   - Waiting on the owner (two or more clients): TC-16 to TC-21 in `docs/TESTING.md` — the teammate bleed-out marker, two watchers freezing him and cancelling a lunge, tier 1 seen by one player only, no popping in or out, the window reflection and face at the glass (Studio MCP screenshots can't show client-made 3D GUIs), and how the poses look in motion.
+   - Deferred from the step 6 plan: honest tracking (a per-room belief map plus Director "scent" hints). Between hunts he still reads his target's real position; perception and line of sight gate the lunge.
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
    - Waiting on the owner's next playtest:
      - fps after steps 3 to 5 (trim, textures, props), and the low-graphics check
      - whether corridors now read as hallways
      - whether moonlit bedrooms are too dark
    - Next, in order:
-     - step 6, The Guest model and animations
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.
@@ -152,7 +159,7 @@ Design doc rule (section 10): don't pile content onto a core that hasn't passed 
 
 ## Known limitations
 
-- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is built-in `rbxasset://` placeholders; room tone, Drift layers and stingers are empty in `Assets.luau`.
-- The stalker is a default R15 body with default walk animations.
+- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and room tone, Drift layers and the hunt sting are still empty in `Assets.luau`.
+- The Guest is built from primitives; `generate_mesh` for the head and hands is the plan B if it ever looks toy-like. Between hunts he knows where his target is (see "Deferred" above).
 - Voice is plain proximity chat: no routing through the audio API, no radio or muffling.
 - Hub and run share one place.
