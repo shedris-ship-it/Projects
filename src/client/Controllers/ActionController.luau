@@ -339,6 +339,7 @@ function ActionController:_updateFlashlight(dt: number)
 	local target = Workspace.CurrentCamera.CFrame * CFrame.new(0.6, -0.5, 0)
 	local follow = math.clamp(dt * Config.PostFX.FlashlightFollow, 0, 1)
 	flashlightAim = flashlightAim and flashlightAim:Lerp(target.Rotation, follow) or target.Rotation
+	self.flashlightRotation = flashlightAim -- ViewModelController hangs the torch on it
 	lightPart.CFrame = CFrame.new(target.Position) * flashlightAim
 	cameraLight.Enabled = on
 	local head = player.Character and player.Character:FindFirstChild("Head")

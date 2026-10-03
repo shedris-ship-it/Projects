@@ -5,7 +5,7 @@ local Tools = {
 	{
 		id = "Camera",
 		name = "Witness Camera",
-		description = "Photograph the true state of one object. Film is scarce: 6 shots.",
+		description = "Photograph the true state of one object. Film is scarce: 6 shots (8 when you play alone).",
 		role = "Photographer",
 		color = { 230, 220, 190 },
 	},

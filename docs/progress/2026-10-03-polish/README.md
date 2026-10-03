@@ -33,3 +33,11 @@ About 200 descendants and 125 parts per room. Frame rate can't be read through t
 - The Companion (built from a HumanoidDescription, so it has no Animate script) now plays Roblox's default R15 idle, walk and run animations that follow its speed (`CompanionService:_animate`).
 - Verified in Studio: the player's parts are skin, mustard shirt, denim, dark shoes with no stray clothing instances; the Companion is teal shirt and corduroy with the idle track playing; the console is clean. The Companion is a dark silhouette in the dim room by design, so the clothes are hard to see in a screenshot. Flat colours, not textured shirts.
 - Not verified: how teammates look to each other (needs two clients).
+
+## Stage 3: first-person presence
+
+- You now hold things (`Lib/ViewModel`, `Controllers/ViewModelController`): a torch in your right hand that trails quick turns (it hangs on the same lagged aim as the light), the tool you picked in your left (35mm Witness Camera, Lantern with a glowing core, Radio with dial and aerial, Plumb Line with a brass bob), and sleeved arms in your shirt colour reaching up to them. Roblox's own first-person arms are hidden (`LocalTransparencyModifier`). The torch lens glows when the light is on; the Lantern core glows when it's lit.
+- The models tuck back and down against a wall (one ray ahead), dip while you switch tools, and counter-sway against the head bob. A faint warm fill on your hands keeps them readable in a dark room (without it they vanished).
+- All local parts: anchored, no collision, no queries, no shadows, so aim, Witness raycasts and the server's views are untouched.
+- Verified in Studio: models attached to the camera, stock body hidden, screenshots `stage3_torch_and_camera.jpg` and `stage3_torch_on.jpg` (the first try, `stage3_viewmodel_first_try.jpg`, was too big and too dark to read). Console clean.
+- Not verified: the tuck against a wall and the tool swap animation (not exercised), the Lantern, Radio and Plumb Line models (only the Camera tool was on screen), touch and gamepad layouts, and how the arms look to the eye. Other players' torches are not modelled (their head light is unchanged).

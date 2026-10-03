@@ -36,6 +36,7 @@ function FeelController:Init(controllers)
 	self.lastYaw = nil
 	self.active = false
 	self.wroteFov = false
+	self.sway = Vector2.zero
 end
 
 function FeelController:_intensity(): number
@@ -148,6 +149,8 @@ function FeelController:_update(dt: number)
 	self.roll = roll + self.lean
 
 	humanoid.CameraOffset = active and Vector3.new(x, y + idle - self.dip, 0) or Vector3.zero
+	-- How far the camera has moved with the bob: the hands lag behind it.
+	self.sway = active and Vector2.new(x, y + idle - self.dip) or Vector2.zero
 
 	-- Sprint FOV kick on top of the player's own setting.
 	local base = self.state.settings.fov or Config.Camera.FieldOfView
