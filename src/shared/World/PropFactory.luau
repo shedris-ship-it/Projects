@@ -7,9 +7,11 @@
 -- naming conventions (e.g. a Clock's "Face" SurfaceGui) are what the client
 -- PerceptionController relies on, so keep them if you replace a builder.
 
+local ClockFace = require(script.Parent.Parent.Logic.ClockFace)
 local Config = require(script.Parent.Parent.Config)
 local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
+local Tells = require(script.Parent.Parent.Data.Tells)
 local Rng = require(script.Parent.Parent.Lib.Rng)
 
 local PropFactory = {}
@@ -116,6 +118,130 @@ local function surfaceText(target: BasePart, face: Enum.NormalId, name: string, 
 	return label
 end
 PropFactory.surfaceText = surfaceText
+
+-- Clocks ------------------------------------------------------------------
+-- Every clock in the house shows its time with hands (docs/ART.md, Hero
+-- props), so a "Clocks disagree" clue clock looks exactly like any other.
+-- `surface` is the wall or case face at the clock's centre, LookVector out
+-- towards the viewer. The Dial keeps its Face/Time label (hidden) because the
+-- client reads and writes it.
+
+local HAND_INK = Color3.fromRGB(28, 24, 20)
+local HANDS = {
+	HourHand = { length = 0.56, width = 0.11, tail = 0.12, z = 0.05 },
+	MinuteHand = { length = 0.86, width = 0.07, tail = 0.16, z = 0.08 },
+}
+
+-- A cylinder whose flat faces look along the surface's LookVector.
+local function disc(model, name, surface: CFrame, z: number, diameter: number, depth: number, color, material)
+	return part(
+		model,
+		name,
+		Vector3.new(depth, diameter, diameter),
+		surface * CFrame.new(0, 0, -z) * CFrame.Angles(0, math.pi / 2, 0),
+		color,
+		material,
+		{ collide = false, castShadow = false, shape = Enum.PartType.Cylinder }
+	)
+end
+
+-- Point the hands at a time ("3:15"). The dial's own frame gives the centre.
+function PropFactory.setClockHands(model: Instance, value: any)
+	local dial = model:FindFirstChild("Dial", true)
+	if not dial or not dial:IsA("BasePart") then
+		return
+	end
+	local centre = dial.CFrame * CFrame.Angles(0, -math.pi / 2, 0) -- LookVector out again
+	local hourAngle, minuteAngle = ClockFace.angles(tostring(value))
+	local scale = dial.Size.Y / 2
+	for name, angle in { HourHand = hourAngle, MinuteHand = minuteAngle } do
+		local hand = model:FindFirstChild(name, true)
+		local spec = HANDS[name]
+		if hand and hand:IsA("BasePart") then
+			-- Clockwise as the viewer sees it is a positive turn about the
+			-- dial's forward axis.
+			local reach = spec.length * scale
+			hand.CFrame = centre
+				* CFrame.Angles(0, 0, math.rad(angle))
+				* CFrame.new(0, reach / 2 - spec.tail * scale, -(dial.Size.X / 2 + spec.z))
+		end
+	end
+end
+
+-- A round clock face: rim (named `rimName`), cream dial, twelve ticks, hands
+-- and a centre cap.
+local function clockFace(model, surface: CFrame, radius: number, value: any, rimName: string, rimDepth: number)
+	disc(
+		model,
+		rimName,
+		surface,
+		rimDepth / 2,
+		radius * 2,
+		rimDepth,
+		Color3.fromRGB(74, 51, 36),
+		PropFactory.material("Wood")
+	)
+	local dialDiameter = radius * 2 * 0.86
+	local dial = disc(
+		model,
+		"Dial",
+		surface,
+		rimDepth + 0.02,
+		dialDiameter,
+		0.04,
+		Color3.fromRGB(226, 216, 190),
+		PropFactory.material("SmoothPlastic")
+	)
+	local label = surfaceText(dial, Enum.NormalId.Right, "Face", tostring(value), { labelName = "Time", ppu = 60 })
+	label.TextTransparency = 1
+	local r = dialDiameter / 2
+	for i = 0, 11 do
+		local major = i % 3 == 0
+		local a = math.rad(i * 30)
+		local length = (major and 0.2 or 0.11) * r / 0.9
+		part(
+			model,
+			"Tick",
+			Vector3.new(major and 0.09 or 0.05, length, 0.02),
+			surface
+				* CFrame.new(0, 0, -(rimDepth + 0.05))
+				* CFrame.Angles(0, 0, a)
+				* CFrame.new(0, r * 0.86 - length / 2, 0),
+			HAND_INK,
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, castShadow = false, query = false }
+		)
+	end
+	for name, spec in HANDS do
+		part(
+			model,
+			name,
+			Vector3.new(spec.width * r / 0.9, spec.length * r, 0.03),
+			surface,
+			HAND_INK,
+			PropFactory.material("Metal"),
+			{ collide = false, castShadow = false, query = false }
+		)
+	end
+	disc(
+		model,
+		"Cap",
+		surface,
+		rimDepth + 0.13,
+		0.14,
+		0.03,
+		Color3.fromRGB(150, 128, 84),
+		PropFactory.material("Metal")
+	)
+	PropFactory.setClockHands(model, value)
+	return dial
+end
+
+-- A plausible time for a decorative clock: the same pool the clue clocks
+-- draw from, so a clue can't be spotted by its time alone.
+function PropFactory.decorClockTime(rng): string
+	return rng:Pick(Tells.clock_disagree.variants)
+end
 
 -- Builders ---------------------------------------------------------------
 
@@ -646,16 +772,40 @@ end
 function builders.GrandfatherClock(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Case", size, cf * CFrame.new(0, h / 2, 0), color, material)
-	local face = part(
+	-- A hood above the face and a glass door over the pendulum.
+	part(
 		model,
-		"Dial",
-		Vector3.new(w - 0.6, w - 0.6, 0.1),
-		cf * CFrame.new(0, h - 1.4, d / 2 + 0.02),
-		Color3.fromRGB(220, 210, 180),
-		PropFactory.material("SmoothPlastic"),
-		{ castShadow = false }
+		"Hood",
+		Vector3.new(w + 0.3, 0.35, d + 0.3),
+		cf * CFrame.new(0, h + 0.17, 0),
+		shade(color, 0.85),
+		material
 	)
-	surfaceText(face, Enum.NormalId.Back, "Face", "XII", { ppu = 60 })
+	part(
+		model,
+		"Door",
+		Vector3.new(w - 0.8, h * 0.45, 0.06),
+		cf * CFrame.new(0, h * 0.38, d / 2 + 0.03),
+		Color3.fromRGB(40, 36, 34),
+		PropFactory.material("Glass"),
+		{ collide = false, castShadow = false, transparency = 0.3 }
+	)
+	part(
+		model,
+		"Pendulum",
+		Vector3.new(0.5, 0.5, 0.05),
+		cf * CFrame.new(0, h * 0.25, d / 2 - 0.05),
+		Color3.fromRGB(150, 128, 84),
+		PropFactory.material("Metal"),
+		{ collide = false, castShadow = false, shape = Enum.PartType.Cylinder }
+	).CFrame = cf
+		* CFrame.new(0, h * 0.25, d / 2 - 0.05)
+		* CFrame.Angles(0, math.pi / 2, 0)
+	-- The face: a seeded time from the clue pool.
+	local p = (cf * CFrame.new(0, h - 1.3, d / 2)).Position
+	local front = -cf.LookVector -- props face +Z in their own frame
+	local rng = Rng.new(Rng.hash(tostring(cf.Position)))
+	clockFace(model, CFrame.lookAt(p, p + front), (w - 0.5) / 2, PropFactory.decorClockTime(rng), "Bezel", 0.08)
 end
 
 function builders.CoatRack(model, cf, size, color, material)
@@ -1025,26 +1175,8 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 	local noCollide = { collide = false }
 	local ink = Color3.fromRGB(30, 26, 22)
 	if model == "Clock" then
-		local body = part(
-			m,
-			"Body",
-			Vector3.new(2.4, 2.4, 0.3),
-			cf * CFrame.new(0, 0, -0.15),
-			Color3.fromRGB(70, 50, 36),
-			PropFactory.material("Wood"),
-			noCollide
-		)
-		local face = part(
-			m,
-			"Dial",
-			Vector3.new(2, 2, 0.05),
-			cf * CFrame.new(0, 0, -0.33),
-			Color3.fromRGB(230, 222, 200),
-			PropFactory.material("SmoothPlastic"),
-			noCollide
-		)
-		surfaceText(face, Enum.NormalId.Front, "Face", tostring(value), { labelName = "Time", ppu = 60 })
-		body.Name = "Body"
+		-- A 1980s wall clock. Decorative clocks use this same builder.
+		clockFace(m, cf, 1.2, value, "Body", 0.3)
 	elseif model == "Note" then
 		local paper = part(
 			m,

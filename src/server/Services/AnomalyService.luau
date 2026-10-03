@@ -70,6 +70,7 @@ function AnomalyService:_reset()
 	self.sites = {}
 	self.siteByTarget = {}
 	self.portraits = {}
+	self.decor = {}
 	self.source = nil
 	self.ritualModule = nil
 	self.ritual = nil
@@ -229,6 +230,26 @@ function AnomalyService:_placePortraits(rng, rooms)
 	end
 end
 
+-- Decorative clocks in wall slots no tell used, so a wall clock on its own
+-- is never the clue (docs/ART.md, Hero props). Same builder and the same
+-- attributes as a tell's clock (a CId, no Label); times come from the clue
+-- pool. Placed after the tells, so evidence placement is the same per seed.
+function AnomalyService:_placeDecor(rng, rooms)
+	local clocks = 0
+	for _, roomId in rooms do
+		if clocks >= Config.Props.DecorClocks then
+			break
+		end
+		local slot = self.World:TakeWallSlot(roomId, rng)
+		if slot then
+			clocks += 1
+			local model = PropFactory.buildTellBase("Clock", slot.cframe, self.folder, PropFactory.decorClockTime(rng))
+			model:SetAttribute(Constants.Attributes.CId, "decor:clock:" .. clocks)
+			table.insert(self.decor, model)
+		end
+	end
+end
+
 -- Set everything up for a run. ctx = { players, rng, locationId, forced, squadSize }
 function AnomalyService:Setup(ctx)
 	self:_reset()
@@ -279,6 +300,8 @@ function AnomalyService:Setup(ctx)
 			warn("[Consensus] no room for tell " .. entry.id)
 		end
 	end
+
+	self:_placeDecor(rng:Fork("decor"), rooms)
 
 	-- Perception profiles decide each site's true state (for variant props).
 	local perception = self.Divergence:Plan(ctx.players, self.sites, rng:Fork("perception"))

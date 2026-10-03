@@ -177,6 +177,14 @@ Config.Trim = {
 	AjarAngle = 16, -- degrees
 }
 
+-- Decorative copies of tell props (docs/ART.md, Hero props). Clue clocks and
+-- clue radios are built by the same builder as these, so a clock or a radio
+-- on its own is never a giveaway.
+Config.Props = {
+	DecorClocks = 3, -- wall clocks per house, in wall slots no tell used
+	DecorRadios = 2, -- radios per house, in free floor slots of living rooms
+}
+
 -- The grime layer (World/Grime): shared decals placed from the seed.
 Config.Grime = {
 	CeilingStainChance = 0.4, -- per room

@@ -17,6 +17,7 @@ local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 
 local PhantomFactory = require(script.Parent.Parent.Lib.PhantomFactory)
+local PropFactory = require(Shared.World.PropFactory)
 
 local Attr = Constants.Attributes
 local FLOOR_Y = Config.Level.Origin.y
@@ -291,8 +292,10 @@ Variants.Clock = function(model, value)
 	if label then
 		local old = label.Text
 		label.Text = tostring(value)
+		PropFactory.setClockHands(model, value)
 		return function()
 			label.Text = old
+			PropFactory.setClockHands(model, old)
 		end
 	end
 end
