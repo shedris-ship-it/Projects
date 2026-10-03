@@ -22,6 +22,7 @@ local GuestPose = require(Shared.Logic.GuestPose)
 local Net = require(Shared.Net)
 
 local GuestFace = require(script.Parent.Parent.Lib.GuestFace)
+local GuestReflection = require(script.Parent.Parent.Lib.GuestReflection)
 
 local player = Players.LocalPlayer
 local Rig = GuestPose.Rig
@@ -61,6 +62,7 @@ function GuestController:_detach()
 		for _, connection in guest.connections do
 			connection:Disconnect()
 		end
+		guest.reflection:Close()
 	end
 	guest = nil
 end
@@ -101,6 +103,8 @@ function GuestController:_attach(model: Model)
 			Right = GuestFace.hand(rightHand :: BasePart, "Right"),
 		},
 		pose = GuestPose.new(),
+		reflection = GuestReflection.new(),
+		paneClock = 0,
 		parked = true,
 		connections = {},
 	}
@@ -204,6 +208,12 @@ function GuestController:_frame(dt: number)
 	local position = root.Position
 	guest.parked = position.Y > 200
 	if guest.parked then
+		-- Not in the house: only a face at the glass can show (it doesn't
+		-- need his body).
+		if guest.reflection:Mode() == "face" then
+			local camera = Workspace.CurrentCamera
+			guest.reflection:UpdateFace(camera.CFrame.Position, camera.CFrame.LookVector, dt)
+		end
 		return
 	end
 	if fade then
@@ -269,6 +279,8 @@ function GuestController:_frame(dt: number)
 		guest.face:SetSmile(width, open)
 		guest.face:SetShine(self:_eyeShine(camera))
 	end
+
+	self:_glass(dt, camera, shown)
 
 	-- His footsteps are real: everyone can hear where he is, seen or not.
 	if #planted > 0 then
@@ -340,6 +352,7 @@ function GuestController:_jumpscare()
 	local head = guest.head
 	guest.face:SetForm(math.max(guest.model:GetAttribute("GuestForm") or 0, 1))
 	guest.face:SetSmile(math.rad(108), 1)
+	guest.face:SetShine(true) -- his eyes catch the light, right in front of you
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "GuestJumpscare"
 	gui.IgnoreGuiInset = true
@@ -354,9 +367,10 @@ function GuestController:_jumpscare()
 	local viewport = Instance.new("ViewportFrame")
 	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.BackgroundTransparency = 1
-	viewport.Ambient = Color3.fromRGB(110, 100, 92)
-	viewport.LightColor = Color3.fromRGB(255, 236, 210)
-	viewport.LightDirection = Vector3.new(-0.4, -0.5, -1)
+	-- Dark, lit harshly from below.
+	viewport.Ambient = Color3.fromRGB(34, 30, 28)
+	viewport.LightColor = Color3.fromRGB(215, 190, 160)
+	viewport.LightDirection = Vector3.new(-0.25, 0.75, -0.6)
 	viewport.Parent = gui
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 45
@@ -371,7 +385,7 @@ function GuestController:_jumpscare()
 	local headCF = head.CFrame
 	local parts = { head }
 	for _, d in head:GetDescendants() do
-		if d:IsA("BasePart") then
+		if d:IsA("BasePart") and d.Name ~= "NeckSkin" then
 			table.insert(parts, d)
 		end
 	end
@@ -393,9 +407,9 @@ function GuestController:_jumpscare()
 		local t = os.clock() - started
 		-- Rushes in over 0.3 s, then holds, trembling, in your face.
 		local rush = math.clamp(t / 0.3, 0, 1)
-		local distance = 9 - 8.1 * (1 - (1 - rush) ^ 3)
+		local distance = 10 - 8 * (1 - (1 - rush) ^ 3)
 		local tremble = t > 0.3 and 0.02 or 0
-		local cf = CFrame.new((math.random() - 0.5) * tremble, -0.05 + (math.random() - 0.5) * tremble, -distance)
+		local cf = CFrame.new((math.random() - 0.5) * tremble, 0.12 + (math.random() - 0.5) * tremble, -distance)
 			* CFrame.Angles(0, math.pi, math.rad(-16))
 		for _, piece in pieces do
 			piece.part.CFrame = cf * piece.rel
@@ -412,6 +426,61 @@ function GuestController:_jumpscare()
 			gui:Destroy()
 		end
 	end)
+end
+
+-- Windows and mirrors (Lib/GuestReflection): his reflection when he's
+-- behind you, or (a divergence, for you alone) his face at the glass.
+function GuestController:_glass(dt: number, camera: Camera, shown: boolean)
+	local reflection = guest.reflection
+	local eye = camera.CFrame.Position
+	if reflection:Mode() == "face" then
+		reflection:UpdateFace(eye, camera.CFrame.LookVector, dt)
+		return
+	end
+	guest.paneClock += dt
+	if guest.paneClock >= 1 / 8 then
+		guest.paneClock = 0
+		local best, bestModel = nil, nil
+		local head = guest.head.Position
+		if shown and (head - eye).Magnitude < G.ReflectionBodyRange then
+			local bestDistance = G.ReflectionGlassRange
+			for _, model in CollectionService:GetTagged(Constants.Tags.Window) do
+				local glass = model:FindFirstChild("Glass")
+				if glass and glass:IsA("BasePart") then
+					local toGlass = glass.Position - eye
+					local d = toGlass.Magnitude
+					if
+						d < bestDistance
+						and d > 0.5
+						and camera.CFrame.LookVector:Dot(toGlass.Unit) > 0.3
+						and GuestReflection.inPane(glass, eye, head)
+					then
+						best, bestModel, bestDistance = glass, model, d
+					end
+				end
+			end
+		end
+		if best then
+			reflection:ShowReflection(best, guest.model, bestModel:GetAttribute("Kind") == "Mirror")
+		elseif reflection:Mode() == "reflection" then
+			reflection:Close()
+		end
+	end
+	if reflection:Mode() == "reflection" then
+		reflection:UpdateReflection(eye)
+	end
+end
+
+-- The server's "windowFace" scare: his face pressed to a window, for you
+-- alone, while his body is elsewhere. Tapping first, so you turn.
+function GuestController:WindowFace(glass: BasePart?)
+	if not guest or not glass or not glass.Parent or not guest.head.Parent then
+		return
+	end
+	guest.reflection:ShowFace(glass, guest.head)
+	local audio = self.controllers.AudioController
+	audio:PlayAt("GlassTap", glass.Position, 0.8, 1)
+	audio:Caption("[tapping on the window glass]")
 end
 
 -- Two pin-points of light in his eye hollows when your torch beam is on his

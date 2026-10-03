@@ -343,6 +343,23 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 	elseif sub == "lean" then
 		body:SetPose(Poses.Peek, tonumber(args[3]) or 1)
 		return "peeking, lean " .. tostring(tonumber(args[3]) or 1)
+	elseif sub == "window" then
+		-- His face at the nearest window, for you (the windowFace scare).
+		local pos = root and root.Position
+		local best, bestDistance = nil, math.huge
+		for _, room in services.WorldService.World.rooms do
+			for _, window in room.windows or {} do
+				local d = pos and (window.glass.Position - pos).Magnitude or math.huge
+				if window.kind == "Window" and d < bestDistance then
+					best, bestDistance = window.glass, d
+				end
+			end
+		end
+		if not best then
+			return "no windows"
+		end
+		services.DivergenceService:Scare(player, { kind = "windowFace", glass = best })
+		return string.format("face at the window %.0f studs away", bestDistance)
 	elseif sub == "scare" then
 		-- Preview the jumpscare without being caught.
 		Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = "debug" })
@@ -359,7 +376,7 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		self:_setAttr("GuestSmile", nil)
 		return "guest back to normal"
 	end
-	return "guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · peeks · off"
+	return "guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · peeks · window · scare · off"
 end
 
 -- Visibility ---------------------------------------------------------------------
@@ -641,6 +658,38 @@ function StalkerService:_scare(card)
 		local root = services.PlayerStateService:Root(victim)
 		local behind = root and (root.Position - root.CFrame.LookVector * 4) or around
 		divergence:Scare(victim, { kind = "whisper", position = behind })
+	elseif card.id == "windowFace" then
+		self:_windowFace(victim, pos)
+	end
+end
+
+-- A face at a window, for one Witness only, while he's elsewhere: tapping
+-- on the glass, then there when you turn (owner, 2026-10-03). Early Drift
+-- only, and never a window he could really be standing behind.
+function StalkerService:_windowFace(victim: Player, pos: Vector3)
+	local services = self.services
+	if services.DriftService:Value() >= G.WindowFaceMaxDrift then
+		return
+	end
+	local here = self.body.root.Position
+	local best, bestDistance = nil, G.WindowFaceRange
+	for _, room in services.WorldService.World.rooms do
+		for _, window in room.windows or {} do
+			local glass = window.glass
+			local d = (glass.Position - pos).Magnitude
+			if
+				window.kind == "Window"
+				and d < bestDistance
+				and d > 6
+				and (glass.Position - here).Magnitude > 30
+				and self.sight:Angle(victim, glass.Position) > 70
+			then
+				best, bestDistance = glass, d
+			end
+		end
+	end
+	if best then
+		services.DivergenceService:Scare(victim, { kind = "windowFace", glass = best })
 	end
 end
 

@@ -137,6 +137,37 @@ return function(test, check, Shared, require)
 		check.near(first.theta, -math.rad(96), 1e-9, "spans the given width")
 	end)
 
+	test("mirror: reflecting across a plane, twice, is the identity", function()
+		local MirrorMath = require(Shared.Logic.MirrorMath)
+		local origin, normal = { 0, 5, 0 }, { 0, 0, 1 }
+		local p = MirrorMath.reflectPoint({ 2, 6, 3 }, origin, normal)
+		check.near(p[3], -3, 1e-9, "z mirrored")
+		check.near(p[1], 2, 1e-9, "x kept")
+		local back = MirrorMath.reflectPoint(p, origin, normal)
+		check.near(back[3], 3, 1e-9, "and back")
+		local v = MirrorMath.reflectVector({ 0, 0, -1 }, normal)
+		check.near(v[3], 1, 1e-9, "a direction flips too")
+	end)
+
+	test("mirror: he shows in the pane only when he's behind you, in the room", function()
+		local MirrorMath = require(Shared.Logic.MirrorMath)
+		-- A 6 x 5 window at z = 0 facing into the room (+z), centre height 6.
+		local origin, normal, right, up = { 0, 6, 0 }, { 0, 0, 1 }, { 1, 0, 0 }, { 0, 1, 0 }
+		local eye = { 0, 5.6, 6 } -- you, 6 studs from the glass, looking at it
+		-- He stands right behind you.
+		check.truthy(MirrorMath.inPane(eye, { 0, 7.8, 12 }, origin, normal, right, up, 3, 2.5), "behind you")
+		-- Off to one side behind you, far: outside the pane.
+		check.equal(MirrorMath.inPane(eye, { 30, 7.8, 12 }, origin, normal, right, up, 3, 2.5), false, "far aside")
+		-- Outside the window (the other side of the glass): no reflection.
+		check.equal(MirrorMath.inPane(eye, { 0, 7.8, -4 }, origin, normal, right, up, 3, 2.5), false, "outside")
+		-- You're outside: nothing either.
+		check.equal(
+			MirrorMath.inPane({ 0, 5.6, -6 }, { 0, 7.8, 12 }, origin, normal, right, up, 3, 2.5),
+			false,
+			"you outside"
+		)
+	end)
+
 	test("face pieces lie on the head and face outwards", function()
 		local a, b, c = 0.4, 0.575, 0.46
 		local spec = GuestPose.piece(a, b, c, -0.1, -0.3, 0.1, -0.3)

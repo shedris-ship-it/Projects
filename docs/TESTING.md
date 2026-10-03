@@ -45,6 +45,8 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-17 | Lunge and its warnings | `tier 3`, `guest move creepbehind`, turn your back. You hear a breath (only you) and floorboard creaks, lights near him sag, then he lunges from about 6 studs: a jumpscare and you're down. With a second client watching him he freezes and can't lunge. Sprinting away at the edge escapes it |
 | TC-18 | Arrival and presence | From `start`, about 90 s in: three knocks at the front door. After that he is always somewhere: footsteps through walls, never popping in or out of view on any client (watch him through a doorway on two clients while the tier changes) |
 | TC-19 | Backing away | Turn round on him at tier 2 when he's close: he holds, then backs away slowly, never turning his back. After a hunt ends he does the same instead of vanishing |
+| TC-20 | Windows and mirrors | Stand facing a window or mirror with The Guest a few studs behind you (`guest here -6` with your back to the glass, then turn to it): his dim reflection shows in the pane. `guest window` near a window: tapping on the glass, then his face outside it for you alone (a second client sees nothing); it slides away once you've looked at it. Screenshots through the Studio MCP don't show client-made 3D GUIs, so this needs a real look |
+| TC-21 | Jumpscare | `guest scare`: his face, grinning wide open with glinting eyes, rushes in to fill the screen with a piano sting, then black. Nothing moves the camera |
 
 ### Multiplayer robustness
 

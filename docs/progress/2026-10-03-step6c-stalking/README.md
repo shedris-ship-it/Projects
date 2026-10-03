@@ -20,9 +20,15 @@ Rules: `Logic/StalkRules` (tested). Brain: `Stalker/Stalk`. Body: `Stalker/Body`
 - **Watched in plain view at tier 2:** he held still and stared, and only moved again once out of sight.
 - Server heartbeat 0.3 ms with all of this running. No console errors.
 
+**Windows, mirrors and the jumpscare** (added after the first commit):
+- `04_jumpscare_frame.jpg`: the caught player's screen. The neck has since been taken out of it and the eyes now glint.
+- **Reflections:** with The Guest 6 studs behind the camera and the camera facing a window, a reflection pane was built on that window, with 195 mirrored parts and his mirrored head exactly where the maths puts it.
+- **Face at the glass:** `guest window` puts his face outside the nearest window for one player. It lasts up to 12 s, or 0.6 s once seen. The tapping caption and sound play first.
+- Neither can be seen in Studio MCP screenshots, which leave out 3D GUIs made on the client. That's why TC-20 asks for a real look.
+
 **Not checked yet (needs the owner):**
 - Two clients: two watchers freezing him, and the lunge being cancelled by a second Witness.
 - Only the target seeing him at tier 1.
 - Nobody ever seeing him pop in or out.
-- The jumpscare. `guest scare` previews it, but it wasn't captured here.
+- The window reflection and the face at the glass on screen (TC-20).
 - How the creep, back-away and peek poses look in motion.

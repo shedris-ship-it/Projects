@@ -15,6 +15,7 @@ Constants.Tags = {
 	Companion = "ConsensusCompanion",
 	Item = "ConsensusItem",
 	Photo = "ConsensusPhoto", -- a family photo the client ages with Drift
+	Window = "ConsensusWindow", -- a window or mirror pane The Guest can show in (attribute Kind)
 	Level = "ConsensusLevel",
 }
 

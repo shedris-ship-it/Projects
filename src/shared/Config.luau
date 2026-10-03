@@ -404,7 +404,12 @@ Config.Guest = {
 	HuntStartMaxWait = 6,
 	-- How strongly nearby lights sag, by tier (tier 0 he's far and faint).
 	PresenceDim = { [0] = 0.35, [1] = 0.6, [2] = 0.85, [3] = 1, [4] = 1 },
-	-- Gaze habits (Logic/GazeHabits).
+	-- Windows and mirrors (Lib/GuestReflection).
+	ReflectionBodyRange = 16, -- his reflection shows when he's this close behind you
+	ReflectionGlassRange = 14, -- and the pane is this close to you
+	WindowFaceMaxDrift = 60, -- the face at the glass is an early-run divergence
+	WindowFaceRange = 30,
+	-- Targets.
 	TargetStickSeconds = 25,
 	BrainHz = 4,
 }

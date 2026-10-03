@@ -565,6 +565,15 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					record.paintings = record.paintings or {}
 					table.insert(record.paintings, { model = decorModel, cframe = cf })
 				end
+				-- Panes The Guest can show in: his reflection behind you, or a
+				-- face at the glass (Lib/GuestReflection).
+				local glass = decorModel:FindFirstChild("Glass")
+				if (decor.kind == "Window" or decor.kind == "Mirror") and glass then
+					decorModel:SetAttribute("Kind", decor.kind)
+					CollectionService:AddTag(decorModel, Tags.Window)
+					record.windows = record.windows or {}
+					table.insert(record.windows, { glass = glass, kind = decor.kind, cframe = cf })
+				end
 			end
 		end
 

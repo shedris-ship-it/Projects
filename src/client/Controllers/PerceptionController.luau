@@ -958,7 +958,10 @@ function PerceptionController:_scare(payload)
 	local audio = self.controllers.AudioController
 	local effects = self.controllers.EffectsController
 	local kind = payload.kind
-	if kind == "steps" then
+	if kind == "windowFace" then
+		-- His face at a window, for you alone (Lib/GuestReflection).
+		self.controllers.GuestController:WindowFace(payload.glass)
+	elseif kind == "steps" then
 		audio:Steps(function()
 			return payload.position
 		end, 6, 0.5)

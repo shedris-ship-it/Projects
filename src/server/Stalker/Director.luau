@@ -18,7 +18,10 @@ local CARDS = {
 	{ id = "doorSlam", weight = 1, cooldown = 70, minDrift = 30, big = true },
 	{ id = "whisper", weight = 1, cooldown = 90, minDrift = 40, big = true },
 	-- No phantom "figure" card (owner, 2026-10-03): the only Guest you see is
-	-- the real one, always somewhere in the house.
+	-- the real one, always somewhere in the house. The one exception, chosen
+	-- by the owner: early on, one Witness may see his face at a window while
+	-- he's elsewhere. Something to argue about.
+	{ id = "windowFace", weight = 1, cooldown = 120, minDrift = 5, big = true },
 }
 
 function Director.new(services, rng, difficulty)
