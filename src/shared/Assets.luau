@@ -28,13 +28,53 @@ Assets.Sounds = {
 	WindUp = "rbxassetid://9114555843", -- the gasp, pitched far down: a sharp intake before the lunge
 	Sting = "rbxassetid://9117322696", -- PSE "Piano Strings Attack 1": the jumpscare
 	GlassTap = "rbxassetid://9119918673", -- PSE "Tap On Glass Window 1"
+	-- Your own breath, looped: it follows stamina (Controllers/AudioController).
+	PlayerBreath = "rbxassetid://124832136911190", -- Creator Store "Breathing and Tired" (Maz_Rx1)
 	-- Loops for the Drift layers and room tone. Fill these with real assets.
-	RoomTone = "",
+	RoomTone = "rbxassetid://9118747859", -- PSE "Rumble Ambience Interior Wind Turbo Shaft 4": a low house hum
 	DriftBass = "",
 	DriftTinnitus = "",
 	Heartbeat = "rbxassetid://9043365727", -- APM "HEARTBEAT 01 96BPM" (Horror Tools), loops
 	RadioStatic = "",
 	HuntSting = "",
+}
+
+-- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).
+-- Free Creator Store audio ("feel free to use in your games"): carpet by
+-- iLoveSwiss_0, wood, tile and concrete by Diman_x86. Nothing was uploaded.
+-- A surface with no ids falls back to Sounds.Footstep.
+Assets.Footsteps = {
+	Wood = {
+		"rbxassetid://136507037003210",
+		"rbxassetid://95897689644876",
+		"rbxassetid://86757586209661",
+		"rbxassetid://85890435849962",
+		"rbxassetid://102979601052590",
+		"rbxassetid://103047715427883",
+		"rbxassetid://113620422592627",
+	},
+	Carpet = {
+		"rbxassetid://91882016473062",
+		"rbxassetid://111131620367547",
+		"rbxassetid://73343053773763",
+		"rbxassetid://123224557798023",
+		"rbxassetid://92103616531947",
+		"rbxassetid://73871404556766",
+	},
+	Tile = {
+		"rbxassetid://112733259097591",
+		"rbxassetid://118048499719068",
+		"rbxassetid://126965755395879",
+		"rbxassetid://133063162472741",
+		"rbxassetid://72966441854333",
+		"rbxassetid://139267724392327",
+	},
+	Concrete = {
+		"rbxassetid://120195545352847",
+		"rbxassetid://108290664490396",
+		"rbxassetid://112000835797556",
+		"rbxassetid://106961831442199",
+	},
 }
 
 -- Full-screen film grain texture (a tiling noise image). The default is a 32 px

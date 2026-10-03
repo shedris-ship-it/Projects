@@ -1,0 +1,4 @@
+-- Deliberately empty. A script with this name in StarterPlayerScripts replaces
+-- Roblox's default character sounds (its single looping footstep, jump and
+-- landing), because Controllers/FootstepController plays our own: by surface,
+-- by stride, never the same sample twice in a row.

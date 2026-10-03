@@ -37,6 +37,7 @@ local StateController = {
 		lowEnd = false,
 		centerDot = false, -- opt-in aiming aid; the game has no crosshair
 		fov = 70,
+		cameraMotion = 1, -- head bob, sway, FOV kick and landing dip; 0 turns them off
 		masterVolume = 1,
 		sfxVolume = 1,
 		ambientVolume = 0.8,

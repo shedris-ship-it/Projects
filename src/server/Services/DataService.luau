@@ -182,6 +182,7 @@ function DataService:Start()
 				"lowEnd",
 				"centerDot",
 				"fov",
+				"cameraMotion",
 				"masterVolume",
 				"sfxVolume",
 				"ambientVolume",

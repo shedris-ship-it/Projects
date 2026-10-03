@@ -84,6 +84,7 @@ function Settings.new(ctx)
 	for i, option in
 		{
 			{ key = "fov", label = "Field of view", min = 60, max = 90, step = 5 },
+			{ key = "cameraMotion", label = "Camera motion (head bob)", min = 0, max = 1, step = 0.1 },
 			{ key = "masterVolume", label = "Volume", min = 0, max = 1, step = 0.1 },
 			{ key = "sfxVolume", label = "Effects volume", min = 0, max = 1, step = 0.1 },
 			{ key = "ambientVolume", label = "Ambience volume", min = 0, max = 1, step = 0.1 },

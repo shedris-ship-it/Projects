@@ -35,7 +35,8 @@ local function group(name: string): SoundGroup
 end
 
 local function newSound(key: string, volume: number, pitch: number, groupName: string)
-	local id = Assets.Sounds[key]
+	-- A key from Assets.Sounds, or a raw asset id (footsteps pass their own).
+	local id = Assets.Sounds[key] or (string.find(key, "^rbxasset") and key or nil)
 	if not id or id == "" then
 		return nil
 	end
@@ -80,6 +81,20 @@ function AudioController:Start()
 			layers[key] = sound
 		end
 	end
+	-- Your own breath, looped; its volume and pitch follow stamina.
+	local breath = newSound("PlayerBreath", 0, 1, "SFX")
+	if breath then
+		breath.Looped = true
+		breath.Parent = SoundService
+		breath:Play()
+		layers.PlayerBreath = breath
+	end
+	-- The house holds its breath when he first shows himself to you.
+	Net.get("StalkerVisibility").OnClientEvent:Connect(function(visible)
+		if visible == true and self.state:InRun() then
+			self:Duck(2.5)
+		end
+	end)
 	local radio = newSound("RadioStatic", 0, 1, "SFX")
 	if radio then
 		radio.Looped = true
@@ -152,6 +167,7 @@ function AudioController:_updateLayers(dt: number)
 	if inRun then
 		self:_gasps()
 	end
+	self:_ownBreath(dt, inRun)
 	local radioSignal = player:GetAttribute("RadioSignal")
 	fade("Radio", (inRun and radioSignal) and (0.08 + radioSignal * 0.6) or 0)
 	if layers.Radio then
@@ -161,6 +177,30 @@ function AudioController:_updateLayers(dt: number)
 	local ambient = group("Ambient")
 	local target = os.clock() < duckUntil and 0.05 or (self.ambientBase or 0.8)
 	ambient.Volume += (target - ambient.Volume) * math.clamp(dt * 6, 0, 1)
+end
+
+-- Quiet when you're fresh, ragged and fast as stamina drains, a gasp when it
+-- runs out, easing off as you recover (stamina comes from ActionController).
+local wasExhausted = false
+function AudioController:_ownBreath(dt: number, inRun: boolean)
+	local sound = layers.PlayerBreath
+	local actions = self.controllers.ActionController
+	local alive = inRun and actions and self.state:PlayerState() == Constants.PlayerStates.Active
+	local stamina = alive and actions.stamina or 1
+	local start = Config.Feel.BreathStartStamina
+	local target = alive and math.clamp((start - stamina) / start, 0, 1) * 0.9 or 0
+	if alive and actions.sprinting then
+		target = math.max(target, 0.12)
+	end
+	if sound then
+		sound.Volume += (target - sound.Volume) * math.clamp(dt * 3, 0, 1)
+		sound.PlaybackSpeed = 0.9 + (1 - stamina) * 0.45
+	end
+	local exhausted = alive and actions.exhausted == true
+	if exhausted and not wasExhausted then
+		self:PlayUi("Gasp", 0.5)
+	end
+	wasExhausted = exhausted
 end
 
 -- Downed Witnesses gasp for breath where they lie, so the squad can find
@@ -188,10 +228,26 @@ end
 
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
 -- through a wall.
-function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?, muffled: boolean?)
+function AudioController:PlayAt(
+	key: string,
+	position: Vector3,
+	volume: number?,
+	pitch: number?,
+	muffled: boolean?,
+	echo: { delay: number, feedback: number, wet: number }?
+)
 	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX")
 	if not sound then
 		return
+	end
+	if echo then
+		-- A hard room throws the sound back (footsteps in a bathroom).
+		local effect = Instance.new("EchoSoundEffect")
+		effect.Delay = echo.delay
+		effect.Feedback = echo.feedback
+		effect.WetLevel = -6 + echo.wet * 6
+		effect.DryLevel = 0
+		effect.Parent = sound
 	end
 	if muffled then
 		local eq = Instance.new("EqualizerSoundEffect")
