@@ -204,11 +204,11 @@ end
 -- The lunge: a wind-up, then a dash at the target. onLand(player) is
 -- called when the dash ends (the caller decides whether it connected);
 -- returns false if it was cancelled (two Witnesses locked eyes on him).
-function Body:Lunge(player: Player, onLand: (Player) -> ())
+function Body:Lunge(player: Player, onLand: (Player) -> (), windup: number?)
 	self:_unanchor()
 	self.navigator:Stop()
 	self.humanoid:MoveTo(self.root.Position)
-	self.special = { kind = "windup", player = player, at = os.clock() + G.LungeWindup, onLand = onLand }
+	self.special = { kind = "windup", player = player, at = os.clock() + (windup or G.LungeWindup), onLand = onLand }
 	self:SetPose(Poses.Lunge)
 	self:FacePlayer(player)
 	self:SetGaze(player)

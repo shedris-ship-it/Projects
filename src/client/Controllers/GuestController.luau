@@ -282,8 +282,10 @@ function GuestController:_frame(dt: number)
 
 	self:_glass(dt, camera, shown)
 
-	-- His footsteps are real: everyone can hear where he is, seen or not.
-	if #planted > 0 then
+	-- You only hear him walk while he's visible to you (owner, 2026-10-03):
+	-- steps from something you can't see felt unnatural. His breath and
+	-- creaks behind you are server tells; the Director adds distant steps.
+	if shown and #planted > 0 then
 		local audio = self.controllers.AudioController
 		local volume = G.FootstepVolume[pose] or 0.4
 		local character = player.Character

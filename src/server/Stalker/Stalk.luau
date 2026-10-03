@@ -70,6 +70,8 @@ function Stalk.new(service)
 		lastFed = {}, -- player -> memory time already folded into their map
 		checkedAt = {}, -- player -> memory time he walked to and found empty
 		priorAt = 0,
+		contactLast = {}, -- player -> when he last lunged at them for getting too close
+		withdrawUntil = 0,
 		lostSince = nil,
 		sensedPos = nil, -- where he believes the target is (nil = lost them)
 		sensedSeen = false, -- ... and he can see them right now
@@ -89,6 +91,8 @@ function Stalk:_resetFor(world)
 		self.checkedAt = {}
 		self.lastRoom = {}
 		self.doorwayPass = {}
+		self.contactLast = {}
+		self.withdrawUntil = 0
 		self.lostSince = nil
 	end
 end
@@ -180,6 +184,11 @@ end
 -- himself only once he's there (and never pops in while you're looking).
 function Stalk:Hidden(now: number): boolean
 	return now < self.hiddenUntil or self.transit == true
+end
+
+-- After downing someone alone he vanishes from everyone at any tier.
+function Stalk:Withdrawn(now: number): boolean
+	return now < self.withdrawUntil
 end
 
 -- Targets --------------------------------------------------------------------------
@@ -402,7 +411,7 @@ end
 local MOVES = {}
 
 -- Walking somewhere out of everyone's sight (tier 0 and 1 he's invisible
--- anyway; his footsteps aren't).
+-- anyway, and silent: steps are only heard by whoever can see him).
 local function relocate(self, move, now)
 	self.transit = true
 	if not move.walking then
@@ -749,11 +758,16 @@ MOVES.BackAway = {
 MOVES.Lunge = {
 	start = function(self, move, ctx)
 		local target = self.target
+		move.contact = ctx.contact == true
 		self.service.lungeLast[target] = ctx.now
 		self.service.squadLungeLast = ctx.now
 		Net.get("GuestEvent")
 			:FireAllClients({ kind = "lunge", target = target.UserId, position = self.body.root.Position })
-		self.services.Telemetry:Log("GuestLunge", { tier = ctx.tier, distance = ctx.distance }, target)
+		self.services.Telemetry:Log(
+			"GuestLunge",
+			{ tier = ctx.tier, distance = ctx.distance, contact = move.contact },
+			target
+		)
 		self.body:Lunge(target, function(player)
 			move.landed = true
 			local pos = self.services.PlayerStateService:Position(player)
@@ -763,21 +777,121 @@ MOVES.Lunge = {
 				and self.services.PlayerStateService:IsActive(player)
 				and not self.services.HidingService:IsHidden(player)
 			if hit then
+				-- Judged before the down: is anyone he knows of near enough to help?
+				move.alone = move.contact and self:_alone(player)
 				self.service:_catch(player, os.clock(), "lunge")
 			end
 			self.services.Telemetry:Log("GuestLungeLanded", { hit = hit == true }, player)
-		end)
+		end, move.contact and G.ContactWindup or nil)
 		return true
 	end,
-	update = function(self, _move)
+	update = function(self, move)
 		if self.body:Busy() then
 			return false
 		end
-		-- Cancelled (two Witnesses) or landed: either way he backs off.
-		self:_begin("BackAway", self:_ctxCache())
+		-- Cancelled (two Witnesses) or landed. Having downed someone alone he
+		-- slips away before their friends arrive; otherwise he backs off.
+		local ctx = self:_ctxCache()
+		self:_begin(move.alone and "Withdraw" or "BackAway", ctx)
 		return false
 	end,
 }
+
+-- Downed someone who was alone: out of sight at once, and gone while the
+-- others come to help. Invisible to everyone (Stalk:Withdrawn), so no steps.
+MOVES.Withdraw = {
+	start = function(self, move, ctx)
+		self.withdrawUntil = ctx.now + self.rng:NextNumber(G.WithdrawSeconds[1], G.WithdrawSeconds[2])
+		move.goal = self:_farPoint()
+		self.body:FacePlayer(self.target)
+		self.body:Zoom(self:_escapePoint(self.body.root.Position))
+		return true
+	end,
+	update = function(self, move, now)
+		if self.body:Busy() then
+			return false
+		end
+		if not move.walking then
+			move.walking = true
+			move.started = now
+			self.body:FaceMovement()
+			self.body:SetGaze(nil)
+			self.body:SetPose(Poses.Run)
+			if move.goal then
+				self.body:Go(move.goal, G.WithdrawSpeed)
+			end
+		end
+		if not move.still and (not move.goal or self.body:Arrived() or now - move.started > 20) then
+			move.still = true
+			self.body:Hold()
+			self.body:SetPose(Poses.Idle)
+		end
+		return now >= self.withdrawUntil
+	end,
+}
+
+-- Nobody he knows of is near enough to help this player.
+function Stalk:_alone(victim: Player): boolean
+	local ps = self.services.PlayerStateService
+	local victimPos = ps:Position(victim)
+	if not victimPos then
+		return true
+	end
+	for _, other in ps:LivingPlayers() do
+		if other ~= victim and ps:IsActive(other) then
+			local pos = self:Known(other)
+			if pos and planar(pos, victimPos) <= G.ContactAloneRadius then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- Seconds since anyone went down within the no-lunge radius of a position.
+function Stalk:_sinceDownNear(pos: Vector3, now: number): number
+	local since = math.huge
+	for _, down in self.service.recentDowns do
+		if (down.position - pos).Magnitude <= G.NoLungeNearDownRadius then
+			since = math.min(since, now - down.t)
+		end
+	end
+	return since
+end
+
+-- Anyone he can see who has walked right up to him (Logic/StalkRules.contact).
+-- Not only his target: whoever rushes him gets the lunge.
+function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
+	local service, services = self.service, self.services
+	local here = self.body.root.Position
+	for _, entry in service.perception.visibleList do
+		local player = entry.player
+		local pos = services.PlayerStateService:Position(player)
+		local head = player.Character and player.Character:FindFirstChild("Head")
+		if pos then
+			local distance = planar(pos, here)
+			local ok = StalkRules.contact({
+				tier = ctx.tier,
+				visibleToVictim = service.visibleTo[player] == true,
+				distance = distance,
+				verticalGap = math.abs(pos.Y - here.Y),
+				lineOfSight = head ~= nil
+					and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
+				watchers = ctx.watchers,
+				anchored = now < (service.frozenUntil or 0),
+				hidden = services.HidingService:IsHidden(player),
+				downed = not services.PlayerStateService:IsActive(player),
+				safeRoom = service.perception:InSafeRoom(player),
+				sinceDownNearby = self:_sinceDownNear(pos, now),
+				sinceContact = now - (self.contactLast[player] or -math.huge),
+			}, G)
+			if ok then
+				return player, distance
+			end
+		end
+	end
+	return nil, nil
+end
 
 -- Hold still and stare at whoever is watching (tier 2+). Returns false so
 -- the move carries on when they look away.
@@ -961,12 +1075,7 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 	local target = self.target
 	local pos = ctx.targetPos
 	local here = self.body.root.Position
-	local sinceDown = math.huge
-	for _, down in service.recentDowns do
-		if (down.position - pos).Magnitude <= G.NoLungeNearDownRadius then
-			sinceDown = math.min(sinceDown, now - down.t)
-		end
-	end
+	local sinceDown = self:_sinceDownNear(pos, now)
 	local warned = self.warned[target]
 	local head = target.Character and target.Character:FindFirstChild("Head")
 	local ok = StalkRules.canLunge({
@@ -1064,11 +1173,19 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 	self.seenFor = ctx.targetWatching and self.seenFor + dt or 0
 
 	local moveId = self.move and self.move.id
-	local busy = moveId == "Yank" or moveId == "Lunge" or moveId == "BackAway"
+	local busy = moveId == "Yank" or moveId == "Lunge" or moveId == "BackAway" or moveId == "Withdraw"
 
 	-- Reactions --------------------------------------------------------------------
 	if not busy then
-		if StalkRules.flees(tier, self.seenFor, G) and not self:Hidden(now) then
+		-- Walk right up to him and he lunges (before he can flee or hold).
+		local victim, victimDistance = self:_contactVictim(now, ctx)
+		if victim then
+			self.contactLast[victim] = now
+			self.target, self.targetSince = victim, now
+			self.sensedPos, self.sensedSeen = self:Known(victim)
+			ctx.contact, ctx.distance = true, victimDistance
+			self:_begin("Lunge", ctx)
+		elseif StalkRules.flees(tier, self.seenFor, G) and not self:Hidden(now) then
 			self:_begin("Yank", ctx)
 		elseif StalkRules.backsOff(tier, self.watchedFor, nearestDistance, G) then
 			self:_begin("BackAway", ctx)

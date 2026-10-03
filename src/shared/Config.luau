@@ -421,6 +421,15 @@ Config.Guest = {
 	WarningMemorySeconds = 6,
 	NoLungeNearDownSeconds = 20,
 	NoLungeNearDownRadius = 30,
+	-- Close contact (Logic/StalkRules.contact): within this many studs of a Guest
+	-- you can see, he lunges at once. 5 is also where he senses you regardless
+	-- of facing (Perception:CanSee).
+	ContactRadius = 5,
+	ContactWindup = 0.15,
+	ContactCooldownPerPlayer = 8,
+	ContactAloneRadius = 30, -- nobody he knows of this close to the victim: he withdraws
+	WithdrawSeconds = { 25, 40 }, -- gone from sight while rescuers come
+	WithdrawSpeed = 14,
 	-- Hunts start from wherever he is, out of sight and this far away.
 	HuntStartMinDistance = 25,
 	HuntStartMaxWait = 6,

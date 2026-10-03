@@ -66,8 +66,8 @@ local StalkMoves = {
 		base = 0.3,
 		signal = nil,
 		cooldown = 0,
-		description = "Walks the far rooms, so you can hear where he is.",
-		counter = "Listen: his footsteps are real.",
+		description = "Walks the far rooms, unseen and unheard.",
+		counter = "Listen for the creak and the breath behind you; he is closer than the quiet suggests.",
 	},
 }
 

@@ -30,6 +30,7 @@ function Perception.new(services, body, bodyCtl)
 		bodyCtl = bodyCtl,
 		memory = {}, -- player -> { position, facing, t, confidence, seen }
 		watchTime = {}, -- player -> seconds continuously watched
+		visibleList = {}, -- players he can see this tick, nearest first
 		hearingMultiplier = 1,
 		params = params,
 	}, Perception)
@@ -38,6 +39,7 @@ end
 function Perception:Reset()
 	self.memory = {}
 	self.watchTime = {}
+	self.visibleList = {}
 end
 
 function Perception:_rayParams()
@@ -172,7 +174,10 @@ end
 -- Update memory from sight and from noises heard since the last tick.
 function Perception:Update(hearingBoost: number?)
 	local services = self.services
-	for _, entry in self:Visible() do
+	-- Kept for this tick so Stalk can see who is right next to him without
+	-- casting the same rays again.
+	self.visibleList = self:Visible()
+	for _, entry in self.visibleList do
 		local root = services.PlayerStateService:Root(entry.player)
 		if root then
 			self:_remember(entry.player, root.Position, 1, true, root.CFrame.LookVector)

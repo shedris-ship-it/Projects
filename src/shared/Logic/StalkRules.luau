@@ -6,12 +6,14 @@
 --   tier 1  Watching  seen only by the Witness he's watching; peeks, and is
 --                     yanked out of sight the moment you've clearly seen him
 --   tier 2  Closing   seen by all; creeps closer only while nobody watches,
---                     never attacks; may end up right behind you, breathing
+--                     never attacks unprovoked; may end up right behind you,
+--                     breathing
 --   tier 3  Intruding creeps even while one Witness watches; two freeze him;
 --                     sneaks up behind turned backs; lunges when close
 --
 -- Everyone: he never turns his back on you, and never pops in or out of
--- existence in front of anyone (visibility only changes unseen).
+-- existence in front of anyone (visibility only changes unseen). Walk up to
+-- him from tier 1 and he lunges (StalkRules.contact).
 
 local StalkRules = {}
 
@@ -93,6 +95,34 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 	elseif ctx.warnedFor < cfg.LungeTellLeadSeconds or ctx.sinceWarned > cfg.WarningMemorySeconds then
 		-- Fairness: you heard him (a breath, a creak) or saw him coming.
 		return false, "no warning yet"
+	end
+	return true, nil
+end
+
+-- Close contact (owner, 2026-10-03): walk right up to a Guest you can see and
+-- he lunges at once, at any tier from 1. Rushing him is your own choice, so
+-- there's no run-time wait, no warning and none of the lunge cooldowns. Still
+-- off while two Witnesses hold him (a buddy who stares is the counter), while
+-- you're hidden, downed or safe, and just after someone nearby went down.
+-- ctx: tier, visibleToVictim, distance, verticalGap, lineOfSight, watchers,
+--   anchored, hidden, downed, safeRoom, sinceDownNearby, sinceContact
+function StalkRules.contact(ctx, cfg): (boolean, string?)
+	if ctx.tier < 1 then
+		return false, "tier"
+	elseif not ctx.visibleToVictim then
+		return false, "not visible to them"
+	elseif ctx.distance > cfg.ContactRadius or ctx.verticalGap > 4 then
+		return false, "out of reach"
+	elseif StalkRules.frozen(ctx.watchers, ctx.anchored) then
+		return false, "frozen"
+	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
+		return false, "protected"
+	elseif not ctx.lineOfSight then
+		return false, "no line"
+	elseif ctx.sinceDownNearby < cfg.NoLungeNearDownSeconds then
+		return false, "someone just went down"
+	elseif ctx.sinceContact < cfg.ContactCooldownPerPlayer then
+		return false, "cooldown"
 	end
 	return true, nil
 end

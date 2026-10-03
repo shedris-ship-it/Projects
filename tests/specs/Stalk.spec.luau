@@ -105,6 +105,64 @@ return function(test, check, Shared, require)
 		check.equal(StalkRules.lungeHits(G.LungeReach + 1, 0, G), false, "a sprinter at the edge escapes")
 	end)
 
+	-- A close-contact context where everything allows it; tests switch one thing off.
+	local function touching(overrides)
+		local ctx = {
+			tier = 2,
+			visibleToVictim = true,
+			distance = 3,
+			verticalGap = 0,
+			lineOfSight = true,
+			watchers = 1,
+			anchored = false,
+			hidden = false,
+			downed = false,
+			safeRoom = false,
+			sinceDownNearby = math.huge,
+			sinceContact = math.huge,
+		}
+		for k, v in overrides or {} do
+			ctx[k] = v
+		end
+		return ctx
+	end
+
+	test("walk up to a Guest you can see and he lunges, from tier 1, with no warning or wait", function()
+		for tier = 1, 3 do
+			check.truthy(StalkRules.contact(touching({ tier = tier }), G), "tier " .. tier)
+		end
+		-- The normal lunge still refuses the same situation at tier 2.
+		check.equal(
+			StalkRules.canLunge(ready({ tier = 2, distance = 3 }), G),
+			false,
+			"tier 2 still never lunges unprovoked"
+		)
+	end)
+
+	test("close contact: not at tier 0, not if he's unseen by them, not out of reach", function()
+		check.equal(StalkRules.contact(touching({ tier = 0 }), G), false, "tier 0")
+		check.equal(StalkRules.contact(touching({ visibleToVictim = false }), G), false, "he is invisible to them")
+		check.equal(StalkRules.contact(touching({ distance = G.ContactRadius + 1 }), G), false, "too far")
+		check.equal(StalkRules.contact(touching({ verticalGap = 6 }), G), false, "another floor")
+		check.equal(StalkRules.contact(touching({ lineOfSight = false }), G), false, "through a wall")
+	end)
+
+	test("close contact: two watchers freeze him, and the protected stay protected", function()
+		check.equal(StalkRules.contact(touching({ watchers = 2 }), G), false, "a buddy staring too")
+		check.equal(StalkRules.contact(touching({ anchored = true }), G), false, "anchored")
+		check.equal(StalkRules.contact(touching({ hidden = true }), G), false, "hidden")
+		check.equal(StalkRules.contact(touching({ downed = true }), G), false, "downed")
+		check.equal(StalkRules.contact(touching({ safeRoom = true }), G), false, "safe room")
+	end)
+
+	test("close contact: no revive camping, and a short cooldown after a miss", function()
+		check.equal(StalkRules.contact(touching({ sinceDownNearby = 5 }), G), false, "someone just went down")
+		local ok, why = StalkRules.contact(touching({ sinceContact = 2 }), G)
+		check.equal(ok, false, "too soon")
+		check.equal(why, "cooldown", "reason")
+		check.truthy(StalkRules.contact(touching({ sinceContact = G.ContactCooldownPerPlayer + 1 }), G), "later")
+	end)
+
 	test("doorway stand only while he can't attack", function()
 		check.truthy(StalkRules.mayBlockDoorway(2), "tier 2")
 		check.equal(StalkRules.mayBlockDoorway(3), false, "tier 3")

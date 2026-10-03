@@ -406,7 +406,7 @@ function StalkerService:_wantVisible(player: Player, now: number): boolean
 	if mode == Modes.Hunting or mode == Modes.Telegraph or mode == Modes.Retreating or mode == Modes.Departing then
 		return true
 	end
-	if self.tier <= 1 and self.stalk:Hidden(now) then
+	if self.stalk:Withdrawn(now) or (self.tier <= 1 and self.stalk:Hidden(now)) then
 		return false
 	end
 	return StalkRules.visibleTo(self.tier, player == self.stalk:Target())
