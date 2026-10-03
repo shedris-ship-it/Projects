@@ -269,6 +269,11 @@ function RunOrchestrator:_onRitualComplete()
 	if exit then
 		exit.door.CanCollide = false
 		exit.door.Transparency = 0.85
+		for _, detail in exit.door:GetChildren() do
+			if detail:IsA("BasePart") then
+				detail.Transparency = 0.85
+			end
+		end
 		exit.light.Enabled = true
 	end
 	self:_setPhase(Phases.Extraction, Config.Run.ExtractionSeconds)

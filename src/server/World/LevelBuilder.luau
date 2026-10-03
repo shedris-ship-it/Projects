@@ -662,6 +662,38 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				PropFactory.material("Fabric"),
 				{ collide = false }
 			)
+			-- A wooden frame and pins so it reads as a board, not a rug.
+			local frameColour = Color3.fromRGB(88, 60, 40)
+			local bw, bh = 9, 5.5
+			for _, edge in
+				{
+					{ 0, bh / 2, bw + 0.5, 0.35 },
+					{ 0, -bh / 2, bw + 0.5, 0.35 },
+					{ -bw / 2, 0, 0.35, bh },
+					{ bw / 2, 0, 0.35, bh },
+				}
+			do
+				PropFactory.part(
+					model,
+					"BoardFrame",
+					Vector3.new(edge[3], edge[4], 0.5),
+					cf * CFrame.new(edge[1], edge[2], -0.15),
+					frameColour,
+					PropFactory.material("Wood"),
+					{ collide = false, castShadow = false }
+				)
+			end
+			for _, pin in { { -3.8, 2.2 }, { 3.8, 2.2 }, { -3.8, -2.2 }, { 3.8, -2.2 } } do
+				PropFactory.part(
+					model,
+					"BoardPin",
+					Vector3.new(0.3, 0.3, 0.3),
+					cf * CFrame.new(pin[1], pin[2], 0.05),
+					Color3.fromRGB(180, 40, 36),
+					PropFactory.material("SmoothPlastic"),
+					{ collide = false, castShadow = false, shape = Enum.PartType.Ball }
+				)
+			end
 			world.caseBoardPart = boardPart
 		end
 		if room.lantern then
@@ -719,6 +751,52 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				"Sign",
 				"EXIT",
 				{ color = Color3.fromRGB(200, 60, 50), ppu = 20 }
+			)
+			-- Panels, a knob and a kick plate on the house side, like the other doors
+			-- (they are children, so they open with the slab).
+			local inner = CFrame.lookAt(doorPos, doorPos - dir)
+			local brass = Color3.fromRGB(176, 142, 74)
+			local function detail(name, detailSize, offset, colour, material, shape)
+				return PropFactory.part(
+					exitDoor,
+					name,
+					detailSize,
+					inner * offset,
+					colour,
+					PropFactory.material(material),
+					{ collide = false, castShadow = false, shape = shape }
+				)
+			end
+			for _, sx in { -1, 1 } do
+				detail(
+					"Panel",
+					Vector3.new(DOOR_W * 0.36, DOOR_H * 0.3, 0.08),
+					CFrame.new(sx * DOOR_W * 0.22, -DOOR_H * 0.2, -0.34),
+					Color3.fromRGB(78, 54, 40),
+					"Wood"
+				)
+			end
+			detail(
+				"KickPlate",
+				Vector3.new(DOOR_W - 0.7, 0.8, 0.06),
+				CFrame.new(0, -DOOR_H / 2 + 0.6, -0.32),
+				brass,
+				"Metal"
+			)
+			detail(
+				"KnobPlate",
+				Vector3.new(0.4, 1.1, 0.06),
+				CFrame.new(DOOR_W * 0.36, -DOOR_H * 0.04, -0.33),
+				brass,
+				"Metal"
+			)
+			detail(
+				"Knob",
+				Vector3.new(0.45, 0.45, 0.45),
+				CFrame.new(DOOR_W * 0.36, -DOOR_H * 0.04, -0.55),
+				brass,
+				"Metal",
+				Enum.PartType.Ball
 			)
 			local porchCenter = center + dir * (HALF + 6)
 			local porchSize = dir.Z ~= 0 and Vector3.new(14, 1, 12) or Vector3.new(12, 1, 14)

@@ -1548,6 +1548,83 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 16, 24)),
 		})
 		gradient.Parent = fill
+		-- Drawn on the same pane: a moon with a halo, a scatter of stars and tree
+		-- silhouettes along the bottom, different in every window (seeded by its
+		-- place) so the house isn't looking out on one repeated picture.
+		local scene = Rng.new(Rng.hash(tostring(cf.Position)))
+		local function box(name, size, position, colour, transparency, round, anchor)
+			local f = Instance.new("Frame")
+			f.Name = name
+			f.Size = size
+			f.Position = position
+			f.AnchorPoint = anchor or Vector2.zero
+			f.BackgroundColor3 = colour
+			f.BackgroundTransparency = transparency
+			f.BorderSizePixel = 0
+			if round then
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(round, 0)
+				corner.Parent = f
+			end
+			f.Parent = gui
+			return f
+		end
+		for _ = 1, scene:NextInteger(6, 11) do
+			local s = scene:NextInteger(1, 2)
+			box(
+				"Star",
+				UDim2.fromOffset(s, s),
+				UDim2.fromScale(scene:NextNumber(0.04, 0.96), scene:NextNumber(0.03, 0.55)),
+				Color3.fromRGB(235, 236, 255),
+				scene:NextNumber(0.1, 0.6),
+				0.5
+			)
+		end
+		local mx, my = scene:NextNumber(0.2, 0.8), scene:NextNumber(0.12, 0.38)
+		local moonSize = math.floor(ih * 20 * 0.26)
+		box(
+			"MoonHalo",
+			UDim2.fromOffset(moonSize * 2.2, moonSize * 2.2),
+			UDim2.fromScale(mx, my),
+			Color3.fromRGB(150, 168, 210),
+			0.86,
+			0.5,
+			Vector2.new(0.5, 0.5)
+		)
+		box(
+			"Moon",
+			UDim2.fromOffset(moonSize, moonSize),
+			UDim2.fromScale(mx, my),
+			Color3.fromRGB(238, 234, 214),
+			0,
+			0.5,
+			Vector2.new(0.5, 0.5)
+		)
+		local x = -0.02
+		while x < 1 do
+			local width = scene:NextNumber(0.1, 0.22)
+			local height = scene:NextNumber(0.14, 0.34)
+			local dark = Color3.fromRGB(6, 8, 12)
+			box(
+				"Trunk",
+				UDim2.fromScale(0.018, height * 0.5),
+				UDim2.fromScale(x + width / 2, 1),
+				dark,
+				0,
+				nil,
+				Vector2.new(0.5, 1)
+			)
+			box(
+				"Crown",
+				UDim2.fromScale(width, height),
+				UDim2.fromScale(x + width / 2, 1 - height * 0.35),
+				dark,
+				0,
+				0.5,
+				Vector2.new(0.5, 1)
+			)
+			x += width * scene:NextNumber(0.6, 0.95)
+		end
 		-- A faintly tinted, nearly clear pane. Roblox's Glass material hides the
 		-- sky up close (so the window changed with distance), and reflectance
 		-- on a clear pane darkens whatever is behind it, a Sealed window's

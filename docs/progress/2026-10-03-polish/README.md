@@ -51,3 +51,10 @@ About 200 descendants and 125 parts per room. Frame rate can't be read through t
 - **Budget check** (15-room run): 2932 descendants, 2037 parts, 29 lights (24 with shadows), 22 SurfaceGuis, 24 decals, 11 clutter items; about 136 parts and 195 descendants per room, in line with the baseline above.
 - Verified in Studio: the kitchen (`stage4_kitchen_fixtures.jpg`, `stage4_kitchen_room.jpg`) and living room (`stage4_living_room_sofa_tv.jpg`) render the new fixtures; console clean. A hand-fill light on the viewmodel turned out to light the room around the player, so it is now 3 studs and off while the torch is on.
 - Not verified yet: the bathroom fixtures, bedroom and the rest by eye (the screenshot camera kept being reset), and fps. Still to do in this stage: windows' sky, moon and stars, the exit door and Case Board, thresholds, switches and sconces.
+
+## Stage 4 (part 2): windows, exit door, Case Board
+
+- **Night outside every window**: the pane's gradient now carries a moon with a halo, a scatter of stars and tree silhouettes along the bottom, different in each window (seeded by its place), all drawn on the same SurfaceGui so it costs no extra parts. Verified (`stage4_window_night.jpg`).
+- **Exit door**: lower panels, a kick plate, a knob and a knob plate on the house side, as children of the slab so they fade with it when the exit opens (`RunOrchestrator`). Not verified by eye.
+- **Case Board**: a wooden frame and four pins, so it reads as a board in the first room you see. Not verified by eye.
+- Not done in this pass: thresholds, light switches, sconces, vents (they would add a lot of small parts for little gain until the budget is measured on the owner's machine).
