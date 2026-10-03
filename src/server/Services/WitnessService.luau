@@ -292,7 +292,11 @@ function WitnessService:Resolve(player: Player, targetId: any, position: any)
 	if (position - head.Position).Magnitude > W.MaxRange + 8 then
 		return nil
 	end
-	if type(targetId) == "string" and registry[targetId] then
+	-- Some targets (The Guest) are only visible to some players.
+	local function seen(entry)
+		return not entry.visibleTo or entry.visibleTo(player)
+	end
+	if type(targetId) == "string" and registry[targetId] and seen(registry[targetId]) then
 		local entry = registry[targetId]
 		if (positionOf(entry) - position).Magnitude <= (entry.radius or W.ResolveRadius) * 2 then
 			return entry
@@ -300,7 +304,7 @@ function WitnessService:Resolve(player: Player, targetId: any, position: any)
 	end
 	local best, bestDistance = nil, math.huge
 	for _, entry in registry do
-		if not entry.hidden then
+		if not entry.hidden and seen(entry) then
 			local d = (positionOf(entry) - position).Magnitude
 			if d <= (entry.radius or W.ResolveRadius) and d < bestDistance then
 				best, bestDistance = entry, d

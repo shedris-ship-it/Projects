@@ -355,6 +355,58 @@ Config.Guest = {
 	EyeShineRange = 45, -- your torch catches his eyes within this range
 	EyeShineCone = 24, -- half-angle of the torch beam, degrees
 	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28 },
+
+	-- Arrival: three knocks at the front door when the quiet start ends.
+	ArrivalKnockLead = 3, -- seconds from the knock until he's inside
+	-- Moving.
+	WalkSpeed = 6, -- unhurried, when nobody can see him
+	CreepSpeedTier2 = { 1.6, 3.2 }, -- from your side to right behind your back
+	CreepSpeedTier3 = { 0.9, 1.8 }, -- "really slow" (owner)
+	CreepSpeedWatched = 0.7, -- tier 3, while one Witness stares at him
+	BackAwaySpeed = 3.5,
+	BackAwayMaxSeconds = 10,
+	ZoomSpeed = 55, -- the yank out of sight
+	SpottedFleeSeconds = 0.45, -- tier 1: how long you see him before he's gone
+	Tier1Cooldown = { 14, 30 }, -- tier 1: quiet between appearances
+	StareBackAwaySeconds = 4, -- tier 2: watched this long up close, he backs off
+	StareBackAwayRange = 16,
+	PeekHoldSeconds = { 6, 14 },
+	-- Peeking round a door frame (Logic/PeekSpots).
+	PeekLateral = 4.6,
+	PeekWallClearance = 1.2,
+	PeekHideLateral = 8.2,
+	PeekMinDistance = { [1] = 25, [2] = 12, [3] = 8 }, -- (doc) never closer than 25 at tier 1
+	-- Being seen.
+	ViewConeDegrees = 110, -- a Witness's field of view, wide
+	BackTurnedDegrees = 110,
+	StealthStep = 2.5, -- studs per steering step
+	StealthSamples = 8,
+	RayBudgetPerTick = 48,
+	-- Warnings before a back attack (owner: subtle tells).
+	TellRadius = 12,
+	BreathInterval = { 2.5, 4 },
+	CreakInterval = { 3, 6 },
+	CloseBehind = 3.5, -- tier 2: as close as he comes, breathing on your neck
+	-- The lunge (tier 3+). Fairness gates live in Logic/StalkRules.
+	LungeRadius = 6,
+	LungeWindup = 0.32,
+	LungeSpeed = 70,
+	LungeReach = 4,
+	LungeCooldownPerPlayer = 150,
+	LungeCooldownSquad = 60,
+	LungeMinRunSeconds = 240,
+	LungeTellLeadSeconds = 1.5, -- you've heard or seen him at least this long before
+	WarningMemorySeconds = 6,
+	NoLungeNearDownSeconds = 20,
+	NoLungeNearDownRadius = 30,
+	-- Hunts start from wherever he is, out of sight and this far away.
+	HuntStartMinDistance = 25,
+	HuntStartMaxWait = 6,
+	-- How strongly nearby lights sag, by tier (tier 0 he's far and faint).
+	PresenceDim = { [0] = 0.35, [1] = 0.6, [2] = 0.85, [3] = 1, [4] = 1 },
+	-- Gaze habits (Logic/GazeHabits).
+	TargetStickSeconds = 25,
+	BrainHz = 4,
 }
 
 Config.Tools = {

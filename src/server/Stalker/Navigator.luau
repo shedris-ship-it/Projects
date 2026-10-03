@@ -194,14 +194,22 @@ function Navigator:Step(now: number): boolean
 	humanoid.WalkSpeed = self.speed
 	humanoid:MoveTo(waypoint.position)
 
-	-- Stuck? Nudge forward when nobody is watching, otherwise skip ahead.
+	-- Stuck? Nudge him a little forward when nobody could see it (he's
+	-- always physically somewhere: never more than a few studs), otherwise
+	-- skip to the next waypoint.
 	if now - self.lastProgressCheck > 1.5 then
 		if distance > self.lastDistance - 0.6 then
 			if self.canTeleport and self.canTeleport() then
+				local toward = flat(waypoint.position) - flat(root.Position)
+				local nudge = toward.Magnitude > 4 and toward.Unit * 4 or toward
 				self.body.model:PivotTo(
-					CFrame.new(flat(waypoint.position) + Vector3.new(0, self.body.groundOffset, 0))
+					CFrame.new(flat(root.Position) + nudge + Vector3.new(0, self.body.groundOffset, 0))
 						* root.CFrame.Rotation
 				)
+				local telemetry = self.services.Telemetry
+				if telemetry then
+					telemetry:Log("GuestNudge", { studs = math.floor(nudge.Magnitude * 10) / 10 })
+				end
 			end
 			self.index += 1
 		end

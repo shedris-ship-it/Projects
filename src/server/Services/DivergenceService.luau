@@ -158,6 +158,24 @@ function DivergenceService:Plan(players: { Player }, sites, rng)
 	return result
 end
 
+-- Seams that look different to someone (a doorway for one Witness, a wall
+-- for another). The Guest doesn't peek round these: a head poking out of
+-- what you see as a wall would give the divergence away.
+function DivergenceService:DivergentSeams(): { [string]: boolean }
+	local set = {}
+	for _, rules in self.profiles or {} do
+		for _, rule in rules do
+			if rule.kind == "SeamFlip" then
+				set[rule.target] = true
+			end
+		end
+	end
+	for _, id in self.reservedSeams or {} do
+		set[id] = true
+	end
+	return set
+end
+
 -- Seams the anomaly needs for itself (e.g. Phantom Architecture's Sources).
 function DivergenceService:ReserveSeams(seamIds: { string })
 	self.reservedSeams = seamIds

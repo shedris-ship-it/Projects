@@ -1,0 +1,207 @@
+return function(test, check, Shared, require)
+	local Config = require(Shared.Config)
+	local StalkRules = require(Shared.Logic.StalkRules)
+	local SightMath = require(Shared.Logic.SightMath)
+	local PeekSpots = require(Shared.Logic.PeekSpots)
+	local GazeHabits = require(Shared.Logic.GazeHabits)
+	local GuestPose = require(Shared.Logic.GuestPose)
+	local StalkMoves = require(Shared.Data.StalkMoves)
+
+	local G = Config.Guest
+
+	-- A lunge context where everything allows it; tests switch one thing off.
+	local function ready(overrides)
+		local ctx = {
+			tier = 3,
+			runTime = 600,
+			watchers = 1,
+			anchored = false,
+			distance = 4,
+			verticalGap = 0,
+			lineOfSight = true,
+			hidden = false,
+			downed = false,
+			safeRoom = false,
+			sinceDownNearby = math.huge,
+			sincePlayerLunge = math.huge,
+			sinceSquadLunge = math.huge,
+			warnedFor = 3,
+			sinceWarned = 0.5,
+		}
+		for k, v in overrides or {} do
+			ctx[k] = v
+		end
+		return ctx
+	end
+
+	test("visibility: nobody at tier 0, only the target at tier 1, everyone after", function()
+		check.equal(StalkRules.visibleTo(0, true), false, "tier 0 target")
+		check.equal(StalkRules.visibleTo(1, true), true, "tier 1 target")
+		check.equal(StalkRules.visibleTo(1, false), false, "tier 1 others")
+		check.equal(StalkRules.visibleTo(2, false), true, "tier 2 everyone")
+		check.equal(StalkRules.visibleTo(4, false), true, "hunting everyone")
+	end)
+
+	test("two watchers freeze him; one doesn't at tier 3", function()
+		check.truthy(StalkRules.frozen(2, false), "two watchers")
+		check.truthy(StalkRules.frozen(0, true), "a Witness anchor")
+		check.equal(StalkRules.frozen(1, false), false, "one watcher alone")
+		check.truthy(StalkRules.canCreep(3, 1), "tier 3 creeps while one watches")
+		check.equal(StalkRules.canCreep(3, 2), false, "but not while two do")
+	end)
+
+	test("tier 2 creeps only while unwatched and never attacks", function()
+		check.truthy(StalkRules.canCreep(2, 0), "unwatched")
+		check.equal(StalkRules.canCreep(2, 1), false, "watched by one")
+		check.equal(StalkRules.canLunge(ready({ tier = 2 }), G), false, "no lunge at tier 2")
+		check.equal(StalkRules.canCreep(1, 0), false, "tier 1 never approaches")
+	end)
+
+	test("creeping is faster behind your back and slowest while stared at", function()
+		local side = StalkRules.creepSpeed(3, 90, 0, G)
+		local behind = StalkRules.creepSpeed(3, 180, 0, G)
+		local watched = StalkRules.creepSpeed(3, 0, 1, G)
+		check.truthy(behind > side, "back turned is faster")
+		check.truthy(watched <= side, "stared at is slowest")
+		check.atMost(behind, 2, "tier 3 is really slow")
+		check.truthy(StalkRules.creepSpeed(2, 180, 0, G) > behind, "tier 2 is quicker than tier 3")
+	end)
+
+	test("tier 1 flees once spotted; tier 2 backs off when stared at up close", function()
+		check.equal(StalkRules.flees(1, 0.1, G), false, "a glance isn't enough")
+		check.truthy(StalkRules.flees(1, G.SpottedFleeSeconds, G), "clearly seen")
+		check.equal(StalkRules.flees(2, 5, G), false, "tier 2 doesn't flee")
+		check.truthy(StalkRules.backsOff(2, G.StareBackAwaySeconds, 8, G), "stared at up close")
+		check.equal(StalkRules.backsOff(2, G.StareBackAwaySeconds, 30, G), false, "far away he just holds")
+	end)
+
+	test("no lunge without a warning first", function()
+		check.truthy(StalkRules.canLunge(ready(), G), "all clear")
+		local ok, why = StalkRules.canLunge(ready({ warnedFor = 0.5 }), G)
+		check.equal(ok, false, "warned too recently")
+		check.equal(why, "no warning yet", "reason")
+		check.equal(StalkRules.canLunge(ready({ sinceWarned = 30 }), G), false, "warning long gone")
+	end)
+
+	test("no lunge at hidden, downed, safe-room or just-revived players", function()
+		check.equal(StalkRules.canLunge(ready({ hidden = true }), G), false, "hidden")
+		check.equal(StalkRules.canLunge(ready({ downed = true }), G), false, "downed")
+		check.equal(StalkRules.canLunge(ready({ safeRoom = true }), G), false, "safe room")
+		check.equal(StalkRules.canLunge(ready({ sinceDownNearby = 5 }), G), false, "someone just went down")
+		check.equal(StalkRules.canLunge(ready({ lineOfSight = false }), G), false, "through a wall")
+		check.equal(StalkRules.canLunge(ready({ watchers = 2 }), G), false, "two watchers")
+	end)
+
+	test("per-player and squad lunge cooldowns", function()
+		check.equal(StalkRules.canLunge(ready({ sincePlayerLunge = 30 }), G), false, "same player")
+		check.equal(StalkRules.canLunge(ready({ sinceSquadLunge = 10 }), G), false, "anyone recently")
+		check.truthy(StalkRules.canLunge(ready({ sincePlayerLunge = 200, sinceSquadLunge = 90 }), G), "later")
+	end)
+
+	test("no lunge early in the run; the lunge only lands within reach", function()
+		check.equal(StalkRules.canLunge(ready({ runTime = 100 }), G), false, "early run")
+		check.equal(StalkRules.canLunge(ready({ distance = G.LungeRadius + 1 }), G), false, "too far")
+		check.truthy(StalkRules.lungeHits(G.LungeReach - 0.5, 0, G), "still close")
+		check.equal(StalkRules.lungeHits(G.LungeReach + 1, 0, G), false, "a sprinter at the edge escapes")
+	end)
+
+	test("doorway stand only while he can't attack", function()
+		check.truthy(StalkRules.mayBlockDoorway(2), "tier 2")
+		check.equal(StalkRules.mayBlockDoorway(3), false, "tier 3")
+	end)
+
+	test("sight: back turned beyond 110 degrees, sides, cones", function()
+		-- Looking along -Z.
+		check.near(SightMath.angle(0, -1, 0, -5), 0, 1e-6, "ahead")
+		check.near(SightMath.angle(0, -1, 0, 5), 180, 1e-6, "behind")
+		check.truthy(SightMath.backTurned(0, -1, 0, 5, 110), "behind counts")
+		check.equal(SightMath.backTurned(0, -1, 5, 0, 110), false, "the side is peripheral, not behind")
+		check.equal(SightMath.side(0, -1, -3, 0), 1, "left")
+		check.equal(SightMath.side(0, -1, 3, 0), -1, "right")
+		check.truthy(SightMath.inCone(0, -1, 1, -3, 110), "inside the view cone")
+		check.equal(SightMath.inCone(0, -1, 5, 0.5, 110), false, "outside it")
+	end)
+
+	test("stealth: a seen step loses to a hidden one, a blocked step never wins", function()
+		local hidden = SightMath.stealthScore(1.0, 0, false)
+		local seen = SightMath.stealthScore(2.5, 1, false)
+		check.truthy(hidden > seen, "stays out of sight even if it's slower")
+		check.truthy(SightMath.stealthScore(0.2, 0, false) > SightMath.stealthScore(5, 0, true), "walls")
+		check.truthy(SightMath.stealthScore(2, 0, false) > SightMath.stealthScore(1, 0, false), "progress")
+	end)
+
+	test("peek spots: beside the jamb, behind the wall, outside the lane, leaning in", function()
+		local cfg = {
+			PeekLateral = G.PeekLateral,
+			PeekWallClearance = G.PeekWallClearance,
+			PeekHideLateral = G.PeekHideLateral,
+			WallThickness = Config.Level.WallThickness,
+		}
+		-- A doorway at the origin in a wall facing +Z (room a at -Z, b at +Z).
+		local spots = PeekSpots.forDoorway(0, 0, 0, 1, cfg)
+		check.equal(#spots, 4, "two per side")
+		for _, spot in spots do
+			check.truthy(math.abs(spot.x) > Config.Level.LaneHalfWidth, "outside the doorway lane")
+			check.truthy(math.abs(spot.x) > Config.Level.DoorWidth / 2, "behind the jamb")
+			check.truthy(spot.z * spot.side > Config.Level.WallThickness, "behind the wall, on its side")
+			check.near(spot.faceZ, -spot.side, 1e-9, "faces through the wall")
+			-- Leaning: his right is (-faceZ, faceX); the doorway is at x = 0.
+			local rightX = -spot.faceZ
+			local towardDoor = -spot.x
+			check.truthy(rightX * towardDoor * spot.lean > 0, "leans towards the opening")
+			check.truthy(math.abs(spot.hideX) > math.abs(spot.x), "the hide point is further along the wall")
+			check.near(spot.hideZ, spot.z, 1e-9, "and just as far behind it")
+		end
+	end)
+
+	test("peeking puts his head in the doorway; hiding doesn't", function()
+		local head = GuestPose.exposed("Peek", 1)
+		local still = GuestPose.exposed("Idle", 0)
+		check.truthy(head[1] > 2, "leaning right moves his head over 2 studs right")
+		check.near(still[1], 0, 0.3, "standing, his head is over his feet")
+		check.truthy(still[2] > 3 and still[2] < 3.6, "head height above the root")
+		local left = GuestPose.exposed("Peek", -1)
+		check.truthy(left[1] < -2, "and the other way")
+	end)
+
+	test("gaze habits: rear checks, their rhythm and the shoulder", function()
+		local h = GazeHabits.new()
+		local t = 0
+		-- Walking along -Z, looking back over the left shoulder every 10 s.
+		for _ = 1, 6 do
+			for _ = 1, 100 do
+				t += 0.1
+				GazeHabits.sample(h, t, 0, 0, 0.1)
+			end
+			GazeHabits.sample(h, t, math.rad(150), 0, 0.1)
+			t += 0.1
+			GazeHabits.sample(h, t, 0, 0, 0.1)
+		end
+		check.equal(h.checks, 6, "every look back counted once")
+		check.near(h.interval, 10.1, 2, "the rhythm converges")
+		check.truthy(GazeHabits.sideBias(h) > 0.5, "always over the left shoulder")
+		check.truthy(GazeHabits.creepWindow(h, h.lastCheck + 0.5) > 0.8, "safe to move just after a check")
+		check.truthy(GazeHabits.creepWindow(h, h.lastCheck + 9.5) < 0.2, "not when one is due")
+	end)
+
+	test("gaze habits: rarely looking back means a blind back; staring vs running", function()
+		local careful, careless = GazeHabits.new(), GazeHabits.new()
+		careful.checks, careful.interval = 5, 6
+		careless.checks, careless.interval = 5, 40
+		check.truthy(GazeHabits.blindBack(careless) > GazeHabits.blindBack(careful) + 0.5, "blind back")
+		GazeHabits.recordSighting(careful, true)
+		GazeHabits.recordSighting(careful, true)
+		GazeHabits.recordSighting(careless, false)
+		check.truthy(GazeHabits.stareHabit(careful) > GazeHabits.stareHabit(careless), "stares")
+	end)
+
+	test("every stalk move has tiers, a description and a counter", function()
+		check.atLeast(#StalkMoves.List, 6, "at least six moves")
+		for _, move in StalkMoves.List do
+			check.truthy(#move.tiers > 0, move.id .. " tiers")
+			check.truthy(move.description ~= "", move.id .. " description")
+			check.truthy(move.counter ~= "", move.id .. " counter")
+			check.truthy(move.base > 0 and move.cooldown >= 0, move.id .. " numbers")
+		end
+	end)
+end

@@ -380,6 +380,13 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	services.DriftService:Stop()
 	services.VerdictService:SetEnabled(false)
 	local tactics = services.StalkerService:TacticsSummary()
+	-- What he did between hunts goes in the same list: peeks, creeping, ...
+	for _, entry in services.StalkerService:StalkSummary() do
+		table.insert(tactics, { tactic = entry.move, count = entry.count, description = entry.description })
+	end
+	table.sort(tactics, function(a, b)
+		return a.count > b.count
+	end)
 	services.StalkerService:Stop()
 	services.AnomalyService:StopRitual()
 	self:_setPhase(Phases.Debrief, Config.Run.DebriefSeconds)

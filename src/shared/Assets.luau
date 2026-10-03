@@ -20,6 +20,14 @@ Assets.Sounds = {
 	-- APM Music, free to use in Roblox experiences; nothing was uploaded).
 	Gasp = "rbxassetid://9114555699", -- PSE "Gasp Trouble Breathing 3": a downed Witness
 	GaspAlt = "rbxassetid://9114555843", -- PSE "Gasp Trouble Breathing 4"
+	-- The Guest (Controllers/GuestController).
+	FrontDoorKnock = "rbxassetid://9114141961", -- PSE "Door Knock 6": knocks, then the door creaks open
+	Breath = "rbxassetid://9113586144", -- PSE "Breath Exhale 17": close, in your ear
+	Creak = "rbxassetid://9125563505", -- PSE floorboard creak
+	CreakAlt = "rbxassetid://9125563286", -- PSE floorboard creak
+	WindUp = "rbxassetid://9114555843", -- the gasp, pitched far down: a sharp intake before the lunge
+	Sting = "rbxassetid://9117322696", -- PSE "Piano Strings Attack 1": the jumpscare
+	GlassTap = "rbxassetid://9119918673", -- PSE "Tap On Glass Window 1"
 	-- Loops for the Drift layers and room tone. Fill these with real assets.
 	RoomTone = "",
 	DriftBass = "",

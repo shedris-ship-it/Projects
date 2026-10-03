@@ -32,8 +32,8 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-04 | Divergence differs per client | Two clients look at the same clock, note or chair and see different things. A phantom door is walkable for one and solid for the other. A fake wall never blocks movement |
 | TC-05 | Anchoring | Both clients hold Q on a divergent object within 4 s. It collapses to the same state for everyone, a marker shows "Anchored", Focus drops by 20 |
 | TC-06 | Evidence | Anchoring a tell confirms it (Case Board ✔, Drift drops). Anchoring a herring debunks it. Witnessing alone adds a "?" claim (`reveal` shows which is which) |
-| TC-07 | Observation rule | `tier 2`: the figure holds still when one client watches, is frozen when two watch, and backs off after a 3-second shared stare. It relocates closer only when nobody is looking |
-| TC-08 | Tier 1 | The figure appears to one client only and vanishes when the other turns to look |
+| TC-07 | Observation rule | `tier 2`: The Guest holds still and stares when one client watches, is frozen when two watch, and backs away (still facing you) after a 3-second shared stare. He moves closer only when nobody is looking |
+| TC-08 | Tier 1 | `tier 1`, `guest move peek`: his head leans out of a doorway for one client only; the other client sees nothing there. When that client looks at him he's yanked out of sight |
 | TC-09 | Hunt | `drift 70`, `skip`, then wait for 3 minutes of run time, or use `tier 4`. The telegraph flickers the lights. The stalker chases what it can see, opens doors with a delay, inspects hiding spots, and downs on catch. A teammate revives with a 4-second hold |
 | TC-10 | Hiding | Can't hide while it sees you. Holding breath drains the meter; a gasp makes noise. Inspection pulls you out |
 | TC-11 | Verdict | A wrong verdict gives Drift +15 and a hunt. A correct one starts the ritual and the final hunt. Pairs must be unanimous; 3–4 players can win by majority after 90 s |
@@ -42,6 +42,9 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-14 | Lose states | `drift 100` collapses the run. All players Lost ends the run. Echoes can ping once a minute |
 | TC-15 | Solo | The Companion follows, joins Witness windows, backs up stares and revives (within 6 s of reaching you) |
 | TC-16 | Bleeding out | `down <name>` on one client. That client sees "YOU'RE BLEEDING OUT", a draining bar, a red rim and blur that close in, and hears a slowing heartbeat; after 15 s they're Lost. Every other client gets a toast, hears gasping from the body, and sees a pulsing marker with the name, seconds left and distance, stuck to the screen edge with an arrow when off-screen or behind. A 4 s hold on E revives |
+| TC-17 | Lunge and its warnings | `tier 3`, `guest move creepbehind`, turn your back. You hear a breath (only you) and floorboard creaks, lights near him sag, then he lunges from about 6 studs: a jumpscare and you're down. With a second client watching him he freezes and can't lunge. Sprinting away at the edge escapes it |
+| TC-18 | Arrival and presence | From `start`, about 90 s in: three knocks at the front door. After that he is always somewhere: footsteps through walls, never popping in or out of view on any client (watch him through a doorway on two clients while the tier changes) |
+| TC-19 | Backing away | Turn round on him at tier 2 when he's close: he holds, then backs away slowly, never turning his back. After a hunt ends he does the same instead of vanishing |
 
 ### Multiplayer robustness
 

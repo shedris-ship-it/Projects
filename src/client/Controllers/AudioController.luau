@@ -210,6 +210,36 @@ function AudioController:PlayAt(key: string, position: Vector3, volume: number?,
 	end)
 end
 
+-- A long sound cut to its first `seconds` with a fade: positional when a
+-- position is given, otherwise straight to the ears.
+function AudioController:PlayFor(key: string, position: Vector3?, volume: number, pitch: number, seconds: number)
+	local sound = newSound(key, volume, pitch, position and "SFX" or "UI")
+	if not sound then
+		return
+	end
+	local holder: Instance = SoundService
+	if position then
+		local attachment = Instance.new("Attachment")
+		attachment.Parent = Workspace.Terrain
+		attachment.WorldPosition = position
+		holder = attachment
+	end
+	sound.Parent = holder
+	sound:Play()
+	task.delay(seconds, function()
+		local start = sound.Volume
+		for i = 1, 10 do
+			sound.Volume = start * (1 - i / 10)
+			task.wait(0.06)
+		end
+		if holder ~= SoundService then
+			holder:Destroy()
+		else
+			sound:Destroy()
+		end
+	end)
+end
+
 function AudioController:PlayUi(key: string, volume: number?)
 	local sound = newSound(key, volume or 0.5, 1, "UI")
 	if not sound then

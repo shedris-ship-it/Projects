@@ -30,8 +30,8 @@ How the code implements the design doc. The design reasons themselves live in [`
 | DoorService | Opening, closing and bracing doors; stalker door delays; knocks |
 | ToolService | Witness Camera, Lantern and shrines, Radio, Plumb Line |
 | NoiseService | Noise events the stalker hears |
-| SquadProfileService | Habit counters with decay (`Logic/SquadProfile`) and the end-of-run Dossier |
-| StalkerService | The stalker's body and mode machine. Uses `Stalker/Director`, `Stalker/Tactician`, `Stalker/Perception`, `Stalker/Navigator` and `Stalker/StalkerModel` |
+| SquadProfileService | Habit counters with decay (`Logic/SquadProfile`), each Witness's gaze habits (`Logic/GazeHabits`), and the end-of-run Dossier |
+| StalkerService | The Guest's mode machine, arrival, lazy visibility, hunts and retreats. Uses `Stalker/Director` (pacing), `Stalker/Stalk` (between hunts: moves from `Data/StalkMoves`, rules from `Logic/StalkRules`), `Stalker/Tactician` (hunts), `Stalker/Body` (the physical body: facing, zoom, lunge, pose-aware head points), `Stalker/Sight` (who can see what, stealth steps), `Stalker/Perception`, `Stalker/Navigator` and `Stalker/StalkerModel` |
 | CompanionService | The solo Companion Witness |
 | DataService | Session-locked DataStore profiles with versioned migrations, retry with backoff, autosave |
 | Telemetry | Event log lines and AnalyticsService custom events |
@@ -44,7 +44,8 @@ How the code implements the design doc. The design reasons themselves live in [`
 | Controller | Owns |
 | --- | --- |
 | StateController | RunState and player attributes as signals; layout, case board, lobby and profile snapshots; settings |
-| PerceptionController | Applies and reverts perception rules: seam flips, phantom props, variant props, phantom sounds, unobserved shifts, ghost trails, hidden teammates, hidden writing, portrait eyes. Also stalker visibility and dissolve, scares, ritual flickers, key labels |
+| PerceptionController | Applies and reverts perception rules: seam flips, phantom props, variant props, phantom sounds, unobserved shifts, ghost trails, hidden teammates, hidden writing, portrait eyes. Also scares, ritual flickers, key labels |
+| GuestController | Everything about how The Guest looks and sounds here: procedural animation of every joint from `Logic/GuestPose`, his face and fingers (`Lib/GuestFace`), eye-shine, his visibility, footsteps from his real feet, the warnings, the jumpscare |
 | WitnessController | Aiming, hold-to-Witness, 12 Hz view reports, ping and callout sending, world markers |
 | ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden), the camera flashlight, plumb-line beams |
 | AudioController | Sound groups with volume settings, room reverb, Drift layers, ducking, positional one-shots, captions |
@@ -56,7 +57,7 @@ How the code implements the design doc. The design reasons themselves live in [`
 1. **Lobby → Generating.** `LobbyService` starts the run when everyone in the hub is ready. `RunOrchestrator` picks a seed. `LevelGraph.generate` grows a layout and `LayoutValidator` checks it, retrying with the next seed up to 10 times, then falling back to an authored layout. Rooms with windows are turned so the windows face outside. `WorldService` builds the house unparented and parents it once; corridor rooms fill any arm that ends at an outside wall (`Logic/Corridor`), and a window still facing another room is left out.
 2. **Setup.** `AnomalyService` picks an anomaly the location supports, lets its ritual reserve what it needs (`prepare`), plans 3–4 true tells and 1–2 red herrings, and places tell sites in wall, floor and seam slots. `DivergenceService` turns the sites into per-player rules. The planner guarantees two things: social tells look different to different Witnesses, and every Witness has something a teammate can disprove. Base props are then built showing the true state.
 3. **Arrival → Investigation.** Witnessing a tell site with a second Witness anchors it: a true tell is confirmed (Drift −6), a herring is debunked. A lone Witness's observation becomes an unconfirmed claim. The Witness Camera confirms alone (Drift −3).
-4. **Stalker.** At 1 Hz the Director turns Drift and run state into a target tier and hunt timing (`Logic/DirectorModel`) and plays the scare deck. At 15 Hz the body perceives, applies the observation rule and acts out its mode. During hunts the Tactician scores 13 tactics against the squad profile at about 1.5 Hz and picks one of the top three.
+4. **Stalker.** At 90 s The Guest knocks at the front door and is inside; from then on he is always physically somewhere in the house. At 1 Hz the Director turns Drift and run state into a target tier and hunt timing (`Logic/DirectorModel`) and plays the scare deck. At 15 Hz the body perceives and applies the observation rule; between hunts `Stalker/Stalk` picks moves (peek, doorway stand, creep up behind, shadow, stare down, roam) by utility from the squad's habits and each Witness's gaze habits, and reacts to being seen (the yank at tier 1, holding at tier 2, creeping on at tier 3, the lunge). During hunts the Tactician scores 13 tactics against the squad profile at about 1.5 Hz and picks one of the top three. Clients animate him from the `GuestPose`, `GuestGaze`, `GuestForm` and `GuestLean` attributes; the server's joints never move, so what Witnesses can see of him comes from the same pure pose maths.
 5. **Verdict → Resolution.** A correct verdict starts the ritual and the final hunt. A wrong one costs Drift and forces a hunt.
 6. **Extraction → Debrief.** The exit opens. Rewards are granted and the Dossier is sent. Everything is torn down and players return to the hub.
 
@@ -73,11 +74,13 @@ The layout makes this cheap. **Every wall between two rooms** is two wall pieces
 
 Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, *and* it is visible to that player (tier 1 shows it to one Witness only), for 0.3 seconds or more.
 
+The watch check uses where his head and chest really are for the pose clients are drawing (a peeking head sticks out of a doorway while his body is behind the wall).
+
 | Watchers | Result |
 | --- | --- |
-| 0 | It repositions freely, relocating only to spots nobody is looking at |
-| 1 | It holds still and turns to face you; at tier 2 it takes a slow step closer after a reaction delay |
-| 2 or more | Frozen. Holding the stare together for 3 seconds (draining Focus) drives it off; during a normal hunt that ends the hunt |
+| 0 | He moves freely: creeping, peeking, roaming. Visibility changes only now |
+| 1 | Tier 1: yanked out of sight once you've seen him for ~0.45 s. Tier 2: holds and stares; backs away if stared at up close for 4 s. Tier 3: keeps creeping, very slowly |
+| 2 or more | Frozen, and any lunge wind-up is cancelled. Holding the stare together for 3 seconds (draining Focus) makes him back away; during a normal hunt that ends the hunt |
 
 The Companion Witness counts as a second watcher only while a real player is also watching.
 

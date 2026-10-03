@@ -188,8 +188,8 @@ Players should be able to say "it learned that we always hide in lockers", never
 This is the rule that makes your staring idea mechanical:
 
 - **Watched by nobody:** the stalker can reposition freely.
-- **Watched by one player:** it may stare, hold still, or relocate one step closer once that player looks away or after a short reaction delay. This is the "it moves once you notice it" behavior.
-- **Watched by two or more players:** it is frozen and cannot advance. If they hold the stare together for about 3 seconds using Focus, it retreats.
+- **Watched by one player:** at tier 1 it is gone the moment you've clearly seen it; at tier 2 it holds still and stares, moving closer only once you look away; at tier 3 it keeps creeping towards you, very slowly, even while you stare.
+- **Watched by two or more players:** it is frozen and cannot advance, or lunge. If they hold the stare together for about 3 seconds using Focus, it backs away.
 
 A stalker is "watched" when it sits inside a player's view cone with a clear raycast for more than about 0.3 seconds. Since divergences can hide it from some players, the squad has to talk to establish who can see it.
 
@@ -197,13 +197,17 @@ A stalker is "watched" when it sits inside a player's view cone with a clear ray
 
 | Tier | Name | What it does | What players experience | Fairness rule |
 | --- | --- | --- | --- | --- |
-| 0 | Dormant | No body; only environmental signs such as cold spots and distant sounds | "Something is off" | Nothing appears in the first 90 seconds |
-| 1 | Watching | Stands still far away, visible to one player only, staring | A figure at the end of the hall that vanishes when a friend looks | Never appears closer than 25 studs |
-| 2 | Closing | After each detection it relocates nearer (8–15 studs) while unseen; peeks around corners | It is closer every time you look | Frozen whenever two players watch it |
-| 3 | Intruding | Appears in doorways and reflections, blocks a route, mimics sounds, comes within arm's reach without attacking unless provoked | Intimate, in-your-face dread | At most one intrusion per player per 2 minutes |
-| 4 | Hunting | Active pursuit using learned tactics; lasts 45–90 seconds | A real chase with hide and loop play | 3–5 second telegraph; at least 3 viable escapes |
+*Revised 2026-10-03 (owner).* The Guest is physically in the house from the end of the quiet start: three knocks at the front door, and he's inside. He never teleports, parks or dissolves after that, and never turns his back on you. Who can see him changes only while they aren't looking, so he never pops in or out in front of anyone. Code: `Stalker/Stalk.luau`, rules in `Logic/StalkRules.luau`.
 
-After every hunt it enters a Retreat state: it visibly walks away or dissolves, Drift drops by 10, and the tier falls back to 1 for at least 90 seconds. Hunts never start in the first 3 minutes, within 20 seconds of a revive, or while the squad stands in a Lantern room.
+| Tier | Name | What it does | What players experience | Fairness rule |
+| --- | --- | --- | --- | --- |
+| 0 | Dormant | In the house, far from the squad, seen by nobody; his real footsteps carry through the walls | "Something is off" | Nothing in the first 90 seconds |
+| 1 | Watching | Seen only by the Witness he's watching. Peeks round door frames and stands in the doorway you just walked through; yanked out of sight, still facing you, the moment you've clearly seen him | A face at the edge of a doorway that's gone when you look properly | Never closer than 25 studs |
+| 2 | Closing | Seen by all. Creeps closer only while nobody watches, faster behind a turned back, timed to your habits; holds and stares while watched; backs away when stared at up close | It is closer every time you look. Sometimes it's right behind you, breathing | Never attacks. Frozen whenever two players watch it |
+| 3 | Intruding | Creeps even while one player watches, sneaks up behind turned backs out of everyone's sight, and lunges from about 6 studs: a down | Slow, deadly; never let it get close | Two watchers freeze it and cancel a lunge. A breath, a creak or the sight of it first (at least 1.5 s). No lunge at hidden, downed or safe-room players, near a fresh down or revive, or on cooldown (150 s per player, 60 s squad) |
+| 4 | Hunting | Active pursuit using learned tactics; lasts 45–90 seconds | A real chase with hide and loop play | 3–5 second telegraph, starting from wherever he is, out of sight and 25+ studs away; at least 3 viable escapes |
+
+After every hunt or stare-down he backs away, still watching you, until nobody can see him; Drift drops by 10 after a hunt, and the tier falls back to 1 for at least 90 seconds. After the final hunt he bows as you leave. Hunts never start in the first 3 minutes, within 20 seconds of a revive, or while the squad stands in a Lantern room.
 
 ### Perception model (the Body)
 
@@ -226,6 +230,9 @@ The profile is a set of counters per squad per run, each with exponential decay 
 | Anchors reflexively | Anchor count and cooldown timing | Waits for Focus to run out, then moves | Save Focus for emergencies |
 | Calls out with pings | Ping counts and positions | Fakes pings to lure players | Confirm pings by voice |
 | Camps in one room | Time stationary | Escalates sooner against stationary squads | Keep moving |
+| Rarely looks behind (per player) | Seconds between rear checks, from each camera | Creeps up on whoever checks least, right after they've checked | Look back often, at uneven times |
+| Always looks over the same shoulder (per player) | Left vs right rear checks | Approaches on the other side | Check over both shoulders |
+| Stares at it, or runs (per player) | What you do when you see it | Peeks for starers, stares down runners | Get a second Witness on it |
 
 You do not need real machine learning. A well-chosen set of 12–15 tactics, decent memory and clear telegraphing reads as high intelligence. A cross-run version, where the Dossier remembers an individual's habits across sessions, is a good post-launch feature.
 

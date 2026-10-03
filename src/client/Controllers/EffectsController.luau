@@ -313,14 +313,19 @@ local function trackPhoto(card: Instance)
 end
 
 -- Where The Guest's body is, or nil while it's parked out of the house.
-local function guestPosition(): Vector3?
+-- Where he is, and how strongly lights sag near him (GuestPresence, by
+-- tier: he's always in the house now, faint when far from the story).
+local function guestPosition(): (Vector3?, number)
 	local level = Workspace:FindFirstChild("ConsensusLevel")
 	local guest = level and level:FindFirstChild("Stalker")
 	if not guest or not guest:IsA("Model") then
-		return nil
+		return nil, 0
 	end
 	local position = guest:GetPivot().Position
-	return position.Y < 200 and position or nil
+	if position.Y >= 200 then
+		return nil, 0
+	end
+	return position, guest:GetAttribute("GuestPresence") or 1
 end
 
 function EffectsController:Start()
@@ -540,7 +545,7 @@ function EffectsController:_update(dt: number)
 	-- before you see it. Shared decay: every player sees the same dimming
 	-- (docs/ART.md rule 6). Flicker plays on top. Reduced-flicker mode dims
 	-- smoothly instead of strobing.
-	local guest = guestPosition()
+	local guest, presence = guestPosition()
 	local ease = math.clamp(dt * FX.GuestDimEase, 0, 1)
 	local now = os.clock()
 	local huntTarget = (inRun and hunt.state == "hunt") and 1 or 0
@@ -551,7 +556,7 @@ function EffectsController:_update(dt: number)
 			if guest then
 				local distance = (info.part.Position - guest).Magnitude
 				local near = math.clamp((FX.GuestDimRadius - distance) / (FX.GuestDimRadius - FX.GuestDimFull), 0, 1)
-				target = lerp(1, FX.GuestDimTo, near)
+				target = lerp(1, FX.GuestDimTo, near * presence)
 			end
 			info.dim += (target - info.dim) * ease
 			local base = info.base * info.dim

@@ -187,6 +187,11 @@ end
 function HidingService:_tick(dt: number)
 	local stalker = self.services.StalkerService
 	local stalkerPos = stalker and stalker:GetPosition()
+	-- He's always somewhere in the house now; he's only a danger to someone
+	-- hiding once he's closing in (tier 2+) or hunting.
+	if stalker and stalker.tier < 2 and not stalker:IsHunting() then
+		stalkerPos = nil
+	end
 	local now = os.clock()
 	for player, state in hidden do
 		local spot = state.spot

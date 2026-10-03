@@ -17,14 +17,21 @@ local S = Config.Stalker
 local Perception = {}
 Perception.__index = Perception
 
-function Perception.new(services, body)
+-- body: StalkerModel's parts; bodyCtl: Stalker/Body (where his head really
+-- is for the pose clients are drawing, e.g. leaning round a door frame).
+function Perception.new(services, body, bodyCtl)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { body.model }
+	params.RespectCanCollide = true
 	return setmetatable({
 		services = services,
 		body = body,
+		bodyCtl = bodyCtl,
 		memory = {}, -- player -> { position, facing, t, confidence, seen }
 		watchTime = {}, -- player -> seconds continuously watched
 		hearingMultiplier = 1,
-		params = nil,
+		params = params,
 	}, Perception)
 end
 
@@ -34,14 +41,13 @@ function Perception:Reset()
 end
 
 function Perception:_rayParams()
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { self.body.model }
-	params.RespectCanCollide = true
-	return params
+	return self.params
 end
 
 function Perception:EyePosition(): Vector3
+	if self.bodyCtl then
+		return self.bodyCtl:EyePosition()
+	end
 	local head = self.body.head
 	return head and head.Position or (self.body.root.Position + Vector3.new(0, 3, 0))
 end
@@ -188,17 +194,22 @@ end
 -- the list of watchers (players, plus "companion" if it backs one up).
 function Perception:Watchers(dt: number, visibleTo: { [Player]: boolean }): { any }
 	local services = self.services
-	local torso = self.body.root.Position + Vector3.new(0, 1.5, 0)
+	-- His head and chest as clients draw them (a peeking head sticks out of
+	-- a doorway while his body is behind the wall).
+	local points = self.bodyCtl and self.bodyCtl:ExposedPoints() or { self.body.root.Position + Vector3.new(0, 1.5, 0) }
+	local torso = points[#points]
+	local ignore = { self.body.model }
 	local watchers = {}
 	for _, player in services.PlayerStateService:ActivePlayers() do
-		local looking = visibleTo[player] == true
-			and services.WitnessService:IsLookingAt(
-				player,
-				torso,
-				S.WatchConeDegrees,
-				S.WatchRange,
-				{ self.body.model }
-			)
+		local looking = false
+		if visibleTo[player] == true then
+			for _, point in points do
+				if services.WitnessService:IsLookingAt(player, point, S.WatchConeDegrees, S.WatchRange, ignore) then
+					looking = true
+					break
+				end
+			end
+		end
 		if looking then
 			self.watchTime[player] = (self.watchTime[player] or 0) + dt
 		else
@@ -210,7 +221,11 @@ function Perception:Watchers(dt: number, visibleTo: { [Player]: boolean }): { an
 	end
 	if #watchers >= 1 then
 		local companion = services.CompanionService
-		if companion and companion:IsPresent() and companion:CanSee(torso, { self.body.model }) then
+		if
+			companion
+			and companion:IsPresent()
+			and (companion:CanSee(torso, ignore) or companion:CanSee(points[1], ignore))
+		then
 			table.insert(watchers, "companion")
 		end
 	end

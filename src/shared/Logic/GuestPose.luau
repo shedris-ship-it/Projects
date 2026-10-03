@@ -385,6 +385,67 @@ function GuestPose.step(state, input, dt: number)
 	return state.values, planted
 end
 
+-- Spine kinematics ----------------------------------------------------------------
+-- Where his chest and head are for a set of joint values, in body space
+-- relative to the root's centre. The server uses this to know what you can
+-- see of him while he leans round a door frame (its own joints never move).
+
+local function rotation(rx: number, ry: number, rz: number)
+	-- Rx * Ry * Rz, as CFrame.Angles composes them.
+	local cx, sx, cy, sy, cz, sz = cos(rx), sin(rx), cos(ry), sin(ry), cos(rz), sin(rz)
+	local x = { { 1, 0, 0 }, { 0, cx, -sx }, { 0, sx, cx } }
+	local y = { { cy, 0, sy }, { 0, 1, 0 }, { -sy, 0, cy } }
+	local z = { { cz, -sz, 0 }, { sz, cz, 0 }, { 0, 0, 1 } }
+	local function mul(a, b)
+		local m = {}
+		for i = 1, 3 do
+			m[i] = {}
+			for j = 1, 3 do
+				m[i][j] = a[i][1] * b[1][j] + a[i][2] * b[2][j] + a[i][3] * b[3][j]
+			end
+		end
+		return m
+	end
+	return mul(mul(x, y), z), mul
+end
+
+local function apply(m, v)
+	return {
+		m[1][1] * v[1] + m[1][2] * v[2] + m[1][3] * v[3],
+		m[2][1] * v[1] + m[2][2] * v[2] + m[2][3] * v[3],
+		m[3][1] * v[1] + m[3][2] * v[2] + m[3][3] * v[3],
+	}
+end
+
+function GuestPose.spine(values)
+	local r = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }
+	local t = { 0, 0, 0 }
+	local function joint(offset, value)
+		local o = apply(r, offset)
+		t = { t[1] + o[1], t[2] + o[2], t[3] + o[3] }
+		local p = apply(r, { value[4], value[5], value[6] })
+		t = { t[1] + p[1], t[2] + p[2], t[3] + p[3] }
+		local rot, mul = rotation(value[1], value[2], value[3])
+		r = mul(r, rot)
+	end
+	local function at(offset)
+		local o = apply(r, offset)
+		return { t[1] + o[1], t[2] + o[2], t[3] + o[3] }
+	end
+	joint({ 0, Rig.lowerTorsoY - Rig.rootY, 0 }, values.Root)
+	joint({ 0, Rig.waistY - Rig.lowerTorsoY, 0 }, values.Waist)
+	local chest = at({ 0, Rig.upperTorsoSize[2] / 2, 0 })
+	joint({ 0, Rig.neckY - Rig.waistY, 0 }, values.Neck)
+	local head = at({ 0, Rig.neckLength + Rig.headSize[2] / 2, 0 })
+	return head, chest
+end
+
+-- Head and chest offsets for a pose as the clients will settle into it.
+function GuestPose.exposed(pose: string, lean: number?, stoop: number?)
+	local values = GuestPose.target({ pose = pose, phase = 0, breath = 0, lean = lean, stoop = stoop, tilt = 14 })
+	return GuestPose.spine(values)
+end
+
 -- Gaze angles towards a point given in body space (x right, y up, z back),
 -- measured from the neck.
 function GuestPose.gazeAngles(x: number, y: number, z: number): (number, number)

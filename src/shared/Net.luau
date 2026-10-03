@@ -30,6 +30,7 @@ local DEFINITIONS = {
 	PerceptionProfile = "RemoteEvent",
 	PerceptionAnchor = "RemoteEvent",
 	StalkerVisibility = "RemoteEvent",
+	GuestEvent = "RemoteEvent", -- server -> client: knock, tell, lunge, catch (Controllers/GuestController)
 	Pinged = "RemoteEvent",
 	CalloutHeard = "RemoteEvent",
 	CaseBoard = "RemoteEvent",

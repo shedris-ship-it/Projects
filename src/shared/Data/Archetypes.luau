@@ -18,6 +18,12 @@ local Archetypes = {
 			FakeLeaveReturn = 1.2,
 			Ambush = 1.2,
 		},
+		-- Between hunts (Data/StalkMoves): a watcher who lives in doorways.
+		stalkWeights = {
+			Peek = 1.4,
+			DoorwayStand = 1.3,
+			StareDown = 1.1,
+		},
 	},
 	TheOrderly = {
 		name = "The Orderly",

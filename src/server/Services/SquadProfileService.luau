@@ -7,8 +7,10 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local GazeHabits = require(Shared.Logic.GazeHabits)
 local Graph = require(Shared.Logic.Graph)
 local SquadProfile = require(Shared.Logic.SquadProfile)
+local SightMath = require(Shared.Logic.SightMath)
 
 local SquadProfileService = {}
 
@@ -28,6 +30,7 @@ function SquadProfileService:Reset()
 	self.closeCalls = {} -- player -> nearest distance during a hunt while uncaught
 	self.catches = {} -- player -> count
 	self.hideSpots = {} -- spotId -> { label, room, count }
+	self.gaze = {} -- player -> Logic/GazeHabits: how each Witness uses their eyes
 end
 
 function SquadProfileService:Start()
@@ -86,8 +89,58 @@ function SquadProfileService:RecordCatch(player: Player)
 	self.catches[player] = (self.catches[player] or 0) + 1
 end
 
+-- The Guest's per-Witness model of where you look (Logic/GazeHabits).
+function SquadProfileService:Gaze(player: Player)
+	return self.gaze[player]
+end
+
+-- Called at the stalker's body rate (~15 Hz) with every fresh camera view:
+-- rear checks are quick glances, too short for the 2 Hz profile sample.
+function SquadProfileService:SampleGaze(dt: number)
+	local now = os.clock()
+	for _, player in self.PlayerState:ActivePlayers() do
+		local view, age = self.services.WitnessService:GetView(player)
+		local root = self.PlayerState:Root(player)
+		if view and age < 0.5 and root then
+			local habits = self.gaze[player] or GazeHabits.new()
+			self.gaze[player] = habits
+			local velocity = root.AssemblyLinearVelocity
+			local moving = Vector3.new(velocity.X, 0, velocity.Z).Magnitude > 2
+			GazeHabits.sample(
+				habits,
+				now,
+				SightMath.yaw(view.LookVector.X, view.LookVector.Z),
+				moving and SightMath.yaw(velocity.X, velocity.Z) or nil,
+				dt
+			)
+		end
+	end
+end
+
+-- When a Witness sees him: did they hold his gaze, or look away / run?
+function SquadProfileService:RecordSighting(player: Player?, stared: boolean)
+	local habits = player and self.gaze[player]
+	if habits then
+		GazeHabits.recordSighting(habits, stared)
+	end
+end
+
 function SquadProfileService:Signals()
-	return self.profile:Signals(os.clock())
+	local signals = self.profile:Signals(os.clock())
+	-- Gaze habits, averaged over the squad (0..1).
+	local blind, stare, n = 0, 0, 0
+	for player, habits in self.gaze do
+		if player.Parent then
+			blind += GazeHabits.blindBack(habits)
+			stare += GazeHabits.stareHabit(habits)
+			n += 1
+		end
+	end
+	signals.blindBack = n > 0 and blind / n or 0.5
+	signals.stareHabit = n > 0 and stare / n or 0.5
+	signals.fleeHabit = 1 - signals.stareHabit
+	signals.straggling = 1 - signals.cohesion
+	return signals
 end
 
 function SquadProfileService:FavouriteHideCategory(): string?
@@ -229,6 +282,32 @@ function SquadProfileService:Dossier(extra)
 			table.insert(names, room and room.name or tostring(id))
 		end
 		table.insert(habits, "You kept running the loop through " .. table.concat(names, ", ") .. ".")
+	end
+	-- What it learned about each Witness's eyes.
+	for player, gaze in self.gaze do
+		if player.Parent and gaze.checks + gaze.stares + gaze.flees > 0 then
+			local name = player.DisplayName
+			if GazeHabits.blindBack(gaze) > 0.6 then
+				table.insert(habits, name .. " rarely looked behind them. It came from behind.")
+			elseif gaze.checks >= 4 and GazeHabits.blindBack(gaze) < 0.2 then
+				table.insert(habits, name .. " kept checking behind them. It waited until just after.")
+			end
+			local bias = GazeHabits.sideBias(gaze)
+			if gaze.checks >= 4 and math.abs(bias) > 0.5 then
+				table.insert(
+					habits,
+					string.format(
+						"%s always looked over their %s shoulder. It came from the %s.",
+						name,
+						bias > 0 and "left" or "right",
+						bias > 0 and "right" or "left"
+					)
+				)
+			end
+		end
+	end
+	for _, line in extra and extra.stalkLines or {} do
+		table.insert(habits, line)
 	end
 	if #habits == 0 then
 		table.insert(habits, "It didn't learn much about you. Next time it will.")

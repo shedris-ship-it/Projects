@@ -145,6 +145,12 @@ function GuestController:Start()
 			fade = { started = os.clock(), duration = 1.5 }
 		end
 	end)
+	Net.get("GuestEvent").OnClientEvent:Connect(function(event)
+		local ok, err = pcall(self._event, self, event)
+		if not ok then
+			warn("[Consensus] guest event failed: " .. tostring(err))
+		end
+	end)
 
 	-- Joints are written before the physics step, where the engine applies
 	-- Motor6D transforms.
@@ -281,6 +287,131 @@ function GuestController:_frame(dt: number)
 			end
 		end
 	end
+end
+
+-- Sounds and moments the server decides (Stalker/Stalk): the knock at the
+-- door, the warnings behind your back, the yank, the lunge, the catch.
+function GuestController:_event(event)
+	local audio = self.controllers.AudioController
+	local kind = event.kind
+	local camera = Workspace.CurrentCamera
+	local function muffled(position: Vector3): boolean
+		local ignore = {}
+		if guest then
+			table.insert(ignore, guest.model)
+		end
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
+		return blocked(camera.CFrame.Position, position, ignore)
+	end
+	if kind == "knock" then
+		audio:PlayAt("FrontDoorKnock", event.position, 1, 1, muffled(event.position))
+		audio:Caption("[three knocks at the front door]")
+	elseif kind == "breath" then
+		-- Close behind you: only you hear it.
+		audio:PlayAt("Breath", event.position, 0.9, 0.7 + math.random() * 0.08)
+		audio:Caption("[breathing, right behind you]")
+	elseif kind == "creak" then
+		local key = math.random() < 0.5 and "Creak" or "CreakAlt"
+		audio:PlayAt(key, event.position, 0.75, 0.85 + math.random() * 0.2, muffled(event.position))
+		audio:Caption("[a floorboard creaks]")
+	elseif kind == "yank" then
+		audio:PlayAt("Whoosh", event.position, 0.3, 0.4)
+	elseif kind == "lunge" then
+		audio:PlayAt("WindUp", event.position, 1, 0.5)
+	elseif kind == "caught" then
+		audio:PlayFor("Sting", event.position, 0.7, 1, 2)
+		audio:Caption("[a strangled cry]")
+	elseif kind == "catch" then
+		self:_jumpscare()
+	end
+end
+
+-- Caught: his face, grinning wide open, rushes in to fill your screen, then
+-- black. It's a picture, not the camera: nothing moves your view (comfort
+-- rule, doc section 4), and it works when he took you from behind.
+function GuestController:_jumpscare()
+	local audio = self.controllers.AudioController
+	audio:PlayFor("Sting", nil, 1, 1, 2.2)
+	if not guest or not guest.head.Parent then
+		return
+	end
+	local head = guest.head
+	guest.face:SetForm(math.max(guest.model:GetAttribute("GuestForm") or 0, 1))
+	guest.face:SetSmile(math.rad(108), 1)
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "GuestJumpscare"
+	gui.IgnoreGuiInset = true
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 100
+	local black = Instance.new("Frame")
+	black.Size = UDim2.fromScale(1, 1)
+	black.BackgroundColor3 = Color3.new(0, 0, 0)
+	black.BackgroundTransparency = 0.35
+	black.BorderSizePixel = 0
+	black.Parent = gui
+	local viewport = Instance.new("ViewportFrame")
+	viewport.Size = UDim2.fromScale(1, 1)
+	viewport.BackgroundTransparency = 1
+	viewport.Ambient = Color3.fromRGB(110, 100, 92)
+	viewport.LightColor = Color3.fromRGB(255, 236, 210)
+	viewport.LightDirection = Vector3.new(-0.4, -0.5, -1)
+	viewport.Parent = gui
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 45
+	cam.CFrame = CFrame.identity
+	cam.Parent = viewport
+	viewport.CurrentCamera = cam
+	gui.Parent = player:WaitForChild("PlayerGui")
+
+	-- Let the welds settle the wide-open smile, then copy the head.
+	task.wait()
+	local pieces = {}
+	local headCF = head.CFrame
+	local parts = { head }
+	for _, d in head:GetDescendants() do
+		if d:IsA("BasePart") then
+			table.insert(parts, d)
+		end
+	end
+	for _, part in parts do
+		local copy = part:Clone()
+		for _, child in copy:GetChildren() do
+			if not child:IsA("SpecialMesh") then
+				child:Destroy()
+			end
+		end
+		copy.Anchored = true
+		copy.LocalTransparencyModifier = 0
+		copy.Parent = viewport
+		table.insert(pieces, { part = copy, rel = headCF:ToObjectSpace(part.CFrame) })
+	end
+	local started = os.clock()
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - started
+		-- Rushes in over 0.3 s, then holds, trembling, in your face.
+		local rush = math.clamp(t / 0.3, 0, 1)
+		local distance = 9 - 8.1 * (1 - (1 - rush) ^ 3)
+		local tremble = t > 0.3 and 0.02 or 0
+		local cf = CFrame.new((math.random() - 0.5) * tremble, -0.05 + (math.random() - 0.5) * tremble, -distance)
+			* CFrame.Angles(0, math.pi, math.rad(-16))
+		for _, piece in pieces do
+			piece.part.CFrame = cf * piece.rel
+		end
+		black.BackgroundTransparency = t < 0.55 and 0.35 or math.max(0, 0.35 - (t - 0.55) * 3)
+		if t > 0.75 then
+			viewport.ImageTransparency = math.min(1, (t - 0.75) * 6)
+		end
+		if t > 1.6 then
+			black.BackgroundTransparency = math.min(1, (t - 1.6) * 1.5)
+		end
+		if t > 2.4 then
+			connection:Disconnect()
+			gui:Destroy()
+		end
+	end)
 end
 
 -- Two pin-points of light in his eye hollows when your torch beam is on his

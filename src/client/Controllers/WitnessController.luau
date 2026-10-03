@@ -43,6 +43,12 @@ function WitnessController:Aim()
 	if player.Character then
 		table.insert(exclude, player.Character)
 	end
+	-- You can't aim at a Guest you can't see.
+	local guest = self.controllers.GuestController
+	local model = guest and guest:Model()
+	if model and not guest:IsVisibleLocally() then
+		table.insert(exclude, model)
+	end
 	params.FilterDescendantsInstances = exclude
 	local result = Workspace:Raycast(ray.Origin, ray.Direction * (Config.Witness.MaxRange + 15), params)
 	if not result then

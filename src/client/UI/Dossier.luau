@@ -128,7 +128,7 @@ function Dossier:Show(data)
 	end
 	if #d.tactics > 0 then
 		table.insert(lines, "")
-		table.insert(lines, "HOW IT HUNTED")
+		table.insert(lines, "HOW IT STALKED YOU")
 		for i, t in d.tactics do
 			if i > 5 then
 				break

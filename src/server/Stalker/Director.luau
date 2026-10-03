@@ -17,7 +17,8 @@ local CARDS = {
 	{ id = "coldSpot", weight = 2, cooldown = 60 },
 	{ id = "doorSlam", weight = 1, cooldown = 70, minDrift = 30, big = true },
 	{ id = "whisper", weight = 1, cooldown = 90, minDrift = 40, big = true },
-	{ id = "figure", weight = 1, cooldown = 120, minDrift = 20, big = true },
+	-- No phantom "figure" card (owner, 2026-10-03): the only Guest you see is
+	-- the real one, always somewhere in the house.
 }
 
 function Director.new(services, rng, difficulty)

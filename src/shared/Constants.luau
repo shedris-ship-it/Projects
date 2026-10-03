@@ -100,6 +100,7 @@ Constants.StalkerModes = {
 	Telegraph = "Telegraph",
 	Hunting = "Hunting",
 	Retreating = "Retreating",
+	Departing = "Departing", -- after the final hunt: he bows you out
 }
 
 return Constants
