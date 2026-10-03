@@ -133,7 +133,7 @@ function PlayerStateService:_onCharacter(player: Player, character: Model)
 	if humanoid then
 		humanoid.BreakJointsOnDeath = false
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
-		humanoid.JumpHeight = 4
+		humanoid.JumpHeight = Config.Player.JumpHeight
 		if record.state == States.Lost then
 			task.defer(function()
 				self:_applyEcho(player)

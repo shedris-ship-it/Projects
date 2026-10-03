@@ -20,6 +20,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Feel = require(Shared.Logic.Feel)
 local Net = require(Shared.Net)
 
 local PA = Constants.PlayerAttributes
@@ -262,16 +263,17 @@ function ActionController:_updateMovement(dt: number)
 	end
 	local state = self.state:PlayerState()
 	local moving = humanoid.MoveDirection.Magnitude > 0.1
-	local speed = P.WalkSpeed
-	if state == PS.Downed then
-		speed = Config.Run.DownedCrawlSpeed
-	elseif self.state:IsHidden() then
-		speed = 0
-	elseif state == PS.Active or state == PS.Lobby or state == PS.Lost then
+	local sprinting = false
+	-- (Crawling or hiding uses no stamina.)
+	if
+		state ~= PS.Downed
+		and not self.state:IsHidden()
+		and (state == PS.Active or state == PS.Lobby or state == PS.Lost)
+	then
 		local canSprint = sprintHeld and moving and not exhausted and state ~= PS.Lost
 		if canSprint then
+			sprinting = true
 			stamina = math.max(0, stamina - P.StaminaDrainPerSecond * dt)
-			speed = P.SprintSpeed
 			if stamina <= 0 then
 				exhausted = true
 			end
@@ -285,9 +287,17 @@ function ActionController:_updateMovement(dt: number)
 	if state == PS.Lobby and not self.state:InRun() then
 		stamina = P.StaminaMax
 	end
-	humanoid.WalkSpeed = speed
+	-- Slow walk, fast sprint, a stagger when out of stamina (Logic/Feel).
+	humanoid.WalkSpeed = Feel.targetSpeed({
+		downed = state == PS.Downed,
+		hidden = self.state:IsHidden(),
+		hub = state == PS.Lobby,
+		sprinting = sprinting,
+		exhausted = exhausted,
+	}, P, Config.Run.DownedCrawlSpeed)
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
+	self.sprinting = sprinting
 end
 
 -- Flashlight: a light on the camera for you; the server's head light is

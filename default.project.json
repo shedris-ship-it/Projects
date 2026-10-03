@@ -17,9 +17,9 @@
 
     "StarterPlayer": {
       "$properties": {
-        "CharacterWalkSpeed": 12,
+        "CharacterWalkSpeed": 8,
         "CharacterUseJumpPower": false,
-        "CharacterJumpHeight": 4,
+        "CharacterJumpHeight": 3,
         "CameraMaxZoomDistance": 14,
         "EnableMouseLockOption": false,
         "LoadCharacterAppearance": true

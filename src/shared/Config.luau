@@ -83,7 +83,10 @@ Config.Social = {
 }
 
 Config.Player = {
-	WalkSpeed = 12,
+	WalkSpeed = 8, -- slow, in true horror fashion (owner, 2026-10-03); sprint stays fast
+	LobbyWalkSpeed = 12, -- the hub stays brisk
+	WindedSpeed = 10, -- out of stamina: a stagger, a little above a walk
+	JumpHeight = 3, -- heavier jumps (was 4)
 	SprintSpeed = 19,
 	StaminaMax = 100,
 	StaminaDrainPerSecond = 16,
@@ -492,6 +495,33 @@ Config.Camera = {
 	FirstPersonInRun = true,
 	LobbyMaxZoom = 14,
 	FieldOfView = 70,
+}
+
+-- How movement feels (Logic/Feel, Controllers/FeelController and
+-- FootstepController). All of the camera motion scales with the player's
+-- "Camera motion" setting; 0 turns it off.
+Config.Feel = {
+	StrideWalk = 4.6, -- studs per step at walking pace: about 1.7 steps a second
+	StrideSprint = 6.8, -- ... sprinting: about 2.8 steps a second
+	-- Camera bob amplitudes in studs (vertical, sideways) and degrees of roll.
+	BobWalk = { 0.06, 0.04, 0.25 },
+	BobSprint = { 0.22, 0.14, 1.2 },
+	BobEase = 6, -- per second, how fast the bob eases in and out
+	TurnLean = 0.02, -- degrees of roll per degree/second of turning
+	TurnLeanMax = 2.5,
+	FovKick = 7, -- degrees added while sprinting
+	FovEase = 6,
+	LandMinSpeed = 18, -- fall speed (studs/s) that starts to dip the camera
+	LandMaxSpeed = 70,
+	LandDip = 0.45, -- studs at the hardest landing
+	FootstepMinSpeed = 4, -- slower than this is a silent creep (matches PlayerState noise)
+	FootstepVolumeWalk = 0.3,
+	FootstepVolumeSprint = 0.85,
+	FootstepPitchSpread = 0.07,
+	FootstepVolumeSpread = 0.1,
+	FootstepRange = 70, -- other players' steps are only played within this
+	-- Breathing: your own breath follows stamina.
+	BreathStartStamina = 0.7, -- below this share of stamina it becomes audible
 }
 
 Config.Debug = {
