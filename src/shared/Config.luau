@@ -225,6 +225,11 @@ Config.Dressing = {
 	MaxPhotos = 6,
 	PhotoChance = 0.45, -- per suitable surface
 	PhotoKinds = { Dresser = true, Chest = true, Piano = true, Desk = true },
+	-- Everyday clutter on tops (mugs, plates, books, vases, magazines): a
+	-- handful of believable objects, never evidence.
+	MaxClutter = 24, -- per house
+	ClutterPerSurface = 2,
+	ClutterChance = 0.7, -- per surface
 	SpotWidth = 1.4, -- studs of tabletop per item
 	Jitter = 18, -- degrees each item is turned off square
 	-- Photos age with Drift (docs/ART.md, the run's arc): normal, then the

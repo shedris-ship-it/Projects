@@ -54,11 +54,12 @@ function ViewModelController:_build()
 		model:ScaleTo(SCALE)
 		model.Parent = camera
 	end
-	-- Just enough light on your own hands to see them in a dark room.
+	-- Just enough light on your own hands to see them in a dark room. Small
+	-- on purpose: it must not light the room (see _update, off when the torch is on).
 	local fill = Instance.new("PointLight")
 	fill.Name = "HandFill"
-	fill.Range = 7
-	fill.Brightness = 1.1
+	fill.Range = 3.2
+	fill.Brightness = 0.55
 	fill.Color = Color3.fromRGB(255, 226, 180)
 	fill.Shadows = false
 	fill.Parent = self.torch.PrimaryPart
@@ -146,7 +147,12 @@ function ViewModelController:_update(dt: number)
 	local torchOffset = TORCH + counter + Vector3.new(0, -tuck * 0.28, tuck * 1.1)
 	local torchCF = origin * aim * CFrame.new(torchOffset) * CFrame.Angles(math.rad(2), math.rad(-3), 0)
 	self.torch:PivotTo(torchCF)
-	ViewModel.setTorchOn(self.lens, player:GetAttribute(PA.Flashlight) == true)
+	local torchOn = player:GetAttribute(PA.Flashlight) == true
+	ViewModel.setTorchOn(self.lens, torchOn)
+	local fill = self.torch.PrimaryPart:FindFirstChild("HandFill")
+	if fill then
+		fill.Enabled = not torchOn -- with the torch on, its own light shows your hands
+	end
 	local rightWrist = torchCF * CFrame.new(0.02, -0.2, 0.3)
 	self.rightArm:PivotTo(rightWrist * CFrame.Angles(math.rad(-28), math.rad(8), 0))
 

@@ -247,6 +247,23 @@ end
 
 local builders = {}
 
+-- A cylinder standing upright (Cylinder parts are long in X), and one lying
+-- along Z. Chrome for taps, handles and knobs.
+local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2)
+local ALONG_Z = CFrame.Angles(0, math.pi / 2, 0)
+local CHROME = Color3.fromRGB(176, 178, 180)
+local CYL = Enum.PartType.Cylinder
+local BALL = Enum.PartType.Ball
+
+-- A small chrome knob or handle; never collides or casts a shadow.
+local function trim(model, name, size, cframe, color, shape)
+	return part(model, name, size, cframe, color or CHROME, PropFactory.material("Metal"), {
+		collide = false,
+		castShadow = false,
+		shape = shape,
+	})
+end
+
 local function legs(model, cf, w, d, h, color, material, inset)
 	inset = inset or 0.4
 	for _, sx in { -1, 1 } do
@@ -266,8 +283,9 @@ end
 function builders.Bed(model, cf, size, color, material)
 	local w, d = size.X, size.Z
 	local wood = Color3.fromRGB(70, 50, 36)
-	legs(model, cf, w, d, 1, wood, PropFactory.material("Wood"))
-	part(model, "Frame", Vector3.new(w, 0.8, d), cf * CFrame.new(0, 1.4, 0), wood, PropFactory.material("Wood"))
+	local woodMat = PropFactory.material("Wood")
+	legs(model, cf, w, d, 1, wood, woodMat)
+	part(model, "Frame", Vector3.new(w, 0.8, d), cf * CFrame.new(0, 1.4, 0), wood, woodMat)
 	part(
 		model,
 		"Mattress",
@@ -277,22 +295,47 @@ function builders.Bed(model, cf, size, color, material)
 		PropFactory.material("Fabric")
 	)
 	part(model, "Blanket", Vector3.new(w - 0.2, 0.3, d * 0.6), cf * CFrame.new(0, 2.75, d * 0.18), color, material)
+	-- The turned-down top of the sheet, and a blanket hanging over the foot.
 	part(
 		model,
-		"Headboard",
-		Vector3.new(w, 4.5, 0.5),
-		cf * CFrame.new(0, 2.25, -d / 2 + 0.25),
-		wood,
-		PropFactory.material("Wood")
+		"Sheet",
+		Vector3.new(w - 0.2, 0.34, 1),
+		cf * CFrame.new(0, 2.78, -d * 0.1),
+		Color3.fromRGB(226, 222, 210),
+		PropFactory.material("Fabric"),
+		{ castShadow = false }
 	)
 	part(
 		model,
-		"Pillow",
-		Vector3.new(w * 0.6, 0.5, 1.6),
-		cf * CFrame.new(0, 2.95, -d / 2 + 1.5),
-		Color3.fromRGB(230, 228, 220),
-		PropFactory.material("Fabric")
+		"Drape",
+		Vector3.new(w - 0.2, 1.2, 0.3),
+		cf * CFrame.new(0, 2.15, d / 2 - 0.05),
+		shade(color, 0.9),
+		material,
+		{ castShadow = false }
 	)
+	part(model, "Headboard", Vector3.new(w, 4.5, 0.5), cf * CFrame.new(0, 2.25, -d / 2 + 0.25), wood, woodMat)
+	part(model, "Footboard", Vector3.new(w, 1.8, 0.4), cf * CFrame.new(0, 1.9, d / 2 - 0.2), wood, woodMat)
+	for _, sx in { -1, 1 } do
+		part(
+			model,
+			"Post",
+			Vector3.new(0.5, 0.5, 0.5),
+			cf * CFrame.new(sx * (w / 2 - 0.25), 4.7, -d / 2 + 0.25),
+			shade(wood, 1.15),
+			woodMat,
+			{ shape = BALL, castShadow = false }
+		)
+		part(
+			model,
+			"Pillow",
+			Vector3.new(w * 0.4, 0.5, 1.6),
+			cf * CFrame.new(sx * w * 0.22, 3.05, -d / 2 + 1.5),
+			Color3.fromRGB(230, 228, 220),
+			PropFactory.material("Fabric"),
+			{ castShadow = false }
+		)
+	end
 end
 
 local function cupboard(model, cf, size, color, material)
@@ -390,13 +433,27 @@ function builders.Curtain(model, cf, size, color, material)
 		Color3.fromRGB(120, 100, 70),
 		PropFactory.material("Metal")
 	)
-	for i = -1, 1 do
+	for _, sx in { -1, 1 } do
+		trim(
+			model,
+			"Finial",
+			Vector3.new(0.4, 0.4, 0.4),
+			cf * CFrame.new(sx * (w / 2 + 0.35), h, 0),
+			Color3.fromRGB(150, 124, 84),
+			BALL
+		)
+	end
+	-- Alternating deep and shallow folds so it hangs in gathers, not slabs.
+	local n = 6
+	for i = 0, n - 1 do
+		local fw = w / n
+		local deep = (i % 2 == 0) and d - 0.3 or d - 0.05
 		part(
 			model,
 			"Fold",
-			Vector3.new(w / 3 + 0.1, h - 0.3, d - 0.4 + (i == 0 and 0.2 or 0)),
-			cf * CFrame.new(i * w / 3, (h - 0.3) / 2 + 0.1, 0),
-			shade(color, 1 + i * 0.08),
+			Vector3.new(fw + 0.05, h - 0.3, deep),
+			cf * CFrame.new(-w / 2 + fw * (i + 0.5), (h - 0.3) / 2 + 0.1, 0),
+			shade(color, 0.9 + (i % 2) * 0.16),
 			material
 		)
 	end
@@ -414,6 +471,45 @@ function builders.Bathtub(model, cf, size, color, material)
 		PropFactory.material("Glass"),
 		{ castShadow = false }
 	)
+	-- A rolled rim round the top, and claw feet.
+	local rim = shade(color, 1.06)
+	local flat = { castShadow = false }
+	part(model, "Rim", Vector3.new(w + 0.3, 0.3, 0.4), cf * CFrame.new(0, h, d / 2), rim, material, flat)
+	part(model, "Rim", Vector3.new(w + 0.3, 0.3, 0.4), cf * CFrame.new(0, h, -d / 2), rim, material, flat)
+	for _, sx in { -1, 1 } do
+		part(model, "Rim", Vector3.new(0.4, 0.3, d), cf * CFrame.new(sx * w / 2, h, 0), rim, material, flat)
+		for _, sz in { -1, 1 } do
+			part(
+				model,
+				"Foot",
+				Vector3.new(0.5, 0.5, 0.5),
+				cf * CFrame.new(sx * (w / 2 - 0.5), 0.15, sz * (d / 2 - 0.4)),
+				Color3.fromRGB(120, 104, 70),
+				PropFactory.material("Metal"),
+				{ shape = BALL, collide = false, castShadow = false }
+			)
+		end
+	end
+	-- Taps at one end.
+	trim(
+		model,
+		"Tap",
+		Vector3.new(0.2, 0.9, 0.2),
+		cf * CFrame.new(-w / 2 + 0.6, h + 0.45, -d / 2 + 0.3) * UPRIGHT,
+		nil,
+		CYL
+	)
+	trim(model, "Spout", Vector3.new(0.2, 0.2, 0.7), cf * CFrame.new(-w / 2 + 0.6, h + 0.85, -d / 2 + 0.6))
+	for _, dx in { -0.5, 0.5 } do
+		trim(
+			model,
+			"Knob",
+			Vector3.new(0.14, 0.35, 0.35),
+			cf * CFrame.new(-w / 2 + 0.6 + dx, h + 0.25, -d / 2 + 0.25) * UPRIGHT,
+			nil,
+			CYL
+		)
+	end
 	part(
 		model,
 		"Rail",
@@ -433,69 +529,177 @@ function builders.Bathtub(model, cf, size, color, material)
 	)
 end
 
-function builders.Sofa(model, cf, size, color, material)
-	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Base", Vector3.new(w, 1.6, d), cf * CFrame.new(0, 0.8, 0), color, material)
-	part(
-		model,
-		"Back",
-		Vector3.new(w, h - 1.6, 1),
-		cf * CFrame.new(0, 1.6 + (h - 1.6) / 2, -d / 2 + 0.5),
-		shade(color, 0.9),
-		material
-	)
-	for _, sx in { -1, 1 } do
+-- Sofa (three seats) and armchair (one): a base, rolled arms, a back and a
+-- cushion and back cushion for every seat, on short wooden feet.
+local function seating(seats: number)
+	return function(model, cf, size, color, material)
+		local w, h, d = size.X, size.Y, size.Z
+		local wood = Color3.fromRGB(62, 44, 32)
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				part(
+					model,
+					"Foot",
+					Vector3.new(0.35, 0.4, 0.35),
+					cf * CFrame.new(sx * (w / 2 - 0.45), 0.2, sz * (d / 2 - 0.45)),
+					wood,
+					PropFactory.material("Wood"),
+					{ collide = false, castShadow = false }
+				)
+			end
+		end
+		part(model, "Base", Vector3.new(w, 1.2, d), cf * CFrame.new(0, 1, 0), shade(color, 0.92), material)
+		local armW = seats > 1 and 0.9 or 0.8
+		for _, sx in { -1, 1 } do
+			local x = sx * (w / 2 - armW / 2)
+			part(model, "Arm", Vector3.new(armW, 1.9, d), cf * CFrame.new(x, 1.55, 0), shade(color, 0.85), material)
+			part(
+				model,
+				"ArmRoll",
+				Vector3.new(d, armW + 0.15, armW + 0.15),
+				cf * CFrame.new(x, 2.5, 0) * ALONG_Z,
+				shade(color, 0.9),
+				material,
+				{ shape = CYL, castShadow = false }
+			)
+		end
+		local inner = w - 2 * armW
 		part(
 			model,
-			"Arm",
-			Vector3.new(0.8, 2.4, d),
-			cf * CFrame.new(sx * (w / 2 - 0.4), 1.2, 0),
-			shade(color, 0.85),
+			"Back",
+			Vector3.new(inner, h - 1.6, 1),
+			cf * CFrame.new(0, 1.6 + (h - 1.6) / 2, -d / 2 + 0.5),
+			shade(color, 0.9),
 			material
 		)
+		local sw = inner / seats
+		for i = 1, seats do
+			local x = -inner / 2 + sw * (i - 0.5)
+			part(
+				model,
+				"Cushion",
+				Vector3.new(sw - 0.08, 0.7, d - 1.1),
+				cf * CFrame.new(x, 1.95, 0.45),
+				shade(color, 1.06 + (i % 2) * 0.05),
+				material
+			)
+			part(
+				model,
+				"BackCushion",
+				Vector3.new(sw - 0.2, h - 2.4, 0.7),
+				cf * CFrame.new(x, 2.4 + (h - 2.4) / 2, -d / 2 + 1.3) * CFrame.Angles(math.rad(-10), 0, 0),
+				shade(color, 1.02),
+				material,
+				{ castShadow = false }
+			)
+		end
 	end
-	part(
-		model,
-		"Cushion",
-		Vector3.new(w - 1.8, 0.4, d - 1.1),
-		cf * CFrame.new(0, 1.8, 0.45),
-		shade(color, 1.1),
-		material
-	)
 end
-builders.Armchair = builders.Sofa
+builders.Sofa = seating(3)
+builders.Armchair = seating(1)
 
 function builders.Counter(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
+	local wood = Color3.fromRGB(150, 130, 100)
+	local woodMat = PropFactory.material("Wood")
+	local metal = PropFactory.material("Metal")
+	local flat = { collide = false, castShadow = false }
+	part(model, "Cabinets", Vector3.new(w, h - 0.3, d - 0.2), cf * CFrame.new(0, (h - 0.3) / 2, -0.1), wood, woodMat)
+	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
+	-- Doors with handles along the front.
+	local n = math.clamp(math.floor(w / 1.8), 2, 5)
+	local dw = w / n
+	for i = 0, n - 1 do
+		local x = -w / 2 + dw * (i + 0.5)
+		part(
+			model,
+			"Door",
+			Vector3.new(dw - 0.14, h - 1.2, 0.1),
+			cf * CFrame.new(x, (h - 0.3) / 2 + 0.15, d / 2 - 0.15),
+			shade(wood, 1.1),
+			woodMat,
+			{ castShadow = false }
+		)
+		trim(model, "Handle", Vector3.new(0.12, 0.5, 0.14), cf * CFrame.new(x + dw * 0.3, h - 1.1, d / 2 - 0.02))
+	end
+	-- A tiled strip up the wall behind.
 	part(
 		model,
-		"Cabinets",
-		Vector3.new(w, h - 0.3, d - 0.2),
-		cf * CFrame.new(0, (h - 0.3) / 2, -0.1),
-		Color3.fromRGB(150, 130, 100),
-		PropFactory.material("Wood")
+		"Backsplash",
+		Vector3.new(w, 1.2, 0.15),
+		cf * CFrame.new(0, h + 0.6, -d / 2 + 0.1),
+		Color3.fromRGB(210, 206, 190),
+		PropFactory.material("SmoothPlastic"),
+		flat
 	)
-	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
+	-- A sink and tap in a long counter.
+	if w >= 5 then
+		local x = -w / 4
+		local bw = math.min(2.6, w * 0.32)
+		part(model, "Basin", Vector3.new(bw, 0.12, d * 0.6), cf * CFrame.new(x, h + 0.05, 0.05), CHROME, metal, flat)
+		part(
+			model,
+			"BasinWell",
+			Vector3.new(bw - 0.4, 0.14, d * 0.46),
+			cf * CFrame.new(x, h + 0.08, 0.05),
+			Color3.fromRGB(110, 112, 116),
+			metal,
+			flat
+		)
+		trim(
+			model,
+			"TapNeck",
+			Vector3.new(0.9, 0.2, 0.2),
+			cf * CFrame.new(x, h + 0.5, -d / 2 + 0.55) * UPRIGHT,
+			nil,
+			CYL
+		)
+		trim(model, "TapSpout", Vector3.new(0.18, 0.18, 0.75), cf * CFrame.new(x, h + 0.9, -d / 2 + 0.9))
+	end
 end
 
 function builders.Fridge(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
+	local split = h * 0.62
 	part(
 		model,
 		"Split",
 		Vector3.new(w - 0.2, 0.1, 0.05),
-		cf * CFrame.new(0, h * 0.62, d / 2 + 0.02),
+		cf * CFrame.new(0, split, d / 2 + 0.02),
 		Color3.fromRGB(120, 120, 120),
 		material
 	)
+	-- Two doors, a hair proud of the body, with tall handles.
 	part(
 		model,
-		"Handle",
-		Vector3.new(0.2, 2, 0.3),
-		cf * CFrame.new(w / 2 - 0.5, h * 0.42, d / 2 + 0.15),
-		Color3.fromRGB(150, 150, 150),
-		PropFactory.material("Metal")
+		"DoorTop",
+		Vector3.new(w - 0.15, h - split - 0.2, 0.1),
+		cf * CFrame.new(0, split + (h - split) / 2 + 0.05, d / 2 + 0.04),
+		shade(color, 1.04),
+		material,
+		{ castShadow = false }
+	)
+	part(
+		model,
+		"DoorBottom",
+		Vector3.new(w - 0.15, split - 0.35, 0.1),
+		cf * CFrame.new(0, (split - 0.2) / 2 + 0.2, d / 2 + 0.04),
+		shade(color, 1.04),
+		material,
+		{ castShadow = false }
+	)
+	trim(model, "Handle", Vector3.new(0.2, 1.4, 0.3), cf * CFrame.new(w / 2 - 0.5, split + 1.2, d / 2 + 0.2))
+	trim(model, "Handle", Vector3.new(0.2, 2, 0.3), cf * CFrame.new(w / 2 - 0.5, split - 1.4, d / 2 + 0.2))
+	trim(model, "Badge", Vector3.new(0.9, 0.22, 0.04), cf * CFrame.new(-0.2, split + 2.2, d / 2 + 0.1))
+	part(
+		model,
+		"Kick",
+		Vector3.new(w - 0.3, 0.3, d - 0.3),
+		cf * CFrame.new(0, 0.15, 0),
+		Color3.fromRGB(50, 50, 52),
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false }
 	)
 end
 
@@ -514,6 +718,45 @@ function builders.Stove(model, cf, size, color, material)
 				{ shape = Enum.PartType.Cylinder }
 			)
 		end
+	end
+	-- An oven door with a window and a handle, and a riser with knobs.
+	part(
+		model,
+		"OvenDoor",
+		Vector3.new(w - 0.3, h * 0.55, 0.1),
+		cf * CFrame.new(0, h * 0.4, d / 2 + 0.04),
+		shade(color, 1.05),
+		material,
+		{ castShadow = false }
+	)
+	part(
+		model,
+		"OvenGlass",
+		Vector3.new(w * 0.62, h * 0.3, 0.06),
+		cf * CFrame.new(0, h * 0.4, d / 2 + 0.1),
+		Color3.fromRGB(26, 30, 34),
+		PropFactory.material("Glass"),
+		{ collide = false, castShadow = false }
+	)
+	trim(model, "OvenHandle", Vector3.new(w * 0.78, 0.14, 0.2), cf * CFrame.new(0, h * 0.72, d / 2 + 0.28))
+	part(
+		model,
+		"Riser",
+		Vector3.new(w, 1.3, 0.4),
+		cf * CFrame.new(0, h + 0.65, -d / 2 + 0.2),
+		shade(color, 0.92),
+		material,
+		{ castShadow = false }
+	)
+	for i = -1.5, 1.5, 1 do
+		trim(
+			model,
+			"Knob",
+			Vector3.new(0.14, 0.34, 0.34),
+			cf * CFrame.new(i * w / 5, h + 0.65, -d / 2 + 0.45) * ALONG_Z,
+			Color3.fromRGB(30, 30, 32),
+			CYL
+		)
 	end
 end
 
@@ -571,8 +814,61 @@ end
 
 function builders.Toilet(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Bowl", Vector3.new(w - 0.4, h * 0.55, d - 1), cf * CFrame.new(0, h * 0.275, 0.4), color, material)
-	part(model, "Tank", Vector3.new(w, h, 1), cf * CFrame.new(0, h / 2, -d / 2 + 0.5), color, material)
+	local flat = { shape = CYL, castShadow = false }
+	-- Pedestal, bowl, seat and lid in front; a tank, its lid and a flush behind.
+	part(
+		model,
+		"Base",
+		Vector3.new(w * 0.5, h * 0.4, d * 0.4),
+		cf * CFrame.new(0, h * 0.2, d * 0.12),
+		shade(color, 0.96),
+		material
+	)
+	part(
+		model,
+		"Bowl",
+		Vector3.new(h * 0.28, w - 0.3, w - 0.1),
+		cf * CFrame.new(0, h * 0.5, d * 0.14) * UPRIGHT,
+		color,
+		material,
+		{ shape = CYL }
+	)
+	part(
+		model,
+		"Seat",
+		Vector3.new(0.14, w - 0.2, w),
+		cf * CFrame.new(0, h * 0.66, d * 0.14) * UPRIGHT,
+		shade(color, 0.9),
+		material,
+		flat
+	)
+	part(
+		model,
+		"Lid",
+		Vector3.new(0.12, w - 0.5, w - 0.35),
+		cf * CFrame.new(0, h * 0.72, d * 0.14) * UPRIGHT,
+		shade(color, 1.03),
+		material,
+		flat
+	)
+	part(model, "Tank", Vector3.new(w, h * 0.9, 1), cf * CFrame.new(0, h * 0.5, -d / 2 + 0.5), color, material)
+	part(
+		model,
+		"TankLid",
+		Vector3.new(w + 0.12, 0.14, 1.12),
+		cf * CFrame.new(0, h * 0.97, -d / 2 + 0.52),
+		shade(color, 1.04),
+		material,
+		{ castShadow = false }
+	)
+	trim(
+		model,
+		"Flush",
+		Vector3.new(0.1, 0.34, 0.34),
+		cf * CFrame.new(w / 2 - 0.45, h * 0.99 + 0.1, -d / 2 + 0.5) * UPRIGHT,
+		nil,
+		CYL
+	)
 end
 
 function builders.Crib(model, cf, size, color, material)
@@ -603,17 +899,45 @@ function builders.Crib(model, cf, size, color, material)
 end
 
 function builders.Washer(model, cf, size, color, material)
-	local h, d = size.Y, size.Z
+	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
+	part(
+		model,
+		"Ring",
+		Vector3.new(0.2, 2.5, 2.5),
+		cf * CFrame.new(0, h * 0.45, d / 2 + 0.02) * CFrame.Angles(0, math.pi / 2, 0),
+		Color3.fromRGB(190, 190, 192),
+		PropFactory.material("Metal"),
+		{ shape = Enum.PartType.Cylinder, collide = false, castShadow = false }
+	)
 	part(
 		model,
 		"Window",
 		Vector3.new(0.2, 2, 2),
-		cf * CFrame.new(0, h * 0.45, d / 2 + 0.05) * CFrame.Angles(0, math.pi / 2, 0),
+		cf * CFrame.new(0, h * 0.45, d / 2 + 0.08) * CFrame.Angles(0, math.pi / 2, 0),
 		Color3.fromRGB(40, 50, 60),
 		PropFactory.material("Glass"),
 		{ shape = Enum.PartType.Cylinder }
 	)
+	part(
+		model,
+		"Panel",
+		Vector3.new(w - 0.3, 0.8, 0.1),
+		cf * CFrame.new(0, h - 0.6, d / 2 + 0.03),
+		Color3.fromRGB(60, 62, 66),
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false }
+	)
+	for _, sx in { -0.25, 0.25 } do
+		trim(
+			model,
+			"Knob",
+			Vector3.new(0.12, 0.4, 0.4),
+			cf * CFrame.new(sx * w, h - 0.6, d / 2 + 0.13) * ALONG_Z,
+			Color3.fromRGB(210, 210, 206),
+			CYL
+		)
+	end
 end
 
 function builders.Boxes(model, cf, size, color, material)
@@ -712,13 +1036,26 @@ end
 function builders.TVStand(model, cf, size, color, material)
 	local w, h = size.X, size.Y
 	part(model, "Stand", size, cf * CFrame.new(0, h / 2, 0), color, material)
+	-- A wood-cased set: bezel at the front, the tube bulging out behind.
+	local black = PropFactory.material("SmoothPlastic")
+	part(model, "TV", Vector3.new(w * 0.8, 3, 1.2), cf * CFrame.new(0, h + 1.5, 0), Color3.fromRGB(30, 30, 30), black)
 	part(
 		model,
-		"TV",
-		Vector3.new(w * 0.8, 3, 1.2),
-		cf * CFrame.new(0, h + 1.5, 0),
-		Color3.fromRGB(30, 30, 30),
-		PropFactory.material("SmoothPlastic")
+		"Tube",
+		Vector3.new(w * 0.55, 2.2, 1.4),
+		cf * CFrame.new(0, h + 1.5, -1.1),
+		Color3.fromRGB(26, 26, 28),
+		black,
+		{ collide = false, castShadow = false }
+	)
+	part(
+		model,
+		"Bezel",
+		Vector3.new(w * 0.8 + 0.1, 3.1, 0.12),
+		cf * CFrame.new(0, h + 1.5, 0.6),
+		Color3.fromRGB(92, 66, 44),
+		PropFactory.material("Wood"),
+		{ collide = false, castShadow = false }
 	)
 	local screen = part(
 		model,
@@ -731,6 +1068,24 @@ function builders.TVStand(model, cf, size, color, material)
 	)
 	screen.Transparency = 0.4
 	screen:SetAttribute("LampGlow", true)
+	for _, dy in { -0.4, 0.4 } do
+		trim(
+			model,
+			"Dial",
+			Vector3.new(0.1, 0.3, 0.3),
+			cf * CFrame.new(w * 0.4 - 0.05, h + 1.5 + dy, 0.68) * ALONG_Z,
+			Color3.fromRGB(190, 180, 150),
+			CYL
+		)
+	end
+	for _, side in { -1, 1 } do
+		trim(
+			model,
+			"Ear",
+			Vector3.new(0.05, 1.8, 0.05),
+			cf * CFrame.new(side * 0.5, h + 3.7, -1) * CFrame.Angles(0, 0, side * math.rad(-28))
+		)
+	end
 	return screen
 end
 
@@ -738,36 +1093,68 @@ function builders.Dresser(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
 	for i = 1, 3 do
+		local y = (i - 0.5) * h / 3
 		part(
 			model,
 			"Drawer",
 			Vector3.new(w - 0.5, h / 3 - 0.3, 0.1),
-			cf * CFrame.new(0, (i - 0.5) * h / 3, d / 2 + 0.03),
+			cf * CFrame.new(0, y, d / 2 + 0.03),
 			shade(color, 1.1),
 			material,
 			{ castShadow = false }
 		)
+		for _, sx in { -1, 1 } do
+			trim(
+				model,
+				"Knob",
+				Vector3.new(0.14, 0.3, 0.3),
+				cf * CFrame.new(sx * w * 0.2, y, d / 2 + 0.12) * ALONG_Z,
+				Color3.fromRGB(170, 144, 96),
+				CYL
+			)
+		end
 	end
 end
 
 function builders.Plant(model, cf, _size, color, material)
+	local clay = Color3.fromRGB(150, 80, 60)
+	local slate = PropFactory.material("Slate")
+	part(model, "Pot", Vector3.new(1.6, 1.4, 1.4), cf * CFrame.new(0, 0.8, 0) * UPRIGHT, clay, slate, { shape = CYL })
 	part(
 		model,
-		"Pot",
-		Vector3.new(1.4, 1.6, 1.4),
-		cf * CFrame.new(0, 0.8, 0),
-		Color3.fromRGB(150, 80, 60),
-		PropFactory.material("Slate")
+		"Rim",
+		Vector3.new(0.2, 1.7, 1.7),
+		cf * CFrame.new(0, 1.55, 0) * UPRIGHT,
+		Color3.fromRGB(160, 90, 68),
+		slate,
+		{ shape = CYL, collide = false, castShadow = false }
 	)
 	part(
 		model,
-		"Leaves",
-		Vector3.new(2.4, 3.2, 2.4),
-		cf * CFrame.new(0, 3.2, 0),
-		color,
-		material,
-		{ shape = Enum.PartType.Ball }
+		"Soil",
+		Vector3.new(0.1, 1.4, 1.4),
+		cf * CFrame.new(0, 1.6, 0) * UPRIGHT,
+		Color3.fromRGB(46, 36, 28),
+		slate,
+		{ shape = CYL, collide = false, castShadow = false }
 	)
+	part(model, "Leaves", Vector3.new(2.4, 3.2, 2.4), cf * CFrame.new(0, 3.2, 0), color, material, { shape = BALL })
+	-- A few more clumps of leaf round the main one, each a little different.
+	local rng = Rng.new(Rng.hash(tostring(cf.Position)))
+	for i = 1, 4 do
+		local a = i * math.pi / 2 + rng:NextNumber(-0.4, 0.4)
+		local r = rng:NextNumber(0.7, 1.1)
+		local size = rng:NextNumber(1.2, 1.7)
+		part(
+			model,
+			"Leaf",
+			Vector3.new(size, size * 1.3, size),
+			cf * CFrame.new(math.cos(a) * r, rng:NextNumber(2.2, 3.8), math.sin(a) * r),
+			shade(color, rng:NextNumber(0.8, 1.15)),
+			material,
+			{ shape = BALL, collide = false, castShadow = false }
+		)
+	end
 end
 
 function builders.GrandfatherClock(model, cf, size, color, material)
@@ -980,15 +1367,39 @@ function builders.Chair(model, cf, size, color, material)
 end
 
 function builders.Rug(model, cf, size, color, material)
+	local w, d = size.X, size.Z
+	local flat = { collide = false, castShadow = false }
+	part(model, "Rug", Vector3.new(w, 0.1, d), cf * CFrame.new(0, 0.05, 0), color, material, flat)
+	-- A darker field inside a lighter border, a medallion, and a fringe at each end.
 	part(
 		model,
-		"Rug",
-		Vector3.new(size.X, 0.1, size.Z),
-		cf * CFrame.new(0, 0.05, 0),
-		color,
+		"Field",
+		Vector3.new(w - 1.2, 0.11, d - 1.2),
+		cf * CFrame.new(0, 0.052, 0),
+		shade(color, 0.72),
 		material,
-		{ collide = false, castShadow = false }
+		flat
 	)
+	part(
+		model,
+		"Medallion",
+		Vector3.new(w * 0.34, 0.12, d * 0.34),
+		cf * CFrame.new(0, 0.054, 0),
+		shade(color, 1.2),
+		material,
+		flat
+	)
+	for _, sz in { -1, 1 } do
+		part(
+			model,
+			"Fringe",
+			Vector3.new(w, 0.09, 0.45),
+			cf * CFrame.new(0, 0.045, sz * (d / 2 + 0.2)),
+			shade(color, 1.35),
+			material,
+			flat
+		)
+	end
 end
 
 function builders.Default(model, cf, size, color, material)

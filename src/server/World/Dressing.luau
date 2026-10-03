@@ -156,6 +156,134 @@ local function surfaceSpots(rng, prop, kind)
 	return spots
 end
 
+-- Clutter ---------------------------------------------------------------------
+-- Mugs, plates, books, vases and magazines. Each is one to three small parts,
+-- sat on the surface at `cf` (front of the furniture is the LookVector).
+
+local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2)
+local CYLINDER = Enum.PartType.Cylinder
+
+local function bit(model, name, size, cframe, color, material, shape)
+	local opts = { collide = false, query = false, castShadow = false, shape = shape }
+	return PropFactory.part(model, name, size, cframe, color, PropFactory.material(material), opts)
+end
+
+local function mug(parent, cf, rng)
+	local model = Instance.new("Model")
+	model.Name = "Mug"
+	local tint = Color3.fromHSV(rng:NextNumber(0.02, 0.14), rng:NextNumber(0.05, 0.4), rng:NextNumber(0.55, 0.9))
+	bit(
+		model,
+		"Cup",
+		Vector3.new(0.42, 0.38, 0.38),
+		cf * CFrame.new(0, 0.21, 0) * UPRIGHT,
+		tint,
+		"SmoothPlastic",
+		CYLINDER
+	)
+	bit(model, "Handle", Vector3.new(0.3, 0.07, 0.3), cf * CFrame.new(0.26, 0.22, 0), tint, "SmoothPlastic")
+	model.Parent = parent
+end
+
+local function plate(parent, cf, rng)
+	local model = Instance.new("Model")
+	model.Name = "Plate"
+	local tint = Color3.fromRGB(214, 208, 192):Lerp(Color3.fromHSV(rng:NextNumber(), 0.2, 0.7), rng:NextNumber(0, 0.25))
+	bit(
+		model,
+		"Dish",
+		Vector3.new(0.07, 0.95, 0.95),
+		cf * CFrame.new(0, 0.04, 0) * UPRIGHT,
+		tint,
+		"SmoothPlastic",
+		CYLINDER
+	)
+	if rng:Chance(0.5) then
+		bit(
+			model,
+			"Crust",
+			Vector3.new(0.14, 0.4, 0.4),
+			cf * CFrame.new(0.1, 0.12, 0.05) * UPRIGHT,
+			Color3.fromRGB(160, 120, 72),
+			"Fabric",
+			CYLINDER
+		)
+	end
+	model.Parent = parent
+end
+
+local function books(parent, cf, rng)
+	local model = Instance.new("Model")
+	model.Name = "Books"
+	local y = 0
+	for _ = 1, rng:NextInteger(2, 3) do
+		local h = rng:NextNumber(0.14, 0.26)
+		local tint = Color3.fromHSV(rng:NextNumber(), 0.35, rng:NextNumber(0.25, 0.5))
+		bit(
+			model,
+			"Book",
+			Vector3.new(rng:NextNumber(0.8, 1.1), h, rng:NextNumber(0.6, 0.8)),
+			cf * CFrame.new(rng:NextNumber(-0.05, 0.05), y + h / 2, 0) * CFrame.Angles(0, rng:NextNumber(-0.3, 0.3), 0),
+			tint,
+			"Fabric"
+		)
+		y += h
+	end
+	model.Parent = parent
+end
+
+local function vase(parent, cf, rng)
+	local model = Instance.new("Model")
+	model.Name = "Vase"
+	local tint = Color3.fromHSV(rng:NextNumber(0.45, 0.62), 0.25, rng:NextNumber(0.4, 0.65))
+	bit(
+		model,
+		"Body",
+		Vector3.new(0.9, 0.55, 0.55),
+		cf * CFrame.new(0, 0.45, 0) * UPRIGHT,
+		tint,
+		"SmoothPlastic",
+		CYLINDER
+	)
+	bit(
+		model,
+		"Neck",
+		Vector3.new(0.4, 0.28, 0.28),
+		cf * CFrame.new(0, 1.05, 0) * UPRIGHT,
+		tint,
+		"SmoothPlastic",
+		CYLINDER
+	)
+	if rng:Chance(0.6) then
+		bit(
+			model,
+			"Stems",
+			Vector3.new(0.6, 0.12, 0.12),
+			cf * CFrame.new(0, 1.5, 0),
+			Color3.fromRGB(70, 74, 44),
+			"Fabric"
+		)
+	end
+	model.Parent = parent
+end
+
+local function magazine(parent, cf, rng)
+	local model = Instance.new("Model")
+	model.Name = "Magazine"
+	local tint = Color3.fromHSV(rng:NextNumber(), 0.45, 0.6)
+	bit(
+		model,
+		"Cover",
+		Vector3.new(0.85, 0.05, 1.1),
+		cf * CFrame.new(0, 0.03, 0) * CFrame.Angles(0, rng:NextNumber(-0.5, 0.5), 0),
+		tint,
+		"Fabric"
+	)
+	model.Parent = parent
+end
+
+local CLUTTER = { mug, plate, books, vase, magazine }
+
 function Dressing.build(world, rng)
 	local phones, photos = 0, 0
 	-- Telephones first, in the hall-like rooms, then photos everywhere else.
@@ -206,7 +334,23 @@ function Dressing.build(world, rng)
 			end
 		end
 	end
-	return phones, photos
+	-- Then a little everyday clutter on the tops that are left.
+	local clutter = 0
+	for _, s in surfaces do
+		if clutter >= D.MaxClutter then
+			break
+		end
+		if rng:Chance(D.ClutterChance) then
+			for _ = 1, rng:NextInteger(1, D.ClutterPerSurface) do
+				local spot = take(s)
+				if spot and clutter < D.MaxClutter then
+					CLUTTER[rng:NextInteger(1, #CLUTTER)](s.record.model, spot, rng)
+					clutter += 1
+				end
+			end
+		end
+	end
+	return phones, photos, clutter
 end
 
 return Dressing
