@@ -44,6 +44,7 @@ function CompanionService:Start()
 	RunService.Heartbeat:Connect(function()
 		if self.npc then
 			self:_follow()
+			self:_animate()
 		end
 	end)
 end
@@ -112,6 +113,8 @@ function CompanionService:Begin(players: { Player }, spawnCFrame: CFrame)
 		return
 	end
 	model.Name = "Companion"
+	-- The next shirt after the squad's, in the same period clothes.
+	self.services.OutfitService:Apply(model, 2)
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	humanoid.DisplayName = "Companion"
 	humanoid.WalkSpeed = Config.Player.WalkSpeed
@@ -131,9 +134,62 @@ function CompanionService:Begin(players: { Player }, spawnCFrame: CFrame)
 		root:SetNetworkOwner(nil)
 	end)
 	game:GetService("CollectionService"):AddTag(model, Constants.Tags.Companion)
-	self.npc =
-		{ model = model, humanoid = humanoid, root = root, head = head, lastMove = os.clock(), reviveStart = nil }
+	self.npc = {
+		model = model,
+		humanoid = humanoid,
+		root = root,
+		head = head,
+		lastMove = os.clock(),
+		reviveStart = nil,
+		tracks = self:_loadTracks(humanoid),
+	}
 	self.player = players[1]
+end
+
+-- A model made from a HumanoidDescription has no Animate script, so it would
+-- slide about in a T-pose. Roblox's default R15 idle, walk and run play on it.
+local ANIMATIONS = { Idle = 507766388, Walk = 507777826, Run = 507767714 }
+
+function CompanionService:_loadTracks(humanoid: Humanoid)
+	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+	animator.Parent = humanoid
+	local tracks = {}
+	for name, id in ANIMATIONS do
+		local animation = Instance.new("Animation")
+		animation.AnimationId = "rbxassetid://" .. id
+		local ok, track = pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		if ok then
+			track.Looped = true
+			tracks[name] = track
+		end
+	end
+	return tracks
+end
+
+-- Idle when still, walk or run to match how fast it's moving.
+function CompanionService:_animate()
+	local npc = self.npc
+	local tracks = npc and npc.tracks
+	if not tracks then
+		return
+	end
+	local velocity = npc.root.AssemblyLinearVelocity
+	local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+	local want = speed < 0.5 and "Idle" or (speed > Config.Player.SprintSpeedThreshold and "Run" or "Walk")
+	for name, track in tracks do
+		if name == want then
+			if not track.IsPlaying then
+				track:Play(0.2)
+			end
+			if name ~= "Idle" then
+				track:AdjustSpeed(math.clamp(speed / (name == "Run" and 16 or 14), 0.3, 1.8))
+			end
+		elseif track.IsPlaying then
+			track:Stop(0.2)
+		end
+	end
 end
 
 function CompanionService:Stop()

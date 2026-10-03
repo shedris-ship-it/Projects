@@ -26,3 +26,10 @@ About 200 descendants and 125 parts per room. Frame rate can't be read through t
 - **Hooks**: button hover and click, flashlight click, hiding in and out, Witness anchor and window, verdict, Lantern, extraction.
 - **Mix**: per-sound rolloff, the UI volume constant in `Config.Audio`, a tweened fade in `PlayFor`, and a Drift-driven high-cut on the Ambient group (`DriftMuffle`, up to -18 dB at full Drift).
 - Verified in Studio: layers playing, flashlight click playing, `Sfx` remote and `DriftMuffle` exist, console clean. Not verified: how any of it sounds, the door and stalker `Sfx` playback (the MCP can't fire game remotes), hide sounds, and the Drift muffle by ear.
+
+## Stage 2: period avatars
+
+- `LoadCharacterAppearance` is off, so nobody arrives as a modern avatar. `OutfitService` paints the plain R15 body in a faded 1980s shirt, jeans and dark shoes with a natural skin tone (`Logic/Outfit.palette`, tested: the first four shirts differ and slots wrap). Squad members get slots in join order; the Companion takes slot 2 (it only exists when you're alone).
+- The Companion (built from a HumanoidDescription, so it has no Animate script) now plays Roblox's default R15 idle, walk and run animations that follow its speed (`CompanionService:_animate`).
+- Verified in Studio: the player's parts are skin, mustard shirt, denim, dark shoes with no stray clothing instances; the Companion is teal shirt and corduroy with the idle track playing; the console is clean. The Companion is a dark silhouette in the dim room by design, so the clothes are hard to see in a screenshot. Flat colours, not textured shirts.
+- Not verified: how teammates look to each other (needs two clients).

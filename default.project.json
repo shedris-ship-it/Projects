@@ -22,7 +22,7 @@
         "CharacterJumpHeight": 3,
         "CameraMaxZoomDistance": 14,
         "EnableMouseLockOption": false,
-        "LoadCharacterAppearance": true
+        "LoadCharacterAppearance": false
       },
       "StarterPlayerScripts": {
         "Client": {
