@@ -38,6 +38,7 @@ local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off>",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
 	"lights on|off · focus · perf · down [name] · revive [name]",
+	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -156,6 +157,8 @@ function DebugService:Run(player: Player, text: string)
 		for _, id in services.WorldService:RoomIds() do
 			services.WorldService:SetRoomLight(id, args[2] ~= "off")
 		end
+	elseif command == "guest" then
+		reply(player, services.StalkerService:DebugGuest(player, args))
 	elseif command == "down" or command == "revive" then
 		local target = playerNamed(services, player, args[2])
 		if not target then

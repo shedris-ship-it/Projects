@@ -346,6 +346,17 @@ Config.Stalker = {
 	ProfileHalfLife = 120,
 }
 
+-- The Guest's look and body language (docs/ART.md "The Guest"; owner
+-- decisions 2026-10-03). Behaviour numbers join this block as they land.
+Config.Guest = {
+	FormDrift = { 40, 60 }, -- the smile opens at Fraying, the porcelain cracks at Breaking
+	NeckYawMax = 160, -- his head keeps turning to watch you; a person manages about 80
+	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
+	EyeShineRange = 45, -- your torch catches his eyes within this range
+	EyeShineCone = 24, -- half-angle of the torch beam, degrees
+	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28 },
+}
+
 Config.Tools = {
 	CameraFilm = 6, -- (doc)
 	CameraFilmSolo = 8,

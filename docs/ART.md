@@ -167,12 +167,13 @@ There's **no crosshair**. Whatever you're close to and looking at gets a small m
 
 - **Silhouette first.** Tall (8.4 studs, already in `Archetypes`) and thin, with arms a little too long, narrow shoulders and a small head. It must read at 30 studs against a lit doorway (doc section 8). The baseline fails this: today the head is the only visible part.
 - **Clothes:** a dated, slightly too-big dark suit (`#121114`, already set). The cuffs and collar of a pale shirt give the body edges you can see in low light.
-- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and no mouth. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear.
+- **Face:** a pale, smooth, porcelain oval (`#C4BEB2`, already set) with only the *suggestion* of features: shallow eye hollows and a smile that is far too wide. The face is the one light point on the body. When the flashlight hits it, two faint eye-shine points appear.
+- **The smile (owner, 2026-10-03, replacing "no mouth"):** it grows with Drift. At Calm it's a thin, closed line far too wide for the face. From Fraying (40) it stretches ear to ear and opens on too many small, uneven teeth. It also widens when he's close to you or backing away from you. One corner sits a little higher than the other.
 - **Late form (Moderate):** from Breaking onwards, and in the final hunt, the porcelain is cracked and the eye hollows bleed. The polite guest was never a guest. Earlier tiers keep the clean face, so the change itself is a scare.
 - **Posture:** hands clasped in front, a slight bow, the head tilted 14° (already set). "Polite posture" is the archetype's rule.
-- **Movement:** stillness, then short bursts. Joints bend a little too far. Budget 6–10 animations, as the doc says: idle-watch, turn, stalk-walk, run, peek, intrude, grab, retreat.
+- **Movement:** stillness, then short bursts. Joints bend a little too far. He never turns his back on you: his head keeps turning to watch you up to 160°, about twice what a person can, while his body walks away. He ducks under every door frame, because he's taller than all of them. The doc's 6–10 animations are poses in `Logic/GuestPose`: idle (the polite clasp), hold (a frozen stare without breathing), walk, run, creep, back away, peek, zoom, lunge and bow, plus twitches.
 - **P.T.'s lessons:** heard before it's seen (a breath or a floorboard right behind a lone player); rarely seen in full; standing in the doorway you just walked through; never runs into view in the early tiers. It is simply *there* when you turn around. Late in a run it appears closer, and in the light.
-- **Build:** a custom **R15 rig** made from generated meshes (`generate_mesh`), not one static mesh, so it can be animated and the existing code keeps working.
+- **Build (2026-10-03):** a custom rig with R15 part and joint names, built in code from smooth primitives (`Stalker/StalkerModel`). Invisible joint parts carry welded clothes and porcelain. Each client builds the face, smile and long two-jointed fingers locally (`Lib/GuestFace`) and animates every joint itself every frame (`Controllers/GuestController`). Nothing was uploaded. Plan B, if the primitives ever look toy-like: `generate_mesh` for the head and hands.
 
 ## Sound (for the later audio pass)
 
@@ -195,5 +196,5 @@ Each step is small, gets before and after screenshots from the baseline angles, 
 3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour. *(Done 2026-10-02, except the wainscot, which moves to step 4 with the wallpapers. Trim across a seam flips with it, see rule 3.)*
 4. **Materials:** wallpapers, floors and ceilings, plus the grime decals. *(Done 2026-10-02, with textures drawn by `tools/textures.py` and the wainscot from step 3.)*
 5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts. *(Done 2026-10-02, except the light shafts: a beam without a purpose-made soft texture looked like a flat card. Decorative clocks and radios now share the clue builders, so neither gives a clue away.)*
-6. **The Guest:** model, then animations.
+6. **The Guest:** model, then animations. *(Model, face and procedural animation done 2026-10-03; the behaviour that uses them comes next. See [`progress/2026-10-03-step6b-guest-model`](progress/2026-10-03-step6b-guest-model/README.md).)*
 7. **Hub polish:** signs, layout, the chat-hint overlap.

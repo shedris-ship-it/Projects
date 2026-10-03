@@ -2,10 +2,9 @@
 -- (doc section 7: "the server sends rules, not world state"). Changes made
 -- here never replicate, which is what makes divergence cheap on Roblox.
 --
--- Also renders other local-only things: stalker visibility, one-off scares,
--- ritual flickers and Counterfeit key descriptions.
+-- Also renders other local-only things: one-off scares, ritual flickers and
+-- Counterfeit key descriptions. The Guest himself is GuestController's.
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -806,28 +805,6 @@ function PerceptionController:_evaluate(dt: number)
 	end
 end
 
--- Stalker visibility ---------------------------------------------------------------------
-
-local stalkerVisible = false
-local stalkerFade = nil
-
-local function stalkerModel(): Model?
-	local tagged = CollectionService:GetTagged(Constants.Tags.Stalker)
-	return tagged[1]
-end
-
-local function setStalkerModifier(value: number)
-	local model = stalkerModel()
-	if not model then
-		return
-	end
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") or d:IsA("Decal") then
-			d.LocalTransparencyModifier = value
-		end
-	end
-end
-
 -- Ritual visuals ---------------------------------------------------------------------------
 
 local flickerParts = {}
@@ -918,16 +895,6 @@ function PerceptionController:Start()
 			end
 		end
 	end)
-	Net.get("StalkerVisibility").OnClientEvent:Connect(function(visible)
-		stalkerVisible = visible == true
-		stalkerFade = nil
-		setStalkerModifier(stalkerVisible and 0 or 1)
-	end)
-	Net.get("HuntState").OnClientEvent:Connect(function(payload)
-		if payload.state == "dissolve" then
-			stalkerFade = { started = os.clock(), duration = 1.5 }
-		end
-	end)
 	Net.get("Scare").OnClientEvent:Connect(function(payload)
 		self:_scare(payload)
 	end)
@@ -939,11 +906,6 @@ function PerceptionController:Start()
 	Net.get("ItemLabels").OnClientEvent:Connect(function(labels)
 		itemLabels = labels or {}
 		applyItemLabels()
-	end)
-	CollectionService:GetInstanceAddedSignal(Constants.Tags.Stalker):Connect(function()
-		task.defer(function()
-			setStalkerModifier(stalkerVisible and 0 or 1)
-		end)
 	end)
 	self.state.PhaseChanged:Connect(function(phase)
 		if phase == Constants.Phases.Lobby or phase == Constants.Phases.Generating then
@@ -967,15 +929,6 @@ function PerceptionController:Start()
 		if accumulator >= 1 / 30 then
 			self:_evaluate(accumulator)
 			accumulator = 0
-		end
-		-- Stalker: keep hidden parts hidden (new parts, animations).
-		if stalkerFade then
-			local t = math.clamp((os.clock() - stalkerFade.started) / stalkerFade.duration, 0, 1)
-			setStalkerModifier(t)
-			if t >= 1 then
-				stalkerFade = nil
-				stalkerVisible = false
-			end
 		end
 		-- Flicker pulse
 		local pulse = 0.45 + 0.4 * math.abs(math.sin(os.clock() * 7))

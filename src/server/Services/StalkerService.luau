@@ -20,6 +20,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Assets = require(Shared.Assets)
 local Archetypes = require(Shared.Data.Archetypes)
+local GuestPose = require(Shared.Logic.GuestPose)
 local Net = require(Shared.Net)
 
 local StalkerFolder = script.Parent.Parent:WaitForChild("Stalker")
@@ -229,6 +230,72 @@ function StalkerService:DebugState()
 	}
 end
 
+-- Debug console: "guest here|pose|form|smile|lean|walk|off" puts him in front
+-- of you and poses him, for screenshots and tuning the animation.
+function StalkerService:DebugGuest(player: Player, args: { string }): string
+	if not self.active or not self.body then
+		return "no stalker: start a run first"
+	end
+	local services = self.services
+	local sub = args[2] or "help"
+	local root = services.PlayerStateService:Root(player)
+	if sub == "here" or sub == "walk" then
+		if not root then
+			return "no character"
+		end
+		local view = services.WitnessService:GetView(player)
+		local look = flat(view and view.LookVector or root.CFrame.LookVector)
+		if look.Magnitude < 0.1 then
+			look = Vector3.new(0, 0, -1)
+		end
+		local distance = tonumber(args[3]) or 10
+		self.debugHold = true
+		self.debugGaze = player
+		if sub == "here" then
+			self:_place(root.Position + look.Unit * distance, root.Position)
+			self:_setVisible("all")
+			return string.format("guest %d studs in front of you", distance)
+		end
+		-- Walk past you: from the left of your view to the right.
+		local side = Vector3.new(-look.Z, 0, look.X).Unit
+		local start = root.Position + look.Unit * distance - side * 12
+		self:_place(start, start + side)
+		self:_setVisible("all")
+		self:_walkTo(start + side * 24, tonumber(args[4]) or S.WalkSpeed)
+		return "guest walking across your view"
+	elseif sub == "pose" then
+		local wanted = string.lower(args[3] or "")
+		self.debugPose = nil
+		for name in GuestPose.Poses do
+			if string.lower(name) == wanted then
+				self.debugPose = name
+			end
+		end
+		return "pose " .. tostring(self.debugPose or "auto")
+	elseif sub == "form" then
+		local form = tonumber(args[3])
+		self.debugForm = form and math.clamp(math.floor(form), 0, 2) or nil
+		self:_setAttr("GuestForm", self:_form())
+		return "form " .. tostring(self.debugForm or "auto")
+	elseif sub == "smile" then
+		local amount = tonumber(args[3])
+		self:_setAttr("GuestSmile", amount and math.clamp(amount, 0, 1) or nil)
+		return "smile " .. tostring(amount or "auto")
+	elseif sub == "lean" then
+		self:_setAttr("GuestLean", tonumber(args[3]) or 0)
+		return "lean " .. tostring(tonumber(args[3]) or 0)
+	elseif sub == "off" then
+		self.debugHold, self.debugPose, self.debugForm, self.debugGaze = false, nil, nil, nil
+		self:_setAttr("GuestSmile", nil)
+		self:_setAttr("GuestLean", nil)
+		if self.mode ~= Modes.Hunting and self.mode ~= Modes.Telegraph and self.mode ~= Modes.Retreating then
+			self:_enter(self.mode)
+		end
+		return "guest back to normal"
+	end
+	return "guest here [studs] · walk [studs] [speed] · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off"
+end
+
 -- Visibility ---------------------------------------------------------------------
 
 function StalkerService:_setVisible(set)
@@ -273,9 +340,6 @@ function StalkerService:_park()
 	self.parked = true
 	self.navigator:Stop()
 	self:_setVisible({})
-	for _, track in body.tracks do
-		track:Stop(0)
-	end
 end
 
 function StalkerService:_unanchor()
@@ -305,32 +369,51 @@ function StalkerService:_walkTo(position: Vector3, speed: number, avoid)
 	self.navigator:SetDestination(position, { speed = speed, avoid = avoid })
 end
 
+-- Clients animate him (Controllers/GuestController) from attributes on the
+-- model: his pose, who he's looking at, and his form. Written only on change.
+function StalkerService:_setAttr(name: string, value: any)
+	local model = self.body and self.body.model
+	if model and model:GetAttribute(name) ~= value then
+		model:SetAttribute(name, value)
+	end
+end
+
 function StalkerService:_animate()
 	local body = self.body
-	local tracks = body.tracks
-	local moving = not body.root.Anchored and flat(body.root.AssemblyLinearVelocity).Magnitude > 1
-	local wanted = nil
-	if not self.parked then
+	local Poses = GuestPose.Poses
+	local pose = Poses.Idle
+	if self.debugPose then
+		pose = self.debugPose
+	elseif not self.parked then
+		local moving = not body.root.Anchored and flat(body.root.AssemblyLinearVelocity).Magnitude > 1
 		if moving then
-			wanted = body.humanoid.WalkSpeed > 12 and "run" or "walk"
-		else
-			wanted = "idle"
+			pose = body.humanoid.WalkSpeed > 12 and Poses.Run or Poses.Walk
+		elseif self.watchers and #self.watchers > 0 then
+			pose = Poses.Hold
 		end
 	end
-	if wanted ~= self.currentTrack then
-		for name, track in tracks do
-			if name ~= wanted and track.IsPlaying then
-				track:Stop(0.2)
-			end
-		end
-		local track = wanted and tracks[wanted]
-		if track then
-			track:Play(0.2)
-			-- Slightly too slow: it moves like something imitating walking.
-			track:AdjustSpeed(wanted == "walk" and 0.75 or 1)
-		end
-		self.currentTrack = wanted
+	self:_setAttr("GuestPose", pose)
+	local data = self.data or {}
+	local gaze = self.debugGaze
+		or data.viewer
+		or data.chasing
+		or data.target
+		or (data.intrusion and data.intrusion.target)
+	self:_setAttr("GuestGaze", (typeof(gaze) == "Instance" and gaze.Parent) and gaze.UserId or 0)
+end
+
+-- 0 Calm, 1 Fraying, 2 Breaking: the smile opens, then the porcelain cracks
+-- (docs/ART.md "The Guest"). The same for everyone: decay is shared.
+function StalkerService:_form(): number
+	if self.debugForm then
+		return self.debugForm
 	end
+	if self.final then
+		return 2
+	end
+	local drift = self.services.DriftService:Value()
+	local at = Config.Guest.FormDrift
+	return drift >= at[2] and 2 or drift >= at[1] and 1 or 0
 end
 
 local function playSound(parent: Instance, id: string, volume: number, pitch: number)
@@ -421,7 +504,8 @@ end
 function StalkerService:_direct()
 	local now = os.clock()
 	local runTime = now - self.runStart
-	if self.resolved then
+	self:_setAttr("GuestForm", self:_form())
+	if self.resolved or self.debugHold then
 		return
 	end
 	local decision = self.director:Evaluate(runTime)
@@ -530,6 +614,14 @@ end
 
 function StalkerService:_update(dt: number)
 	local now = os.clock()
+	if self.debugHold then
+		-- Posed by the debug console: stay put (or finish a debug walk).
+		if not self.parked and not self.body.root.Anchored then
+			self.navigator:Step(now)
+		end
+		self:_animate()
+		return
+	end
 	local listenBoost = self.data.listening and 2 or 1
 	self.perception:Update(listenBoost)
 	local watchers = self.parked and {} or self.perception:Watchers(dt, self.visibleTo)

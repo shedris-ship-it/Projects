@@ -86,6 +86,8 @@ seed <n> · anomaly <PhantomArchitecture|Counterfeit|Gaze|off>   (applies to the
 start · end · skip (end Arrival) · resolve (jump to the ritual) · reveal (anomaly + evidence)
 lights on|off · focus · perf
 down [name] · revive [name]   (yourself if no name; any part of a display name works)
+guest here [studs] · guest walk [studs] [speed] · guest pose <Idle|Hold|Walk|Run|Creep|BackAway|Peek|Zoom|Lunge|Bow>
+guest form <0-2> · guest smile <0-1> · guest lean <-1..1> · guest off   (pose The Guest for screenshots)
 ```
 
 The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the squad-profile signals, and client and server performance numbers.

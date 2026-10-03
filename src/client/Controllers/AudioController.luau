@@ -186,15 +186,23 @@ function AudioController:Duck(seconds: number)
 	duckUntil = os.clock() + seconds
 end
 
--- One-shot positional sound.
-function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?)
+-- One-shot positional sound. `muffled` low-passes it, for sounds heard
+-- through a wall.
+function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?, muffled: boolean?)
 	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX")
 	if not sound then
 		return
 	end
+	if muffled then
+		local eq = Instance.new("EqualizerSoundEffect")
+		eq.LowGain = 2
+		eq.MidGain = -12
+		eq.HighGain = -30
+		eq.Parent = sound
+	end
 	local attachment = Instance.new("Attachment")
-	attachment.WorldPosition = position
 	attachment.Parent = Workspace.Terrain
+	attachment.WorldPosition = position
 	sound.Parent = attachment
 	sound:Play()
 	task.delay(math.max(3, sound.TimeLength + 0.5), function()
