@@ -8,6 +8,7 @@
 -- PerceptionController relies on, so keep them if you replace a builder.
 
 local Config = require(script.Parent.Parent.Config)
+local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
 local Rng = require(script.Parent.Parent.Lib.Rng)
 
@@ -27,6 +28,18 @@ function PropFactory.material(name: string?): Enum.Material
 	return material
 end
 
+-- A surface by name: one of the house's MaterialVariants (Data/Materials), or
+-- a built-in material. Returns the material and the variant, if any. A
+-- variant whose texture hasn't been uploaded falls back to its base.
+function PropFactory.surface(name: string?): (Enum.Material, string?)
+	local variant = name and Materials.ByName[name]
+	if variant then
+		local textured = variant.maps ~= nil and variant.maps.color ~= ""
+		return PropFactory.material(variant.base), textured and variant.name or nil
+	end
+	return PropFactory.material(name), nil
+end
+
 local function rgb(t)
 	return Color3.fromRGB(t[1], t[2], t[3])
 end
@@ -41,7 +54,8 @@ local function shade(color: Color3, factor: number): Color3
 end
 PropFactory.shade = shade
 
--- Create an anchored part. opts: collide, shape, transparency, castShadow, query
+-- Create an anchored part. opts: collide, shape, transparency, castShadow,
+-- query, reflectance, variant (a MaterialVariant name)
 function PropFactory.part(
 	parent: Instance,
 	name: string,

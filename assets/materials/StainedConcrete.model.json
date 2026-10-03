@@ -1,0 +1,11 @@
+{
+  "className": "MaterialVariant",
+  "properties": {
+    "BaseMaterial": "Concrete",
+    "ColorMap": "rbxassetid://93657982194767",
+    "MaterialPattern": "Organic",
+    "NormalMap": "rbxassetid://130961398154099",
+    "RoughnessMap": "rbxassetid://106957634858063",
+    "StudsPerTile": 16
+  }
+}

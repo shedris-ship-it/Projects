@@ -12,6 +12,9 @@
 -- Coordinates are local: x east, z south, origin at the floor centre.
 -- Wall "along" is x for N/S walls and z for E/W walls.
 -- "family" picks the lighting recipe in Config.Lighting.Families (docs/ART.md).
+-- floor and wall "material" name a surface: one of the house's MaterialVariants
+-- (Data/Materials) or a built-in material. The colour tints it.
+-- "wainscot" panels the lower third of the walls (formal rooms).
 -- "corridor" (optional) fills the corners with closets, leaving a plus-shaped
 -- hallway halfWidth studs either side of the centre lines. Its furniture,
 -- shrine and floor slots go in the strips between the lanes and the closets,
@@ -29,8 +32,8 @@ local Rooms = {
 		weight = 0,
 		max = 1,
 		roles = { start = true },
-		floor = { material = "WoodPlanks", color = { 92, 66, 48 } },
-		wall = { material = "Plaster", color = { 124, 112, 96 } },
+		floor = { material = "OakFloor", color = { 120, 88, 60 } },
+		wall = { material = "WallpaperStripe", color = { 150, 134, 106 } },
 		reverb = "Room",
 		props = {
 			{ id = "coatrack", kind = "CoatRack", x = -17, z = -17 },
@@ -61,8 +64,8 @@ local Rooms = {
 		-- strips between the doorway lanes and the closet walls. Wall slots and
 		-- paintings hang on closet faces: x, z on the face and the way it faces.
 		corridor = { halfWidth = 7 },
-		floor = { material = "WoodPlanks", color = { 70, 50, 38 } },
-		wall = { material = "Plaster", color = { 100, 88, 78 } },
+		floor = { material = "OakFloor", color = { 104, 76, 54 } },
+		wall = { material = "OldPlaster", color = { 168, 158, 132 } },
 		reverb = "CarpettedHallway",
 		light = { brightness = 0.9, range = 22 },
 		props = {
@@ -91,8 +94,8 @@ local Rooms = {
 		weight = 2,
 		max = 2,
 		corridor = { halfWidth = 7 },
-		floor = { material = "WoodPlanks", color = { 82, 60, 44 } },
-		wall = { material = "Plaster", color = { 92, 96, 84 } },
+		floor = { material = "OakFloor", color = { 112, 82, 58 } },
+		wall = { material = "OldPlaster", color = { 156, 150, 126 } },
 		reverb = "CarpettedHallway",
 		light = { brightness = 0.85, range = 22 },
 		props = {
@@ -121,8 +124,8 @@ local Rooms = {
 		family = "living",
 		weight = 2,
 		max = 1,
-		floor = { material = "Carpet", color = { 96, 84, 70 } },
-		wall = { material = "Plaster", color = { 118, 104, 84 } },
+		floor = { material = "PileCarpet", color = { 112, 96, 72 } },
+		wall = { material = "OldPlaster", color = { 150, 132, 104 } },
 		reverb = "LivingRoom",
 		props = {
 			{ id = "sofa", kind = "Sofa", x = 11, z = -17.5 },
@@ -146,8 +149,8 @@ local Rooms = {
 		family = "utility",
 		weight = 2,
 		max = 1,
-		floor = { material = "CeramicTiles", color = { 168, 162, 150 } },
-		wall = { material = "Plaster", color = { 150, 146, 120 } },
+		floor = { material = "CheckerLino", color = { 176, 170, 154 } },
+		wall = { material = "OldPlaster", color = { 168, 164, 136 } },
 		reverb = "Room",
 		light = { brightness = 1.1, range = 24 },
 		props = {
@@ -172,8 +175,9 @@ local Rooms = {
 		weight = 0,
 		max = 1,
 		roles = { deliberation = true },
-		floor = { material = "WoodPlanks", color = { 76, 52, 38 } },
-		wall = { material = "Plaster", color = { 88, 70, 72 } },
+		floor = { material = "OakFloor", color = { 98, 68, 50 } },
+		wall = { material = "WallpaperStripe", color = { 150, 116, 116 } },
+		wainscot = true,
 		reverb = "LivingRoom",
 		light = { brightness = 1.5, range = 26 },
 		props = {
@@ -200,8 +204,8 @@ local Rooms = {
 		family = "bedroom",
 		weight = 2,
 		max = 1,
-		floor = { material = "Carpet", color = { 84, 70, 80 } },
-		wall = { material = "Plaster", color = { 104, 96, 112 } },
+		floor = { material = "PileCarpet", color = { 104, 88, 96 } },
+		wall = { material = "Wallpaper", color = { 150, 118, 120 } },
 		reverb = "Room",
 		props = {
 			{ id = "bed", kind = "Bed", x = -16, z = -14.5 },
@@ -225,8 +229,8 @@ local Rooms = {
 		family = "bedroom",
 		weight = 2,
 		max = 1,
-		floor = { material = "Carpet", color = { 70, 90, 110 } },
-		wall = { material = "Plaster", color = { 130, 140, 150 } },
+		floor = { material = "PileCarpet", color = { 88, 104, 122 } },
+		wall = { material = "Wallpaper", color = { 96, 108, 132 } },
 		reverb = "Room",
 		props = {
 			{ id = "bed", kind = "Bed", x = 16, z = 14.5 },
@@ -250,8 +254,8 @@ local Rooms = {
 		family = "bedroom",
 		weight = 2,
 		max = 1,
-		floor = { material = "WoodPlanks", color = { 98, 76, 58 } },
-		wall = { material = "Plaster", color = { 116, 118, 100 } },
+		floor = { material = "OakFloor", color = { 114, 88, 66 } },
+		wall = { material = "Wallpaper", color = { 122, 128, 108 } },
 		reverb = "Room",
 		props = {
 			{ id = "bed", kind = "Bed", x = -16, z = 12, ry = 180 },
@@ -273,8 +277,8 @@ local Rooms = {
 		family = "bedroom",
 		weight = 1,
 		max = 1,
-		floor = { material = "Carpet", color = { 120, 110, 96 } },
-		wall = { material = "Plaster", color = { 150, 136, 130 } },
+		floor = { material = "PileCarpet", color = { 132, 122, 106 } },
+		wall = { material = "WallpaperStripe", color = { 100, 112, 134 } },
 		reverb = "Room",
 		props = {
 			{ id = "crib", kind = "Crib", x = 10, z = -18 },
@@ -296,7 +300,7 @@ local Rooms = {
 		family = "utility",
 		weight = 2,
 		max = 1,
-		floor = { material = "CeramicTiles", color = { 190, 196, 196 } },
+		floor = { material = "HexTile", color = { 212, 216, 214 } },
 		wall = { material = "CeramicTiles", color = { 160, 176, 172 } },
 		reverb = "Bathroom",
 		light = { brightness = 1, range = 22 },
@@ -319,8 +323,9 @@ local Rooms = {
 		family = "living",
 		weight = 2,
 		max = 1,
-		floor = { material = "WoodPlanks", color = { 64, 46, 34 } },
-		wall = { material = "Plaster", color = { 70, 84, 70 } },
+		floor = { material = "OakFloor", color = { 84, 60, 44 } },
+		wall = { material = "WallpaperStripe", color = { 112, 122, 102 } },
+		wainscot = true,
 		reverb = "Room",
 		props = {
 			{ id = "desk", kind = "Desk", x = 10, z = -17.75 },
@@ -345,8 +350,8 @@ local Rooms = {
 		family = "utility",
 		weight = 1,
 		max = 1,
-		floor = { material = "Concrete", color = { 120, 120, 116 } },
-		wall = { material = "Plaster", color = { 136, 140, 128 } },
+		floor = { material = "CheckerLino", color = { 166, 164, 156 } },
+		wall = { material = "OldPlaster", color = { 152, 156, 142 } },
 		reverb = "StoneRoom",
 		light = { brightness = 0.9, range = 22 },
 		props = {
@@ -370,8 +375,8 @@ local Rooms = {
 		weight = 0,
 		max = 1,
 		roles = { exit = true },
-		floor = { material = "Concrete", color = { 96, 96, 94 } },
-		wall = { material = "Concrete", color = { 110, 108, 104 } },
+		floor = { material = "StainedConcrete", color = { 112, 112, 108 } },
+		wall = { material = "StainedConcrete", color = { 132, 130, 124 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1.1, range = 28 },
 		props = {
@@ -396,7 +401,7 @@ local Rooms = {
 		max = 1,
 		roles = { exit = true },
 		floor = { material = "Slate", color = { 80, 80, 78 } },
-		wall = { material = "WoodPlanks", color = { 110, 92, 70 } },
+		wall = { material = "Panelling", color = { 112, 88, 64 } },
 		reverb = "Room",
 		props = {
 			{ id = "bench", kind = "Bench", x = -18.25, z = -10, ry = 90 },
@@ -419,7 +424,7 @@ local Rooms = {
 		weight = 1,
 		max = 1,
 		floor = { material = "CeramicTiles", color = { 150, 130, 110 } },
-		wall = { material = "Plaster", color = { 170, 168, 150 } },
+		wall = { material = "OldPlaster", color = { 178, 174, 154 } },
 		reverb = "Room",
 		props = {
 			{ id = "armchair1", kind = "Armchair", x = -16, z = 16 },
@@ -445,8 +450,8 @@ local Rooms = {
 		family = "living",
 		weight = 2,
 		max = 1,
-		floor = { material = "Carpet", color = { 74, 60, 50 } },
-		wall = { material = "WoodPlanks", color = { 86, 64, 48 } },
+		floor = { material = "PileCarpet", color = { 92, 76, 62 } },
+		wall = { material = "Panelling", color = { 98, 72, 52 } },
 		reverb = "LivingRoom",
 		props = {
 			{ id = "sofa", kind = "Sofa", x = -17.5, z = -9, ry = 90 },
@@ -468,7 +473,7 @@ local Rooms = {
 		weight = 1,
 		max = 1,
 		floor = { material = "Slate", color = { 90, 86, 80 } },
-		wall = { material = "Plaster", color = { 130, 120, 100 } },
+		wall = { material = "OldPlaster", color = { 152, 142, 118 } },
 		reverb = "Room",
 		light = { brightness = 0.8, range = 22 },
 		props = {
@@ -490,8 +495,8 @@ local Rooms = {
 		family = "windows",
 		weight = 1,
 		max = 1,
-		floor = { material = "Carpet", color = { 100, 120, 90 } },
-		wall = { material = "Plaster", color = { 160, 150, 120 } },
+		floor = { material = "PileCarpet", color = { 112, 130, 100 } },
+		wall = { material = "WallpaperStripe", color = { 170, 160, 128 } },
 		reverb = "Room",
 		props = {
 			{ id = "table", kind = "Table", x = 12, z = -16 },
@@ -514,8 +519,8 @@ local Rooms = {
 		family = "living",
 		weight = 1,
 		max = 1,
-		floor = { material = "WoodPlanks", color = { 110, 84, 62 } },
-		wall = { material = "Plaster", color = { 140, 120, 130 } },
+		floor = { material = "OakFloor", color = { 122, 92, 68 } },
+		wall = { material = "Wallpaper", color = { 156, 128, 136 } },
 		reverb = "Room",
 		props = {
 			{ id = "dummy1", kind = "Mannequin", x = -16, z = -16 },
@@ -540,8 +545,8 @@ local Rooms = {
 		-- The window closes the end of the south arm, so when that arm faces
 		-- outside the corridor ends in moonlight.
 		corridor = { halfWidth = 7 },
-		floor = { material = "WoodPlanks", color = { 120, 96, 70 } },
-		wall = { material = "WoodPlanks", color = { 104, 84, 62 } },
+		floor = { material = "OakFloor", color = { 132, 106, 78 } },
+		wall = { material = "Panelling", color = { 122, 98, 72 } },
 		reverb = "Room",
 		light = { brightness = 0.8, range = 22 },
 		props = {
@@ -569,8 +574,9 @@ local Rooms = {
 		family = "living",
 		weight = 1,
 		max = 1,
-		floor = { material = "WoodPlanks", color = { 86, 56, 40 } },
-		wall = { material = "Plaster", color = { 96, 80, 96 } },
+		floor = { material = "OakFloor", color = { 96, 64, 46 } },
+		wall = { material = "WallpaperStripe", color = { 94, 102, 126 } },
+		wainscot = true,
 		reverb = "LivingRoom",
 		props = {
 			{ id = "piano", kind = "Piano", x = 10, z = -18 },

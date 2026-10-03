@@ -164,10 +164,42 @@ Config.Trim = {
 	CasingWidth = 0.55,
 	CasingDepth = 0.18, -- a little proud of the baseboard, which butts into it
 	LiningDepth = 0.08, -- lines the sides and top of a doorway's opening
+	-- Wainscot in formal rooms: panelling on the lower third under a dado rail,
+	-- kept below window sills (3.3).
+	Wainscot = { material = "Panelling", color = { 92, 64, 46 } },
+	WainscotHeight = 3,
+	WainscotDepth = 0.06,
+	DadoHeight = 0.2,
+	DadoDepth = 0.12,
 	-- Some real doors rest slightly open with darkness behind them (the P.T.
 	-- bathroom door). An ajar door still blocks the way until it's opened.
 	AjarChance = 0.3,
 	AjarAngle = 16, -- degrees
+}
+
+-- The grime layer (World/Grime): shared decals placed from the seed.
+Config.Grime = {
+	CeilingStainChance = 0.4, -- per room
+	CeilingStainSize = { 4, 9 }, -- studs across
+	RustUnderWindowChance = 0.5,
+	UtilityRustChance = 0.6,
+	Scuffs = { 0, 2 }, -- per room
+	PictureGhostChance = 0.25,
+	Fade = { 0.05, 0.35 }, -- decal transparency, for variety
+	-- Fairness (docs/ART.md rules 3 and 6): wall grime keeps this far from the
+	-- seam in the middle of a shared wall, and from wall slots and decor.
+	SeamClearance = 8,
+	SlotClearance = 4,
+	WallOffset = 0.075, -- in front of the wall skin and wainscot, behind the dado rail
+	CeilingOffset = 0.02,
+}
+
+-- Ceilings: popcorn plaster, a little darker than the walls and leaning
+-- towards one shared off-white, so a rose room gets no pink ceiling.
+Config.Ceiling = {
+	material = "PopcornCeiling",
+	color = { 134, 128, 112 },
+	wallTint = 0.25, -- how much of the room's wall colour shows in its ceiling
 }
 
 -- Focus markers replace the crosshair: whatever you're close to and looking at

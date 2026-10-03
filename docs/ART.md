@@ -89,8 +89,9 @@ Roblox spaces are normally built about 1.5× real size so the camera and movemen
 - **Doors:** dark panelled wood with tarnished brass knobs (kept off the reserved brass). Some real doors rest slightly ajar with darkness behind them (P.T.'s bathroom door). Casings are painted lighter than any wall, so exits read.
 - **Trim:** dark walnut baseboards and crown moulding on every wall face. Where a wall has a seam, a baseboard piece across it shows while it's a wall and a doorway casing while it's a doorway, flipping with the seam for each player, so trim never gives a seam away.
 - **Windows:** a painted casing and sill, and behind a faintly tinted pane the night sky glowing softly, lighter at the top, with dark muntins against it.
-- **Grime layer:** one shared set of decals (water and rust stains, scuffs by door frames, dust shadows where pictures hung), so the whole house ages consistently.
-- **How they're made:** `generate_material` makes about 8–10 `MaterialVariant`s for the whole house (3 wallpapers, 2 plasters, 2 woods, carpet, linoleum, tile, concrete). Hero props get `SurfaceAppearance`. Textures are 1024 px at most. Every external asset goes in a licensing note, and asset ids go in `Assets.luau`.
+- **Grime layer:** one shared set of decals (water stains on ceilings, rust under windows and in utility rooms, scuffs low on walls, clean patches where pictures hung), placed from the seed so the whole house ages the same for everyone (`World/Grime.luau`). Wall grime keeps clear of seams and clue spots, so it's never read as evidence.
+- **How they're made:** ten `MaterialVariant`s for the whole house (2 wallpapers, plaster, popcorn ceiling, oak boards, panelling, carpet, linoleum, hex tile, concrete), listed in `Data/Materials.luau`. The textures are drawn by `tools/textures.py`, since Studio's `generate_material` failed on every request. They're greyscale and seamless so the part colour tints them: one wallpaper covers the sage, rose and blue rooms. Textures are 1024 px at most and their ids go in `Assets.luau`. The variants live in the place as Rojo files (`assets/materials/`, written by `lune run tools/materials`), because game scripts can't create them. Hero props get `SurfaceAppearance`.
+- **Patterned walls and seams:** a texture's pattern restarts on every part, so each seam gets a thin wall skin that flips with it (one piece while it's a wall, three around the opening while it's a doorway). Without it a hidden doorway would show as an outline in the wallpaper.
 
 ## Hero props
 
@@ -192,7 +193,7 @@ Each step is small, gets before and after screenshots from the baseline angles, 
 1. **Lighting, grade and scale:** the five family light recipes, the P.T. grade, fixing the too-dark rooms (rule 1), and lowering ceilings to about 10 studs.
 2. **Corridors:** one hallway template rebuilt as a narrow corridor and tested with the stalker, then rolled out to every corridor template with dead-end arms filled. *(Done 2026-10-02.)*
 3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour. *(Done 2026-10-02, except the wainscot, which moves to step 4 with the wallpapers. Trim across a seam flips with it, see rule 3.)*
-4. **Materials:** wallpapers, floors and ceilings through `generate_material`, plus the grime decals.
+4. **Materials:** wallpapers, floors and ceilings, plus the grime decals. *(Done 2026-10-02, with textures drawn by `tools/textures.py` and the wainscot from step 3.)*
 5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts.
 6. **The Guest:** model, then animations.
 7. **Hub polish:** signs, layout, the chat-hint overlap.

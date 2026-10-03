@@ -17,6 +17,7 @@ local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
+local Grime = require(script.Parent.Grime)
 local Trim = require(script.Parent.Trim)
 
 local Tags = Constants.Tags
@@ -97,8 +98,9 @@ local function setId(instance: Instance, id: string, label: string?)
 	tag(instance, Tags.Object)
 end
 
--- Build one wall layer of a room on a world side.
-local function buildWall(parent, center: Vector3, dirName: string, gap: boolean, color: Color3, material)
+-- Build one wall layer of a room on a world side, in the room's wall
+-- surface (color, material, variant).
+local function buildWall(parent, center: Vector3, dirName: string, gap: boolean, surface)
 	local dir = WORLD_DIRS[dirName]
 	local alongAxis = Vector3.new(math.abs(dir.Z), 0, math.abs(dir.X))
 	local base = center + dir * (HALF - WALL / 2)
@@ -109,8 +111,9 @@ local function buildWall(parent, center: Vector3, dirName: string, gap: boolean,
 			name,
 			size,
 			CFrame.new(base + alongAxis * alongCenter + Vector3.new(0, yCenter, 0)),
-			color,
-			material
+			surface.color,
+			surface.material,
+			{ variant = surface.variant }
 		)
 	end
 	if not gap then
@@ -222,25 +225,36 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		model:SetAttribute(Attr.RoomId, room.id)
 		model.Parent = folder
 
-		local floorColor = PropFactory.rgb(template.floor.color)
+		-- Surfaces (docs/ART.md, Materials): the house's MaterialVariants,
+		-- tinted by each template's colours.
 		local wallColor = PropFactory.rgb(template.wall.color)
-		local wallMaterial = PropFactory.material(template.wall.material)
-		local wallSurface = { color = wallColor, material = wallMaterial }
+		local wallMaterial, wallVariant = PropFactory.surface(template.wall.material)
+		local wallSurface = { color = wallColor, material = wallMaterial, variant = wallVariant }
+		local wainscot = nil
+		if template.wainscot then
+			local material, variant = PropFactory.surface(Config.Trim.Wainscot.material)
+			wainscot = { color = PropFactory.rgb(Config.Trim.Wainscot.color), material = material, variant = variant }
+		end
+		local floorMaterial, floorVariant = PropFactory.surface(template.floor.material)
 		PropFactory.part(
 			model,
 			"Floor",
 			Vector3.new(CELL, 1, CELL),
 			CFrame.new(center - Vector3.new(0, 0.5, 0)),
-			floorColor,
-			PropFactory.material(template.floor.material)
+			PropFactory.rgb(template.floor.color),
+			floorMaterial,
+			{ variant = floorVariant }
 		)
+		local ceiling = Config.Ceiling
+		local ceilingMaterial, ceilingVariant = PropFactory.surface(ceiling.material)
 		PropFactory.part(
 			model,
 			"Ceiling",
 			Vector3.new(CELL, 1, CELL),
 			CFrame.new(center + Vector3.new(0, HEIGHT + 0.5, 0)),
-			PropFactory.shade(wallColor, 0.7),
-			PropFactory.material("Plaster")
+			PropFactory.rgb(ceiling.color):Lerp(wallColor, ceiling.wallTint),
+			ceilingMaterial,
+			{ variant = ceilingVariant }
 		)
 
 		local record = {
@@ -262,6 +276,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			props = {},
 			lightOn = true,
 			wallSurface = wallSurface,
+			wainscot = wainscot,
 		}
 		world.rooms[room.id] = record
 
@@ -269,7 +284,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		for _, dirName in { "N", "E", "S", "W" } do
 			local neighbour = neighbourAt(room, dirName)
 			local isExitSide = room.id == layout.exit and dirName == exitSide
-			local panel = buildWall(model, center, dirName, neighbour ~= nil or isExitSide, wallColor, wallMaterial)
+			local panel = buildWall(model, center, dirName, neighbour ~= nil or isExitSide, wallSurface)
 			record.sides[dirName] = { neighbour = neighbour, panel = panel, exit = isExitSide }
 		end
 
@@ -300,7 +315,8 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 						Vector3.new(depth, HEIGHT, depth),
 						roomCF * CFrame.new(sx * c, HEIGHT / 2, sz * c),
 						wallColor,
-						wallMaterial
+						wallMaterial,
+						{ variant = wallVariant }
 					)
 				end
 			end
@@ -317,7 +333,8 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 						size,
 						roomCF * CFrame.new(axis * c + Vector3.new(0, HEIGHT / 2, 0)),
 						wallColor,
-						wallMaterial
+						wallMaterial,
+						{ variant = wallVariant }
 					)
 				else
 					record.corridorOpen[LevelGraph.worldSide(side, room.rotation)] = true
@@ -337,7 +354,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			rotate = function(side)
 				return LevelGraph.worldSide(side, room.rotation)
 			end,
-		})
+		}, wainscot)
 
 		-- Furniture: a hand-built prefab if one exists, otherwise the grey-box.
 		local prefab = prefabs and prefabs:FindFirstChild(template.id)
@@ -695,11 +712,13 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				parent = roomA.model,
 				face = CFrame.lookAt(faceA, faceA - WORLD_DIRS[dirA]),
 				surface = roomA.wallSurface,
+				wainscot = roomA.wainscot,
 			},
 			{
 				parent = roomB.model,
 				face = CFrame.lookAt(faceB, faceB - WORLD_DIRS[dirB]),
 				surface = roomB.wallSurface,
+				wainscot = roomB.wainscot,
 			},
 		}, midpoint, normal)
 
@@ -785,6 +804,10 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 			record.door = door
 		end
 	end
+
+	-- Grime last, so it can keep clear of everything placed before it. Its own
+	-- fork, so it changes nothing else a seed builds.
+	Grime.build(world, rng:Fork("grime"))
 
 	world.rng = rng
 	return world

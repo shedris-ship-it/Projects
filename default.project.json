@@ -70,6 +70,10 @@
       }
     },
 
+    "MaterialService": {
+      "$path": "assets/materials"
+    },
+
     "SoundService": {
       "$properties": {
         "RespectFilteringEnabled": true

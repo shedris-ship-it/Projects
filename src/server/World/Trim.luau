@@ -60,7 +60,8 @@ local function segment(
 	height,
 	depth,
 	color,
-	material
+	material,
+	variant: string?
 )
 	local length = (b - a).Magnitude
 	if length < 0.05 then
@@ -74,15 +75,60 @@ local function segment(
 		frame * CFrame.lookAt(mid, mid + normal),
 		color,
 		material,
-		NO_BLOCK
+		{ collide = false, query = false, castShadow = false, variant = variant }
 	)
 end
 
--- Baseboard and crown along a stretch of wall face from `a` to `b`. With
--- `doorway`, the baseboard stops at the casing around the middle of the
--- stretch; the crown runs unbroken over the lintel.
-local function run(parent, frame: CFrame, a: Vector3, b: Vector3, normal: Vector3, doorway: boolean)
+-- The lower third of a formal room's walls: wood panelling under a dado rail
+-- (docs/ART.md, Materials). `wainscot` is the panelling's surface.
+local function wainscotStrip(parent, frame: CFrame, a: Vector3, b: Vector3, normal: Vector3, wainscot)
+	local panel = segment(
+		parent,
+		"Wainscot",
+		frame,
+		a,
+		b,
+		normal,
+		0,
+		T.WainscotHeight,
+		T.WainscotDepth,
+		wainscot.color,
+		wainscot.material,
+		wainscot.variant
+	)
 	local color, material = wood()
+	local rail = segment(
+		parent,
+		"DadoRail",
+		frame,
+		a,
+		b,
+		normal,
+		T.WainscotHeight - T.DadoHeight / 2,
+		T.DadoHeight,
+		T.DadoDepth,
+		color,
+		material
+	)
+	return panel, rail
+end
+
+-- Baseboard and crown along a stretch of wall face from `a` to `b`, and the
+-- wainscot if the room has one. With `doorway`, the baseboard and wainscot
+-- stop at the casing around the middle of the stretch; the crown runs
+-- unbroken over the lintel.
+local function run(parent, frame: CFrame, a: Vector3, b: Vector3, normal: Vector3, doorway: boolean, wainscot)
+	local color, material = wood()
+	if wainscot then
+		if doorway then
+			local mid = (a + b) / 2
+			local along = (b - a).Unit
+			wainscotStrip(parent, frame, a, mid - along * EDGE, normal, wainscot)
+			wainscotStrip(parent, frame, mid + along * EDGE, b, normal, wainscot)
+		else
+			wainscotStrip(parent, frame, a, b, normal, wainscot)
+		end
+	end
 	if doorway then
 		local mid = (a + b) / 2
 		local along = (b - a).Unit
@@ -122,8 +168,9 @@ end
 -- `openings[side]` is true where the side has a doorway-sized opening (a seam
 -- or the exit). For a corridor room, `corridor` = { halfWidth, filled, rotate }
 -- where `filled` holds the template sides of filled arms and `rotate` turns a
--- template side into a world side.
-function Trim.room(parent, center: Vector3, roomCF: CFrame, dirs, openings, corridor)
+-- template side into a world side. `wainscot` (a surface: color, material,
+-- variant) panels the lower third of the walls; corridors never have one.
+function Trim.room(parent, center: Vector3, roomCF: CFrame, dirs, openings, corridor, wainscot)
 	local world = CFrame.new(center)
 	for side, dir in dirs do
 		local perp = Vector3.new(math.abs(dir.Z), 0, math.abs(dir.X))
@@ -139,7 +186,15 @@ function Trim.room(parent, center: Vector3, roomCF: CFrame, dirs, openings, corr
 			end
 		end
 		if not covered then
-			run(parent, world, dir * INNER - perp * reach, dir * INNER + perp * reach, -dir, openings[side] == true)
+			run(
+				parent,
+				world,
+				dir * INNER - perp * reach,
+				dir * INNER + perp * reach,
+				-dir,
+				openings[side] == true,
+				not corridor and wainscot or nil
+			)
 		end
 	end
 	if not corridor then
@@ -239,8 +294,9 @@ end
 
 -- Trim that flips with a seam. `faces` are the two rooms' wall faces at the
 -- seam (centre at floor level, LookVector into each room, with the room
--- model to parent to and its wall `surface`: color, material, variant);
--- `through` is the unit vector from room A to room B.
+-- model to parent to, its wall `surface`: color, material, variant, and its
+-- `wainscot` surface if it has one); `through` is the unit vector from room A
+-- to room B.
 function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 	local function tagger(role: string)
 		return function(p: BasePart?)
@@ -274,6 +330,18 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 				material
 			)
 		)
+		if f.wainscot then
+			local panel, rail = wainscotStrip(
+				f.parent,
+				CFrame.identity,
+				f.face.Position - right * EDGE,
+				f.face.Position + right * EDGE,
+				f.face.LookVector,
+				f.wainscot
+			)
+			asWall(panel)
+			asWall(rail)
+		end
 		casing(f.parent, f.face, asDoor)
 		-- The wall surface: whole while it's a wall, around the opening while
 		-- it's a doorway.

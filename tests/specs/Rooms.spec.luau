@@ -225,6 +225,35 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("every surface is a house material or a built-in one", function()
+		local Materials = require(Shared.Data.Materials)
+		-- Built-in materials the templates may still use directly.
+		local builtIn = {
+			Plaster = true,
+			CeramicTiles = true,
+			Slate = true,
+			WoodPlanks = true,
+			Wood = true,
+			Concrete = true,
+			Carpet = true,
+			Plastic = true,
+		}
+		local function known(name)
+			return Materials.ByName[name] ~= nil or builtIn[name] == true
+		end
+		for _, template in Rooms.List do
+			check.truthy(known(template.wall.material), template.id .. " wall " .. template.wall.material)
+			check.truthy(known(template.floor.material), template.id .. " floor " .. template.floor.material)
+		end
+		check.truthy(known(Config.Ceiling.material), "ceiling " .. Config.Ceiling.material)
+		check.truthy(known(Config.Trim.Wainscot.material), "wainscot " .. Config.Trim.Wainscot.material)
+		for _, material in Materials.List do
+			check.truthy(builtIn[material.base], material.name .. " has unknown base " .. material.base)
+			check.truthy(material.maps and material.maps.color ~= nil, material.name .. " has no texture")
+			check.truthy(material.studs and material.studs > 0, material.name .. " studs per tile")
+		end
+	end)
+
 	test("every template has at least 3 floor slots and 3 wall slots", function()
 		for _, template in Rooms.List do
 			check.atLeast(#template.floorSlots, 3, template.id .. " floor slots")
