@@ -497,6 +497,12 @@ Config.Camera = {
 	FieldOfView = 70,
 }
 
+Config.Audio = {
+	UiVolume = 0.8, -- the interface group, relative to the master volume
+	DriftMuffleDb = -18, -- how far the Ambient group's highs fall at full Drift
+	HuntFadeSeconds = 0.6,
+}
+
 -- How movement feels (Logic/Feel, Controllers/FeelController and
 -- FootstepController). All of the camera motion scales with the player's
 -- "Camera motion" setting; 0 turns it off.

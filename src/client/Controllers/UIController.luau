@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local UIFolder = script.Parent.Parent:WaitForChild("UI")
+local Ui = require(script.Parent.Parent:WaitForChild("Lib"):WaitForChild("Ui"))
 
 local player = Players.LocalPlayer
 
@@ -18,6 +19,14 @@ end
 
 function UIController:Start()
 	local playerGui = player:WaitForChild("PlayerGui")
+	-- Soft key presses for buttons.
+	local audio = self.controllers.AudioController
+	Ui.Sounds.hover = function()
+		audio:PlayUi("UIHover", 0.1, 1.15)
+	end
+	Ui.Sounds.click = function()
+		audio:PlayUi("UIClick", 0.3, 0.9)
+	end
 	local ctx = {
 		controllers = self.controllers,
 		state = self.state,

@@ -30,6 +30,7 @@ local DEFINITIONS = {
 
 	-- server -> client
 	Spoke = "RemoteEvent", -- a filtered line to speak with text-to-speech
+	Sfx = "RemoteEvent", -- (key, position, volume, pitch): play a sound at a place (Lib/Sfx)
 	PerceptionProfile = "RemoteEvent",
 	PerceptionAnchor = "RemoteEvent",
 	StalkerVisibility = "RemoteEvent",

@@ -724,7 +724,7 @@ Handlers.PhantomSound = function(rule)
 			elseif sound == "Drip" then
 				if distance < 22 then
 					nextPlay = os.clock() + 1.3
-					audio:PlayAt("Drip", site + Vector3.new(0, 6, 0), 0.25, 1.6)
+					audio:PlayAt("Drip", site + Vector3.new(0, 6, 0), 0.35, 1)
 				else
 					nextPlay = os.clock() + 2
 				end
@@ -976,7 +976,7 @@ function PerceptionController:_scare(payload)
 		end)
 		audio:Caption("[the air goes cold]")
 	elseif kind == "whisper" then
-		audio:PlayAt("Groan", payload.position + Vector3.new(0, 4, 0), 0.25, 0.4)
+		audio:PlayAt("Whisper", payload.position + Vector3.new(0, 4, 0), 0.5, 0.9)
 		audio:Caption("[a whisper behind you]")
 	elseif kind == "figure" then
 		local root = myRoot()

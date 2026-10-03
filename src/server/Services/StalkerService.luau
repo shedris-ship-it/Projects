@@ -26,7 +26,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
-local Assets = require(Shared.Assets)
+local Sfx = require(Shared.Lib.Sfx)
 local Archetypes = require(Shared.Data.Archetypes)
 local GuestPose = require(Shared.Logic.GuestPose)
 local Net = require(Shared.Net)
@@ -450,22 +450,6 @@ function StalkerService:_form(): number
 end
 
 -- Helpers --------------------------------------------------------------------------
-
-local function playSound(parent: Instance, id: string, volume: number, pitch: number)
-	if id == "" or not parent then
-		return
-	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume
-	sound.PlaybackSpeed = pitch
-	sound.RollOffMaxDistance = 90
-	sound.Parent = parent
-	sound:Play()
-	task.delay(5, function()
-		sound:Destroy()
-	end)
-end
 
 function StalkerService:_minPlayerDistance(position: Vector3): number
 	local best = math.huge
@@ -1043,7 +1027,9 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 		body:FacePoint(spot.anchor and spot.anchor.Position or body.root.Position)
 		if not data.inspectSound then
 			data.inspectSound = true
-			playSound(spot.anchor, Assets.Sounds.Thud, 0.7, 0.8)
+			if spot.anchor then
+				Sfx.play("Thud", spot.anchor.Position, 0.7, 0.8)
+			end
 		end
 		if elapsed >= S.InspectSeconds then
 			data.inspectSound = nil
@@ -1085,7 +1071,7 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 		services.DoorService:Knock(action.door)
 		nextAction()
 	elseif action.type == "noise" then
-		playSound(self.body.root, Assets.Sounds.Footstep, 1, 0.6)
+		Sfx.play("Footstep", self.body.root.Position, 1, 0.6)
 		nextAction()
 	else
 		nextAction()

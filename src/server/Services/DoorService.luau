@@ -9,7 +9,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
-local Assets = require(Shared.Assets)
+local Sfx = require(Shared.Lib.Sfx)
 
 local DoorService = {}
 
@@ -28,27 +28,6 @@ function DoorService:Start()
 	self.World.Built:Connect(function(world)
 		for _, door in world.doors do
 			self:_setup(door)
-		end
-	end)
-end
-
-local function playSound(parent: Instance, id: string, volume: number, pitch: number)
-	if id == "" then
-		return
-	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume
-	sound.PlaybackSpeed = pitch
-	sound.RollOffMaxDistance = 80
-	sound.Parent = parent
-	sound:Play()
-	sound.Ended:Once(function()
-		sound:Destroy()
-	end)
-	task.delay(6, function()
-		if sound.Parent then
-			sound:Destroy()
 		end
 	end)
 end
@@ -134,12 +113,8 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 	door.bracePrompt.Enabled = not open and os.clock() - door.lastBraced >= BRACE_COOLDOWN
 	local radius = slam and 35 or 18
 	self.Noise:Emit(door.position, radius, byPlayer, slam and "slam" or "door")
-	playSound(
-		door.slab,
-		slam and Assets.Sounds.Thud or Assets.Sounds.DoorCreak,
-		slam and 0.9 or 0.5,
-		slam and 0.6 or 0.8
-	)
+	-- Through the client so the sliders, muffling and rolloff apply.
+	Sfx.play(slam and "DoorSlam" or (open and "DoorOpen" or "DoorClose"), door.position, slam and 1 or 0.6, 1)
 end
 
 function DoorService:Toggle(door, player: Player?)
@@ -166,16 +141,16 @@ end
 -- Bang on a braced door (noise only).
 function DoorService:Bang(door)
 	self.Noise:Emit(door.position, 30, nil, "slam")
-	playSound(door.slab, Assets.Sounds.Knock, 1, 0.55)
+	Sfx.play("DoorBang", door.position, 1, 0.9)
 end
 
 function DoorService:Knock(door)
-	playSound(door.slab, Assets.Sounds.Knock, 0.8, 1.15)
+	Sfx.play("Knock", door.position, 0.9, 1)
 	task.delay(0.35, function()
-		playSound(door.slab, Assets.Sounds.Knock, 0.8, 1.15)
+		Sfx.play("Knock", door.position, 0.9, 1)
 	end)
 	task.delay(0.7, function()
-		playSound(door.slab, Assets.Sounds.Knock, 0.8, 1.15)
+		Sfx.play("Knock", door.position, 0.9, 1)
 	end)
 end
 

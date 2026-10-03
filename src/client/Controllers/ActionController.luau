@@ -90,7 +90,9 @@ function ActionController:Start()
 
 	self:_bind("ConsensusFlashlight", function(inputState)
 		if inputState == Enum.UserInputState.Begin and self.state:IsActive() then
-			Net.get("SetFlashlight"):FireServer(not player:GetAttribute(PA.Flashlight))
+			local turningOn = not player:GetAttribute(PA.Flashlight)
+			self.controllers.AudioController:PlayUi("FlashlightClick", 0.5, turningOn and 1 or 0.88)
+			Net.get("SetFlashlight"):FireServer(turningOn)
 		end
 	end, true, "Light", Enum.KeyCode.F, Enum.KeyCode.DPadUp)
 
@@ -211,6 +213,12 @@ end
 
 function ActionController:_onHidden(hidden: boolean)
 	local camera = Workspace.CurrentCamera
+	-- Cloth settling and a door pulled to on the way in; the same on the way out.
+	local audio = self.controllers.AudioController
+	if audio then
+		audio:PlayUi("Cloth", 0.45, hidden and 0.9 or 1.05)
+		audio:PlayUi("Drawer", 0.3, hidden and 0.85 or 1)
+	end
 	if hidden then
 		peekYaw, peekPitch = 0, 0
 		camera.CameraType = Enum.CameraType.Scriptable

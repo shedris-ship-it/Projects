@@ -5,17 +5,33 @@
 local Assets = {}
 
 Assets.Sounds = {
-	Footstep = "rbxasset://sounds/action_footsteps_plastic.mp3",
-	Thud = "rbxasset://sounds/action_jump_land.mp3",
-	Knock = "rbxasset://sounds/action_jump_land.mp3",
-	DoorCreak = "rbxasset://sounds/action_get_up.mp3",
-	Groan = "rbxasset://sounds/uuhhh.mp3",
 	Ping = "rbxasset://sounds/electronicpingshort.wav",
-	Click = "rbxasset://sounds/button.wav",
-	Whoosh = "rbxasset://sounds/swoosh.wav",
 	Snap = "rbxasset://sounds/snap.wav",
-	Drip = "rbxasset://sounds/impact_water.mp3",
-	Shutter = "rbxasset://sounds/clickfast.wav",
+	-- The Guest's and stalker's steps: a wooden step (the same set the players
+	-- walk on), pitched down by the caller.
+	Footstep = "rbxassetid://136507037003210", -- Diman_x86 "Black Laboratory wood plank footstep 1"
+	-- Heavy things: a body hitting a mat, for landings, sprint thumps and slams.
+	Thud = "rbxassetid://9120977010", -- PSE "Wrestling Pad 10"
+	-- Doors (Services/DoorService, through Lib/Sfx).
+	DoorOpen = "rbxassetid://9114135701", -- PSE "Door Door Open With Squeak 1"
+	DoorClose = "rbxassetid://9114748105", -- PSE "Half Glass Door 8": wood, open and close
+	DoorLatch = "rbxassetid://9116238259", -- PSE "Latch Movement 3"
+	DoorSlam = "rbxassetid://9114129572", -- PSE "Door Bang Rattle 8"
+	DoorBang = "rbxassetid://9114129501", -- PSE "Door Bang Rattle 7": a heavy bang on a braced door
+	Knock = "rbxassetid://9119907907", -- PSE "Table Hit Hand Smacks On Wood Table 1": a hollow knock
+	-- Interface and hands.
+	UIClick = "rbxassetid://9113145819", -- PSE "Apple Keyboard 76": a key press
+	UIHover = "rbxassetid://9113145639", -- PSE "Apple Keyboard 73"
+	FlashlightClick = "rbxassetid://129708861232883", -- Art1em12 "lightswitchon"
+	Shutter = "rbxassetid://9113025793", -- PSE "35 Mm Still Camera 3": the Witness camera
+	Cloth = "rbxassetid://136224586361044", -- IzZDEMONZzI "Clothes Movement": hiding, pickups
+	Drawer = "rbxassetid://9120844977", -- PSE "Wood Drawer 4": a wardrobe or locker door
+	Match = "rbxassetid://4510176414", -- WaddelsG "Matchstick SFX": the Lantern
+	Stamp = "rbxassetid://9119909107", -- PSE "Table Hit 10": a verdict, an anchor locking in
+	-- Scares and tells.
+	Whisper = "rbxassetid://9114170094", -- PSE "Dream Weirdness Constant 6": whispers and scrapes
+	Drip = "rbxassetid://9120520174", -- PSE "Water Drip Into Wood Bowl Light Blip 17"
+	Whoosh = "rbxassetid://8893801865", -- shlexr "Audio/WhooshEffect" (the stock swoosh.wav is not approved)
 	-- Licensed library audio from the Creator Store (Pro Sound Effects and
 	-- APM Music, free to use in Roblox experiences; nothing was uploaded).
 	Gasp = "rbxassetid://9114555699", -- PSE "Gasp Trouble Breathing 3": a downed Witness
@@ -32,11 +48,11 @@ Assets.Sounds = {
 	PlayerBreath = "rbxassetid://124832136911190", -- Creator Store "Breathing and Tired" (Maz_Rx1)
 	-- Loops for the Drift layers and room tone. Fill these with real assets.
 	RoomTone = "rbxassetid://9118747859", -- PSE "Rumble Ambience Interior Wind Turbo Shaft 4": a low house hum
-	DriftBass = "",
-	DriftTinnitus = "",
+	DriftBass = "rbxassetid://9125898973", -- PSE "Sci Fi Transformation Synth Tones Slow Swirling 1": a low drone
+	DriftTinnitus = "rbxassetid://87380384768764", -- Oddsock833 "EarRinging"
 	Heartbeat = "rbxassetid://9043365727", -- APM "HEARTBEAT 01 96BPM" (Horror Tools), loops
-	RadioStatic = "",
-	HuntSting = "",
+	RadioStatic = "rbxassetid://8028069841", -- NoobMatthew3 "Radio Static Loop"
+	HuntSting = "rbxassetid://9113436052", -- PSE "Big Low-End Impacts 3": a resonant hit
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

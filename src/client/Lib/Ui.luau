@@ -22,6 +22,9 @@ Ui.Theme = {
 	fontType = Enum.Font.SpecialElite,
 }
 
+-- Sounds for buttons, set by UIController once audio exists: { hover, click }.
+Ui.Sounds = {}
+
 function Ui.new(className: string, props: { [string]: any }?, children: { Instance }?)
 	local instance = Instance.new(className)
 	local parent = nil
@@ -120,9 +123,17 @@ function Ui.button(text: string, props: { [string]: any }?, onClick: (() -> ())?
 	local rest = button.BackgroundColor3
 	button.MouseEnter:Connect(function()
 		Ui.tween(button, 0.12, { BackgroundColor3 = rest:Lerp(Ui.Theme.accent, 0.25) })
+		if Ui.Sounds.hover then
+			Ui.Sounds.hover()
+		end
 	end)
 	button.MouseLeave:Connect(function()
 		Ui.tween(button, 0.12, { BackgroundColor3 = rest })
+	end)
+	button.Activated:Connect(function()
+		if Ui.Sounds.click then
+			Ui.Sounds.click()
+		end
 	end)
 	if onClick then
 		button.Activated:Connect(onClick)

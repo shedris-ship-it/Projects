@@ -163,7 +163,7 @@ Design doc rule (section 10): don't pile content onto a core that hasn't passed 
 
 ## Known limitations
 
-- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and Drift layers and the hunt sting are still empty in `Assets.luau`. Player footsteps are free community Creator Store samples (carpet, wood, tile, concrete) and the breath and house hum are library audio; swap ids in `Assets.luau` if any sounds wrong.
+- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and The Drift layers, radio static and hunt sting have library audio now (`Assets.luau`), but no music exists. Player footsteps are free community Creator Store samples (carpet, wood, tile, concrete) and the breath and house hum are library audio; swap ids in `Assets.luau` if any sounds wrong.
 - The Guest is built from primitives; `generate_mesh` for the head and hands is the plan B if it ever looks toy-like. Between hunts he knows where his target is (see "Deferred" above).
 - Voice is plain proximity chat: no routing through the audio API, no radio or muffling.
 - Hub and run share one place.

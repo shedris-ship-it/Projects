@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -35,6 +36,9 @@ local function group(name: string): SoundGroup
 	return g
 end
 
+-- How far each kind of sound carries (studs); the rest use 90.
+local ROLLOFF = { Drip = 30, FlashlightClick = 15, Cloth = 25, Drawer = 30, UIClick = 10, UIHover = 10, Knock = 70 }
+
 local function newSound(key: string, volume: number, pitch: number, groupName: string)
 	-- A key from Assets.Sounds, or a raw asset id (footsteps pass their own).
 	local id = Assets.Sounds[key] or (string.find(key, "^rbxasset") and key or nil)
@@ -47,7 +51,7 @@ local function newSound(key: string, volume: number, pitch: number, groupName: s
 	sound.PlaybackSpeed = pitch
 	sound.SoundGroup = group(groupName)
 	sound.RollOffMinDistance = 6
-	sound.RollOffMaxDistance = 90
+	sound.RollOffMaxDistance = ROLLOFF[key] or 90
 	return sound
 end
 
@@ -124,6 +128,51 @@ function AudioController:Start()
 	Net.get("Pinged").OnClientEvent:Connect(function()
 		self:PlayUi("Ping", 0.35)
 	end)
+	-- Sounds the server asks for (doors, the stalker): played here so the
+	-- sliders, wall muffling and rolloff apply (Lib/Sfx).
+	Net.get("Sfx").OnClientEvent:Connect(function(key, position, volume, pitch)
+		if type(key) == "string" and typeof(position) == "Vector3" then
+			self:PlayAt(key, position, tonumber(volume), tonumber(pitch), self:_behindWall(position))
+		end
+	end)
+	-- Hands and verdicts.
+	Net.get("WitnessFeedback").OnClientEvent:Connect(function(fb)
+		if fb.type == "anchored" then
+			self:PlayUi("Stamp", 0.7, 1)
+		elseif fb.type == "window" then
+			self:PlayUi("UIClick", 0.25, 0.7)
+		end
+	end)
+	Net.get("VerdictState").OnClientEvent:Connect(function(state)
+		if state.active == false and state.result then
+			self:PlayUi("Stamp", 0.8, 0.7)
+		elseif state.active then
+			self:PlayUi("UIClick", 0.4, 0.7)
+		end
+	end)
+	player:GetAttributeChangedSignal("LanternOn"):Connect(function()
+		if player:GetAttribute("LanternOn") == true then
+			self:PlayUi("Match", 0.6, 1)
+		else
+			self:PlayUi("UIClick", 0.2, 0.8)
+		end
+	end)
+	local wasExtracted = false
+	self.state.PlayerStateChanged:Connect(function()
+		local extracted = self.state:PlayerState() == Constants.PlayerStates.Extracted
+		if extracted and not wasExtracted then
+			self:PlayUi("DoorOpen", 0.6, 1)
+		end
+		wasExtracted = extracted
+	end)
+	-- As Drift rises the house sounds more muffled and wrong.
+	local muffle = Instance.new("EqualizerSoundEffect")
+	muffle.Name = "DriftMuffle"
+	muffle.LowGain = 0
+	muffle.MidGain = 0
+	muffle.HighGain = 0
+	muffle.Parent = group("Ambient")
+	self.driftMuffle = muffle
 
 	local lastRoom = nil
 	RunService.Heartbeat:Connect(function(dt)
@@ -145,7 +194,7 @@ end
 function AudioController:_applyVolumes(settings)
 	local master = settings.masterVolume or 1
 	group("SFX").Volume = master * (settings.sfxVolume or 1)
-	group("UI").Volume = master * 0.8
+	group("UI").Volume = master * Config.Audio.UiVolume
 	self.ambientBase = master * (settings.ambientVolume or 0.8)
 	group("Ambient").Volume = self.ambientBase
 end
@@ -179,6 +228,10 @@ function AudioController:_updateLayers(dt: number)
 	fade("Radio", (inRun and radioSignal) and (0.08 + radioSignal * 0.6) or 0)
 	if layers.Radio then
 		layers.Radio.PlaybackSpeed = 0.9 + (radioSignal or 0) * 0.4
+	end
+	if self.driftMuffle then
+		local target = Config.Audio.DriftMuffleDb * math.clamp((drift - 40) / 60, 0, 1)
+		self.driftMuffle.HighGain += (target - self.driftMuffle.HighGain) * math.clamp(dt * 0.8, 0, 1)
 	end
 	-- Silence as a weapon: the Director drops ambience before an intrusion.
 	local ambient = group("Ambient")
@@ -239,6 +292,18 @@ function AudioController:Duck(seconds: number)
 	duckUntil = os.clock() + seconds
 end
 
+-- Is a wall between the camera and this point?
+function AudioController:_behindWall(position: Vector3): boolean
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return false
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character or camera }
+	return Workspace:Raycast(camera.CFrame.Position, position - camera.CFrame.Position, params) ~= nil
+end
+
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
 -- through a wall.
 function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?, muffled: boolean?)
@@ -280,11 +345,10 @@ function AudioController:PlayFor(key: string, position: Vector3?, volume: number
 	sound.Parent = holder
 	sound:Play()
 	task.delay(seconds, function()
-		local start = sound.Volume
-		for i = 1, 10 do
-			sound.Volume = start * (1 - i / 10)
-			task.wait(0.06)
-		end
+		-- A smooth fade out, then clean up.
+		local fade = TweenService:Create(sound, TweenInfo.new(Config.Audio.HuntFadeSeconds), { Volume = 0 })
+		fade:Play()
+		fade.Completed:Wait()
 		if holder ~= SoundService then
 			holder:Destroy()
 		else
