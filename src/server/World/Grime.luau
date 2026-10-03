@@ -11,9 +11,12 @@
 -- never mistaken for a tell. Grime is never collidable, never hit by a ray
 -- and never Witnessable. Corridors only get ceiling stains.
 
+local CollectionService = game:GetService("CollectionService")
+
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local PropFactory = require(Shared.World.PropFactory)
 
 local G = Config.Grime
@@ -124,6 +127,33 @@ function Grime.build(world, rng)
 		end
 		local clear = keepClear(record)
 		local sides = { "N", "E", "S", "W" }
+
+		-- Blood, hidden until Drift reaches Breaking (EffectsController shows it).
+		-- Tinted rust streaks, placed like the other wall grime so they never hint
+		-- at a seam, a wall slot or a piece of decor.
+		if textures.RustStreak ~= "" and rng:Chance(G.BloodChance) then
+			local side = sides[rng:NextInteger(1, 4)]
+			local along = wallSpot(rng, record, side, 2.4, clear)
+			if along then
+				local size = rng:NextNumber(G.BloodSize[1], G.BloodSize[2])
+				local blood = card(
+					model,
+					"GrimeBlood",
+					onWall(record.center, DIRS[side], along, rng:NextNumber(2.8, 6)),
+					size * 0.7,
+					size * 1.5,
+					textures.RustStreak,
+					rng
+				)
+				local decal = blood:FindFirstChildOfClass("Decal")
+				if decal then
+					decal.Color3 = Color3.fromRGB(120, 14, 12)
+					decal.Transparency = 1
+				end
+				blood:SetAttribute("BloodAt", rng:NextInteger(G.BloodAt[1], G.BloodAt[2]))
+				CollectionService:AddTag(blood, Constants.Tags.Blood)
+			end
+		end
 
 		-- Rust under some windows: from the sill down the wall.
 		if textures.RustStreak ~= "" then

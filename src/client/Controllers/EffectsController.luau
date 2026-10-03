@@ -85,7 +85,14 @@ function EffectsController:_createEffects()
 		})
 		Ui.new("UIGradient", {
 			Rotation = edge[3],
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) }),
+			-- Eased rather than a straight ramp, so it has no visible band.
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.2),
+				NumberSequenceKeypoint.new(0.2, 0.42),
+				NumberSequenceKeypoint.new(0.45, 0.7),
+				NumberSequenceKeypoint.new(0.7, 0.9),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
 			Parent = frame,
 		})
 		table.insert(self.vignette, frame)
@@ -289,6 +296,7 @@ local function trackLight(part: Instance)
 		dim = 1,
 		color = light.Color,
 		lamp = light:IsA("PointLight") and light.Name == "KeyLight",
+		utility = fixture ~= nil and fixture:FindFirstChild("Housing") ~= nil, -- a fluorescent
 		glows = glows,
 	}
 	task.spawn(addDust, part)
@@ -301,6 +309,16 @@ local function showPhoto(card: Instance)
 	local decal = card:FindFirstChild("Picture")
 	if set and decal and decal:IsA("Decal") then
 		decal.Texture = set[photoState] or set.normal
+	end
+end
+
+-- Blood the server placed hidden, shown as Drift passes each stain's own mark.
+local bloods = {}
+local function trackBlood(part: Instance)
+	local decal = part:FindFirstChildOfClass("Decal")
+	local at = part:GetAttribute("BloodAt")
+	if decal and type(at) == "number" then
+		bloods[part] = { decal = decal, at = at }
 	end
 end
 
@@ -342,6 +360,15 @@ function EffectsController:Start()
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.Photo):Connect(function(card)
 		task.defer(trackPhoto, card)
 	end)
+	for _, part in CollectionService:GetTagged(Constants.Tags.Blood) do
+		trackBlood(part)
+	end
+	CollectionService:GetInstanceAddedSignal(Constants.Tags.Blood):Connect(function(part)
+		task.defer(trackBlood, part)
+	end)
+	CollectionService:GetInstanceRemovedSignal(Constants.Tags.Blood):Connect(function(part)
+		bloods[part] = nil
+	end)
 	CollectionService:GetInstanceRemovedSignal(Constants.Tags.Photo):Connect(function(card)
 		photos[card] = nil
 	end)
@@ -373,9 +400,11 @@ function EffectsController:Start()
 	RunService.RenderStepped:Connect(function(dt)
 		self:_update(dt)
 		local drift = self.state:InRun() and self.state:Drift() or 0
-		if drift >= 40 and os.clock() >= nextRandomFlicker then
+		local arc = Config.DriftArc
+		if drift >= arc.UtilityFlickerAt and os.clock() >= nextRandomFlicker then
 			nextRandomFlicker = os.clock() + math.random(8, 20) * (1.4 - drift / 100)
-			self:FlickerNear(35, 0.8 + drift / 100)
+			-- Fraying: only the fluorescents stutter. From Breaking, everything does.
+			self:FlickerNear(35, 0.8 + drift / 100, drift < arc.AllFlickerAt)
 		end
 	end)
 end
@@ -425,13 +454,17 @@ function EffectsController:FlickerRoom(roomId: number?, duration: number)
 	end
 end
 
-function EffectsController:FlickerNear(radius: number, duration: number)
+function EffectsController:FlickerNear(radius: number, duration: number, utilityOnly: boolean?)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if not root then
 		return
 	end
 	for light, info in lights do
-		if info.part.Parent and (info.part.Position - root.Position).Magnitude < radius then
+		if
+			info.part.Parent
+			and (info.part.Position - root.Position).Magnitude < radius
+			and (not utilityOnly or info.utility)
+		then
 			flickering[light] = os.clock() + duration
 		end
 	end
@@ -479,7 +512,9 @@ function EffectsController:_update(dt: number)
 	-- Colour: the house starts on a sickly yellow-green grade (docs/ART.md,
 	-- the P.T. reference), then loses colour and gains contrast as it drifts.
 	-- The hub keeps a warm, neutral grade.
-	local saturation = inRun and lerp(-0.22, -0.65, t) or 0.05
+	local arc = Config.DriftArc
+	local collapse = math.clamp((drift - arc.MonochromeAt) / (100 - arc.MonochromeAt), 0, 1)
+	local saturation = inRun and lerp(lerp(-0.22, -0.55, t), arc.CollapseSaturation, collapse) or 0.05
 	local contrast = inRun and lerp(0.15, 0.3, t) or 0.05
 	local tint = inRun and Color3.fromRGB(236, 236, 200):Lerp(Color3.fromRGB(205, 225, 215), t)
 		or Color3.fromRGB(255, 240, 225)
@@ -518,6 +553,16 @@ function EffectsController:_update(dt: number)
 		self.grain.Position = UDim2.fromOffset(-math.random(0, FX.GrainTile), -math.random(0, FX.GrainTile))
 	end
 
+	for part, blood in bloods do
+		if part.Parent and blood.decal.Parent then
+			local shown = math.clamp((drift - blood.at) / 8, 0, 1)
+			local fade = Config.Grime.BloodFade
+			blood.decal.Transparency = inRun and (1 - shown * (1 - fade)) or 1
+		else
+			bloods[part] = nil
+		end
+	end
+
 	local dressing = Config.Dressing
 	local state = drift >= dressing.PhotoFacelessAt and "faceless"
 		or drift >= dressing.PhotoBlurAt and "blurred"
@@ -546,6 +591,7 @@ function EffectsController:_update(dt: number)
 	-- (docs/ART.md rule 6). Flicker plays on top. Reduced-flicker mode dims
 	-- smoothly instead of strobing.
 	local guest, presence = guestPosition()
+	local camera = Workspace.CurrentCamera
 	local ease = math.clamp(dt * FX.GuestDimEase, 0, 1)
 	local now = os.clock()
 	local huntTarget = (inRun and hunt.state == "hunt") and 1 or 0
@@ -558,8 +604,26 @@ function EffectsController:_update(dt: number)
 				local near = math.clamp((FX.GuestDimRadius - distance) / (FX.GuestDimRadius - FX.GuestDimFull), 0, 1)
 				target = lerp(1, FX.GuestDimTo, near * presence)
 			end
+			-- Collapsing: the lamps sag (a lit Lantern keeps its own warmth).
+			if info.lamp then
+				local sag = math.clamp((drift - arc.LampDimAt) / (100 - arc.LampDimAt), 0, 1)
+				target *= lerp(1, arc.LampDimTo, sag)
+			end
 			info.dim += (target - info.dim) * ease
 			local base = info.base * info.dim
+			-- Only the lights near you cast shadows (hysteresis stops flicker at the edge).
+			if info.shadows and not lowEnd and camera then
+				local away = (info.part.Position - camera.CFrame.Position).Magnitude
+				local want = light.Shadows
+				if away < Config.ShadowRadius.on then
+					want = true
+				elseif away > Config.ShadowRadius.off then
+					want = false
+				end
+				if light.Shadows ~= want then
+					light.Shadows = want
+				end
+			end
 			local untilTime = flickering[light]
 			if untilTime and now < untilTime then
 				if settings.reduceFlicker then

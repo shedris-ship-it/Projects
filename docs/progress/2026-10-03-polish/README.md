@@ -58,3 +58,13 @@ About 200 descendants and 125 parts per room. Frame rate can't be read through t
 - **Exit door**: lower panels, a kick plate, a knob and a knob plate on the house side, as children of the slab so they fade with it when the exit opens (`RunOrchestrator`). Not verified by eye.
 - **Case Board**: a wooden frame and four pins, so it reads as a board in the first room you see. Not verified by eye.
 - Not done in this pass: thresholds, light switches, sconces, vents (they would add a lot of small parts for little gain until the budget is measured on the owner's machine).
+
+## Stage 5: the Drift arc and lighting
+
+- **Utility lights flicker first** (Fraying, Drift 40), everything else from Breaking (60), as `docs/ART.md` describes; before, every light near you flickered from 40. A fluorescent is recognised by its fixture's `Housing` part.
+- **Collapsing (80+)**: lamps sag towards half brightness (a lit Lantern keeps its own warmth, since the Lantern's light isn't a room lamp), and the colour grade drains to -0.9 saturation, nearly monochrome.
+- **Blood** from Breaking: the server hides 0 or 1 dark stain per room on walls, placed like the other wall grime (clear of seams, wall slots and decor, so it can't hint at anything), tagged and given a `BloodAt` Drift mark between 60 and 88; each client fades them in as Drift passes the mark (shared decay, rule 6).
+- **Smoother vignette**: the four edge gradients now use an eased five-point curve instead of a straight ramp, so no band shows.
+- **Shadows only where you are**: a room lamp casts shadows only while you're within 62 studs (off beyond 74, so no flicker at the edge); low-end mode also turns off your flashlight's shadows.
+- Verified in Studio at Drift 92 (via the F2 console): saturation -0.76 and falling to -0.9, lamps at 69% of before, all five stains showing at transparency 0.3, 5 of 10 key lights casting shadows. The debug overlay read **60 fps**, 2012 MB, 51,803 instances on this machine during that run (Studio focused). Console clean.
+- Not verified: how it looks beyond the one screenshot (`stage5_collapsing_blood_overlay.jpg`), the Lantern-room exception by eye, the moonlit-bedroom brightness complaint (not touched), and low-end mode on a phone.

@@ -342,6 +342,7 @@ function ActionController:_updateFlashlight(dt: number)
 	self.flashlightRotation = flashlightAim -- ViewModelController hangs the torch on it
 	lightPart.CFrame = CFrame.new(target.Position) * flashlightAim
 	cameraLight.Enabled = on
+	cameraLight.Shadows = not self.state.settings.lowEnd
 	local head = player.Character and player.Character:FindFirstChild("Head")
 	local headLight = head and head:FindFirstChild("Flashlight")
 	if headLight then

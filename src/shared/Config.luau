@@ -240,6 +240,13 @@ Config.Dressing = {
 
 -- The grime layer (World/Grime): shared decals placed from the seed.
 Config.Grime = {
+	-- Blood: from Breaking, dark stains appear on some walls, shared by every
+	-- player at the same Drift (ART.md, the run's arc). The server places them
+	-- hidden; the client reveals each at its own Drift.
+	BloodChance = 0.5, -- per room
+	BloodAt = { 60, 88 }, -- Drift at which a stain shows
+	BloodSize = { 1.4, 2.4 },
+	BloodFade = 0.3, -- decal transparency once fully shown
 	CeilingStainChance = 0.4, -- per room
 	CeilingStainSize = { 4, 9 }, -- studs across
 	RustUnderWindowChance = 0.5,
@@ -500,6 +507,18 @@ Config.Camera = {
 	FirstPersonInRun = true,
 	LobbyMaxZoom = 14,
 	FieldOfView = 70,
+}
+
+-- Shadow-casting is the expensive part of a dark house of many lamps, so a
+-- room's lights only cast shadows while you're this close (EffectsController).
+Config.ShadowRadius = { on = 62, off = 74 } -- studs from the camera, with hysteresis
+Config.DriftArc = {
+	UtilityFlickerAt = 40, -- Fraying: the fluorescents go first
+	AllFlickerAt = 60, -- Breaking: everything else follows
+	LampDimAt = 80, -- Collapsing: lamps sag towards LampDimTo
+	LampDimTo = 0.5,
+	MonochromeAt = 80, -- the grade drains to almost no colour by 100
+	CollapseSaturation = -0.9,
 }
 
 Config.Audio = {
