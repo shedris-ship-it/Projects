@@ -3,8 +3,9 @@
 -- client_overrides/RbxCharacterSounds). Steps are paced by distance, so a slow
 -- walk is slow and a sprint is a rush; each floor has its own sample set,
 -- played from a shuffled bag so nothing repeats back to back, with pitch and
--- volume varied every step. Rooms colour them (an echo in hard rooms) and
--- walls muffle other people's. All client-side: the server's noise for the
+-- volume varied every step. Rooms colour them through the global reverb and
+-- walls muffle other people's (the room's own reverb comes from the global
+-- preset in AudioController, never from the steps). All client-side: the server's noise for the
 -- stalker still comes from velocity (PlayerStateService), not from these.
 
 local Players = game:GetService("Players")
@@ -85,9 +86,7 @@ function FootstepController:_step(player: Player, character: Model, humanoid: Hu
 	if player ~= localPlayer and camera then
 		muffled = blocked(camera.CFrame.Position, position, { character, localPlayer.Character or character })
 	end
-	local room = self.state:RoomAt(root.Position)
-	local echo = room and Footsteps.Rooms[room.reverb]
-	audio:PlayAt(key, position, volume, pitch, muffled, echo)
+	audio:PlayAt(key, position, volume, pitch, muffled)
 	-- Running adds a low thump under each footfall, for weight.
 	if speed > P.SprintSpeedThreshold then
 		audio:PlayAt("Thud", position, 0.25 * volume, 0.55 * Feel.jitter(rng, 0.05), muffled)

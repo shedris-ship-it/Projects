@@ -91,6 +91,17 @@ function Feel.turnLean(yawRate: number, intensity: number, F): number
 	return math.clamp(-yawRate * F.TurnLean, -F.TurnLeanMax, F.TurnLeanMax) * math.clamp(intensity, 0, 1)
 end
 
+-- Your own breath: the loop's tempo rises as stamina (0..1) falls, but its
+-- pitch is held at BreathPitch by a pitch-shift of `breathOctave` (owner:
+-- the exhausted voice was too high).
+function Feel.breathTempo(stamina: number, F): number
+	return lerp(F.BreathSpeedMin, F.BreathSpeedMax, 1 - math.clamp(stamina, 0, 1))
+end
+
+function Feel.breathOctave(speed: number, F): number
+	return F.BreathPitch / speed
+end
+
 -- Footstep samples: a shuffled bag, so every sample plays once before any
 -- repeats, and never the same one twice in a row.
 function Feel.newBag(count: number)

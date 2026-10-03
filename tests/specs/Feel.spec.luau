@@ -111,6 +111,22 @@ return function(test, check, Shared, require)
 		check.equal(Feel.turnLean(200, 0, F), 0, "camera motion off")
 	end)
 
+	test("exhausted breathing is faster but never higher pitched, and the gasp is low", function()
+		local fresh = Feel.breathTempo(1, F)
+		local spent = Feel.breathTempo(0, F)
+		check.near(fresh, F.BreathSpeedMin, 1e-9, "fresh tempo")
+		check.near(spent, F.BreathSpeedMax, 1e-9, "spent tempo")
+		check.truthy(spent > fresh, "faster when spent")
+		-- Playback speed raises pitch by `speed`; the shift cancels it down to BreathPitch.
+		for _, stamina in { 1, 0.6, 0.3, 0 } do
+			local speed = Feel.breathTempo(stamina, F)
+			check.near(speed * Feel.breathOctave(speed, F), F.BreathPitch, 1e-9, "pitch held")
+		end
+		check.atMost(F.BreathPitch, 1, "the voice isn't pitched up")
+		check.atMost(F.BreathGasp.pitch, 0.9, "a low gasp")
+		check.truthy(Feel.breathOctave(F.BreathSpeedMax, F) >= 0.5, "within the effect's range")
+	end)
+
 	test("the sample bag never repeats back to back and plays everything each round", function()
 		local rng = Rng.new(3)
 		local bag = Feel.newBag(5)

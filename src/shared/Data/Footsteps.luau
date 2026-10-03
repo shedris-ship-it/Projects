@@ -27,11 +27,7 @@ return {
 		Concrete = { volume = 1, pitch = 0.92 },
 	},
 
-	-- Per room reverb type (Data/Rooms `reverb`): a short echo on steps in hard
-	-- or long rooms. Rooms not listed have none, so carpeted rooms stay dead.
-	Rooms = {
-		Bathroom = { delay = 0.07, feedback = 0.35, wet = 0.45 },
-		StoneRoom = { delay = 0.14, feedback = 0.4, wet = 0.4 },
-		CarpettedHallway = { delay = 0.1, feedback = 0.2, wet = 0.18 },
-	},
+	-- No per-room echo here: SoundService.AmbientReverb already gives every
+	-- sound its room's reverb (AudioController), and adding a second one on
+	-- the steps stacked two reverbs (owner: "weird in the bathroom").
 }

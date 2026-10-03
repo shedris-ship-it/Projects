@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Feel = require(Shared.Logic.Feel)
 local Net = require(Shared.Net)
 
 local player = Players.LocalPlayer
@@ -85,6 +86,12 @@ function AudioController:Start()
 	local breath = newSound("PlayerBreath", 0, 1, "SFX")
 	if breath then
 		breath.Looped = true
+		-- Faster breathing must not mean a higher voice: a pitch-shift undoes
+		-- what the playback speed would do to the pitch (see _ownBreath).
+		local shift = Instance.new("PitchShiftSoundEffect")
+		shift.Name = "HoldPitch"
+		shift.Octave = Feel.breathOctave(Feel.breathTempo(1, Config.Feel), Config.Feel)
+		shift.Parent = breath
 		breath.Parent = SoundService
 		breath:Play()
 		layers.PlayerBreath = breath
@@ -194,11 +201,17 @@ function AudioController:_ownBreath(dt: number, inRun: boolean)
 	end
 	if sound then
 		sound.Volume += (target - sound.Volume) * math.clamp(dt * 3, 0, 1)
-		sound.PlaybackSpeed = 0.9 + (1 - stamina) * 0.45
+		-- Tempo rises as stamina falls; the pitch stays at BreathPitch.
+		local speed = Feel.breathTempo(stamina, Config.Feel)
+		sound.PlaybackSpeed = speed
+		local shift = sound:FindFirstChild("HoldPitch")
+		if shift then
+			shift.Octave = Feel.breathOctave(speed, Config.Feel)
+		end
 	end
 	local exhausted = alive and actions.exhausted == true
 	if exhausted and not wasExhausted then
-		self:PlayUi("Gasp", 0.5)
+		self:PlayUi("Gasp", Config.Feel.BreathGasp.volume, Config.Feel.BreathGasp.pitch)
 	end
 	wasExhausted = exhausted
 end
@@ -228,26 +241,10 @@ end
 
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
 -- through a wall.
-function AudioController:PlayAt(
-	key: string,
-	position: Vector3,
-	volume: number?,
-	pitch: number?,
-	muffled: boolean?,
-	echo: { delay: number, feedback: number, wet: number }?
-)
+function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?, muffled: boolean?)
 	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX")
 	if not sound then
 		return
-	end
-	if echo then
-		-- A hard room throws the sound back (footsteps in a bathroom).
-		local effect = Instance.new("EchoSoundEffect")
-		effect.Delay = echo.delay
-		effect.Feedback = echo.feedback
-		effect.WetLevel = -6 + echo.wet * 6
-		effect.DryLevel = 0
-		effect.Parent = sound
 	end
 	if muffled then
 		local eq = Instance.new("EqualizerSoundEffect")
@@ -296,8 +293,8 @@ function AudioController:PlayFor(key: string, position: Vector3?, volume: number
 	end)
 end
 
-function AudioController:PlayUi(key: string, volume: number?)
-	local sound = newSound(key, volume or 0.5, 1, "UI")
+function AudioController:PlayUi(key: string, volume: number?, pitch: number?)
+	local sound = newSound(key, volume or 0.5, pitch or 1, "UI")
 	if not sound then
 		return
 	end

@@ -522,6 +522,10 @@ Config.Feel = {
 	FootstepRange = 70, -- other players' steps are only played within this
 	-- Breathing: your own breath follows stamina.
 	BreathStartStamina = 0.7, -- below this share of stamina it becomes audible
+	BreathSpeedMin = 0.9, -- tempo of the loop when fresh ...
+	BreathSpeedMax = 1.25, -- ... and when spent: faster, but never higher (see BreathPitch)
+	BreathPitch = 0.88, -- the voice's pitch, held steady by a pitch-shift as the tempo changes
+	BreathGasp = { volume = 0.4, pitch = 0.82 }, -- the gasp when stamina runs out
 }
 
 Config.Debug = {
