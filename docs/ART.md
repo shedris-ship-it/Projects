@@ -27,7 +27,7 @@ P.T. (Kojima Productions, 2014) is the touchstone for mood. It fits Consensus un
 
 - **Anything past Moderate.** We target Roblox's **Moderate** rating (design doc section 9, decided 2026-10-02). It allows realistic blood (pools, smears, spatter), bleeding eyes, disfigured faces and wounds, so most of P.T.'s imagery is available. Severed body parts, dismemberment and the like are **Restricted** (18+ only), so P.T.'s bathroom sink scene stays out. Nothing that breaks Roblox's Community Standards either: no self-harm, and violence against family stays implied, never shown.
 - **Gore up front.** Blood is a late-game escalation, not wallpaper. Early on the house is clean and ordinary. Gore that shows up from minute one stops being scary by minute five.
-- **Camera tricks.** No head-bob, tilt or roll (doc section 4, comfort-safe). Grain, vignette and depth of field are fine, and players can turn grain off.
+- **Camera tricks.** Revised 2026-10-03 (owner): head bob, a little roll sway and a sprint FOV kick are in, because movement should feel heavy (`Logic/Feel`, `Controllers/FeelController`). Comfort comes from the **Camera motion** slider in Settings (0 turns all of it off) and from the rules: only the camera's position and roll move, never its pitch or yaw, so aim, the flashlight and the server's view of where you look are unaffected. No tilt or roll is ever used by an anomaly. Grain, vignette and depth of field are fine, and players can turn grain off.
 - **Copying.** We borrow the method, not the content: no recreating P.T.'s hallway layout, its ghost, its radio script or any of its assets. Copying a Konami game's specifics risks takedowns, and it would also make ours feel like a fan tribute instead of its own thing.
 
 **Honest limit:** Roblox can't do P.T.'s photoreal detail. It *can* get close on mood: lighting, grade, composition, pacing and sound. Anything that looks "Roblox" breaks the spell, so the art avoids plastic, saturated colours, chunky block props and bright UI.
@@ -146,7 +146,7 @@ The real cure for "clinical" is still geometry and materials: bevelled trim, wor
 **Atmosphere effects in play:**
 - **Dust:** soft round motes of varied size gather around each room's key light, in nested layers that are thick and bright at the lamp and thin to faint at the edge, so the dust fades out with the light instead of ending at a hard edge (owner's playtest). Each layer is set by density, so a lamp in a corner doesn't pack its dust tighter. They're drawn additively and lit by the scene, so they only show where light falls, and they glint as they drift. A slow, wandering air current carries each room's dust together. Roblox has no volumetric light, so these are what sell "dust in a lamp beam"; light shafts (step 5) will make them read even better.
 - **Lights near The Guest:** lights within 30 studs of its body sag to as low as 55%, easing in and out, so you feel it before you see it.
-- **Flashlight:** its aim trails slightly behind quick turns, like a handheld torch. The camera itself never moves.
+- **Flashlight:** its aim trails slightly behind quick turns, like a handheld torch. The camera only bobs with your steps (see Camera tricks).
 
 ## Interface
 

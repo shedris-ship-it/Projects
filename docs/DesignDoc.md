@@ -155,7 +155,7 @@ Each anomaly attacks a different channel of perception, leaves its own set of te
 2. **Social.** At least half the tells only become meaningful when two players compare what they perceive.
 3. **Overlapping.** Each anomaly shares at least one tell with two others, so the Case Board is a real puzzle and not a lookup.
 4. **Ritual under pressure.** Resolution takes 60–120 seconds, needs every living player, and is staged so the stalker's final hunt interacts with it (for example, Gaze forces everyone to look at the Source while the stalker approaches).
-5. **Comfort-safe.** No anomaly relies on camera tilt, roll, or strobing. Younger and motion-sensitive players are a large share of Roblox.
+5. **Comfort-safe.** No anomaly relies on camera tilt, roll, or strobing. The player's own movement has a head bob with a Camera motion slider (0 is off); it moves only the camera's position and roll, never its aim. Younger and motion-sensitive players are a large share of Roblox.
 6. **Stalker synergy.** Each anomaly gives the stalker one small twist, such as Mimic sending false pings or Dead Air making its footsteps misleading.
 
 ### Ship order
@@ -214,7 +214,7 @@ After every hunt or stare-down he backs away, still watching you, until nobody c
 ### Perception model (the Body)
 
 - **Vision:** a cone of roughly 100 degrees. Range depends on light: about 40 studs in lit rooms and about 15 in darkness, unless a flashlight beam hits the target. Line of sight uses raycasts.
-- **Hearing:** noise events with radii, such as sprinting, slammed doors and dropped items. Walking is quiet and holding breath reduces noise further. Do not rely on microphone loudness; Roblox does not clearly expose it to developers (verify before planning around it).
+- **Hearing:** noise events with radii, such as sprinting, slammed doors and dropped items. Walking is quiet (and slow: 8 studs/s against a sprint of 19) and holding breath reduces noise further. Do not rely on microphone loudness; Roblox does not clearly expose it to developers (verify before planning around it).
 - **Memory:** a last-known position for each player with a confidence value that decays over about 30 seconds. Searching expands outward from that point, weighted by the squad profile.
 - **Pathfinding:** a strategic layer on the room graph (see section 7) decides where to go, and Roblox pathfinding handles movement inside rooms.
 
@@ -250,7 +250,7 @@ You do not need real machine learning. A well-chosen set of 12–15 tactics, dec
 - **Guaranteed loops:** the generator ensures at least two loops of 4–8 rooms.
 - **Doors:** a closed door costs the stalker 1.5–3 seconds to open and makes noise. Players can also lock some doors for a short time.
 - **Vaults and shortcuts:** windows and low gaps save time but make noise.
-- **Pace:** the stalker runs at about 90–95% of sprint speed, and sprinting drains stamina, so a chase has rhythm and nobody can sprint forever.
+- **Pace:** the stalker runs at about 90–95% of sprint speed, and sprinting drains stamina, so a chase has rhythm and nobody can sprint forever. Walking is deliberately slow (8 studs/s, owner 2026-10-03) so running feels like running for your life; out of stamina you stagger at 10, not walking pace.
 - **Loop fatigue:** each lap of the same circuit raises the stalker's prediction of it. After about two laps it cuts the loop off, so loops buy time, not safety.
 
 ### Stalker archetypes per location

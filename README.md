@@ -51,7 +51,7 @@ In the hub, take a tool from a pedestal (or the side panel), set the contract's 
 | Witness (hold) | **Q** | LB | Witness button |
 | Use tool | **R** | RB | Tool button |
 | Flashlight | **F** | D-pad up | Light button |
-| Sprint | **Shift** | L3 | Run button |
+| Sprint (walking is slow on purpose) | **Shift** | L3 | Run button |
 | Ping wheel (hold, aim, release) | **G** | D-pad left | Ping button |
 | Structured callout | **C** | D-pad right | Call button |
 | Case File (board, evidence, map) | **Tab** | Back | Case button |

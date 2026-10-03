@@ -136,6 +136,10 @@ The agreed plan, in order:
      - behaviour: always physically in the house after three knocks at 90 s; tier 1 peeks and is yanked away when seen (seen only by his target); tier 2 creeps while unwatched, never attacks; tier 3 creeps even when one watches and lunges (fairness gates in `Logic/StalkRules`); never turns his back, retreats by backing away (`Stalker/Body`, `Stalker/Sight`, `Stalker/Stalk`, `Data/StalkMoves`); per-player gaze habits (`Logic/GazeHabits`)
      - glass: reflections in windows and mirrors, a rare face at the window for one player (`Lib/GuestReflection`, `Logic/MirrorMath`); jumpscare on any catch
      - sounds: licensed Creator Store library audio (APM, Pro Sound Effects); ids in `Assets.luau`
+   - Done (2026-10-03), after the owner's playtest of step 6 (committed; Studio-checked on one client, not yet by ear or with two clients):
+     - honest tracking: the Guest works from what he saw or heard plus the squad's habits (`Logic/BeliefMap`, `Stalk:Known/_feed`, the `Search` move); players' footsteps, flashlight clicks, mic voice and typed lines (own `Say` box, spoken by text-to-speech, default chat off) are noise (`ChatService`, `Logic/VoiceNoise`). Still to do: Director scent hint, hunt Focus fix, honest-tracking docs
+     - close contact: from tier 1, within ~5 studs of a Guest you can see he lunges at once, and withdraws from view if you were alone (`StalkRules.contact`, `MOVES.Withdraw`); his footsteps only play for clients he's visible to
+     - heavier movement: walk 8, winded 10, sprint 19, jump 3 (`Logic/Feel`); head bob, roll sway, sprint FOV kick and landing dip behind a **Camera motion** setting (`FeelController`); our own footsteps by floor with a shuffled sample bag and room echo (`FootstepController`, `Data/Footsteps`, default Roblox sounds replaced by `client_overrides/RbxCharacterSounds`); ragged breath from stamina, house hum, hum dips when the Guest appears
    - Waiting on the owner (two or more clients): TC-16 to TC-21 in `docs/TESTING.md` — the teammate bleed-out marker, two watchers freezing him and cancelling a lunge, tier 1 seen by one player only, no popping in or out, the window reflection and face at the glass (Studio MCP screenshots can't show client-made 3D GUIs), and how the poses look in motion.
    - Deferred from the step 6 plan: honest tracking (a per-room belief map plus Director "scent" hints). Between hunts he still reads his target's real position; perception and line of sight gate the lunge.
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
@@ -159,7 +163,7 @@ Design doc rule (section 10): don't pile content onto a core that hasn't passed 
 
 ## Known limitations
 
-- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and room tone, Drift layers and the hunt sting are still empty in `Assets.luau`.
+- The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and Drift layers and the hunt sting are still empty in `Assets.luau`. Player footsteps are free community Creator Store samples (carpet, wood, tile, concrete) and the breath and house hum are library audio; swap ids in `Assets.luau` if any sounds wrong.
 - The Guest is built from primitives; `generate_mesh` for the head and hands is the plan B if it ever looks toy-like. Between hunts he knows where his target is (see "Deferred" above).
 - Voice is plain proximity chat: no routing through the audio API, no radio or muffling.
 - Hub and run share one place.
