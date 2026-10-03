@@ -52,6 +52,15 @@ local StalkMoves = {
 		counter = "Get a second Witness on him instead of running.",
 	},
 	{
+		id = "Search",
+		tiers = { 1, 2, 3 },
+		base = 1.0,
+		signal = nil,
+		cooldown = 0,
+		description = "Checks the rooms you use most when he's lost you.",
+		counter = "Change your route; stay quiet and out of sight.",
+	},
+	{
 		id = "DistantRoam",
 		tiers = { 0, 1, 2, 3 },
 		base = 0.3,

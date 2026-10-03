@@ -82,6 +82,16 @@ function BeliefMap:Hear(room: number, strength: number, spread: number?)
 	end
 end
 
+-- He looked in a room and she wasn't there: most of that room's mass goes
+-- elsewhere (renormalised over the rest).
+function BeliefMap:Clear(room: number, strength: number)
+	if self.mass[room] == nil then
+		return
+	end
+	self.mass[room] *= 1 - math.clamp(strength, 0, 1)
+	normalize(self.mass, self.ids)
+end
+
 -- diffuse: fraction of mass per second that leaks to neighbours; relax: fraction
 -- per second pulled back to the prior.
 function BeliefMap:Step(dt: number, diffuse: number, relax: number)

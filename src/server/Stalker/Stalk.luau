@@ -19,8 +19,10 @@
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local GuestPose = require(Shared.Logic.GuestPose)
+local BeliefMap = require(Shared.Logic.BeliefMap)
 local GazeHabits = require(Shared.Logic.GazeHabits)
 local Net = require(Shared.Net)
+local SightMath = require(Shared.Logic.SightMath)
 local PeekSpots = require(Shared.Logic.PeekSpots)
 local StalkMoves = require(Shared.Data.StalkMoves)
 local StalkRules = require(Shared.Logic.StalkRules)
@@ -63,7 +65,110 @@ function Stalk.new(service)
 		doorwayPass = {}, -- player -> { from, to, t }
 		peekCache = nil,
 		peekCacheFor = nil,
+		beliefs = {}, -- player -> BeliefMap: which room he thinks they're in
+		beliefFor = nil, -- the world the maps were built for
+		lastFed = {}, -- player -> memory time already folded into their map
+		checkedAt = {}, -- player -> memory time he walked to and found empty
+		priorAt = 0,
+		lostSince = nil,
+		sensedPos = nil, -- where he believes the target is (nil = lost them)
+		sensedSeen = false, -- ... and he can see them right now
 	}, Stalk)
+end
+
+-- What he knows --------------------------------------------------------------------
+-- Everything below the targeting layer works from sight, sound and the squad's
+-- habits (doc section 5), not from reading players' positions.
+
+-- Maps are per world; a new run starts with no beliefs.
+function Stalk:_resetFor(world)
+	if self.beliefFor ~= world then
+		self.beliefFor = world
+		self.beliefs = {}
+		self.lastFed = {}
+		self.checkedAt = {}
+		self.lastRoom = {}
+		self.doorwayPass = {}
+		self.lostSince = nil
+	end
+end
+
+-- Habit weights: the rooms the squad uses most, most used first.
+function Stalk:_prior(): { [number]: number }
+	local prior = {}
+	for rank, room in self.services.SquadProfileService:RoomsByUse() do
+		prior[room] = 1 / rank
+	end
+	return prior
+end
+
+function Stalk:_belief(player: Player)
+	local map = self.beliefs[player]
+	if not map then
+		map = BeliefMap.new(self.services.WorldService.adjacency, self:_prior())
+		self.beliefs[player] = map
+	end
+	return map
+end
+
+-- Where he thinks `player` is, and whether he can see them right now. Seeing
+-- them (or being stared at by them) gives the live position; otherwise it's
+-- the last place he saw or heard them, until that's stale or he has been there
+-- and found nobody. nil means he's lost them.
+function Stalk:Known(player: Player): (Vector3?, boolean)
+	local perception = self.service.perception
+	local m = perception.memory[player]
+	local watching = table.find(self.service.watchers or {}, player) ~= nil
+	if watching or (m and m.seen and os.clock() - m.t <= G.SeenFreshSeconds) then
+		return self.services.PlayerStateService:Position(player), true
+	end
+	if m and self.checkedAt[player] ~= m.t and perception:Confidence(player) >= G.TrackMinConfidence then
+		return m.position, false
+	end
+	return nil, false
+end
+
+-- Fold new sightings and noises into each player's room belief, then let the
+-- beliefs spread and relax towards the squad's habits.
+function Stalk:_feed(dt: number)
+	local worldService = self.services.WorldService
+	self:_resetFor(worldService.World)
+	local perception = self.service.perception
+	local clock = os.clock()
+	local refreshPrior = clock >= self.priorAt
+	if refreshPrior then
+		self.priorAt = clock + G.BeliefPriorRefresh
+	end
+	for _, player in self.services.PlayerStateService:LivingPlayers() do
+		local map = self:_belief(player)
+		if refreshPrior then
+			map:SetPrior(self:_prior())
+		end
+		local m = perception.memory[player]
+		if m and m.t > (self.lastFed[player] or 0) then
+			self.lastFed[player] = m.t
+			local room = worldService:RoomAt(m.position)
+			if room then
+				if m.seen then
+					map:Observe(room)
+				else
+					map:Hear(room, G.BeliefHeardStrength, G.BeliefHeardSpread)
+				end
+			end
+		end
+		map:Step(dt, G.BeliefDiffuse, G.BeliefRelax)
+	end
+end
+
+-- His best guess at a player's position for picking targets: what he knows,
+-- else the middle of the room he thinks they're in.
+function Stalk:_estimate(player: Player): Vector3?
+	local pos = self:Known(player)
+	if pos then
+		return pos
+	end
+	local room = self.services.WorldService:Room((self:_belief(player):Best()))
+	return room and room.center
 end
 
 -- Who he's after, and whether he's hidden from everyone right now.
@@ -85,18 +190,30 @@ end
 
 -- Whoever is most alone, weighted by how rarely they look behind them.
 function Stalk:_pickTarget(now: number)
-	if self:_valid(self.target) and now - self.targetSince < G.TargetStickSeconds then
+	local ps = self.services.PlayerStateService
+	-- A target he can't find for a while is dropped for someone he can place.
+	local lost = self.target ~= nil and self.sensedPos == nil
+	self.lostSince = lost and (self.lostSince or now) or nil
+	local giveUp = false
+	if self.lostSince and now - self.lostSince >= G.TargetLostSeconds then
+		for _, player in ps:ActivePlayers() do
+			if player ~= self.target and self:Known(player) then
+				giveUp = true
+				break
+			end
+		end
+	end
+	if self:_valid(self.target) and now - self.targetSince < G.TargetStickSeconds and not giveUp then
 		return
 	end
-	local ps = self.services.PlayerStateService
 	local profile = self.services.SquadProfileService
 	local best, bestScore = nil, -math.huge
 	for _, player in ps:ActivePlayers() do
-		local pos = ps:Position(player)
+		local pos = self:_estimate(player)
 		if pos then
 			local nearest = 40
 			for _, other in ps:LivingPlayers() do
-				local otherPos = other ~= player and ps:Position(other)
+				local otherPos = other ~= player and self:_estimate(other)
 				if otherPos then
 					nearest = math.min(nearest, (otherPos - pos).Magnitude)
 				end
@@ -112,6 +229,11 @@ function Stalk:_pickTarget(now: number)
 	end
 	if best ~= self.target then
 		self.seenFor = 0
+		self.lostSince = nil
+		self.sensedPos, self.sensedSeen = nil, false
+		if best then
+			self.sensedPos, self.sensedSeen = self:Known(best)
+		end
 	end
 	self.target = best
 	self.targetSince = now
@@ -119,8 +241,17 @@ end
 
 -- Geometry helpers --------------------------------------------------------------------
 
+-- Where he believes the target is (set each tick; nil = he has lost them).
 function Stalk:_targetPos(): Vector3?
-	return self.target and self.services.PlayerStateService:Position(self.target)
+	return self.sensedPos
+end
+
+-- The target's room, for choosing a search: his best guess, not the truth.
+function Stalk:_targetRoom(): number?
+	if self.sensedPos then
+		return self.services.WorldService:RoomAt(self.sensedPos)
+	end
+	return self.target and (self:_belief(self.target):Best())
 end
 
 -- Doorway peek spots across the house, validated against furniture once
@@ -191,7 +322,10 @@ function Stalk:_findPeek(tier: number, why)
 		near[n] = true
 	end
 	local minDistance = G.PeekMinDistance[math.clamp(tier, 1, 3)]
-	local head = self.target.Character and self.target.Character:FindFirstChild("Head")
+	-- Where their head is: really, if he can see them; else about head height
+	-- over where he thinks they are.
+	local realHead = self.sensedSeen and self.target.Character and self.target.Character:FindFirstChild("Head")
+	local head = realHead and { Position = realHead.Position } or { Position = targetPos + Vector3.new(0, 2.5, 0) }
 	local candidates = {}
 	local seams = worldService.World.seams
 	for _, spot in self:_peekSpots() do
@@ -464,8 +598,9 @@ MOVES.ShadowBehind = {
 		if ctx.tier >= 2 and ctx.watchers > 0 then
 			return self:_holdStare(ctx) or now > move.untilT
 		end
-		local root = self.target.Character and self.target.Character:FindFirstChild("HumanoidRootPart")
-		local speed = root and flat(root.AssemblyLinearVelocity).Magnitude or 0
+		-- Only a target he can see gives away how fast they're moving.
+		local root = ctx.seen and self.target.Character and self.target.Character:FindFirstChild("HumanoidRootPart")
+		local speed = root and flat(root.AssemblyLinearVelocity).Magnitude or G.WalkSpeed
 		if ctx.distance > move.keep + 8 then
 			-- Too far to follow: close in first, unhurried.
 			self.body:FaceMovement()
@@ -520,6 +655,48 @@ MOVES.StareDown = {
 			return true -- you looked away: he moves on (closer, next)
 		end
 		return now > move.untilT
+	end,
+}
+
+-- He's lost them: walk to the rooms he thinks they're in (the squad's habits,
+-- narrowed by what he last saw or heard), look round, check the next one.
+MOVES.Search = {
+	start = function(self, move)
+		if not self.target then
+			return false
+		end
+		local worldService = self.services.WorldService
+		local here = worldService:RoomAt(self.body.root.Position)
+		local map = self:_belief(self.target)
+		for _ = 1, 6 do
+			local room = map:Sample(self.rng)
+			if room ~= here then
+				local point = worldService:RandomPointIn(room, self.rng)
+				if self.body:Fits(point) then
+					move.room, move.goal = room, point
+					return true
+				end
+			end
+		end
+		return false
+	end,
+	update = function(self, move, now, ctx)
+		if ctx.known then
+			return true -- a clue: the moves that need a target take over
+		end
+		if ctx.tier >= 2 and ctx.watchers > 0 then
+			return self:_holdStare(ctx)
+		end
+		if not move.pausing then
+			if relocate(self, move, now) then
+				move.pausing = now + self.rng:NextNumber(G.SearchPause[1], G.SearchPause[2])
+				self.body:Hold()
+				self.body:SetPose(Poses.Idle)
+				self:_belief(self.target):Clear(move.room, G.BeliefClearStrength)
+			end
+			return false
+		end
+		return now >= move.pausing
 	end,
 }
 
@@ -627,15 +804,24 @@ function Stalk:_choose(ctx)
 	for _, move in StalkMoves.List do
 		feasibility[move.id] = table.find(move.tiers, ctx.tier) and 1 or 0
 	end
-	if not self.target then
-		for id in feasibility do
-			if id ~= "DistantRoam" then
-				feasibility[id] = 0
-			end
+	-- Moves that need a target he can place are off while he's lost them;
+	-- then he searches by habit instead (tier 0 just wanders far away).
+	local aimed = { Peek = true, DoorwayStand = true, CreepBehind = true, ShadowBehind = true, StareDown = true }
+	for id in feasibility do
+		if (not self.target or not ctx.known) and aimed[id] then
+			feasibility[id] = 0
 		end
+	end
+	if not self.target then
+		feasibility.Search = 0
 	end
 	if ctx.tier == 0 then
 		feasibility.DistantRoam = 1
+	elseif self.target and not ctx.known then
+		feasibility.DistantRoam = 0
+	end
+	if ctx.known then
+		feasibility.Search = 0
 	end
 	local pass = self.target and self.doorwayPass[self.target]
 	if not pass or ctx.now - pass.t > 10 then
@@ -709,8 +895,9 @@ function Stalk:_trackDoorways(now: number)
 	local ps = self.services.PlayerStateService
 	local worldService = self.services.WorldService
 	for _, player in ps:ActivePlayers() do
-		local pos = ps:Position(player)
-		local room = pos and worldService:RoomAt(pos)
+		-- Only a doorway he actually saw them use counts.
+		local pos, seen = self:Known(player)
+		local room = seen and pos and worldService:RoomAt(pos) or nil
 		local last = self.lastRoom[player]
 		if room and last and room ~= last then
 			self.doorwayPass[player] = { from = last, to = room, t = now }
@@ -743,7 +930,7 @@ function Stalk:_tells(now: number, ctx)
 	if ctx.targetWatching then
 		warn()
 	end
-	if ctx.tier < 2 or ctx.distance > G.TellRadius or ctx.backAngle < 100 then
+	if ctx.tier < 2 or not ctx.seen or ctx.distance > G.TellRadius or ctx.backAngle < 100 then
 		return
 	end
 	local head = self.body:ExposedPoints()[1]
@@ -767,7 +954,7 @@ end
 
 -- Should he lunge at the target now?
 function Stalk:_lungeCheck(now: number, ctx): boolean
-	if ctx.tier < 3 or not self.target or ctx.distance > G.LungeRadius then
+	if ctx.tier < 3 or not self.target or not ctx.seen or ctx.distance > G.LungeRadius then
 		return false
 	end
 	local service, services = self.service, self.services
@@ -806,6 +993,7 @@ end
 
 -- watchers: players (and "companion") watching him this tick.
 function Stalk:Update(now: number, dt: number, watchers, tier: number)
+	self:_feed(dt)
 	self:_pickTarget(now)
 	self:_trackDoorways(now)
 	local ps = self.services.PlayerStateService
@@ -815,9 +1003,37 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 			table.insert(playerWatchers, w)
 		end
 	end
-	local targetPos = self:_targetPos()
 	local here = self.body.root.Position
-	local view = self.target and self.sight:View(self.target)
+	self.sensedPos, self.sensedSeen = nil, false
+	if self.target then
+		self.sensedPos, self.sensedSeen = self:Known(self.target)
+		-- He's walked to where he last saw or heard them and they aren't
+		-- there: that clue is spent, and so is that room.
+		if self.sensedPos and not self.sensedSeen and planar(self.sensedPos, here) <= G.CheckedRadius then
+			local m = self.service.perception.memory[self.target]
+			self.checkedAt[self.target] = m and m.t
+			local room = self.services.WorldService:RoomAt(self.sensedPos)
+			if room then
+				self:_belief(self.target):Clear(room, G.BeliefClearStrength)
+			end
+			self.sensedPos = nil
+		end
+	end
+	local targetPos = self.sensedPos
+	-- Their camera only counts while he can see them; otherwise the way they
+	-- were facing when he last did.
+	local memory = self.target and self.service.perception.memory[self.target]
+	local view = self.target and self.sensedSeen and self.sight:View(self.target)
+	local look = view and view.LookVector or (targetPos and memory and memory.facing) or nil
+	local backAngle = 0
+	if targetPos then
+		if self.sensedSeen then
+			backAngle = self.sight:Angle(self.target, here + Vector3.new(0, 5, 0))
+		elseif look then
+			local d = here - targetPos
+			backAngle = SightMath.angle(look.X, look.Z, d.X, d.Z)
+		end
+	end
 	local nearest, nearestDistance = nil, math.huge
 	for _, w in playerWatchers do
 		local pos = ps:Position(w)
@@ -832,9 +1048,11 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		watchers = #watchers,
 		nearestWatcher = nearest,
 		targetPos = targetPos,
-		targetLook = view and view.LookVector or nil,
+		known = targetPos ~= nil,
+		seen = self.sensedSeen,
+		targetLook = look,
 		distance = targetPos and planar(targetPos, here) or math.huge,
-		backAngle = (self.target and targetPos) and self.sight:Angle(self.target, here + Vector3.new(0, 5, 0)) or 0,
+		backAngle = backAngle,
 		targetWatching = self.target ~= nil and table.find(playerWatchers, self.target) ~= nil,
 	}
 	self.ctx = ctx
@@ -875,8 +1093,10 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 	if not self.move and now >= (self.nextChoice or 0) then
 		self.nextChoice = now + 1 / G.BrainHz
 		if tier <= 1 and now < self.hiddenUntil then
-			-- Unseen between appearances: walk somewhere new.
-			self:_begin("DistantRoam", ctx)
+			-- Unseen between appearances: walk somewhere new, by habit.
+			if tier == 0 or not self:_begin("Search", ctx) then
+				self:_begin("DistantRoam", ctx)
+			end
 		elseif self.forceMove then
 			-- Debug console: "guest move <name>".
 			local id = self.forceMove
@@ -885,7 +1105,10 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		else
 			local id, scored = self:_choose(ctx)
 			if not self:_begin(id, ctx, scored) and id ~= "DistantRoam" then
-				self:_begin("DistantRoam", ctx)
+				-- Couldn't do it (no peek spot...): look for them by habit.
+				if id == "Search" or tier == 0 or not self:_begin("Search", ctx) then
+					self:_begin("DistantRoam", ctx)
+				end
 			end
 		end
 		if not self.move then
@@ -967,6 +1190,23 @@ function Stalk:Summary()
 	return list
 end
 
+-- Debug console: what he believes about his target (rooms, most likely first).
+function Stalk:_beliefLine(): string
+	local target = self.target
+	if not target then
+		return "belief: no target"
+	end
+	local parts = {}
+	for _, entry in self:_belief(target):Top(3) do
+		table.insert(parts, string.format("room %d %.0f%%", entry.room, entry.p * 100))
+	end
+	return string.format(
+		"belief: %s · %s",
+		self.sensedPos and (self.sensedSeen and "sees them" or "last known") or "LOST",
+		table.concat(parts, ", ")
+	)
+end
+
 function Stalk:DebugLines(): { string }
 	local last = self.log[#self.log]
 	return {
@@ -976,6 +1216,7 @@ function Stalk:DebugLines(): { string }
 			self.target and self.target.DisplayName or "-"
 		),
 		last and ("top " .. table.concat(last.top, ", ")) or "",
+		self:_beliefLine(),
 		string.format(
 			"seen %.1fs · watched %.1fs · hidden %s · last failed %s",
 			self.seenFor,

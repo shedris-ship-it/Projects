@@ -433,6 +433,20 @@ Config.Guest = {
 	WindowFaceRange = 30,
 	-- Targets.
 	TargetStickSeconds = 25,
+	TargetLostSeconds = 20, -- drops a target he can't find if he knows where someone else is
+
+	-- Honest tracking: what he knows comes from sight, sound and habit, never
+	-- from reading positions (Logic/BeliefMap).
+	SeenFreshSeconds = 0.5, -- a sighting this recent counts as "seeing them now"
+	TrackMinConfidence = 0.2, -- below this a memory is too stale to walk to
+	CheckedRadius = 3, -- reaching a last-known spot without seeing them: they've gone
+	BeliefDiffuse = 0.08, -- per second, mass leaks to neighbouring rooms
+	BeliefRelax = 0.03, -- per second, back towards the squad's habits
+	BeliefHeardStrength = 0.6,
+	BeliefHeardSpread = 1, -- doors a noise's uncertainty reaches
+	BeliefClearStrength = 0.85, -- a room he's checked and found empty
+	BeliefPriorRefresh = 5, -- seconds between habit updates
+	SearchPause = { 2, 4 }, -- looking round a room he's reached
 	BrainHz = 4,
 }
 

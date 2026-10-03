@@ -275,7 +275,7 @@ function StalkerService:DebugState()
 		coStare = self.coStare,
 		memories = memories,
 		tactic = hunting and (last and last.tactic or "-") or brain[1],
-		top = hunting and (last and last.top or {}) or { brain[2], brain[3] },
+		top = hunting and (last and last.top or {}) or { brain[2], brain[3], brain[4] },
 		target = hunting and (self.data.chasing and self.data.chasing.DisplayName or (last and last.target) or "-")
 			or (target and target.DisplayName or "-"),
 		director = self.director.lastDecision and self.director.lastDecision.reason or "-",
@@ -766,7 +766,10 @@ function StalkerService:_update(dt: number)
 	else
 		self.stalk:Update(now, dt, watchers, self.tier)
 	end
-	body:Update(now, playerPosition(self.services))
+	-- He turns towards and lunges at where he knows you are, not where you are.
+	body:Update(now, function(player: Player): Vector3?
+		return (self.stalk:Known(player))
+	end)
 	self:_updateVisibility(now)
 end
 
