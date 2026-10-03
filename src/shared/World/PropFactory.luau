@@ -730,6 +730,7 @@ function builders.TVStand(model, cf, size, color, material)
 		{ castShadow = false }
 	)
 	screen.Transparency = 0.4
+	screen:SetAttribute("LampGlow", true)
 	return screen
 end
 
@@ -893,16 +894,44 @@ function builders.Mannequin(model, cf, _size, color, material)
 end
 
 function builders.FloorLamp(model, cf, size, color, material)
-	part(model, "Foot", Vector3.new(1.4, 0.2, 1.4), cf * CFrame.new(0, 0.1, 0), color, material)
-	part(model, "Pole", Vector3.new(0.2, size.Y - 1, 0.2), cf * CFrame.new(0, (size.Y - 1) / 2, 0), color, material)
+	local upright = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder's axis is X; stand it up
+	local round = { collide = false, castShadow = false, shape = Enum.PartType.Cylinder }
+	part(model, "Foot", Vector3.new(0.18, 1.4, 1.4), cf * CFrame.new(0, 0.09, 0) * upright, color, material, {
+		shape = Enum.PartType.Cylinder,
+	})
+	part(model, "Pole", Vector3.new(0.14, size.Y - 1, 0.14), cf * CFrame.new(0, (size.Y - 1) / 2, 0), color, material)
+	-- A fabric drum shade glowing softly from the bulb inside (it dims and
+	-- turns hunt red with its light: EffectsController), trimmed top and
+	-- bottom, with a finial above.
 	local shadePart = part(
 		model,
 		"Shade",
-		Vector3.new(1.6, 1.4, 1.6),
-		cf * CFrame.new(0, size.Y - 0.6, 0),
-		Color3.fromRGB(240, 210, 160),
-		PropFactory.material("Fabric"),
-		{ castShadow = false }
+		Vector3.new(1.3, 1.8, 1.8),
+		cf * CFrame.new(0, size.Y - 0.6, 0) * upright,
+		Color3.fromRGB(150, 116, 70),
+		PropFactory.material("Neon"),
+		round
+	)
+	shadePart:SetAttribute("LampGlow", true)
+	for _, y in { size.Y - 1.25, size.Y + 0.05 } do
+		part(
+			model,
+			"Trim",
+			Vector3.new(0.06, 1.84, 1.84),
+			cf * CFrame.new(0, y, 0) * upright,
+			Color3.fromRGB(196, 170, 120),
+			PropFactory.material("Fabric"),
+			round
+		)
+	end
+	part(
+		model,
+		"Finial",
+		Vector3.new(0.18, 0.18, 0.18),
+		cf * CFrame.new(0, size.Y + 0.2, 0),
+		Color3.fromRGB(150, 128, 84),
+		PropFactory.material("Metal"),
+		{ collide = false, castShadow = false, shape = Enum.PartType.Ball }
 	)
 	return shadePart
 end

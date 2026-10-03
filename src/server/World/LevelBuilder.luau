@@ -166,6 +166,92 @@ local function lightFor(kind: string, parentPart: BasePart, template)
 	return light
 end
 
+-- The ceiling light of a room without a lamp of its own (docs/ART.md,
+-- Hero props): a flush fluorescent fixture in utility rooms, a hanging drum
+-- pendant everywhere else. The pendant's shade stops at 8.6 studs so The
+-- Guest (8.4) passes under it. Returns the glowing diffuser that carries the
+-- room's key light.
+local function ceilingFixture(parent, center: Vector3, family: string?): BasePart
+	local fixture = Instance.new("Model")
+	fixture.Name = "CeilingFixture"
+	local glow = function(p: BasePart)
+		p:SetAttribute(Attr.LampGlow, true)
+		return p
+	end
+	local quiet = { collide = false, castShadow = false, query = false }
+	local diffuser
+	if family == "utility" then
+		PropFactory.part(
+			fixture,
+			"Housing",
+			Vector3.new(4.4, 0.25, 1.2),
+			CFrame.new(center + Vector3.new(0, HEIGHT - 0.125, 0)),
+			Color3.fromRGB(206, 206, 198),
+			PropFactory.material("Metal"),
+			quiet
+		)
+		diffuser = glow(
+			PropFactory.part(
+				fixture,
+				"CeilingLamp",
+				Vector3.new(4, 0.06, 0.9),
+				CFrame.new(center + Vector3.new(0, HEIGHT - 0.28, 0)),
+				Color3.fromRGB(226, 238, 230),
+				PropFactory.material("Neon"),
+				quiet
+			)
+		)
+	else
+		local round = { collide = false, castShadow = false, query = false, shape = Enum.PartType.Cylinder }
+		local upright = CFrame.Angles(0, 0, math.pi / 2) -- a cylinder's axis is X; stand it up
+		PropFactory.part(
+			fixture,
+			"Canopy",
+			Vector3.new(0.12, 0.6, 0.6),
+			CFrame.new(center + Vector3.new(0, HEIGHT - 0.06, 0)) * upright,
+			Color3.fromRGB(150, 128, 84),
+			PropFactory.material("Metal"),
+			round
+		)
+		PropFactory.part(
+			fixture,
+			"Cord",
+			Vector3.new(0.05, 0.7, 0.05),
+			CFrame.new(center + Vector3.new(0, HEIGHT - 0.45, 0)),
+			Color3.fromRGB(30, 28, 26),
+			PropFactory.material("Fabric"),
+			quiet
+		)
+		-- A fabric drum, glowing faintly from the bulb inside, and a brighter
+		-- diffuser underneath. The shade casts a shadow, so the ceiling right
+		-- above stays dark, like a real shaded lamp.
+		glow(
+			PropFactory.part(
+				fixture,
+				"Shade",
+				Vector3.new(0.7, 2.2, 2.2),
+				CFrame.new(center + Vector3.new(0, HEIGHT - 1.05, 0)) * upright,
+				Color3.fromRGB(150, 116, 70),
+				PropFactory.material("Neon"),
+				{ collide = false, castShadow = true, query = false, shape = Enum.PartType.Cylinder }
+			)
+		)
+		diffuser = glow(
+			PropFactory.part(
+				fixture,
+				"CeilingLamp",
+				Vector3.new(0.04, 2, 2),
+				CFrame.new(center + Vector3.new(0, HEIGHT - 1.42, 0)) * upright,
+				Color3.fromRGB(240, 220, 176),
+				PropFactory.material("Neon"),
+				round
+			)
+		)
+	end
+	fixture.Parent = parent
+	return diffuser
+end
+
 local function hideGeometry(category: string, depth: number)
 	-- eye height while hidden, and where the body sits
 	if category == "bed" then
@@ -484,15 +570,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 
 		-- Key light: one motivated source per room (doc section 8).
 		if not keyLightPart then
-			keyLightPart = PropFactory.part(
-				model,
-				"CeilingLamp",
-				Vector3.new(2.2, 0.5, 2.2),
-				CFrame.new(center + Vector3.new(0, HEIGHT - 0.25, 0)),
-				Color3.fromRGB(240, 226, 200),
-				PropFactory.material("Neon"),
-				{ collide = false, castShadow = false }
-			)
+			keyLightPart = ceilingFixture(model, center, template.family)
 			keyLightKind = "ceiling"
 		end
 		local light = keyLightPart:FindFirstChildWhichIsA("Light")

@@ -28,6 +28,7 @@ Constants.Attributes = {
 	Connected = "Connected",
 	Category = "Category",
 	Lit = "Lit",
+	LampGlow = "LampGlow", -- a glowing part of a light fixture; dims and reddens with its light
 }
 
 -- Attributes on the ReplicatedStorage.RunState folder.

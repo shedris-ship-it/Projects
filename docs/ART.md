@@ -98,8 +98,8 @@ Roblox spaces are normally built about 1.5× real size so the camera and movemen
 P.T. shows that a handful of believable everyday objects does more than a room full of furniture. These get real meshes and materials before anything else:
 
 - **Radio** on a side table, with a muffled broadcast. It ties into the Radio tool and the future Dead Air anomaly.
-- **Clocks** (wall clock and grandfather clock). Decorative clocks show ordinary, varied times from the same pool as the "Clocks disagree" tell, so a clue clock can't be spotted by its time alone. Comparing with a teammate stays the only way.
-- **Family photos** in frames on walls and side tables. As Drift rises, the faces turn away, blur or go missing.
+- **Clocks** (wall clock and grandfather clock), all with hands. Decorative wall clocks are built exactly like the "Clocks disagree" tell's clock and show times from its pool, so a clue clock can't be spotted by its look or its time. Comparing with a teammate stays the only way. Radios work the same way: decorative radios share the "Radio only some can hear" tell's builder.
+- **Family photos** in standing frames on dressers, chests, desks and the piano (`World/Dressing.luau`). As Drift rises the faces blur (60) and then go missing (80), for every player at once. Never Witnessable.
 - **Ceiling pendant lamps, table lamps and sconces** with fabric shades: the light sources themselves.
 - **Doors**, with frames, knobs and hinges.
 - **Telephone** on a hallway table, for later scares.
@@ -194,6 +194,6 @@ Each step is small, gets before and after screenshots from the baseline angles, 
 2. **Corridors:** one hallway template rebuilt as a narrow corridor and tested with the stalker, then rolled out to every corridor template with dead-end arms filled. *(Done 2026-10-02.)*
 3. **Trim and doors:** baseboards, crown moulding, door and window frames, wainscot, doors left ajar. Window panes get a moonlit glass look instead of flat colour. *(Done 2026-10-02, except the wainscot, which moves to step 4 with the wallpapers. Trim across a seam flips with it, see rule 3.)*
 4. **Materials:** wallpapers, floors and ceilings, plus the grime decals. *(Done 2026-10-02, with textures drawn by `tools/textures.py` and the wainscot from step 3.)*
-5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts.
+5. **Hero props and fixtures:** radio, clocks, photos, lamps, telephone; dust particles and window light shafts. *(Done 2026-10-02, except the light shafts: a beam without a purpose-made soft texture looked like a flat card. Decorative clocks and radios now share the clue builders, so neither gives a clue away.)*
 6. **The Guest:** model, then animations.
 7. **Hub polish:** signs, layout, the chat-hint overlap.

@@ -56,7 +56,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (49 as of 2026-10-02)
+lune run tests/run        # unit tests (52 as of 2026-10-03)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -128,14 +128,14 @@ The agreed plan, in order:
      - playtest fixes: windows only on outside walls (`orientWindows` in `Logic/LevelGraph`), dust that fades with the light (`Config.PostFX.DustLayers`)
      - corridors on all three corridor templates, with arms that end at an outside wall filled in (`Logic/Corridor`)
      - step 3: trim, panelled doors (some ajar), casings, windows (`World/Trim.luau`, `Config.Trim`); seam trim flips with the seam
+     - step 5: clocks with hands, decorative clocks and radios built like the clue versions (`AnomalyService:_placeDecor`), cabinet radio, rotary phone and family photos that age with Drift (`World/Dressing.luau`), pendant and fluorescent ceiling fixtures, drum floor lamps, hunt-red lamps (`EffectsController`); window light shafts tried and dropped
      - step 4: ten MaterialVariants (`Data/Materials.luau`, textures from `tools/textures.py`, Rojo files in `assets/materials/` via `lune run tools/materials`), wainscot in formal rooms, seam wall skins, grime decals (`World/Grime.luau`)
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
    - Waiting on the owner's next playtest:
-     - fps after steps 3 and 4 (about 700 more parts, ten textures), and the low-graphics check
+     - fps after steps 3 to 5 (trim, textures, props), and the low-graphics check
      - whether corridors now read as hallways
      - whether moonlit bedrooms are too dark
    - Next, in order:
-     - step 5, hero props and fixtures: radio, clocks, photos, pendant lamps, light shafts, hunt-red lamps
      - step 6, The Guest model and animations
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.

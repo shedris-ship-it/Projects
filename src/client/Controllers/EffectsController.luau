@@ -28,8 +28,11 @@ local lights = {} -- light -> { base brightness }
 local flickering = {} -- light -> until
 local dust = {} -- ParticleEmitter -> air-current phase
 local photos = {} -- photo card -> its snapshot (Assets.Photos index)
+local unshadowed = setmetatable({}, { __mode = "k" }) -- parts low-end mode stopped casting shadows
 local photoState = "normal"
 local hunt = { state = nil, started = 0, duration = 0 }
+local huntMix = 0 -- 0 normal lamps, 1 hunt red
+local HUNT_RED = Color3.fromRGB(table.unpack(Config.Lighting.HuntRed))
 
 function EffectsController:Init(controllers)
 	self.controllers = controllers
@@ -233,7 +236,28 @@ local function trackLight(part: Instance)
 		return
 	end
 	-- Remember whether it was built to cast shadows.
-	lights[light] = { base = light.Brightness, part = part, shadows = light.Shadows, dim = 1 }
+	-- Lamps (point lights that light a room) turn hunt red during a hunt
+	-- (docs/ART.md, reserved colours); windows, screens and bounce light don't.
+	-- A fixture's glowing parts follow its light: they dim when it dims or goes
+	-- out, and redden with it.
+	local glows = {}
+	local fixture = part.Parent
+	if fixture and fixture:IsA("Model") then
+		for _, d in fixture:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute(Constants.Attributes.LampGlow) then
+				glows[d] = d.Color
+			end
+		end
+	end
+	lights[light] = {
+		base = light.Brightness,
+		part = part,
+		shadows = light.Shadows,
+		dim = 1,
+		color = light.Color,
+		lamp = light:IsA("PointLight") and light.Name == "KeyLight",
+		glows = glows,
+	}
 	task.spawn(addDust, part)
 end
 
@@ -323,14 +347,22 @@ function EffectsController:_applyQuality(settings)
 	self.bloom.Enabled = not settings.lowEnd
 	local camera = Workspace.CurrentCamera
 	camera.FieldOfView = settings.fov or 70
-	-- Low-end mode: drop shadows from small clutter (books, legs, decor).
+	-- Low-end mode: drop shadows from small clutter (books, legs, decor), and
+	-- give back only those shadows afterwards. Parts built without a shadow
+	-- (glass, lamp trim, clock hands) stay that way.
 	local level = Workspace:FindFirstChild("ConsensusLevel")
-	if level then
+	if settings.lowEnd and level then
 		for _, d in level:GetDescendants() do
-			if d:IsA("BasePart") and d.Size.Magnitude < 3 then
-				d.CastShadow = not settings.lowEnd
+			if d:IsA("BasePart") and d.CastShadow and d.Size.Magnitude < 3 then
+				d.CastShadow = false
+				unshadowed[d] = true
 			end
 		end
+	elseif not settings.lowEnd then
+		for part in unshadowed do
+			part.CastShadow = true
+		end
+		table.clear(unshadowed)
 	end
 	for light, info in lights do
 		if light:IsA("PointLight") or light:IsA("SpotLight") or light:IsA("SurfaceLight") then
@@ -447,6 +479,8 @@ function EffectsController:_update(dt: number)
 	local guest = guestPosition()
 	local ease = math.clamp(dt * FX.GuestDimEase, 0, 1)
 	local now = os.clock()
+	local huntTarget = (inRun and hunt.state == "hunt") and 1 or 0
+	huntMix += (huntTarget - huntMix) * math.clamp(dt * Config.Lighting.HuntEase, 0, 1)
 	for light, info in lights do
 		if light.Parent then
 			local target = 1
@@ -467,6 +501,17 @@ function EffectsController:_update(dt: number)
 			else
 				flickering[light] = nil
 				light.Brightness = base
+			end
+			local red = info.lamp and huntMix or 0
+			if info.lamp then
+				light.Color = info.color:Lerp(HUNT_RED, red)
+			end
+			-- Glowing parts: as bright as their light, off when it's off.
+			local level = light.Enabled and math.clamp(light.Brightness / math.max(info.base, 0.01), 0, 1) or 0
+			local k = 0.12 + 0.88 * level
+			for glow, color in info.glows do
+				local c = color:Lerp(HUNT_RED, red)
+				glow.Color = Color3.new(c.R * k, c.G * k, c.B * k)
 			end
 		end
 	end
