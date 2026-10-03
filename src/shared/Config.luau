@@ -96,8 +96,30 @@ Config.Player = {
 	FlashlightRechargePerSecond = 4, -- inside a lit Lantern room
 	SprintNoiseRadius = 28,
 	WalkNoiseRadius = 6,
+	WalkSpeedThreshold = 4, -- studs/s; below this you're creeping and silent
+	FlashlightClickRadius = 8,
 	JumpNoiseRadius = 14,
 	SprintSpeedThreshold = 15,
+}
+
+-- What the stalker hears when players talk or type (Logic/VoiceNoise). Hiding
+-- doesn't muffle it: a loud mouth in a locker gets found.
+Config.Voice = {
+	TalkLevel = 0.03, -- mic RMS (0..1) that counts as talking
+	LoudLevel = 0.12, -- ... as shouting
+	Hysteresis = 0.7, -- drop to a lower bucket only below this share of its threshold
+	TalkRadius = 14,
+	LoudRadius = 30,
+	ReportInterval = 0.4, -- client -> server, seconds
+	TextBaseRadius = 8,
+	TextPerChar = 0.25,
+	TextMaxRadius = 26,
+	ShoutScale = 1.6, -- ALL CAPS
+	ExclaimScale = 0.15, -- per "!" (up to 3)
+	WhisperScale = 0.4, -- "/w text"
+	MaxChars = 100,
+	HearRange = 60, -- teammates this close get the line and its text-to-speech
+	SayInterval = 1.5,
 }
 
 Config.Level = {

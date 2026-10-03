@@ -30,6 +30,7 @@ function UIController:Start()
 			"FocusMarkers",
 			"Toasts",
 			"PingWheel",
+			"SpeakBox",
 			"CaseFile",
 			"Verdict",
 			"Lobby",
@@ -107,6 +108,13 @@ function UIController:ToggleCallouts()
 	local wheel = self.components.PingWheel
 	if wheel then
 		wheel:ToggleCallouts()
+	end
+end
+
+function UIController:OpenSpeak()
+	local box = self.components.SpeakBox
+	if box then
+		box:Open()
 	end
 end
 

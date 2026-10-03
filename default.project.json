@@ -80,6 +80,21 @@
       }
     },
 
+    "TextChatService": {
+      "$properties": {
+        "CreateDefaultTextChannels": false,
+        "CreateDefaultCommands": false
+      },
+      "ChatWindowConfiguration": {
+        "$className": "ChatWindowConfiguration",
+        "$properties": { "Enabled": false }
+      },
+      "ChatInputBarConfiguration": {
+        "$className": "ChatInputBarConfiguration",
+        "$properties": { "Enabled": false }
+      }
+    },
+
     "VoiceChatService": {
       "$properties": {
         "UseAudioApi": "Enabled"

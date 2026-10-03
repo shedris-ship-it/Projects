@@ -25,8 +25,11 @@ local DEFINITIONS = {
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",
+	Say = "RemoteEvent", -- typed line: spoken aloud and heard by the stalker (Services/ChatService)
+	VoiceLevel = "RemoteEvent", -- mic loudness 0..1 while talking (Controllers/SpeechController)
 
 	-- server -> client
+	Spoke = "RemoteEvent", -- a filtered line to speak with text-to-speech
 	PerceptionProfile = "RemoteEvent",
 	PerceptionAnchor = "RemoteEvent",
 	StalkerVisibility = "RemoteEvent",

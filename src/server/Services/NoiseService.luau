@@ -1,6 +1,6 @@
 -- Noise events the stalker can hear (doc section 5, "Hearing"). Anything that
 -- makes a sound a hunter should react to calls Emit; the stalker drains the
--- queue each perception tick. Microphone loudness is deliberately not used.
+-- queue each perception tick. Voice and typed lines count (Services/ChatService).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -12,7 +12,8 @@ local NoiseService = {
 
 local queue = {}
 
--- kind: "sprint", "door", "slam", "gasp", "breath", "item", "jump", "tool", "lure"
+-- kind: "sprint", "walk", "click", "door", "slam", "gasp", "breath", "item", "jump", "tool", "lure",
+-- "voice", "speech"
 function NoiseService:Emit(position: Vector3, radius: number, source: Player?, kind: string)
 	local event = { position = position, radius = radius, source = source, kind = kind, t = os.clock() }
 	table.insert(queue, event)

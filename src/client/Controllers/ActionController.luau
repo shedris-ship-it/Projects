@@ -4,6 +4,7 @@
 --   Q  hold to Witness        R  use tool          F  flashlight
 --   Shift  sprint             G  hold for pings    C  callouts
 --   Tab  Case File            E  doors / hide / revive (prompts)
+--   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
 --   Space (hidden)  hold breath                    E (hidden)  leave
 --   F1  settings              F2  debug overlay (Studio)
 
@@ -113,6 +114,12 @@ function ActionController:Start()
 			ui:ToggleCallouts()
 		end
 	end, true, "Call", Enum.KeyCode.C, Enum.KeyCode.DPadRight)
+
+	self:_bind("ConsensusSay", function(inputState)
+		if inputState == Enum.UserInputState.Begin then
+			ui:OpenSpeak()
+		end
+	end, false, nil, Enum.KeyCode.Return, Enum.KeyCode.Slash)
 
 	self:_bind("ConsensusCaseFile", function(inputState)
 		if inputState == Enum.UserInputState.Begin then

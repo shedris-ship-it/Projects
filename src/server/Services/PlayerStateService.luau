@@ -473,6 +473,12 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 	if on and (record.state ~= States.Active or record.battery <= 0) then
 		on = false
 	end
+	if record.flashlight ~= on then
+		local root = self:Root(player)
+		if root and not player:GetAttribute(PA.Hidden) then
+			self.Noise:Emit(root.Position, Config.Player.FlashlightClickRadius, player, "click")
+		end
+	end
 	record.flashlight = on
 	player:SetAttribute(PA.Flashlight, on)
 	local head = self:Head(player)
@@ -585,6 +591,10 @@ function PlayerStateService:_tick(dt: number)
 			elseif velocity.Y > 12 and now - record.lastSprintNoise > 0.5 then
 				record.lastSprintNoise = now
 				self.Noise:Emit(root.Position, Config.Player.JumpNoiseRadius, player, "jump")
+			elseif horizontal > Config.Player.WalkSpeedThreshold and now - record.lastSprintNoise > 1 then
+				-- Footsteps: quiet, but he can hear them from the next room's doorway.
+				record.lastSprintNoise = now
+				self.Noise:Emit(root.Position, Config.Player.WalkNoiseRadius, player, "walk")
 			end
 		end
 		if player:GetAttribute(PA.Hidden) then
