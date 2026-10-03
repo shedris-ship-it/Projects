@@ -37,8 +37,21 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off>",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
-	"lights on|off · focus · perf",
+	"lights on|off · focus · perf · down [name] · revive [name]",
 }, "\n")
+
+-- A run player by (partial) display name, or the caller.
+local function playerNamed(services, caller: Player, name: string?): Player?
+	if not name or name == "" or name == "me" then
+		return caller
+	end
+	for _, p in services.PlayerStateService:RunPlayers() do
+		if string.find(string.lower(p.DisplayName), name, 1, true) then
+			return p
+		end
+	end
+	return nil
+end
 
 function DebugService:Start()
 	Net.onServer("DebugCommand", { interval = 0.2, types = { "string" } }, function(player, text)
@@ -142,6 +155,17 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "lights" then
 		for _, id in services.WorldService:RoomIds() do
 			services.WorldService:SetRoomLight(id, args[2] ~= "off")
+		end
+	elseif command == "down" or command == "revive" then
+		local target = playerNamed(services, player, args[2])
+		if not target then
+			reply(player, "no run player called " .. tostring(args[2]))
+		elseif command == "down" then
+			services.PlayerStateService:Down(target)
+			reply(player, target.DisplayName .. " downed")
+		else
+			services.PlayerStateService:Revive(target, nil)
+			reply(player, target.DisplayName .. " revived")
 		end
 	elseif command == "focus" then
 		services.WitnessService:SetFocus(player, Config.Witness.FocusMax)

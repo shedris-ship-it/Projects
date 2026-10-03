@@ -83,7 +83,7 @@ Drift is a shared 0–100 meter that answers your "consequence for not progressi
 
 - **Win:** the anomaly is resolved and at least one Witness extracts. Rewards scale with how many extract and how low Drift stayed.
 - **Lose:** Drift reaches 100 (Collapse), or every Witness is Lost.
-- **Downed:** a caught player is down for up to 45 seconds and a teammate can revive them by holding the interaction for about 4 seconds. A second catch while downed makes them Lost.
+- **Downed:** a caught player bleeds out in 15 seconds unless a teammate revives them by holding the interaction for about 4 seconds. A second catch while downed makes them Lost. *(2026-10-03: the owner cut this from 45 s so the squad has to drop everything. The downed player sees a red rim closing in and hears their heartbeat slow; teammates get a marker with the seconds left and hear them gasping.)*
 - **Lost players** become Echoes. They keep talking with the squad and can ping one hint per minute, so nobody sits in a dead lobby.
 - **Failing forward:** every run, win or lose, grants progression currency and Dossier entries, so a Collapse still feels like it taught you something.
 

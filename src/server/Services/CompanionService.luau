@@ -166,7 +166,7 @@ function CompanionService:_follow()
 			npc.humanoid:MoveTo(target)
 		else
 			npc.reviveStart = npc.reviveStart or os.clock()
-			if os.clock() - npc.reviveStart >= Config.Run.ReviveHoldSeconds * 2 then
+			if os.clock() - npc.reviveStart >= Config.Run.CompanionReviveSeconds then
 				npc.reviveStart = nil
 				services.PlayerStateService:Revive(player, nil)
 			end

@@ -103,6 +103,39 @@ function EffectsController:_createEffects()
 		ZIndex = 5,
 		Parent = gui,
 	})
+	-- Bleeding out: a dark red rim that closes in with the heartbeat, plus a
+	-- blur that thickens. Nothing moves the camera (comfort rule, doc §4).
+	self.bleed = {}
+	for _, edge in
+		{
+			{ Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0), 90 },
+			{ Vector2.new(0.5, 1), UDim2.fromScale(0.5, 1), -90 },
+			{ Vector2.new(0, 0.5), UDim2.fromScale(0, 0.5), 0 },
+			{ Vector2.new(1, 0.5), UDim2.fromScale(1, 0.5), 180 },
+		}
+	do
+		local frame = Ui.new("Frame", {
+			AnchorPoint = edge[1],
+			Position = edge[2],
+			Size = UDim2.fromScale(0, 0),
+			BackgroundColor3 = Color3.fromRGB(46, 0, 0),
+			BackgroundTransparency = 1,
+			ZIndex = 2,
+			Parent = gui,
+		})
+		Ui.new("UIGradient", {
+			Rotation = edge[3],
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+			Parent = frame,
+		})
+		table.insert(self.bleed, { frame = frame, vertical = edge[3] ~= 0 and edge[3] ~= 180 })
+	end
+	self.blur = Instance.new("BlurEffect")
+	self.blur.Name = "ConsensusBleedBlur"
+	self.blur.Size = 0
+	self.blur.Parent = camera
+	self.heartPhase = 0
+
 	if Assets.GrainTexture ~= "" then
 		self.grain = Ui.new("ImageLabel", {
 			Size = UDim2.fromScale(2, 2),
@@ -399,6 +432,36 @@ function EffectsController:FlickerNear(radius: number, duration: number)
 	end
 end
 
+-- How far the local player has bled out (0 just downed, 1 gone), or nil.
+function EffectsController:BleedFraction(): number?
+	if self.state:PlayerState() ~= Constants.PlayerStates.Downed then
+		return nil
+	end
+	local downedUntil = player:GetAttribute(Constants.PlayerAttributes.DownedUntil)
+	if not downedUntil then
+		return nil
+	end
+	local left = downedUntil - Workspace:GetServerTimeNow()
+	return math.clamp(1 - left / Config.Run.DownedSeconds, 0, 1)
+end
+
+function EffectsController:_updateBleed(dt: number, downed: boolean)
+	local bleed = downed and self:BleedFraction() or nil
+	local amount = bleed or 0
+	-- The heartbeat slows as you fade; its tempo matches the audio layer.
+	local speed = lerp(Config.Run.BleedHeartbeat[1], Config.Run.BleedHeartbeat[2], amount)
+	self.heartPhase = (self.heartPhase + dt * speed * Config.Run.HeartbeatBpm / 60) % 1
+	local beat = math.max(0, math.sin(self.heartPhase * math.pi * 2)) ^ 6
+	local reach = bleed and (0.18 + 0.3 * amount + 0.05 * beat) or 0
+	for _, edge in self.bleed do
+		edge.frame.Size = edge.vertical and UDim2.fromScale(1, reach) or UDim2.fromScale(reach, 1)
+		edge.frame.BackgroundTransparency = bleed and lerp(0.35, 0, amount) or 1
+	end
+	local wantBlur = bleed and (4 + 14 * amount + 3 * beat) or 0
+	self.blur.Size += (wantBlur - self.blur.Size) * math.clamp(dt * 6, 0, 1)
+	self.blur.Enabled = self.blur.Size > 0.2
+end
+
 function EffectsController:_update(dt: number)
 	local settings = self.state.settings
 	local inRun = self.state:InRun()
@@ -417,7 +480,7 @@ function EffectsController:_update(dt: number)
 		or Color3.fromRGB(255, 240, 225)
 	if downed then
 		saturation = -0.9
-		tint = Color3.fromRGB(255, 190, 190)
+		tint = Color3.fromRGB(255, 190, 190):Lerp(Color3.fromRGB(200, 120, 120), self:BleedFraction() or 0)
 	elseif echo then
 		saturation = -1
 		tint = Color3.fromRGB(190, 210, 255)
@@ -432,7 +495,7 @@ function EffectsController:_update(dt: number)
 	color.Saturation += (saturation - color.Saturation) * math.clamp(dt * 2, 0, 1)
 	color.Contrast += (contrast - color.Contrast) * math.clamp(dt * 2, 0, 1)
 	color.TintColor = color.TintColor:Lerp(tint, math.clamp(dt * 2, 0, 1))
-	color.Brightness = inRun and lerp(0.02, -0.04, t) or 0.02
+	color.Brightness = (inRun and lerp(0.02, -0.04, t) or 0.02) - 0.3 * ((downed and self:BleedFraction() or 0) ^ 2)
 	self.tint.BackgroundTransparency = 1 - math.clamp(huntRed, 0, 0.35)
 
 	self.bloom.Threshold = inRun and FX.BloomThreshold or FX.BloomThresholdHub
@@ -440,6 +503,7 @@ function EffectsController:_update(dt: number)
 	for _, frame in self.vignette do
 		frame.BackgroundTransparency = inRun and lerp(0.35, 0.05, t) or 0.6
 	end
+	self:_updateBleed(dt, downed)
 	if self.atmosphere then
 		self.atmosphere.Density = inRun and lerp(0.32, 0.46, t) or 0.25
 	end

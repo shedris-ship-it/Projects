@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 
@@ -76,6 +77,21 @@ function Overlays.new(ctx)
 		Parent = self.stateFrame,
 	})
 
+	-- Bleed-out bar under the downed title: drains over Config.Run.DownedSeconds.
+	self.bleed = Ui.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 4),
+		Size = UDim2.new(1, -40, 0, 6),
+		BackgroundColor3 = Color3.fromRGB(40, 12, 12),
+		Visible = false,
+		Parent = self.stateFrame,
+	}, { Ui.corner(3) })
+	self.bleedFill = Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Ui.Theme.danger,
+		Parent = self.bleed,
+	}, { Ui.corner(3) })
+
 	self.photo = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -30, 0.45, 0),
@@ -128,15 +144,28 @@ function Overlays:Update()
 	self.loading.Visible = phase == Constants.Phases.Generating
 	local myState = state:PlayerState()
 	local show, title, text = false, "", ""
+	local bleeding = false
 	if myState == PS.Downed then
 		local downedUntil = player:GetAttribute(PA.DownedUntil)
 		local left = downedUntil and math.max(0, downedUntil - Workspace:GetServerTimeNow()) or 0
+		local urgent = left <= Config.Run.BleedWarnSeconds
 		show, title, text =
-			true, "YOU'RE DOWN", string.format("A teammate can pull you up. %d seconds.", math.ceil(left))
+			true,
+			urgent and "YOU'RE FADING" or "YOU'RE BLEEDING OUT",
+			string.format("Call for help. A teammate must hold E on you. %d s", math.ceil(left))
+		bleeding = true
+		self.bleedFill.Size = UDim2.fromScale(math.clamp(left / Config.Run.DownedSeconds, 0, 1), 1)
+		-- The last seconds pulse.
+		local pulse = urgent and (0.5 + 0.5 * math.sin(os.clock() * 10)) or 0
+		self.stateTitle.TextColor3 = Ui.Theme.text:Lerp(Ui.Theme.danger, urgent and 0.5 + 0.5 * pulse or 0.35)
 	elseif myState == PS.Lost and state:InRun() then
 		show, title, text = true, "YOU ARE AN ECHO", "Keep talking. Ping (G) one hint a minute."
 	elseif myState == PS.Extracted and state:InRun() then
 		show, title, text = true, "YOU GOT OUT", "Waiting for the rest of the squad."
+	end
+	self.bleed.Visible = bleeding
+	if not bleeding then
+		self.stateTitle.TextColor3 = Ui.Theme.text
 	end
 	self.stateFrame.Visible = show
 	self.stateTitle.Text = title

@@ -326,10 +326,15 @@ function PlayerStateService:Down(player: Player)
 		end)
 		record.revivePrompt = prompt
 	end
-	notify(player, "You're down. A teammate can revive you before it comes back.", "danger")
+	local seconds = Config.Run.DownedSeconds
+	notify(player, string.format("You're bleeding out. Someone has %d seconds to reach you.", seconds), "danger")
 	for _, other in self:RunPlayers() do
 		if other ~= player then
-			notify(other, player.DisplayName .. " is down! Hold E on them to revive.", "danger")
+			notify(
+				other,
+				string.format("%s is bleeding out! %d seconds. Hold E on them.", player.DisplayName, seconds),
+				"danger"
+			)
 		end
 	end
 	self.Downed:Fire(player)

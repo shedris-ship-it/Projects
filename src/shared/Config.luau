@@ -10,8 +10,14 @@ Config.Run = {
 	ArrivalSeconds = 180, -- (doc) 3-4 min
 	NoHuntBeforeSeconds = 180, -- (doc) hunts never start in the first 3 minutes
 	StalkerDormantSeconds = 90, -- (doc) nothing appears in the first 90 seconds
-	DownedSeconds = 45, -- (doc)
+	-- Downed players bleed out fast so the squad has to drop everything
+	-- (owner, 2026-10-03; the doc's first draft said 45 s).
+	DownedSeconds = 15,
+	BleedWarnSeconds = 6, -- the last seconds get louder and redder
 	ReviveHoldSeconds = 4, -- (doc)
+	CompanionReviveSeconds = 6, -- the solo Companion is slower than a friend
+	HeartbeatBpm = 96, -- tempo of Assets.Sounds.Heartbeat at normal speed
+	BleedHeartbeat = { 1, 0.45 }, -- heartbeat speed from just downed to gone
 	ExtractionSeconds = 120,
 	DebriefSeconds = 30,
 	AfkSeconds = 60, -- (doc)

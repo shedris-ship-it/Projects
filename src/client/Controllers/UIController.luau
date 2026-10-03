@@ -36,6 +36,7 @@ function UIController:Start()
 			"Dossier",
 			"Settings",
 			"Overlays",
+			"DownedMarkers",
 			"DebugOverlay",
 		}
 	do

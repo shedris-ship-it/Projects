@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 
@@ -140,7 +141,17 @@ function AudioController:_updateLayers(dt: number)
 	fade("RoomTone", inRun and 0.3 or 0)
 	fade("DriftBass", inRun and math.clamp((drift - 30) / 70, 0, 1) * 0.6 or 0)
 	fade("DriftTinnitus", inRun and math.clamp((drift - 70) / 30, 0, 1) * 0.25 or 0)
-	fade("Heartbeat", hunting and 0.8 or (drift > 85 and 0.3 or 0))
+	-- Bleeding out: your own heart, loud and slowing down (tempo matches the
+	-- red rim in EffectsController).
+	local bleed = inRun and self.controllers.EffectsController:BleedFraction() or nil
+	fade("Heartbeat", bleed and 1.2 or hunting and 0.8 or (drift > 85 and 0.3 or 0))
+	if layers.Heartbeat then
+		local speeds = Config.Run.BleedHeartbeat
+		layers.Heartbeat.PlaybackSpeed = bleed and speeds[1] + (speeds[2] - speeds[1]) * bleed or 1
+	end
+	if inRun then
+		self:_gasps()
+	end
 	local radioSignal = player:GetAttribute("RadioSignal")
 	fade("Radio", (inRun and radioSignal) and (0.08 + radioSignal * 0.6) or 0)
 	if layers.Radio then
@@ -150,6 +161,25 @@ function AudioController:_updateLayers(dt: number)
 	local ambient = group("Ambient")
 	local target = os.clock() < duckUntil and 0.05 or (self.ambientBase or 0.8)
 	ambient.Volume += (target - ambient.Volume) * math.clamp(dt * 6, 0, 1)
+end
+
+-- Downed Witnesses gasp for breath where they lie, so the squad can find
+-- them by ear (and so can the downed player).
+local nextGasp = {}
+function AudioController:_gasps()
+	local now = os.clock()
+	for _, other in Players:GetPlayers() do
+		local downed = other:GetAttribute(Constants.PlayerAttributes.State) == Constants.PlayerStates.Downed
+		local head = downed and other.Character and other.Character:FindFirstChild("Head")
+		if head and head:IsA("BasePart") then
+			if now >= (nextGasp[other] or 0) then
+				nextGasp[other] = now + 2.2 + math.random() * 1.6
+				self:PlayAt(math.random() < 0.5 and "Gasp" or "GaspAlt", head.Position, 0.7, 0.9 + math.random() * 0.15)
+			end
+		else
+			nextGasp[other] = nil
+		end
+	end
 end
 
 function AudioController:Duck(seconds: number)

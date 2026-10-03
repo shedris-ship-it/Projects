@@ -16,11 +16,15 @@ Assets.Sounds = {
 	Snap = "rbxasset://sounds/snap.wav",
 	Drip = "rbxasset://sounds/impact_water.mp3",
 	Shutter = "rbxasset://sounds/clickfast.wav",
+	-- Licensed library audio from the Creator Store (Pro Sound Effects and
+	-- APM Music, free to use in Roblox experiences; nothing was uploaded).
+	Gasp = "rbxassetid://9114555699", -- PSE "Gasp Trouble Breathing 3": a downed Witness
+	GaspAlt = "rbxassetid://9114555843", -- PSE "Gasp Trouble Breathing 4"
 	-- Loops for the Drift layers and room tone. Fill these with real assets.
 	RoomTone = "",
 	DriftBass = "",
 	DriftTinnitus = "",
-	Heartbeat = "",
+	Heartbeat = "rbxassetid://9043365727", -- APM "HEARTBEAT 01 96BPM" (Horror Tools), loops
 	RadioStatic = "",
 	HuntSting = "",
 }

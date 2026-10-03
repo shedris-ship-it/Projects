@@ -85,6 +85,7 @@ help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt
 seed <n> · anomaly <PhantomArchitecture|Counterfeit|Gaze|off>   (applies to the next run)
 start · end · skip (end Arrival) · resolve (jump to the ritual) · reveal (anomaly + evidence)
 lights on|off · focus · perf
+down [name] · revive [name]   (yourself if no name; any part of a display name works)
 ```
 
 The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the squad-profile signals, and client and server performance numbers.

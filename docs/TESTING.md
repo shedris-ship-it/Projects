@@ -40,7 +40,8 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-12 | Rituals | `anomaly <id>` then `resolve`. Triangulate: three seams, decoy flickers differ per client. Cross-check: key labels differ, only the genuine key works with everyone present. Stare-down: progress only builds while everyone looks |
 | TC-13 | Extraction and Dossier | The exit opens, players extract, the Dossier shows evidence, habits, closest calls and Marks, and everyone returns to the hub |
 | TC-14 | Lose states | `drift 100` collapses the run. All players Lost ends the run. Echoes can ping once a minute |
-| TC-15 | Solo | The Companion follows, joins Witness windows, backs up stares and revives |
+| TC-15 | Solo | The Companion follows, joins Witness windows, backs up stares and revives (within 6 s of reaching you) |
+| TC-16 | Bleeding out | `down <name>` on one client. That client sees "YOU'RE BLEEDING OUT", a draining bar, a red rim and blur that close in, and hears a slowing heartbeat; after 15 s they're Lost. Every other client gets a toast, hears gasping from the body, and sees a pulsing marker with the name, seconds left and distance, stuck to the screen edge with an arrow when off-screen or behind. A 4 s hold on E revives |
 
 ### Multiplayer robustness
 
