@@ -308,10 +308,12 @@ function ActionController:_updateMovement(dt: number)
 	self.sprinting = sprinting
 end
 
--- Flashlight: a light on the camera for you; the server's head light is
--- what everyone else sees, so it's hidden locally to avoid doubling up. Its
--- aim trails the camera slightly on quick turns, like a handheld torch; the
--- camera itself never moves (doc section 4, comfort-safe).
+-- Flashlight: a light for you; the server's head light is what everyone else
+-- sees, so it's hidden locally to avoid doubling up. Its aim trails the camera
+-- slightly on quick turns, like a handheld torch; the camera itself never
+-- moves (doc section 4, comfort-safe). In first person the light leaves the
+-- torch's lens (`beamCFrame`, from ViewModelController); the camera-side spot
+-- below is the fallback for the hub and third person.
 function ActionController:_updateFlashlight(dt: number)
 	local on = player:GetAttribute(PA.Flashlight) == true
 	if not lightPart then
@@ -340,7 +342,9 @@ function ActionController:_updateFlashlight(dt: number)
 	local follow = math.clamp(dt * Config.PostFX.FlashlightFollow, 0, 1)
 	flashlightAim = flashlightAim and flashlightAim:Lerp(target.Rotation, follow) or target.Rotation
 	self.flashlightRotation = flashlightAim -- ViewModelController hangs the torch on it
-	lightPart.CFrame = CFrame.new(target.Position) * flashlightAim
+	-- With a torch in hand the light leaves its lens (ViewModelController sets
+	-- beamCFrame every frame); otherwise it falls back to your eye.
+	lightPart.CFrame = self.beamCFrame or (CFrame.new(target.Position) * flashlightAim)
 	cameraLight.Enabled = on
 	cameraLight.Shadows = not self.state.settings.lowEnd
 	local head = player.Character and player.Character:FindFirstChild("Head")

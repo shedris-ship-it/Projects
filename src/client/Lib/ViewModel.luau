@@ -4,7 +4,16 @@
 -- ViewModelController moves it with the camera. Everything points down -Z
 -- (away from the viewer) with its middle at the pivot.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+
 local ViewModel = {}
+local VM = Config.ViewModel
+
+local function rgb(c): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
 
 local function part(model: Model, root: BasePart, name: string, size: Vector3, offset: CFrame, props)
 	local p = Instance.new("Part")
@@ -73,21 +82,50 @@ function ViewModel.torch(): (Model, BasePart)
 		Color = DARK,
 		Material = Enum.Material.SmoothPlastic,
 	})
-	part(model, root, "Switch", Vector3.new(0.12, 0.07, 0.2), CFrame.new(0, 0.18, 0.05), {
-		Color = Color3.fromRGB(190, 60, 50),
+	local switch = part(model, root, "Switch", Vector3.new(0.12, 0.07, 0.2), CFrame.new(0, 0.18, 0.05), {
+		Color = rgb(VM.SwitchOff),
 		Material = Enum.Material.SmoothPlastic,
 	})
+	local glow = Instance.new("PointLight")
+	glow.Name = "SwitchGlow"
+	glow.Color = rgb(VM.SwitchOn)
+	glow.Range = VM.SwitchLightRange
+	glow.Brightness = VM.SwitchLightBrightness
+	glow.Shadows = false
+	glow.Enabled = false
+	glow.Parent = switch
 	local lens = part(model, root, "Lens", Vector3.new(0.04, 0.4, 0.4), CFrame.new(0, 0, -0.74) * ALONG_Z, {
 		Shape = Enum.PartType.Cylinder,
 		Color = Color3.fromRGB(70, 66, 56),
 		Material = Enum.Material.Glass,
 	})
+	-- Where the beam leaves: a hair in front of the lens, not rotated, so a
+	-- SpotLight's front face looks straight down the torch (ViewModelController).
+	part(model, root, "Muzzle", Vector3.new(0.1, 0.1, 0.1), CFrame.new(0, 0, -0.8), { Transparency = 1 })
 	return model, lens
 end
 
-function ViewModel.setTorchOn(lens: BasePart, on: boolean)
-	lens.Material = on and Enum.Material.Neon or Enum.Material.Glass
-	lens.Color = on and Color3.fromRGB(255, 240, 205) or Color3.fromRGB(70, 66, 56)
+-- Lens and button light up with the torch. The button gets its own neon and a
+-- tiny light (owner, 2026-10-04: "the flashlight button glowed when you turn it on").
+function ViewModel.setTorchOn(model: Model, on: boolean)
+	if model:GetAttribute("TorchOn") == on then
+		return
+	end
+	model:SetAttribute("TorchOn", on)
+	local lens = model:FindFirstChild("Lens") :: BasePart?
+	if lens then
+		lens.Material = on and Enum.Material.Neon or Enum.Material.Glass
+		lens.Color = on and Color3.fromRGB(255, 240, 205) or Color3.fromRGB(70, 66, 56)
+	end
+	local switch = model:FindFirstChild("Switch") :: BasePart?
+	if switch then
+		switch.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		switch.Color = rgb(on and VM.SwitchOn or VM.SwitchOff)
+		local glow = switch:FindFirstChild("SwitchGlow") :: PointLight?
+		if glow then
+			glow.Enabled = on
+		end
+	end
 end
 
 -- The Witness Camera: a 35mm body, top plate, lens and viewfinder.

@@ -545,8 +545,12 @@ Config.Feel = {
 	LandMaxSpeed = 70,
 	LandDip = 0.45, -- studs at the hardest landing
 	FootstepMinSpeed = 4, -- slower than this is a silent creep (matches PlayerState noise)
-	FootstepVolumeWalk = 0.3,
-	FootstepVolumeSprint = 0.85,
+	-- Owner, 2026-10-04: "I don't think they're audible". The old 0.3 walk was
+	-- about -10 dB (0.21 on carpet), quieter than the Guest's steps and the
+	-- house hum. Sound.Volume goes to 10, so these are a plain multiplier.
+	FootstepVolumeWalk = 0.85,
+	FootstepVolumeSprint = 1.5,
+	FootstepRollOffMin = 10, -- studs inside which a step isn't attenuated (was 6)
 	FootstepPitchSpread = 0.07,
 	FootstepVolumeSpread = 0.1,
 	FootstepRange = 70, -- other players' steps are only played within this
@@ -556,6 +560,20 @@ Config.Feel = {
 	BreathSpeedMax = 1.25, -- ... and when spent: faster, but never higher (see BreathPitch)
 	BreathPitch = 0.88, -- the voice's pitch, held steady by a pitch-shift as the tempo changes
 	BreathGasp = { volume = 0.4, pitch = 0.82 }, -- the gasp when stamina runs out
+}
+
+-- What you hold (Controllers/ViewModelController, Lib/ViewModel).
+Config.ViewModel = {
+	-- The torch's button: dull red off, a hot neon glow on, with a tiny warm
+	-- light so it reads on the dark body (owner, 2026-10-04).
+	SwitchOff = { 190, 60, 50 },
+	SwitchOn = { 255, 110, 80 },
+	SwitchLightRange = 2,
+	SwitchLightBrightness = 0.35,
+	-- The beam starts a hair in front of the lens and is kept this far off any
+	-- wall between your eye and it, so a torch tucked against a wall never puts
+	-- its light inside the geometry (a shadow-casting light inside a wall is black).
+	BeamWallGap = 0.15,
 }
 
 Config.Debug = {

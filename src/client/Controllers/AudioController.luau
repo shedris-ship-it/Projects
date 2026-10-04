@@ -39,7 +39,7 @@ end
 -- How far each kind of sound carries (studs); the rest use 90.
 local ROLLOFF = { Drip = 30, FlashlightClick = 15, Cloth = 25, Drawer = 30, UIClick = 10, UIHover = 10, Knock = 70 }
 
-local function newSound(key: string, volume: number, pitch: number, groupName: string)
+local function newSound(key: string, volume: number, pitch: number, groupName: string, rollOffMin: number?)
 	-- A key from Assets.Sounds, or a raw asset id (footsteps pass their own).
 	local id = Assets.Sounds[key] or (string.find(key, "^rbxasset") and key or nil)
 	if not id or id == "" then
@@ -50,7 +50,7 @@ local function newSound(key: string, volume: number, pitch: number, groupName: s
 	sound.Volume = volume
 	sound.PlaybackSpeed = pitch
 	sound.SoundGroup = group(groupName)
-	sound.RollOffMinDistance = 6
+	sound.RollOffMinDistance = rollOffMin or 6
 	sound.RollOffMaxDistance = ROLLOFF[key] or 90
 	return sound
 end
@@ -305,11 +305,19 @@ function AudioController:_behindWall(position: Vector3): boolean
 end
 
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
--- through a wall.
-function AudioController:PlayAt(key: string, position: Vector3, volume: number?, pitch: number?, muffled: boolean?)
-	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX")
+-- through a wall. Returns the Sound (nil when the key has no asset) so a
+-- caller can check it loaded.
+function AudioController:PlayAt(
+	key: string,
+	position: Vector3,
+	volume: number?,
+	pitch: number?,
+	muffled: boolean?,
+	rollOffMin: number?
+): Sound?
+	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX", rollOffMin)
 	if not sound then
-		return
+		return nil
 	end
 	if muffled then
 		local eq = Instance.new("EqualizerSoundEffect")
@@ -326,6 +334,7 @@ function AudioController:PlayAt(key: string, position: Vector3, volume: number?,
 	task.delay(math.max(3, sound.TimeLength + 0.5), function()
 		attachment:Destroy()
 	end)
+	return sound
 end
 
 -- A long sound cut to its first `seconds` with a fade: positional when a

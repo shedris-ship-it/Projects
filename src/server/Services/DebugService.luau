@@ -37,7 +37,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off>",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
-	"lights on|off · focus · perf · down [name] · revive [name]",
+	"lights on|off · focus · perf · steps (tests footstep sounds) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off",
 }, "\n")
 

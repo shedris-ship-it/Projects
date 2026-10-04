@@ -54,6 +54,16 @@ return function(test, check, Shared, require)
 		check.truthy(Feel.stepVolume(P.SprintSpeed, P, F) > Feel.stepVolume(P.WalkSpeed, P, F), "sprint louder")
 	end)
 
+	-- Owner, 2026-10-04: footsteps were "not even audible" at 0.3. A walk has to
+	-- stay clearly audible on the quietest floor, and never louder than a sprint.
+	test("a walking step stays audible on every floor", function()
+		local Footsteps = require(Shared.Data.Footsteps)
+		local walk = Feel.stepVolume(P.WalkSpeed, P, F)
+		for name, set in Footsteps.Surfaces do
+			check.truthy(walk * set.volume >= 0.6, name .. " walking step audible")
+		end
+	end)
+
 	test("bob is light at a walk and intense at a sprint", function()
 		local wv, wl, wr = Feel.bobAmplitude(P.WalkSpeed, true, 1, P, F)
 		local sv, sl, sr = Feel.bobAmplitude(P.SprintSpeed, true, 1, P, F)

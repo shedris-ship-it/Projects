@@ -49,6 +49,14 @@ function DebugOverlay.new(ctx)
 	}, { Ui.corner(4) })
 	self.input.FocusLost:Connect(function(enter)
 		if enter and self.input.Text ~= "" then
+			-- "steps" is answered here: it tests this client's audio, not the server.
+			local footsteps = ctx.controllers.FootstepController
+			if string.lower(self.input.Text) == "steps" and footsteps then
+				footsteps:Diagnose(function(summary)
+					ctx.ui:Toast(summary, "debug")
+				end)
+				return
+			end
 			Net.get("DebugCommand"):FireServer(self.input.Text)
 		end
 	end)

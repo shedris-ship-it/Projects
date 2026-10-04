@@ -22,7 +22,7 @@ return {
 	-- Per surface: loudness and pitch of the whole set, softer carpets.
 	Surfaces = {
 		Wood = { volume = 1, pitch = 0.95 },
-		Carpet = { volume = 0.7, pitch = 0.9 },
+		Carpet = { volume = 0.85, pitch = 0.9 },
 		Tile = { volume = 1, pitch = 1 },
 		Concrete = { volume = 1, pitch = 0.92 },
 	},

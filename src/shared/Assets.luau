@@ -58,7 +58,10 @@ Assets.Sounds = {
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).
 -- Free Creator Store audio ("feel free to use in your games"): carpet by
 -- iLoveSwiss_0, wood, tile and concrete by Diman_x86. Nothing was uploaded.
--- A surface with no ids falls back to Sounds.Footstep.
+-- A surface with no ids, or none that load (FootstepController drops ids that
+-- never load), falls back to StockFootstep, which ships with the client.
+Assets.StockFootstep = "rbxasset://sounds/action_footsteps_plastic.mp3"
+
 Assets.Footsteps = {
 	Wood = {
 		"rbxassetid://136507037003210",

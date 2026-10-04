@@ -3,7 +3,10 @@
 -- to them. All parts built in code (Lib/ViewModel), local to this client,
 -- attached to the camera. Roblox's own first-person arms are hidden so these
 -- replace them. Pulled back and down against a wall so nothing clips through.
--- Nothing here touches aim: the torch's light still comes from ActionController.
+-- Aim is untouched: the torch's light is still ActionController's, but it now
+-- leaves from the torch's lens (the Muzzle part) instead of from your eye
+-- (owner, 2026-10-04: "the beam comes through my face"). ActionController keeps
+-- the on/off and the lagged aim; this file tells it where the muzzle is.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +14,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local ViewModel = require(script.Parent.Parent:WaitForChild("Lib"):WaitForChild("ViewModel"))
 
@@ -35,6 +39,7 @@ function ViewModelController:Init(controllers)
 	self.tool, self.toolId = nil, nil
 	self.lower = 0 -- 0 raised, 1 lowered (while you switch tools)
 	self.tuck = 0
+	self.rayParams = nil
 end
 
 function ViewModelController:_build()
@@ -63,6 +68,10 @@ function ViewModelController:_build()
 	fill.Color = Color3.fromRGB(255, 226, 180)
 	fill.Shadows = false
 	fill.Parent = self.torch.PrimaryPart
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, camera }
+	self.rayParams = params
 	self.builtFor = character
 end
 
@@ -72,22 +81,43 @@ function ViewModelController:_hideAll()
 			model.Parent = nil
 		end
 	end
+	-- Not holding a torch: ActionController puts the light back at the camera.
+	local actions = self.controllers.ActionController
+	if actions then
+		actions.beamCFrame = nil
+	end
 end
 
--- Roblox shows the avatar's own arms in first person; ours replace them.
+-- Roblox shows the avatar's own arms in first person; ours replace them. The
+-- hidden body also stops casting shadows on this client, or it would throw one
+-- across the torch beam that now starts just beside it.
 local function hideStockBody(character: Model)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.LocalTransparencyModifier = 1
+			if d.CastShadow then
+				d.CastShadow = false
+			end
 		end
 	end
 end
 
-function ViewModelController:_tuckAmount(camera: Camera, character: Model, dt: number): number
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character, camera }
-	local hit = Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * REACH, params)
+-- Where the beam leaves: the torch's muzzle, pulled back along the line from
+-- your eye if a wall is between them (a shadow-casting light inside a wall
+-- lights nothing).
+function ViewModelController:_beamOrigin(camera: Camera, muzzle: CFrame): CFrame
+	local from = camera.CFrame.Position
+	local offset = muzzle.Position - from
+	local position = muzzle.Position
+	local hit = self.rayParams and Workspace:Raycast(from, offset, self.rayParams)
+	if hit then
+		position = from + offset.Unit * math.max(0, hit.Distance - Config.ViewModel.BeamWallGap)
+	end
+	return CFrame.new(position) * muzzle.Rotation
+end
+
+function ViewModelController:_tuckAmount(camera: Camera, dt: number): number
+	local hit = Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * REACH, self.rayParams)
 	local target = hit and math.clamp((REACH - hit.Distance) / REACH, 0, 1) or 0
 	self.tuck += (target - self.tuck) * math.clamp(dt * 12, 0, 1)
 	return self.tuck
@@ -138,7 +168,7 @@ function ViewModelController:_update(dt: number)
 	local feel = self.controllers.FeelController
 	local aim = (actions and actions.flashlightRotation) or camera.CFrame.Rotation
 	local sway = feel and feel.sway or Vector2.zero
-	local tuck = self:_tuckAmount(camera, character, dt)
+	local tuck = self:_tuckAmount(camera, dt)
 	local origin = CFrame.new(camera.CFrame.Position)
 	-- Counter-sway: the camera already bobs, so the hands lag a little behind it.
 	local counter = Vector3.new(-sway.X * 1.4, -sway.Y * 1.4, 0)
@@ -148,7 +178,15 @@ function ViewModelController:_update(dt: number)
 	local torchCF = origin * aim * CFrame.new(torchOffset) * CFrame.Angles(math.rad(2), math.rad(-3), 0)
 	self.torch:PivotTo(torchCF)
 	local torchOn = player:GetAttribute(PA.Flashlight) == true
-	ViewModel.setTorchOn(self.lens, torchOn)
+	ViewModel.setTorchOn(self.torch, torchOn)
+	local muzzle = self.torch:FindFirstChild("Muzzle") :: BasePart?
+	if muzzle and actions then
+		local beam = self:_beamOrigin(camera, muzzle.CFrame)
+		actions.beamCFrame = beam
+		if actions.lightPart then
+			actions.lightPart.CFrame = beam -- ActionController may have run first this frame
+		end
+	end
 	local fill = self.torch.PrimaryPart:FindFirstChild("HandFill")
 	if fill then
 		fill.Enabled = not torchOn -- with the torch on, its own light shows your hands
