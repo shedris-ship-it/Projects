@@ -157,6 +157,7 @@ The agreed plan, in order:
      - whether corridors now read as hallways
      - whether moonlit bedrooms are too dark
    - Next, in order:
+     - **variable room sizes (the owner's next big request, 2026-10-04): a local Studio session only.** The full plan, the reordered phases with Studio gates, a map of everything that assumes one room is one 40×40 cell, and a setup playbook are in `docs/plans/variable-room-sizes.md`. Read it before opening any file.
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.
