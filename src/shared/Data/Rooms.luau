@@ -497,7 +497,7 @@ local Rooms = {
 			{ id = "boxes", kind = "Boxes", x = 16.5, z = -8 },
 		},
 		decor = {
-			{ id = "painting", kind = "Painting", side = "W", along = -10, y = 6.5 },
+			{ id = "painting", kind = "Painting", side = "W", along = -15, y = 6.5 }, -- clear of the tell slot at -10
 		},
 		wallSlots = { { side = "S", along = -10 }, { side = "S", along = 10 }, { side = "W", along = -10 } },
 		floorSlots = { { x = 8, z = 8 }, { x = -8, z = -8 }, { x = 8, z = -8 } },
@@ -606,7 +606,7 @@ local Rooms = {
 			{ id = "lamp", kind = "FloorLamp", x = -17, z = -17, key = true },
 		},
 		decor = {
-			{ id = "window", kind = "Window", side = "S", along = -10, y = 6 },
+			{ id = "window", kind = "Window", side = "S", along = 10, y = 6 }, -- the curtain hangs at -10
 		},
 		wallSlots = { { side = "W", along = -10 }, { side = "W", along = 10 }, { side = "E", along = -8 } },
 		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = -8, z = -8 } },

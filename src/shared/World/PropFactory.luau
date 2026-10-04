@@ -465,8 +465,8 @@ function builders.Bathtub(model, cf, size, color, material)
 	part(
 		model,
 		"Water",
-		Vector3.new(w - 0.8, 0.1, d - 0.8),
-		cf * CFrame.new(0, h - 0.04, 0),
+		Vector3.new(w - 0.8, 0.06, d - 0.8),
+		cf * CFrame.new(0, h + 0.03, 0),
 		Color3.fromRGB(60, 70, 74),
 		PropFactory.material("Glass"),
 		{ castShadow = false }
@@ -474,10 +474,12 @@ function builders.Bathtub(model, cf, size, color, material)
 	-- A rolled rim round the top, and claw feet.
 	local rim = shade(color, 1.06)
 	local flat = { castShadow = false }
-	part(model, "Rim", Vector3.new(w + 0.3, 0.3, 0.4), cf * CFrame.new(0, h, d / 2), rim, material, flat)
-	part(model, "Rim", Vector3.new(w + 0.3, 0.3, 0.4), cf * CFrame.new(0, h, -d / 2), rim, material, flat)
+	-- The rim sits inside the tub's own footprint: it used to stand 0.2 out past
+	-- the back and sides, into the wall.
+	part(model, "Rim", Vector3.new(w, 0.3, 0.4), cf * CFrame.new(0, h, d / 2 - 0.2), rim, material, flat)
+	part(model, "Rim", Vector3.new(w, 0.3, 0.4), cf * CFrame.new(0, h, -d / 2 + 0.2), rim, material, flat)
 	for _, sx in { -1, 1 } do
-		part(model, "Rim", Vector3.new(0.4, 0.3, d), cf * CFrame.new(sx * w / 2, h, 0), rim, material, flat)
+		part(model, "Rim", Vector3.new(0.4, 0.3, d), cf * CFrame.new(sx * (w / 2 - 0.2), h, 0), rim, material, flat)
 		for _, sz in { -1, 1 } do
 			part(
 				model,
@@ -634,8 +636,7 @@ function builders.Counter(model, cf, size, color, material)
 	)
 	-- A sink and tap in a long counter.
 	if w >= 5 then
-		local x = -w / 4
-		local bw = math.min(2.6, w * 0.32)
+		local x, bw = Props.CounterSink(w)
 		part(model, "Basin", Vector3.new(bw, 0.12, d * 0.6), cf * CFrame.new(x, h + 0.05, 0.05), CHROME, metal, flat)
 		part(
 			model,
@@ -1039,11 +1040,13 @@ function builders.TVStand(model, cf, size, color, material)
 	-- A wood-cased set: bezel at the front, the tube bulging out behind.
 	local black = PropFactory.material("SmoothPlastic")
 	part(model, "TV", Vector3.new(w * 0.8, 3, 1.2), cf * CFrame.new(0, h + 1.5, 0), Color3.fromRGB(30, 30, 30), black)
+	-- (Owner, 2026-10-04: it poked through the wall. The stand is 2 deep and
+	-- backs onto the wall, so the tube stops at the stand's back face.)
 	part(
 		model,
 		"Tube",
-		Vector3.new(w * 0.55, 2.2, 1.4),
-		cf * CFrame.new(0, h + 1.5, -1.1),
+		Vector3.new(w * 0.55, 2.2, 0.8),
+		cf * CFrame.new(0, h + 1.5, -0.6),
 		Color3.fromRGB(26, 26, 28),
 		black,
 		{ collide = false, castShadow = false }
@@ -1083,7 +1086,7 @@ function builders.TVStand(model, cf, size, color, material)
 			model,
 			"Ear",
 			Vector3.new(0.05, 1.8, 0.05),
-			cf * CFrame.new(side * 0.5, h + 3.7, -1) * CFrame.Angles(0, 0, side * math.rad(-28))
+			cf * CFrame.new(side * 0.5, h + 3.7, -0.3) * CFrame.Angles(0, 0, side * math.rad(-28))
 		)
 	end
 	return screen
@@ -1138,13 +1141,24 @@ function builders.Plant(model, cf, _size, color, material)
 		slate,
 		{ shape = CYL, collide = false, castShadow = false }
 	)
-	part(model, "Leaves", Vector3.new(2.4, 3.2, 2.4), cf * CFrame.new(0, 3.2, 0), color, material, { shape = BALL })
+	-- All foliage stays within Props.Plant.reach of the centre: the 2 x 2 footprint
+	-- fits a corridor strip, and leaves used to reach 1.95 into the closets.
+	local reach = Props.Kinds.Plant.reach
+	part(
+		model,
+		"Leaves",
+		Vector3.new(reach * 2, 3.2, reach * 2),
+		cf * CFrame.new(0, 3.2, 0),
+		color,
+		material,
+		{ shape = BALL }
+	)
 	-- A few more clumps of leaf round the main one, each a little different.
 	local rng = Rng.new(Rng.hash(tostring(cf.Position)))
 	for i = 1, 4 do
 		local a = i * math.pi / 2 + rng:NextNumber(-0.4, 0.4)
-		local r = rng:NextNumber(0.7, 1.1)
-		local size = rng:NextNumber(1.2, 1.7)
+		local size = rng:NextNumber(0.9, 1.2)
+		local r = math.min(rng:NextNumber(0.25, 0.45), reach - size / 2)
 		part(
 			model,
 			"Leaf",

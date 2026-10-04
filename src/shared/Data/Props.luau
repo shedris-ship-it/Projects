@@ -7,6 +7,10 @@
 -- light:    the prop carries a light ("lamp", "tv")
 -- collide = false props are decor the stalker and players can pass through.
 -- top:      small things can stand on top (World/Dressing: photos, a telephone)
+-- topSpan:  { front z, back z } of the flat top when it is shallower than the
+--           prop (a piano's top ends at its keyboard); default is the full depth
+-- reach:    how far the prop's foliage or fittings may stand out from its centre,
+--           when that is less than the footprint (a plant must fit a corridor strip)
 
 local Props = {
 	Bed = { size = { 7, 3, 10 }, hide = "bed", capacity = 1, noise = 6, color = { 108, 88, 118 }, material = "Fabric" },
@@ -83,10 +87,17 @@ local Props = {
 	Boxes = { size = { 4, 4, 4 }, color = { 150, 120, 84 }, material = "Cardboard" },
 	Workbench = { size = { 10, 3.6, 3.5 }, color = { 110, 86, 60 }, material = "WoodPlanks" },
 	Car = { size = { 7, 5, 14 }, color = { 60, 72, 66 }, material = "Metal" },
-	Piano = { size = { 7, 5, 3 }, top = true, color = { 24, 22, 22 }, material = "SmoothPlastic" },
+	-- The body is d - 1 deep, set back half a stud, so its top is z -1.5 to 0.5.
+	Piano = {
+		size = { 7, 5, 3 },
+		top = true,
+		topSpan = { -1.5, 0.5 },
+		color = { 24, 22, 22 },
+		material = "SmoothPlastic",
+	},
 	TVStand = { size = { 6, 3, 2 }, light = "tv", color = { 50, 40, 34 }, material = "Wood" },
 	Dresser = { size = { 6, 4.5, 2.5 }, top = true, color = { 112, 82, 58 }, material = "Wood" },
-	Plant = { size = { 2, 5, 2 }, color = { 54, 80, 50 }, material = "Grass" },
+	Plant = { size = { 2, 5, 2 }, reach = 1, color = { 54, 80, 50 }, material = "Grass" },
 	GrandfatherClock = { size = { 2.5, 8, 2 }, color = { 70, 44, 30 }, material = "Wood" },
 	CoatRack = { size = { 2, 7, 2 }, color = { 60, 44, 34 }, material = "Wood" },
 	Bench = { size = { 8, 2.5, 2.5 }, top = true, color = { 96, 74, 54 }, material = "Wood" },
@@ -108,7 +119,28 @@ local WallDecor = {
 	Mirror = { size = { 3, 5 } },
 }
 
+-- Where a long Counter's sink sits and how wide its basin is (centre x and
+-- width, in the counter's own frame). The builder (World/PropFactory) and the
+-- clutter planner (World/Dressing) both read this, so a mug can't be set down
+-- inside the basin.
+local function counterSink(width: number): (number, number)
+	return -width / 4, math.min(2.6, width * 0.32)
+end
+
+-- Rectangles on a furniture top that small things must stay out of, as
+-- { x0, x1 } spans in the prop's own frame (full depth).
+local function keepouts(kindName: string, size)
+	if kindName == "Counter" and size[1] >= 5 then
+		local x, basin = counterSink(size[1])
+		local margin = 0.55 -- the widest dish is about 1 wide, and it is jittered
+		return { { x0 = x - basin / 2 - margin, x1 = x + basin / 2 + margin } }
+	end
+	return {}
+end
+
 return {
 	Kinds = Props,
 	WallDecor = WallDecor,
+	CounterSink = counterSink,
+	Keepouts = keepouts,
 }

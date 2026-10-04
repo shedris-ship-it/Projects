@@ -708,8 +708,8 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 				PropFactory.part(
 					model,
 					"BoardFrame",
-					Vector3.new(edge[3], edge[4], 0.5),
-					cf * CFrame.new(edge[1], edge[2], -0.15),
+					Vector3.new(edge[3], edge[4], 0.4),
+					cf * CFrame.new(edge[1], edge[2], -0.2),
 					frameColour,
 					PropFactory.material("Wood"),
 					{ collide = false, castShadow = false }
@@ -720,7 +720,8 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					model,
 					"BoardPin",
 					Vector3.new(0.3, 0.3, 0.3),
-					cf * CFrame.new(pin[1], pin[2], 0.05),
+					-- On the room-facing surface (z -0.3), not buried behind it.
+					cf * CFrame.new(pin[1], pin[2], -0.33),
 					Color3.fromRGB(180, 40, 36),
 					PropFactory.material("SmoothPlastic"),
 					{ collide = false, castShadow = false, shape = Enum.PartType.Ball }

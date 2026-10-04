@@ -193,6 +193,73 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	-- Owner, 2026-10-04: new props clipped. A painting hung on a tell's wall slot
+	-- hid the tell, and a curtain stood in front of a window with its sill inside
+	-- the folds.
+	test("wall decor keeps clear of the wall slots on its wall", function()
+		for _, template in Rooms.List do
+			for _, decor in template.decor do
+				if not decor.face then
+					local width = Props.WallDecor[decor.kind].size[1]
+					for _, slot in template.wallSlots do
+						if not slot.face and slot.side == decor.side then
+							check.truthy(
+								math.abs(decor.along - slot.along) >= width / 2 + 1.5,
+								template.id
+									.. "."
+									.. decor.id
+									.. " covers the wall slot at "
+									.. slot.side
+									.. " "
+									.. slot.along
+							)
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	test("wall decor doesn't hang inside furniture", function()
+		local depth = 0.6 -- how far a window sill or frame stands out from the wall
+		for _, template in Rooms.List do
+			for _, decor in template.decor do
+				if not decor.face then
+					local size = Props.WallDecor[decor.kind].size
+					local lo, hi = decor.along - size[1] / 2, decor.along + size[1] / 2
+					local bottom = decor.y - size[2] / 2 - (decor.kind == "Window" and 0.3 or 0)
+					for _, prop in template.props do
+						local kind = Props.Kinds[prop.kind]
+						local r = footprint(prop.kind, prop.x, prop.z, prop.ry)
+						local touches, a0, a1
+						if decor.side == "N" then
+							touches, a0, a1 = r[3] <= -half + depth, r[1], r[2]
+						elseif decor.side == "S" then
+							touches, a0, a1 = r[4] >= half - depth, r[1], r[2]
+						elseif decor.side == "W" then
+							touches, a0, a1 = r[1] <= -half + depth, r[3], r[4]
+						else
+							touches, a0, a1 = r[2] >= half - depth, r[3], r[4]
+						end
+						local along = a0 < hi - 1e-6 and lo < a1 - 1e-6
+						check.truthy(
+							not (touches and along and kind.size[2] > bottom),
+							template.id .. "." .. decor.id .. " hangs inside " .. prop.id
+						)
+					end
+				end
+			end
+		end
+	end)
+
+	test("a plant's foliage fits its own footprint", function()
+		local plant = Props.Kinds.Plant
+		check.truthy(
+			plant.reach and plant.reach <= math.min(plant.size[1], plant.size[3]) / 2,
+			"reach within the footprint"
+		)
+	end)
+
 	test("corridors keep the lanes clear and their floor slots inside the corridor", function()
 		for _, template in Rooms.List do
 			if template.corridor then

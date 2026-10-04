@@ -14,6 +14,7 @@ local Constants = require(Shared.Constants)
 local Anomalies = require(Shared.Data.Anomalies)
 local Tells = require(Shared.Data.Tells)
 local Net = require(Shared.Net)
+local ClipScan = require(script.Parent.Parent.World.ClipScan)
 
 local DebugService = {}
 
@@ -37,7 +38,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off>",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
-	"lights on|off · focus · perf · steps (tests footstep sounds) · down [name] · revive [name]",
+	"lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off",
 }, "\n")
 
@@ -170,6 +171,42 @@ function DebugService:Run(player: Player, text: string)
 			services.PlayerStateService:Revive(target, nil)
 			reply(player, target.DisplayName .. " revived")
 		end
+	elseif command == "clip" then
+		-- Walks every built room for boxes that overlap; the full list goes to the
+		-- server Output, the worst few to a message.
+		task.spawn(function()
+			local all = {}
+			for _, id in services.WorldService:RoomIds() do
+				local room = services.WorldService:Room(id)
+				if room and room.model then
+					for _, line in ClipScan.room(room.name or ("room " .. id), room.model) do
+						table.insert(all, line)
+					end
+				end
+				task.wait()
+			end
+			table.sort(all, function(a, b)
+				return (tonumber(string.match(a, "^[%d%.]+")) or 0) > (tonumber(string.match(b, "^[%d%.]+")) or 0)
+			end)
+			for i, line in all do
+				if i > 80 then
+					break
+				end
+				print("[clip] " .. line)
+			end
+			if #all == 0 then
+				reply(player, "clip: nothing overlaps (no run built?)")
+			else
+				local top = {}
+				for i = 1, math.min(6, #all) do
+					table.insert(top, all[i])
+				end
+				reply(
+					player,
+					string.format("clip: %d overlaps, worst first (all in Output)\n%s", #all, table.concat(top, "\n"))
+				)
+			end
+		end)
 	elseif command == "focus" then
 		services.WitnessService:SetFocus(player, Config.Witness.FocusMax)
 	elseif command == "perf" then

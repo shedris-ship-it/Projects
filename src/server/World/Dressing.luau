@@ -14,6 +14,7 @@ local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Props = require(Shared.Data.Props)
+local SurfaceSpots = require(Shared.Logic.SurfaceSpots)
 local PropFactory = require(Shared.World.PropFactory)
 
 local D = Config.Dressing
@@ -139,20 +140,15 @@ local function photoFrame(parent, cf: CFrame, set: number)
 	return model
 end
 
--- Spots across a furniture top, front edge kept clear. Each spot is a CFrame
--- on the surface whose LookVector faces out of the furniture's front.
+-- Spots across a furniture top, front edge kept clear (Logic/SurfaceSpots).
+-- Each spot is a CFrame on the surface whose LookVector faces out of the
+-- furniture's front.
 local function surfaceSpots(rng, prop, kind)
-	local w, h, d = kind.size[1], kind.size[2], kind.size[3]
+	local plan = SurfaceSpots.plan(rng, kind, Props.Keepouts(prop.kind, kind.size), D)
 	local spots = {}
-	local count = math.max(1, math.floor((w - 0.6) / D.SpotWidth))
-	for i = 1, count do
-		local x = -w / 2 + 0.3 + (i - 0.5) * (w - 0.6) / count
-		local z = math.clamp(rng:NextNumber(-d / 4, d / 8), -d / 2 + 0.5, d / 2 - 0.5)
-		-- Props face +Z in their own frame, so turn half round to face out.
-		local yaw = math.pi + math.rad(rng:NextNumber(-D.Jitter, D.Jitter))
-		table.insert(spots, prop.cframe * CFrame.new(x, h, z) * CFrame.Angles(0, yaw, 0))
+	for _, spot in plan do
+		table.insert(spots, prop.cframe * CFrame.new(spot.x, spot.y, spot.z) * CFrame.Angles(0, spot.yaw, 0))
 	end
-	rng:Shuffle(spots)
 	return spots
 end
 
