@@ -614,13 +614,220 @@ local Rooms = {
 	},
 }
 
+-- The mansion (docs/plans/mansion-generation.md). Which of the templates
+-- above it uses and how; the old generator never reads these blocks.
+--   floors    floors the room can be on (0 ground, 1 upper)
+--   zone      hall, public, dining, kitchen, service, private or bath; or one per
+--             floor ({ [0] = ..., [1] = ... }). Doors only join zones that
+--             make sense together (MansionHouse.ZoneDoors).
+--   size      { w, d } in studs, w along the template's x
+--   role      start, exit, deliberation, kitchen, stair or corridor; general
+--             rooms have none
+--   near      templates it likes to share a wall with
+--   perFloor  most copies on one floor (a bathroom on each floor, not two downstairs)
+--   maxSeams  most walls it can share with other rooms (busy small rooms)
+--   sockets   per floor, the template sides that may hold a doorway
+--   hides     hiding spots a generated-size room provides (corridor closets)
+local MansionUse = {
+	living_room = { floors = { 0 }, zone = "public", size = { 40, 30 }, weight = 2 },
+	study = { floors = { 0, 1 }, zone = { [0] = "public", [1] = "private" }, size = { 30, 20 }, weight = 2 },
+	music_room = { floors = { 0 }, zone = "public", size = { 30, 30 }, weight = 1 },
+	sunroom = { floors = { 0 }, zone = "public", size = { 30, 30 }, weight = 1 },
+	den = { floors = { 0 }, zone = "public", size = { 30, 20 }, weight = 1 },
+	pantry = {
+		floors = { 0 },
+		zone = "kitchen",
+		size = { 20, 20 },
+		weight = 2,
+		near = { "kitchen", "dining_room" },
+	},
+	laundry = { floors = { 0 }, zone = "service", size = { 20, 30 }, weight = 1, near = { "kitchen" } },
+	bathroom = {
+		floors = { 0, 1 },
+		zone = "bath",
+		size = { 30, 20 },
+		weight = 2,
+		max = 2,
+		perFloor = 1,
+		maxSeams = 2,
+		near = { "master_bedroom", "kids_bedroom", "guest_room" },
+	},
+	kitchen = { floors = { 0 }, zone = "kitchen", size = { 30, 30 }, role = "kitchen" },
+	dining_room = { floors = { 0 }, zone = "dining", size = { 40, 30 }, role = "deliberation" },
+	garage = { floors = { 0 }, zone = "service", size = { 40, 40 }, role = "exit" },
+	mudroom = { floors = { 0 }, zone = "service", size = { 20, 30 }, role = "exit" },
+	master_bedroom = { floors = { 1 }, zone = "private", size = { 30, 30 }, weight = 2, near = { "bathroom" } },
+	kids_bedroom = { floors = { 1 }, zone = "private", size = { 30, 30 }, weight = 2 },
+	guest_room = { floors = { 1 }, zone = "private", size = { 20, 30 }, weight = 2, max = 2 },
+	nursery = { floors = { 1 }, zone = "private", size = { 20, 20 }, weight = 1, near = { "master_bedroom" } },
+	playroom = { floors = { 1 }, zone = "private", size = { 30, 20 }, weight = 1 },
+	sewing_room = { floors = { 1 }, zone = "private", size = { 30, 20 }, weight = 1 },
+}
+
+-- Rooms only the mansion has. Their furniture is a placeholder until the
+-- furnishing phase (M4); corridors get their size from the generator.
+local MansionExtras = {
+	{
+		id = "grand_hall",
+		name = "Grand Hall",
+		mood = "open",
+		family = "living",
+		-- Double height. A split staircase rises from the middle to a half landing
+		-- on the north wall, then up both sides to a gallery along the north,
+		-- east and west walls. The front door (south) shuts behind the squad.
+		floor = { material = "OakFloor", color = { 92, 64, 46 } },
+		wall = { material = "Panelling", color = { 104, 78, 56 } },
+		wainscot = true,
+		reverb = "Auditorium",
+		light = { brightness = 1.2, range = 30 },
+		props = {
+			{ id = "curtain1", kind = "Curtain", x = -12, z = 23.75, ry = 180 },
+			{ id = "curtain2", kind = "Curtain", x = 12, z = 23.75, ry = 180 },
+			{ id = "clock", kind = "GrandfatherClock", x = -18.5, z = 10, ry = 90 },
+			{ id = "coatrack", kind = "CoatRack", x = 17, z = 21 },
+			{ id = "rug", kind = "Rug", x = 0, z = 12 },
+		},
+		decor = {
+			{ id = "portrait", kind = "Painting", side = "E", along = 12, y = 6.5 },
+		},
+		caseBoard = { side = "W", along = 16 },
+		spawns = { { x = -4, z = 15 }, { x = 4, z = 15 }, { x = -4, z = 19 }, { x = 4, z = 19 } },
+		wallSlots = { { side = "E", along = -6 }, { side = "W", along = -6 }, { side = "S", along = -14 } },
+		floorSlots = { { x = 10, z = 4 }, { x = -10, z = 4 }, { x = 10, z = 16 } },
+		shrine = { x = -16, z = 18 },
+		mansion = {
+			role = "start",
+			tall = true,
+			floors = { 0, 1 },
+			zone = "hall",
+			size = { 40, 50 },
+			sockets = { [0] = { N = true, E = true, W = true }, [1] = { N = true, E = true, W = true } },
+			frontDoor = "S",
+		},
+	},
+	{
+		id = "back_stairs",
+		name = "Back Stairs",
+		mood = "tight",
+		family = "corridor",
+		-- A dog-leg stair: both flights start and end at the south end, so the
+		-- doorway on each floor is in the south wall.
+		floor = { material = "OakFloor", color = { 96, 72, 52 } },
+		wall = { material = "OldPlaster", color = { 150, 144, 120 } },
+		reverb = "Hallway",
+		light = { brightness = 0.8, range = 20 },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		shrine = { x = 0, z = 10 },
+		mansion = {
+			role = "stair",
+			tall = true,
+			floors = { 0, 1 },
+			zone = { [0] = "service", [1] = "private" },
+			size = { 20, 30 },
+			sockets = { [0] = { S = true }, [1] = { S = true } },
+		},
+	},
+	{
+		id = "stairwell",
+		name = "Stairwell",
+		mood = "tight",
+		family = "corridor",
+		floor = { material = "OakFloor", color = { 104, 78, 56 } },
+		wall = { material = "WallpaperStripe", color = { 132, 120, 98 } },
+		reverb = "Hallway",
+		light = { brightness = 0.8, range = 20 },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		shrine = { x = 0, z = 10 },
+		mansion = {
+			role = "stair",
+			tall = true,
+			floors = { 0, 1 },
+			zone = { [0] = "public", [1] = "private" },
+			size = { 20, 30 },
+			sockets = { [0] = { S = true }, [1] = { S = true } },
+		},
+	},
+	{
+		id = "main_corridor",
+		name = "Hallway",
+		mood = "watched",
+		family = "corridor",
+		floor = { material = "OakFloor", color = { 104, 76, 54 } },
+		wall = { material = "WallpaperStripe", color = { 150, 134, 106 } },
+		wainscot = true,
+		reverb = "CarpettedHallway",
+		light = { brightness = 0.9, range = 22 },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		mansion = { role = "corridor", floors = { 0 }, zone = "public", hides = 1 },
+	},
+	{
+		id = "service_corridor",
+		name = "Service Passage",
+		mood = "tight",
+		family = "corridor",
+		floor = { material = "CheckerLino", color = { 132, 128, 114 } },
+		wall = { material = "OldPlaster", color = { 160, 156, 130 } },
+		reverb = "Hallway",
+		light = { brightness = 0.85, range = 22 },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		mansion = { role = "corridor", floors = { 0 }, zone = "service", hides = 1 },
+	},
+	{
+		id = "upper_corridor",
+		name = "Upper Hall",
+		mood = "watched",
+		family = "corridor",
+		floor = { material = "PileCarpet", color = { 98, 74, 70 } },
+		wall = { material = "Wallpaper", color = { 140, 118, 110 } },
+		reverb = "CarpettedHallway",
+		light = { brightness = 0.85, range = 22 },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		mansion = { role = "corridor", floors = { 1 }, zone = "private", hides = 1 },
+	},
+}
+
 local byId = {}
 for _, template in Rooms do
 	template.roles = template.roles or {}
 	byId[template.id] = template
 end
 
+local mansion, mansionById = {}, {}
+for _, template in Rooms do
+	template.mansion = MansionUse[template.id]
+	if template.mansion then
+		table.insert(mansion, template)
+		mansionById[template.id] = template
+	end
+end
+for _, template in MansionExtras do
+	template.roles = {}
+	template.weight = 0
+	template.max = 1
+	table.insert(mansion, template)
+	mansionById[template.id] = template
+end
+
 return {
 	List = Rooms,
 	ById = byId,
+	-- Every template the mansion generator can use, and the mansion-only ones.
+	Mansion = mansion,
+	MansionById = mansionById,
+	MansionExtras = MansionExtras,
 }

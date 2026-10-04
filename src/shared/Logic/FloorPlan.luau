@@ -178,8 +178,6 @@ function FloorPlan.render(layout, config): string
 		bounds.maxZ = math.max(bounds.maxZ, rect.z + rect.d)
 		floors = math.max(floors, (rect.floor or 0) + 1, rect.tall and 2 or 1)
 	end
-	-- Room for a porch drawn past the walls.
-	bounds.maxZ += lattice
 
 	local out = {}
 	local seamLayout = layout.mode and layout or RoomRects.seamsOfCells(layout, config)

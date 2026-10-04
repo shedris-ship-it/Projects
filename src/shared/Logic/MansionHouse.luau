@@ -1,0 +1,304 @@
+-- The mansion while it is being generated (docs/plans/mansion-generation.md):
+-- rooms as lattice rects over two floors, the rules for where a room may
+-- go, and which shared walls can hold a doorway. Pure; Logic/MansionGen
+-- builds with it and Logic/LayoutValidator checks a finished layout with the
+-- same rules.
+--
+-- A room is { id, template, floor, tall, x, z, w, d, rotation, zone,
+-- zoneUpper, role, mood }. Tall rooms (the grand hall, stairwells) stand on
+-- both floors; zoneUpper is their zone upstairs.
+
+local RoomRects = require(script.Parent.RoomRects)
+
+local MansionHouse = {}
+MansionHouse.__index = MansionHouse
+
+local DIR_ORDER = { "N", "E", "S", "W" }
+
+-- Zones that may share a doorway (mansion-generation.md, section 2). Every
+-- other shared wall is a solid seam.
+-- The service wing is two zones: the kitchen and pantry ("kitchen"), which
+-- the dining room opens into, and the passage, laundry, back stairs and exit
+-- ("service") behind them.
+local ZONE_DOORS = {
+	hall = { public = true, dining = true, private = true },
+	public = { hall = true, public = true, dining = true, bath = true },
+	dining = { hall = true, public = true, kitchen = true },
+	kitchen = { dining = true, kitchen = true, service = true },
+	service = { kitchen = true, service = true },
+	private = { hall = true, private = true, bath = true },
+	bath = { public = true, private = true },
+}
+
+function MansionHouse.zonesMayJoin(a: string?, b: string?): boolean
+	return a ~= nil and b ~= nil and ZONE_DOORS[a] ~= nil and ZONE_DOORS[a][b] == true
+end
+
+function MansionHouse.zoneOf(room, floor: number): string
+	if room.tall and floor == 1 then
+		return room.zoneUpper or room.zone
+	end
+	return room.zone
+end
+
+-- A template's zone on a floor (one zone, or one per floor).
+function MansionHouse.templateZone(template, floor: number): string
+	local zone = template.mansion.zone
+	if type(zone) == "table" then
+		return zone[floor] or zone[0]
+	end
+	return zone
+end
+
+function MansionHouse.floorsOf(room): { number }
+	if room.tall then
+		return { 0, 1 }
+	end
+	return { room.floor or 0 }
+end
+
+function MansionHouse.onFloor(room, floor: number): boolean
+	return RoomRects.onFloor(room, floor)
+end
+
+-- Footprint of a template size turned by `rotation` quarter turns.
+function MansionHouse.footprint(size, rotation: number): (number, number)
+	if rotation % 2 == 0 then
+		return size[1], size[2]
+	end
+	return size[2], size[1]
+end
+
+-- The template side that ends up facing world side `dir` (the inverse of
+-- LevelGraph.worldSide, which LevelBuilder's CFrame.Angles turn matches).
+function MansionHouse.localSide(dir: string, rotation: number): string
+	local index = table.find(DIR_ORDER, dir) :: number
+	return DIR_ORDER[(index - 1 + rotation) % 4 + 1]
+end
+
+function MansionHouse.pairKey(a: number, b: number): string
+	if a > b then
+		a, b = b, a
+	end
+	return a .. "-" .. b
+end
+
+function MansionHouse.new(config, templatesById)
+	return setmetatable({
+		config = config,
+		templates = templatesById,
+		lattice = config.Lattice,
+		rooms = {},
+		byId = {},
+		index = { [0] = RoomRects.newIndex(config.Lattice), [1] = RoomRects.newIndex(config.Lattice) },
+		keepOut = {}, -- ground-floor rects nothing may cover: the porches
+	}, MansionHouse)
+end
+
+function MansionHouse:Add(room)
+	room.id = #self.rooms + 1
+	return self:Insert(room)
+end
+
+-- Take back the last room added (the generator trying a route).
+function MansionHouse:RemoveLast()
+	local room = table.remove(self.rooms)
+	self.byId[room.id] = nil
+	for _, floor in MansionHouse.floorsOf(room) do
+		self.index[floor]:Remove(room)
+	end
+end
+
+-- Add a room that already has its id (a finished layout being checked).
+function MansionHouse:Insert(room)
+	table.insert(self.rooms, room)
+	self.byId[room.id] = room
+	for _, floor in MansionHouse.floorsOf(room) do
+		self.index[floor]:Add(room)
+	end
+	return room
+end
+
+-- Whether a room's template lets a doorway sit in its wall facing `dir`.
+function MansionHouse:Socket(room, floor: number, dir: string): boolean
+	local template = self.templates[room.template]
+	local sockets = template and template.mansion and template.mansion.sockets
+	if sockets == nil then
+		return true
+	end
+	local sides = sockets[floor]
+	return sides ~= nil and sides[MansionHouse.localSide(dir, room.rotation or 0)] == true
+end
+
+-- The seam two rooms would share on a floor: the wall (dir from a to b,
+-- line) and the doorway spot along it, or nil if they don't share enough
+-- wall for a doorway.
+function MansionHouse:Seam(a, b, floor: number)
+	local c = RoomRects.contact(a, b)
+	if c == nil or c.to - c.from < self.config.MinShared then
+		return nil
+	end
+	if not self:Socket(a, floor, c.dir) or not self:Socket(b, floor, RoomRects.Opposite[c.dir]) then
+		return nil
+	end
+	local along = RoomRects.doorAlong(c.from, c.to, self.lattice, self.config.DoorCornerClear)
+	if along == nil then
+		return nil
+	end
+	return { dir = c.dir, line = c.line, along = along, from = c.from, to = c.to, floor = floor }
+end
+
+-- Ids of the rooms on a floor that share some wall with a rect.
+function MansionHouse:Neighbours(rect, floor: number): { number }
+	local index = self.index[floor]
+	local l = self.lattice
+	local found, list = {}, {}
+	local function look(x, z)
+		local id = index:At(x, z)
+		if id and id ~= rect.id and not found[id] then
+			found[id] = true
+			table.insert(list, id)
+		end
+	end
+	for x = rect.x, rect.x + rect.w - l, l do
+		look(x, rect.z - l)
+		look(x, rect.z + rect.d)
+	end
+	for z = rect.z, rect.z + rect.d - l, l do
+		look(rect.x - l, z)
+		look(rect.x + rect.w, z)
+	end
+	table.sort(list)
+	return list
+end
+
+-- Every seam a rect has with the rooms already placed: { other, seam }.
+function MansionHouse:SeamsOf(rect)
+	local list = {}
+	for _, floor in MansionHouse.floorsOf(rect) do
+		for _, id in self:Neighbours(rect, floor) do
+			local seam = self:Seam(rect, self.byId[id], floor)
+			if seam then
+				table.insert(list, { other = self.byId[id], seam = seam })
+			end
+		end
+	end
+	return list
+end
+
+function MansionHouse:MaxSeams(room): number
+	local template = self.templates[room.template]
+	return template and template.mansion and template.mansion.maxSeams or math.huge
+end
+
+function MansionHouse:InSite(rect): boolean
+	local c = self.config
+	return rect.x >= -c.SiteHalfWidth
+		and rect.x + rect.w <= c.SiteHalfWidth
+		and rect.z >= c.FrontLine - c.SiteDepth
+		and rect.z + rect.d <= c.FrontLine
+end
+
+-- Whether a candidate room can go where it is: on the site, on free floor,
+-- off the porches, standing on the ground floor if it is upstairs, never
+-- touching another tall room, and not giving any room more seams than its
+-- template allows. Returns the seams it would have when it fits.
+function MansionHouse:Fits(rect)
+	if not self:InSite(rect) then
+		return false
+	end
+	for _, floor in MansionHouse.floorsOf(rect) do
+		if not self.index[floor]:Free(rect) then
+			return false
+		end
+		if floor == 0 then
+			for _, area in self.keepOut do
+				if RoomRects.overlaps(rect, area) then
+					return false
+				end
+			end
+		end
+	end
+	if not rect.tall and rect.floor == 1 and not self.index[0]:Covers(rect) then
+		return false
+	end
+	if rect.tall then
+		for _, floor in { 0, 1 } do
+			for _, id in self:Neighbours(rect, floor) do
+				if self.byId[id].tall then
+					return false
+				end
+			end
+		end
+	end
+	local seams = self:SeamsOf(rect)
+	if #seams > self:MaxSeams(rect) then
+		return false
+	end
+	for _, entry in seams do
+		local max = self:MaxSeams(entry.other)
+		if max < math.huge and self:SeamCount(entry.other) + 1 > max then
+			return false
+		end
+	end
+	return true, seams
+end
+
+function MansionHouse:SeamCount(room): number
+	return #self:SeamsOf(room)
+end
+
+-- Every seam in the finished house, one per pair of rooms, sorted by pair.
+function MansionHouse:AllSeams()
+	local seams = {}
+	for _, floor in { 0, 1 } do
+		for _, room in self.rooms do
+			if MansionHouse.onFloor(room, floor) then
+				for _, id in self:Neighbours(room, floor) do
+					if id > room.id then
+						local seam = self:Seam(room, self.byId[id], floor)
+						if seam then
+							seam.a, seam.b = room.id, id
+							seam.id = "seam:" .. room.id .. "-" .. id
+							table.insert(seams, seam)
+						end
+					end
+				end
+			end
+		end
+	end
+	table.sort(seams, function(p, q)
+		if p.a ~= q.a then
+			return p.a < q.a
+		end
+		return p.b < q.b
+	end)
+	return seams
+end
+
+-- Studs walked around a cycle (or along a path) of room ids: door to door
+-- inside each room, plus a flight of stairs wherever the two doorways are on
+-- different floors.
+function MansionHouse.routeStuds(ids: { number }, seamByPair, config, closed: boolean): number
+	local total = 0
+	local n = #ids
+	for i = 1, n do
+		local prev = ids[i - 1] or (closed and ids[n])
+		local nextId = ids[i + 1] or (closed and ids[1])
+		if prev and nextId then
+			local s1 = seamByPair[MansionHouse.pairKey(prev, ids[i])]
+			local s2 = seamByPair[MansionHouse.pairKey(ids[i], nextId)]
+			if s1 and s2 then
+				local x1, z1 = RoomRects.doorPoint(s1.dir, s1.line, s1.along)
+				local x2, z2 = RoomRects.doorPoint(s2.dir, s2.line, s2.along)
+				total += math.abs(x1 - x2) + math.abs(z1 - z2)
+				if s1.floor ~= s2.floor then
+					total += config.StairStuds
+				end
+			end
+		end
+	end
+	return total
+end
+
+return MansionHouse

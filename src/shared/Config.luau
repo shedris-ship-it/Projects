@@ -144,6 +144,62 @@ Config.Level = {
 	DoorChance = 0.65,
 	LaneHalfWidth = 4, -- doorway-to-centre lanes kept clear of furniture
 	BandDepth = 8, -- furniture lives within this many studs of a wall
+	-- Which generator builds the house: "Cells" (Logic/LevelGraph, today's
+	-- house) or "Mansion" (Logic/MansionGen) once the owner approves it.
+	Mode = "Cells",
+}
+
+-- The mansion generator (docs/plans/mansion-generation.md). Rooms are
+-- rectangles on a 10-stud lattice over two floors; the front of the house
+-- faces south (+z) and nothing is built past the front line (z = 0).
+Config.Mansion = {
+	RoomCount = { 18, 24 }, -- owner, 2026-10-04: rooms over both floors, hallways and stairwells included
+	Lattice = 10,
+	FloorPitch = 11, -- WallHeight plus a 1-stud floor
+	MinShared = 20, -- shared wall that makes two rooms neighbours (a seam)
+	DoorCornerClear = 7, -- door half-width 3 plus lane half-width 4
+	Porch = { along = 14, out = 12 }, -- kept clear outside the front and exit doors
+	FrontLine = 0,
+	Hall = { x = -20, z = -50 }, -- the grand hall's north-west corner; its size comes from the template
+	CorridorWidth = 20, -- closets and alcoves (phase M4) narrow the walkway to about 10-14
+	CorridorLength = { 30, 60 },
+	TurnLength = { 30, 50 },
+	TurnChance = 0.35, -- the public corridor turns once
+	RearCorridorChance = 0.5,
+	StackChance = 0.3, -- a public or rear corridor is repeated upstairs (the service corridor always is)
+	Stairwells = { 1, 2 }, -- owner: the grand stair plus 1-2 stairwells
+	MinExitRooms = 4, -- doorways from the hall to the exit, at least (the service wing's depth)
+	StairStuds = 30, -- path length of one flight, when measuring loops
+	-- Loops in studs, not just rooms: a chase loop counts if it is this long,
+	-- and at least one (the loop between the floors, in practice) must be
+	-- LongLoopStuds. Four 40-stud rooms made 160; four mansion rooms round the
+	-- hall's corner make 100-140. Retune after a playtest (M3/M5).
+	MinLoopStuds = 100,
+	LongLoopStuds = 200,
+	ExtraEdges = { 3, 5 },
+	MaxExtraEdges = 8,
+	LoopLength = { 4, 8 }, -- (doc)
+	MinLoops = 2, -- (doc)
+	MaxDeadEndChain = 2, -- (doc)
+	LanternRooms = { 1, 2 }, -- (doc)
+	MaxAttempts = 10, -- (doc)
+	DoorChance = 0.65,
+	UpperShare = 0.5, -- share of the general rooms that go upstairs
+	SiteHalfWidth = 100, -- wings stay within this many studs east and west of the hall's centre
+	SiteDepth = 130, -- and this far behind the front line
+	-- Candidate scoring when packing rooms (Logic/MansionGen).
+	Placement = {
+		Top = 6, -- weighted pick among this many best candidates
+		Contact = 1, -- per extra neighbour a door could join
+		Loop = 5, -- per neighbour a door would close a 4-8 room loop with
+		Fill = 2, -- joined to a corridor that has nothing off it yet
+		Near = 3, -- per neighbour the template wants to be near
+		Corridor = 1.5, -- joined to a corridor or the hall rather than through another room
+		Chain = 2, -- per room the parent already is from a corridor (dead-end chains)
+		Bridge = 6, -- upstairs: touches both the gallery's side and the back stairs' side
+		Spread = 0.03, -- per stud from the house's middle (keeps it compact)
+		Jitter = 1,
+	},
 }
 
 -- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room has

@@ -1,6 +1,6 @@
 # The mansion: generation design
 
-Status: **design approved by the owner; generator in progress** (2026-10-04). This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
+Status: **M1 done (2026-10-04): the generator, validator and tests exist as pure logic; nothing in Studio uses them yet** (`Config.Level.Mode` is still `"Cells"`). Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
 
 ## 1. The owner's decisions
 
@@ -54,31 +54,42 @@ The house is generated as **architecture first, then rooms**, so it reads like a
    - The exit has an outer wall facing away from the front, with a porch kept clear.
 4. **Upper skeleton.**
    - The gallery is the hall's upper half.
-   - The service corridor is always repeated upstairs (the back stairs serve both floors); other corridors are stacked by chance.
+   - The service corridor is always repeated upstairs (the back stairs serve both floors); other corridors are stacked by chance (`StackChance`, kept low so the house isn't mostly hallway).
    - **The upper floor must be connected on its own.** Two stairs into one connected upper floor always make a **vertical chase loop**: hall → gallery → upper rooms → back stairs → service wing → dining → hall.
-5. **Optional second stairwell** at the end of the public or rear corridor, for a second vertical loop.
+   - A **bridge**, one or two straight corridor pieces over the service wing, joins the gallery's side to the back stairs' upper corridor. When no bridge fits, the upper rooms still try to join the two sides, and the validator rejects the attempt if they don't.
+5. **Optional second stairwell** (about half the houses) at the end of a public or rear corridor. That corridor is always repeated upstairs, so the stairwell opens on both floors and makes a second vertical loop.
 6. **Rooms.**
    - Each floor's programme (ground: public and service rooms; upper: bedrooms, baths, nursery, sewing room and so on) is packed flush against the hall, corridors and placed rooms.
    - Each new room joins by a door to an allowed neighbour (a tree edge).
-   - Candidates are every lattice slide along every wall, in both orientations. They are scored for zone fit, `near` wishes (pantry near kitchen and dining, bath near bedrooms), compactness and extra contacts (more contacts mean more loop options). The pick is weighted among the best.
+   - Candidates are every lattice slide along every wall, in both orientations. Scoring (`Config.Mansion.Placement`) rewards:
+     - a neighbour that a door would close a 4–8 room loop with (`Loop`, the strongest pull)
+     - other neighbours (`Contact`)
+     - `near` wishes (pantry by the kitchen and dining room, bath by the bedrooms)
+     - opening off a corridor or the hall, especially an empty corridor (`Corridor`, `Fill`)
+     - staying compact (`Spread`)
+   - It penalises chains of rooms reached through rooms (`Chain`). The pick is weighted among the best few.
+   - A bathroom goes at most once per floor.
 7. **Doors and loops.**
    - Extra connections come from shared walls, weighted by how much sense the pair makes (public enfilades, the service chain, bedroom↔bath).
-   - Each is accepted only if the fairness contract still holds (section 4).
+   - Each is accepted only if the fairness contract still holds (section 4): the table stays on a shortest path, the exit stays at least `MinExitRooms` doorways from the hall, and the new loop is at least `MinLoopStuds` long.
    - Doors only join allowed zone pairs. Every other shared wall is a solid seam, which a Phantom Architecture doorway can still use.
 8. **Finish.**
-   - Lantern rooms.
-   - Mood pacing, by swapping same-size general templates.
+   - Lantern rooms (never in a stairwell).
    - Window orientation per outer wall stretch, per floor.
+   - Not done yet: mood pacing (the old generator avoids three rooms of one mood in a row). Add it as a pass that swaps same-size general templates if runs feel samey.
 
 ### Which zones may share a door
-| | hall | public | dining | service | private | bath |
-| --- | --- | --- | --- | --- | --- | --- |
-| hall (gallery upstairs) | | ✓ | ✓ | | ✓ | |
-| public | ✓ | ✓ | ✓ | | | ✓ |
-| dining | ✓ | ✓ | | ✓ | | |
-| service | | | ✓ | ✓ | | |
-| private | ✓ | | | | ✓ | ✓ |
-| bath | | ✓ | | | ✓ | |
+The service wing is two zones: the **kitchen** side (kitchen, pantry), which the dining room opens into, and the **service** side behind it (passage, laundry, back stairs, exit). Without the split, a loop door once joined the dining room straight to the garage, and the critical path became hall → dining → exit.
+
+| | hall | public | dining | kitchen | service | private | bath |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| hall (gallery upstairs) | | ✓ | ✓ | | | ✓ | |
+| public | ✓ | ✓ | ✓ | | | | ✓ |
+| dining | ✓ | ✓ | | ✓ | | | |
+| kitchen | | | ✓ | ✓ | ✓ | | |
+| service | | | | ✓ | ✓ | | |
+| private | ✓ | | | | | ✓ | ✓ |
+| bath | | ✓ | | | | ✓ | |
 
 Corridors and stairwells take the zone of their wing on each floor (for example, the back stairs are service downstairs and private upstairs).
 
@@ -91,7 +102,8 @@ Corridors and stairwells take the zone of their wing on each floor (for example,
 ## 3. Data
 - A template from `Data/Rooms.luau` joins the mansion with a `mansion = { ... }` block. The old generator never reads it, and `tests/golden/LevelGraph.txt` proves the old layouts never change. Fields:
   - `floors`, `zone` (or `{ [0] = ..., [1] = ... }`), `size = { w, d }`, `weight`, `max`
-  - `near`, `maxSeams`, `sockets`, `role`
+  - `near`, `perFloor`, `maxSeams`, `sockets`, `role`, `tall`
+  - `hides`, for generated-size rooms (each corridor promises one enterable closet, built in M4)
 - Mansion-only templates (the grand hall, stairwells, corridors) live in `Rooms.MansionExtras`, outside `Rooms.List`, so the old generator and the 40×40 template checks never see them.
 - `Config.Mansion` holds every tunable: room count, lattice, floor pitch, minimum shared wall, door corner clearance, porch, minimum loop length in studs, stair length, number of stairwells, corridor lengths and placement weights.
 
@@ -111,15 +123,23 @@ New, for mansion layouts only:
 - No overlaps on either floor, the porches included. Nothing south of the front line.
 - Upper rooms stand on the ground footprint. Tall rooms never touch each other.
 - Every seam's door spot is valid. Every shared wall with a valid spot has a seam. `maxSeams` and `sockets` are respected. Doors only join allowed zones.
-- The exit is on the ground floor, with its door on an outer wall facing away from the front and a free porch.
-- Each floor is connected on its own (counting tall rooms), so a vertical loop exists.
-- Chase loops are also measured in **studs**: door to door, plus `StairStuds` for each change of floor. Small rooms make short loops, and at least `MinLoops` loops must be `MinLoopStuds` or longer.
+- The exit is on the ground floor, at least `MinExitRooms` (4) doorways from the hall, with its door on an outer wall facing away from the front and a free porch.
+- Each floor is connected on its own (counting tall rooms), and every stairwell opens on both floors, so a vertical loop exists.
+- Chase loops are also measured in **studs**: door to door, plus `StairStuds` (30) for each change of floor.
+  - A 4–8 room loop counts only if it is at least `MinLoopStuds` (100) long, and at least one loop must be `LongLoopStuds` (200) or more. In practice, the loop between the floors is 200–360 studs.
+  - The old plan's 160 for every loop was dropped. Four 40-stud rooms made 160, but four mansion rooms round the hall's corner make 100–140, so nearly every compact loop was refused and houses came out tree-shaped.
+  - **Retune after a playtest:** decide whether short loops make chases too easy or too hard.
+
+### What the generator does (1,000 seeds, 2026-10-04)
+- 70–75% of houses pass on the first attempt (1.4 on average), with no fallbacks. That takes about 40 ms per house in Lune, generation and validation included.
+- Per house: 18–24 rooms, evenly spread; about 7.5 corridors and stairwells and 9.5 general rooms (about 4.3 of them upstairs). Half the houses have a second stairwell.
+- `lune run tools/mansionstats [seeds]` prints these numbers. The authored fallback is seed 61, frozen with `lune run tools/plan 61 mansion freeze`.
 
 ## 5. Phases
 
 | Phase | What | Where | Gate |
 | --- | --- | --- | --- |
-| M1 (this session) | `Logic/RoomRects`, `Logic/FloorPlan` (ASCII plans, fingerprints), `tools/plan`, the golden guard for the old generator, mansion data, the generator, validator rules, property tests, an authored fallback | pure (Lune) | Example plans read like a house; tests green |
+| M1 (**done** 2026-10-04) | `Logic/RoomRects`, `Logic/FloorPlan` (ASCII plans, fingerprints), `tools/plan`, the golden guard for the old generator (`tools/golden`, `Golden.spec`), mansion data, `Logic/MansionHouse` and `Logic/MansionGen`, validator rules, `Mansion.spec`, the authored fallback (`Data/MansionFallback`) | pure (Lune) | Example plans read like a house; tests green |
 | M2 | Builder: two floors, rectangle rooms, per-segment walls and door gaps, the double-height hall with gallery and grand stair, stairwells (walkable ramps under step visuals), porches, windows on outer stretches; `RoomAt` by floor; `Config.Level.Mode` | Studio | Old mode identical (part dump hash); `plan` matches the house; seams line up (`execute_luau`); no console errors |
 | M3 | Navigation and "bare rooms": `Navigator` routes along lanes and up stairs, `RandomPointIn`, peek spots and flank from seams, Companion on stairs, noise damped between floors, the Case File map per floor; F2 `plan`, `layout`, `navtest` | Studio | `navtest` 0 stuck on 3 seeds; hunts work on both floors; 3 clients |
 | M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |

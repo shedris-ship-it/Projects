@@ -107,8 +107,10 @@ local function nodeIds(rooms)
 end
 
 -- Close loops. Candidates are neighbouring rooms without a doorway; a
--- candidate closes a loop of (current distance + 1) rooms.
-local function addLoops(rng, rooms, adjacent, edges, config)
+-- candidate closes a loop of (current distance + 1) rooms. The mansion
+-- (Logic/MansionGen) passes options: accept(pair, edges, loopLength) can turn
+-- a candidate down, and weight(pair) scales its chance.
+local function addLoops(rng, rooms, adjacent, edges, config, options)
 	local ids = nodeIds(rooms)
 	local edgeSet = {}
 	for _, edge in edges do
@@ -117,6 +119,8 @@ local function addLoops(rng, rooms, adjacent, edges, config)
 	local minLoop, maxLoop = config.LoopLength[1], config.LoopLength[2]
 	local wanted = rng:NextInteger(config.ExtraEdges[1], config.ExtraEdges[2])
 	local added = 0
+	local accept = options and options.accept
+	local weight = options and options.weight
 
 	local function candidatesWithin(maxLength: number)
 		local adj = Graph.adjacency(ids, edges)
@@ -126,7 +130,11 @@ local function addLoops(rng, rooms, adjacent, edges, config)
 			if not edgeSet[Graph.edgeKey(pair[1], pair[2])] then
 				local dist = Graph.bfs(adj, pair[1])[pair[2]]
 				local loopLength = dist and dist + 1 or math.huge
-				if loopLength >= minLoop and loopLength <= maxLength then
+				if
+					loopLength >= minLoop
+					and loopLength <= maxLength
+					and (accept == nil or accept(pair, edges, loopLength))
+				then
 					local depthA = depths[pair[1]] == math.huge and 3 or depths[pair[1]]
 					local depthB = depths[pair[2]] == math.huge and 3 or depths[pair[2]]
 					table.insert(list, { pair = pair, length = loopLength, depth = math.max(depthA, depthB) })
@@ -149,7 +157,11 @@ local function addLoops(rng, rooms, adjacent, edges, config)
 			break
 		end
 		addEdge(rng:WeightedPick(list, function(c)
-			return 1 + c.depth * 2.5 + (c.length <= 6 and 1 or 0)
+			local w = 1 + c.depth * 2.5 + (c.length <= 6 and 1 or 0)
+			if weight then
+				w *= weight(c.pair)
+			end
+			return w
 		end))
 	end
 
@@ -177,6 +189,7 @@ local function addLoops(rng, rooms, adjacent, edges, config)
 	end
 	return added
 end
+LevelGraph.addLoops = addLoops
 
 -- Whether a room's wall on a world side faces outside the house.
 local function isOuterSide(room, cells, dirName: string): boolean
@@ -266,12 +279,26 @@ local function assignRoles(rng, rooms, cells, adj, config)
 		deliberation = nil
 	end
 
-	-- Lantern rooms: away from start/exit/deliberation and from each other.
+	local lanterns = LevelGraph.pickLanterns(rng, rooms, adj, function(id)
+		return id == start or id == exit or id == deliberation
+	end, config)
+	return {
+		start = start,
+		exit = exit,
+		deliberation = deliberation,
+		criticalPath = criticalPath,
+		lanterns = lanterns,
+		distances = dist,
+	}
+end
+
+-- Lantern rooms: away from the role rooms (`taken`) and from each other.
+function LevelGraph.pickLanterns(rng, rooms, adj, taken: (number) -> boolean, config): { number }
 	local lanternCount = rng:NextInteger(config.LanternRooms[1], config.LanternRooms[2])
 	local lanterns = {}
 	local candidates = {}
 	for _, room in rooms do
-		if room.id ~= start and room.id ~= exit and room.id ~= deliberation then
+		if not taken(room.id) then
 			table.insert(candidates, room.id)
 		end
 	end
@@ -295,14 +322,7 @@ local function assignRoles(rng, rooms, cells, adj, config)
 		table.insert(lanterns, candidates[1])
 	end
 	table.sort(lanterns)
-	return {
-		start = start,
-		exit = exit,
-		deliberation = deliberation,
-		criticalPath = criticalPath,
-		lanterns = lanterns,
-		distances = dist,
-	}
+	return lanterns
 end
 
 -- Assign a template to every room. Fixed roles first, then weighted picks

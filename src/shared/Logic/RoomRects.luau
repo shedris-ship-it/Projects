@@ -96,52 +96,56 @@ function RoomRects.newIndex(lattice: number)
 	return setmetatable({ lattice = lattice, cells = {} }, Index)
 end
 
-local function key(ix: number, iz: number): string
-	return ix .. "," .. iz
+-- One number per lattice square (no strings: the generator asks millions of
+-- times). Good for lattice coordinates within +-2048 squares of the origin.
+local function key(ix: number, iz: number): number
+	return (ix + 2048) * 4096 + iz + 2048
 end
 
-function Index:Squares(rect)
+-- Calls fn(key) for every lattice square of a rect until it returns false.
+function Index:_each(rect, fn: (number) -> boolean?): boolean
 	local l = self.lattice
-	local list = {}
 	for ix = rect.x / l, (rect.x + rect.w) / l - 1 do
 		for iz = rect.z / l, (rect.z + rect.d) / l - 1 do
-			table.insert(list, key(ix, iz))
+			if fn(key(ix, iz)) == false then
+				return false
+			end
 		end
 	end
-	return list
+	return true
 end
 
 function Index:Add(rect, id)
-	for _, k in self:Squares(rect) do
-		self.cells[k] = id or rect.id
-	end
+	local cells, value = self.cells, id or rect.id
+	self:_each(rect, function(k)
+		cells[k] = value
+		return true
+	end)
 end
 
 function Index:Remove(rect)
-	for _, k in self:Squares(rect) do
-		self.cells[k] = nil
-	end
+	local cells = self.cells
+	self:_each(rect, function(k)
+		cells[k] = nil
+		return true
+	end)
 end
 
 -- Whether no lattice square of the rect is taken.
 function Index:Free(rect): boolean
-	for _, k in self:Squares(rect) do
-		if self.cells[k] ~= nil then
-			return false
-		end
-	end
-	return true
+	local cells = self.cells
+	return self:_each(rect, function(k)
+		return cells[k] == nil
+	end)
 end
 
 -- Whether every lattice square of the rect is taken (an upper room standing
 -- on the ground floor's footprint).
 function Index:Covers(rect): boolean
-	for _, k in self:Squares(rect) do
-		if self.cells[k] == nil then
-			return false
-		end
-	end
-	return true
+	local cells = self.cells
+	return self:_each(rect, function(k)
+		return cells[k] ~= nil
+	end)
 end
 
 -- The room at a point, or nil in the void. A point on a wall line belongs to

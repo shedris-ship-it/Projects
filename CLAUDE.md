@@ -56,7 +56,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (82 as of 2026-10-03)
+lune run tests/run        # unit tests (203 as of 2026-10-04; about 25 s)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -159,6 +159,11 @@ The agreed plan, in order:
    - Next, in order:
      - **the mansion (the owner's next big request, 2026-10-04).** The Halfway House becomes a lived-in 1988 mansion: every run starts in a double-height grand entrance, two floors joined by the grand stair and 1–2 stairwells, 18–24 rooms of 20–40 studs on a 10-stud lattice, generated as architecture (spine, zones, service wing behind the dining room). The design and phases (M1 pure generator, M2 builder, M3 navigation, M4 furnishing and art, M5 retune) are in `docs/plans/mansion-generation.md`; `docs/plans/variable-room-sizes.md` section 5 is still the map of code that assumes 40×40 cells. Read both before opening any file.
      - The owner's planned gameplay rework (physics props, enterable closets, procedural puzzles, the layout changing when unobserved) is recorded there as context; keep the generator compatible with it.
+     - **M1 done (2026-10-04), pure logic only:**
+       - code: `Logic/RoomRects`, `Logic/FloorPlan`, `Logic/MansionHouse`, `Logic/MansionGen`, mansion rules in `Logic/LayoutValidator`, `mansion` blocks in `Data/Rooms`, `Config.Mansion`, `Data/MansionFallback`
+       - tools: `lune run tools/plan <seed> mansion` prints a house, and `tools/mansionstats` prints the tuning numbers; example plans are in `docs/plans/mansion-examples.md`
+       - `tests/golden/LevelGraph.txt` and `Golden.spec` prove the old generator's houses never change. Rerun `lune run tools/golden` only for an approved change.
+       - Next is **M2, the builder, in a local Studio session.**
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.
