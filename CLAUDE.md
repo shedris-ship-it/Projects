@@ -157,7 +157,8 @@ The agreed plan, in order:
      - whether corridors now read as hallways
      - whether moonlit bedrooms are too dark
    - Next, in order:
-     - **variable room sizes (the owner's next big request, 2026-10-04): a local Studio session only.** The full plan, the reordered phases with Studio gates, a map of everything that assumes one room is one 40×40 cell, and a setup playbook are in `docs/plans/variable-room-sizes.md`. Read it before opening any file.
+     - **the mansion (the owner's next big request, 2026-10-04).** The Halfway House becomes a lived-in 1988 mansion: every run starts in a double-height grand entrance, two floors joined by the grand stair and 1–2 stairwells, 18–24 rooms of 20–40 studs on a 10-stud lattice, generated as architecture (spine, zones, service wing behind the dining room). The design and phases (M1 pure generator, M2 builder, M3 navigation, M4 furnishing and art, M5 retune) are in `docs/plans/mansion-generation.md`; `docs/plans/variable-room-sizes.md` section 5 is still the map of code that assumes 40×40 cells. Read both before opening any file.
+     - The owner's planned gameplay rework (physics props, enterable closets, procedural puzzles, the layout changing when unobserved) is recorded there as context; keep the generator compatible with it.
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.

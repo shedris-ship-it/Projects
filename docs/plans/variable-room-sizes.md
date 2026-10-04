@@ -1,6 +1,8 @@
 # Variable room sizes: plan for a local Studio session
 
-Status: **planned, not started** (2026-10-04). Written in a cloud session with no Studio; no game code for this project exists yet. The work is meant for a **local session with Studio and its MCP tools**, because most of the risk is in things only Studio shows: walls lining up, the Guest getting through doors, lights in small rooms.
+Status: **superseded in part by [`mansion-generation.md`](mansion-generation.md)** (2026-10-04: the owner chose a two-floor mansion with a grand entrance). The layout design, target sizes and phases below are replaced by that document; section 5 (the map of code that assumes 40×40 cells) and section 6 (invariants) still apply and are what the mansion's builder, navigation and furnishing phases work from.
+
+Original status: planned, not started (2026-10-04). Written in a cloud session with no Studio; no game code for this project exists yet. The work is meant for a **local session with Studio and its MCP tools**, because most of the risk is in things only Studio shows: walls lining up, the Guest getting through doors, lights in small rooms.
 
 File and line references are as of commit `f41127b` (branch `claude/ecstatic-noether-7skntv`) and may drift by about 20 lines.
 

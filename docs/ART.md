@@ -2,6 +2,8 @@
 
 > **Status:** approved (2026-10-02). The owner chose the 1988 setting, The Guest concept, P.T. as the reference, a **Moderate** content rating, and a narrow-corridor prototype. The before-shots it refers to are in [`baseline/2026-10-02`](baseline/2026-10-02/README.md).
 
+> **Owner's decision (2026-10-04):** the house becomes an **old mansion, still lived in, in 1988**: the same era, props and P.T. mood, with grand architecture (a double-height entrance hall with a split staircase and gallery, panelling, chandeliers, portraits) over two floors. See [`plans/mansion-generation.md`](plans/mansion-generation.md). This guide is updated for the mansion in phase M4; until then its rules still apply room by room.
+
 This is the short guide every visual change follows. It applies design doc section 8: spend on **lighting first, then materials, then composition, then props**, and keep the stalker's silhouette readable.
 
 ## The look in one line

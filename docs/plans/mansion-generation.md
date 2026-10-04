@@ -1,0 +1,131 @@
+# The mansion: generation design
+
+Status: **design approved by the owner; generator in progress** (2026-10-04). This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
+
+## 1. The owner's decisions
+
+The owner asked for this on 2026-10-04 ("I want really advanced procedural generation, it all needs to come together in a way that makes sense"). Decisions so far:
+
+| Topic | Decision |
+| --- | --- |
+| Theme | An **old mansion, still lived in, in 1988**. It keeps every 1988 prop and outfit, and adds grand architecture: staircase, panelling, chandeliers, portraits. P.T. is still the mood reference. |
+| Start | Every run starts in the **grand entrance**. The front door shuts behind the squad. |
+| Floors | **Two floors.** The grand staircase in the entrance, plus **1–2 stairwells**. |
+| Size | **18–24 rooms** in all, counting hallways and stairwells. |
+| Room sizes | 20, 30 or 40 studs a side on a 10-stud lattice. **Only the grand entrance is bigger** (about 40×50, double height, with a split staircase up to a balcony gallery). |
+| Old house | The old generator (`Logic/LevelGraph`) stays the default (`Config.Level.Mode = "Cells"`) until the owner approves the mansion. |
+
+### Future gameplay the generator must leave room for (owner's notes, not built yet)
+- Most objects interactable; small ones physical (pick up, throw, stun the Guest briefly); closets you physically get into and close.
+- Procedural puzzles that are fun minigames in their own right (the owner's example: Fallout's terminals), not "find the runes".
+- House changes that matter for play (a door becomes a wall and closes a loop) or are unsettling, and **the layout changing only after players are used to it, and only where nobody can see**.
+- More variety and unpredictability per run.
+
+How the generator leaves room for this:
+- Every pair of rooms that share enough wall has a seam with a valid door spot, open or not. A later system can flip seams for everyone while unobserved, and the pure validator can check the new door set first.
+- Rooms carry a `zone` (public, service, private), so puzzles and props have context.
+- Seams can carry a future `locked` flag for key and lock puzzles; reachability is plain graph search.
+- The furnishing solver (M4) reserves use-space in front of interactive and enterable furniture.
+
+## 2. The house grammar
+
+The house is generated as **architecture first, then rooms**, so it reads like a real building rather than a pile of boxes.
+
+**Frame.**
+- Rooms are rectangles on a 10-stud lattice: `{ id, floor, tall, x, z, w, d, template, rotation, zone, role, lantern, mood }`, with x and z the north-west corner in studs from `Config.Level.Origin`.
+- Floor 0 is the ground floor and floor 1 the upper floor, `Config.Mansion.FloorPitch` apart.
+- The front of the house faces south (+z). Nothing is built south of the front line.
+
+**Tall rooms.**
+- The grand hall and the stairwells span both floors as **one graph node**.
+- Two tall rooms never touch, so any pair of rooms meets on at most one floor and has at most one seam.
+- Every upper room stands on the ground floor's footprint.
+
+**Steps:**
+1. **Grand hall** (the start), front-centre.
+   - The front door is on the south wall, with a porch kept clear.
+   - Ground-floor doors can go on its other three walls; upper doors only where the gallery runs (north, east and west).
+2. **Spine.**
+   - A **public corridor** leaves the hall on one side and may turn once.
+   - An optional **rear corridor** leaves the back.
+   - Corridors are 20-wide strips, 30–60 long. Closets and alcoves (M4) narrow the walkway to about 10–14, like the corridors the owner likes, and give enterable hiding spots.
+3. **Service wing**, on the hall's other side: **dining room → kitchen → service corridor**, then the **back stairs** and the **exit** (mudroom or garage) at the rear.
+   - The dining room is the only ground-floor way into the service wing, which puts the Deliberation Table on the start→exit critical path (doc section 3) because the house is built that way, not by luck.
+   - The exit has an outer wall facing away from the front, with a porch kept clear.
+4. **Upper skeleton.**
+   - The gallery is the hall's upper half.
+   - The service corridor is always repeated upstairs (the back stairs serve both floors); other corridors are stacked by chance.
+   - **The upper floor must be connected on its own.** Two stairs into one connected upper floor always make a **vertical chase loop**: hall → gallery → upper rooms → back stairs → service wing → dining → hall.
+5. **Optional second stairwell** at the end of the public or rear corridor, for a second vertical loop.
+6. **Rooms.**
+   - Each floor's programme (ground: public and service rooms; upper: bedrooms, baths, nursery, sewing room and so on) is packed flush against the hall, corridors and placed rooms.
+   - Each new room joins by a door to an allowed neighbour (a tree edge).
+   - Candidates are every lattice slide along every wall, in both orientations. They are scored for zone fit, `near` wishes (pantry near kitchen and dining, bath near bedrooms), compactness and extra contacts (more contacts mean more loop options). The pick is weighted among the best.
+7. **Doors and loops.**
+   - Extra connections come from shared walls, weighted by how much sense the pair makes (public enfilades, the service chain, bedroom↔bath).
+   - Each is accepted only if the fairness contract still holds (section 4).
+   - Doors only join allowed zone pairs. Every other shared wall is a solid seam, which a Phantom Architecture doorway can still use.
+8. **Finish.**
+   - Lantern rooms.
+   - Mood pacing, by swapping same-size general templates.
+   - Window orientation per outer wall stretch, per floor.
+
+### Which zones may share a door
+| | hall | public | dining | service | private | bath |
+| --- | --- | --- | --- | --- | --- | --- |
+| hall (gallery upstairs) | | ✓ | ✓ | | ✓ | |
+| public | ✓ | ✓ | ✓ | | | ✓ |
+| dining | ✓ | ✓ | | ✓ | | |
+| service | | | ✓ | ✓ | | |
+| private | ✓ | | | | ✓ | ✓ |
+| bath | | ✓ | | | ✓ | |
+
+Corridors and stairwells take the zone of their wing on each floor (for example, the back stairs are service downstairs and private upstairs).
+
+### Seams
+- Two rooms on the same floor are neighbours when they share at least 20 studs of wall and a valid door spot exists. One seam per pair: `{ id = "seam:a-b", a, b, floor, dir, line, along, connected, door }`.
+- The door spot is the lattice point nearest the middle of the shared wall, at least 7 studs from either end (door half-width 3 plus lane half-width 4).
+- `sockets` restrict which template sides can take a seam on each floor (the hall's front wall; a stairwell's foot and head).
+- `maxSeams` caps busy small rooms (a bathroom has at most 2).
+
+## 3. Data
+- A template from `Data/Rooms.luau` joins the mansion with a `mansion = { ... }` block. The old generator never reads it, and `tests/golden/LevelGraph.txt` proves the old layouts never change. Fields:
+  - `floors`, `zone` (or `{ [0] = ..., [1] = ... }`), `size = { w, d }`, `weight`, `max`
+  - `near`, `maxSeams`, `sockets`, `role`
+- Mansion-only templates (the grand hall, stairwells, corridors) live in `Rooms.MansionExtras`, outside `Rooms.List`, so the old generator and the 40×40 template checks never see them.
+- `Config.Mansion` holds every tunable: room count, lattice, floor pitch, minimum shared wall, door corner clearance, porch, minimum loop length in studs, stair length, number of stairwells, corridor lengths and placement weights.
+
+## 4. Validator (`Logic/LayoutValidator`, mansion rules)
+The existing graph rules still apply, with room count from `Config.Mansion`:
+- connected
+- at least 2 independent loops
+- girth at least 4 rooms
+- at least 2 chase loops of 4–8 rooms
+- dead ends at most 2 deep
+- hiding spots at least half the room count
+- the exit not the start
+- the Deliberation Table on a shortest start→exit path
+- a Lantern room
+
+New, for mansion layouts only:
+- No overlaps on either floor, the porches included. Nothing south of the front line.
+- Upper rooms stand on the ground footprint. Tall rooms never touch each other.
+- Every seam's door spot is valid. Every shared wall with a valid spot has a seam. `maxSeams` and `sockets` are respected. Doors only join allowed zones.
+- The exit is on the ground floor, with its door on an outer wall facing away from the front and a free porch.
+- Each floor is connected on its own (counting tall rooms), so a vertical loop exists.
+- Chase loops are also measured in **studs**: door to door, plus `StairStuds` for each change of floor. Small rooms make short loops, and at least `MinLoops` loops must be `MinLoopStuds` or longer.
+
+## 5. Phases
+
+| Phase | What | Where | Gate |
+| --- | --- | --- | --- |
+| M1 (this session) | `Logic/RoomRects`, `Logic/FloorPlan` (ASCII plans, fingerprints), `tools/plan`, the golden guard for the old generator, mansion data, the generator, validator rules, property tests, an authored fallback | pure (Lune) | Example plans read like a house; tests green |
+| M2 | Builder: two floors, rectangle rooms, per-segment walls and door gaps, the double-height hall with gallery and grand stair, stairwells (walkable ramps under step visuals), porches, windows on outer stretches; `RoomAt` by floor; `Config.Level.Mode` | Studio | Old mode identical (part dump hash); `plan` matches the house; seams line up (`execute_luau`); no console errors |
+| M3 | Navigation and "bare rooms": `Navigator` routes along lanes and up stairs, `RandomPointIn`, peek spots and flank from seams, Companion on stairs, noise damped between floors, the Case File map per floor; F2 `plan`, `layout`, `navtest` | Studio | `navtest` 0 stuck on 3 seeds; hunts work on both floors; 3 clients |
+| M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |
+| M5 | Retune lights, dust and stalker distances; docs; with the owner's approval `Mode = "Mansion"` | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
+
+## 6. Risks
+- **Stairs are new for everything that moves.** The Guest and the Companion use `Humanoid` movement, so walkable ramps are the safe base. `Navigator` needs waypoints with height. Noise and sight across floors need rules.
+- **Bigger house, same squad.** 18–24 rooms spread 2–4 players thinner. The stalker's distances and the Director need a review once it's playable.
+- **The slice hasn't passed Gate 2** (fun with friends), and the owner is planning a gameplay rework. The generator is kept independent of the current anomaly and evidence systems so it survives that rework.
