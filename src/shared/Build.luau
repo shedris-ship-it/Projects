@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.5",
-	note = "the mansion is the default house (F2 layout cells for the old one)",
+	id = "2026-10-04.6",
+	note = "M3 groundwork: the walk graph, stair geometry shared, furniture keeps rooms' middles clear",
 }

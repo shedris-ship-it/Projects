@@ -76,6 +76,33 @@ function MansionHouse.localSide(dir: string, rotation: number): string
 	return DIR_ORDER[(index - 1 + rotation) % 4 + 1]
 end
 
+-- A room's doorways in its own frame, as Logic/RoomFit takes them: its seams,
+-- the exit and the front door, on the storey its furniture stands on (the
+-- ground storey of a double-height room).
+function MansionHouse.fitDoors(layout, room)
+	local storey = room.tall and 0 or (room.floor or 0)
+	local doors = {}
+	local function add(side: string, x: number, z: number)
+		local lx, lz = RoomRects.toLocal(room, room.rotation, x, z)
+		local localSide = MansionHouse.localSide(side, room.rotation or 0)
+		table.insert(doors, { side = localSide, along = (localSide == "N" or localSide == "S") and lx or lz })
+	end
+	for _, seam in layout.seams do
+		if (seam.floor or 0) == storey and (seam.a == room.id or seam.b == room.id) then
+			local side = seam.a == room.id and seam.dir or RoomRects.Opposite[seam.dir]
+			add(side, RoomRects.doorPoint(seam.dir, seam.line, seam.along))
+		end
+	end
+	if storey == 0 then
+		for _, door in { layout.exitDoor or false, layout.frontDoor or false } do
+			if door and door.room == room.id then
+				add(door.dir, RoomRects.doorPoint(door.dir, door.line, door.along))
+			end
+		end
+	end
+	return doors
+end
+
 function MansionHouse.pairKey(a: number, b: number): string
 	if a > b then
 		a, b = b, a

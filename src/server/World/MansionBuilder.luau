@@ -23,6 +23,7 @@ local LevelGraph = require(Shared.Logic.LevelGraph)
 local MansionHouse = require(Shared.Logic.MansionHouse)
 local RoomFit = require(Shared.Logic.RoomFit)
 local RoomRects = require(Shared.Logic.RoomRects)
+local TallRooms = require(Shared.Logic.TallRooms)
 local PropFactory = require(Shared.World.PropFactory)
 local WindowView = require(Shared.Logic.WindowView)
 local Dressing = require(script.Parent.Dressing)
@@ -45,11 +46,11 @@ local DIRS = LevelBuilder.WorldDirs
 local OPPOSITE = RoomRects.Opposite
 local UP = Vector3.new(0, 1, 0)
 
--- The hall's gallery and staircase, in the hall's own frame (40x50).
-local GALLERY = 8 -- depth of the gallery along the north, east and west walls
-local STAIR_HALF = 5 -- half the staircase's width
-local STAIR_FOOT = 5.5 -- z of the bottom step; it rises north to the gallery
-local RAIL = 3.2 -- railing height
+-- The hall's gallery and staircase, in the hall's own frame (40x50). The
+-- numbers live in Logic/TallRooms, which the walkers' graph reads too.
+local STAIR_HALF = TallRooms.Hall.StairHalf
+local STAIR_FOOT = TallRooms.Hall.StairFoot
+local RAIL = TallRooms.Hall.Rail
 
 local function origin(): Vector3
 	local o = Config.Level.Origin
@@ -295,9 +296,10 @@ end
 -- back wall at -25 to the front door at +25). `doorsAt(floor, side)` lists
 -- the doorway offsets along a wall. Returns its sconces' lights.
 local function buildGrandHall(model, roomCF: CFrame, roomId: number, inner, floorSurface, doorsAt)
-	local top = PITCH
-	local edgeZ = -inner.z + GALLERY -- the north strip's open edge
-	local edgeX = inner.x - GALLERY -- the side strips' open edges
+	local shape = TallRooms.hall(inner, PITCH)
+	local top = shape.top
+	local edgeZ = shape.edgeZ -- the north strip's open edge
+	local edgeX = shape.edgeX -- the side strips' open edges
 	local function slab(name, x0, x1, z0, z1)
 		PropFactory.part(
 			model,
@@ -404,9 +406,10 @@ end
 -- the north end; flight two comes back up the east half to the upper landing
 -- over the entrance.
 local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surface, floorSurface)
-	local half = PITCH / 2
-	local landingZ = -inner.z + 8 -- the half landing's edge
-	local upperZ = inner.z - 8 -- the upper landing's edge
+	local shape = TallRooms.stairwell(inner, PITCH)
+	local half = shape.half
+	local landingZ = shape.landingZ -- the half landing's edge
+	local upperZ = shape.upperZ -- the upper landing's edge
 	-- Half landing: solid up to its floor.
 	PropFactory.part(
 		model,
@@ -427,12 +430,12 @@ local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surf
 		floorSurface.material,
 		{ variant = floorSurface.variant }
 	)
-	local w = inner.x - 0.5
+	local w = shape.width
 	flight(
 		model,
 		roomCF,
-		Vector3.new(-(w / 2 + 0.5), 0, upperZ),
-		Vector3.new(-(w / 2 + 0.5), half, landingZ),
+		Vector3.new(-shape.flightX, 0, upperZ),
+		Vector3.new(-shape.flightX, half, landingZ),
 		w,
 		0,
 		floorSurface
@@ -440,8 +443,8 @@ local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surf
 	flight(
 		model,
 		roomCF,
-		Vector3.new(w / 2 + 0.5, half, landingZ),
-		Vector3.new(w / 2 + 0.5, PITCH, upperZ),
+		Vector3.new(shape.flightX, half, landingZ),
+		Vector3.new(shape.flightX, PITCH, upperZ),
 		w,
 		0,
 		floorSurface
@@ -729,21 +732,9 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 
 		-- Contents: the template's furniture fitted to this room's size and
 		-- doorways (the ground storey's, for a double-height room).
-		local doors = {}
+		local doors = MansionHouse.fitDoors(layout, room)
 		for side in DIRS do
 			for _, entry in openingsOf(room, baseFloor, side) do
-				local point = Vector3.new(o.X, floorY, o.Z)
-				if side == "N" or side == "S" then
-					point += Vector3.new(room.x + hx + entry.offset, 0, side == "N" and room.z or room.z + room.d)
-				else
-					point += Vector3.new(side == "W" and room.x or room.x + room.w, 0, room.z + hz + entry.offset)
-				end
-				local localPoint = roomCF:PointToObjectSpace(point)
-				local localSide = MansionHouse.localSide(side, room.rotation)
-				table.insert(doors, {
-					side = localSide,
-					along = (localSide == "N" or localSide == "S") and localPoint.X or localPoint.Z,
-				})
 				if entry.exit then
 					record.sides[side].exit = true
 				end

@@ -206,6 +206,18 @@ Config.Mansion = {
 	},
 }
 
+-- Walking the house (docs/plans/mansion-generation.md, M3): the graph that
+-- picks the way (Logic/NavGraph), the walker that follows it on the navmesh
+-- (Stalker/Walker) and the sweeps that keep every move out of the walls
+-- (Stalker/Clearance). The Guest and the Companion share all of it.
+Config.Nav = {
+	Approach = 3.5, -- studs into a room in front of a doorway
+	Clearance = 1.2, -- half the Guest's width plus a margin: routes keep this far from furniture
+	DoorCost = 12, -- studs a closed door is worth (opening it takes 1.5-3 s)
+	SeamFactor = 1.6, -- Phantom Architecture's twist: walking through a solid seam costs this much more
+	AttachRise = 3.5, -- a point joins graph nodes no further above or below it than this
+}
+
 -- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room has
 -- one motivated key light that casts shadows (doc section 8), with a long reach
 -- so it throws a pool of light that fades into real darkness. Values tuned in

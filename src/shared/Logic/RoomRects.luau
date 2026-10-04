@@ -19,6 +19,35 @@ function RoomRects.center(rect): (number, number)
 	return rect.x + rect.w / 2, rect.z + rect.d / 2
 end
 
+-- A room's own frame, as the builders turn it (CFrame.new(centre) *
+-- CFrame.Angles(0, rotation * pi / 2, 0)): local x, z to layout x, z and back.
+local COS = { 1, 0, -1, 0 } -- by rotation + 1
+local SIN = { 0, 1, 0, -1 }
+
+function RoomRects.toWorld(rect, rotation: number?, lx: number, lz: number): (number, number)
+	local cx, cz = RoomRects.center(rect)
+	local r = (rotation or 0) % 4 + 1
+	local c, s = COS[r], SIN[r]
+	return cx + lx * c + lz * s, cz - lx * s + lz * c
+end
+
+function RoomRects.toLocal(rect, rotation: number?, wx: number, wz: number): (number, number)
+	local cx, cz = RoomRects.center(rect)
+	local dx, dz = wx - cx, wz - cz
+	local r = (rotation or 0) % 4 + 1
+	local c, s = COS[r], SIN[r]
+	return dx * c - dz * s, dx * s + dz * c
+end
+
+-- The inner faces of a room's walls, as half extents in its own frame.
+function RoomRects.innerOf(rect, rotation: number?, wall: number)
+	local hx, hz = rect.w / 2, rect.d / 2
+	if (rotation or 0) % 2 == 1 then
+		hx, hz = hz, hx
+	end
+	return { x = hx - wall, z = hz - wall }
+end
+
 -- Interiors intersect (touching walls is not an overlap). Floors are not
 -- checked here.
 function RoomRects.overlaps(a, b): boolean

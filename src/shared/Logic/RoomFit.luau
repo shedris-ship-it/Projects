@@ -11,6 +11,8 @@
 --     else left out: the essentials (hiding spots, the Deliberation Table, the
 --     key light) are placed first, so they get first pick of the space.
 --   * Wall items (decor, tell slots, the Case Board) keep clear of doorways.
+--   * Solid furniture never reaches into the room's clear middle (beyond the
+--     wall band), where The Guest's routes cross the room (Logic/NavGraph).
 --
 -- All coordinates are in the template's own frame (x east, z south, origin
 -- at the floor centre, before the room is turned). Pure: no engine calls.
@@ -136,6 +138,9 @@ function RoomFit.fit(template, source, inner, doors)
 	end
 	local kept = {} -- boxes of solid props placed so far
 	local dropped = {}
+	-- The clear middle: everything further than the band from every wall.
+	local mx, mz = math.max(0, inner.x - RoomFit.Band), math.max(0, inner.z - RoomFit.Band)
+	local middle = { x0 = -mx, x1 = mx, z0 = -mz, z1 = mz }
 
 	local function clear(cx: number, cz: number, ex: number, ez: number, isSolid: boolean): boolean
 		if math.abs(cx) + ex > inner.x + 0.01 or math.abs(cz) + ez > inner.z + 0.01 then
@@ -148,6 +153,9 @@ function RoomFit.fit(template, source, inner, doors)
 			end
 		end
 		if isSolid then
+			if overlaps(b, middle, 0) then
+				return false
+			end
 			for _, k in kept do
 				if overlaps(b, k, 0.2) then
 					return false
@@ -190,20 +198,24 @@ function RoomFit.fit(template, source, inner, doors)
 		-- Another wall, at the same distance from it.
 		local gap = alongX and (inner.z - math.abs(z) - ez) or (inner.x - math.abs(x) - ex)
 		if gap < RoomFit.Band then
-			for _, side in { "N", "E", "S", "W" } do
-				local turn = WALL_TURN[side]
-				local wx, wz = RoomFit.footprint(prop.kind, turn)
-				local cx, cz, onX
-				if side == "N" or side == "S" then
-					cz = (side == "N" and -1 or 1) * (inner.z - gap - wz)
-					cx, onX = 0, true
-				else
-					cx = (side == "W" and -1 or 1) * (inner.x - gap - wx)
-					cz, onX = 0, false
-				end
-				local sx, sz = slide(cx, cz, wx, wz, isSolid, onX)
-				if sx then
-					return sx, sz, turn
+			-- Facing the room first, then lengthways along the wall (a bed too
+			-- long to stand out from a small room's wall lies along it).
+			for _, quarter in { 0, 90 } do
+				for _, side in { "N", "E", "S", "W" } do
+					local turn = (WALL_TURN[side] + quarter) % 360
+					local wx, wz = RoomFit.footprint(prop.kind, turn)
+					local cx, cz, onX
+					if side == "N" or side == "S" then
+						cz = (side == "N" and -1 or 1) * (inner.z - gap - wz)
+						cx, onX = 0, true
+					else
+						cx = (side == "W" and -1 or 1) * (inner.x - gap - wx)
+						cz, onX = 0, false
+					end
+					local sx, sz = slide(cx, cz, wx, wz, isSolid, onX)
+					if sx then
+						return sx, sz, turn
+					end
 				end
 			end
 		end
