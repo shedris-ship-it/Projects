@@ -145,6 +145,9 @@ New, for mansion layouts only:
 | M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |
 | M5 | Retune lights, dust and stalker distances; docs; with the owner's approval `Mode = "Mansion"` | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
 
+### M2 Gate A baseline (taken 2026-10-04)
+Build `2026-10-04.3`, old mode, F2 `seed 1800820264` then `start`: 15 rooms on the first attempt, matching `lune run tools/plan 1800820264`. Running `tools/studio/partdump.luau` through `execute_luau` (Server) gave **parts 2151, hash 1550694282** on two fresh runs. After the builder is rewritten for rectangles, the old mode must give the same two numbers. If it doesn't, change the script to return the differing lines.
+
 ## 6. Risks
 - **Stairs are new for everything that moves.** The Guest and the Companion use `Humanoid` movement, so walkable ramps are the safe base. `Navigator` needs waypoints with height. Noise and sight across floors need rules.
 - **Bigger house, same squad.** 18–24 rooms spread 2–4 players thinner. The stalker's distances and the Director need a review once it's playable.
