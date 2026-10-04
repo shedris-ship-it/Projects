@@ -40,7 +40,7 @@ In **Game Settings** (after publishing the place once):
 - **Solo:** press **Play**. A Companion Witness joins solo runs so you can still anchor things.
 - **Squad:** **Test → Clients and Servers → 2–4 players → Start**. Divergence bugs only show up with two or more clients (doc section 7), so test like this daily.
 
-In the hub, take a tool from a pedestal (or the side panel), set the contract's difficulty and press **Ready**. The run starts when everyone in the hub is ready.
+In the hub, set the contract's difficulty and press **Ready**. The run starts when everyone in the hub is ready. Tools are found in the house, on tables, desks and dressers: walk up and press **E** to take one.
 
 ---
 
@@ -49,7 +49,9 @@ In the hub, take a tool from a pedestal (or the side panel), set the contract's 
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Witness (hold) | **Q** | LB | Witness button |
-| Use tool | **R** | RB | Tool button |
+| Use the tool in your hands | **R** | RB | Tool button |
+| Choose a slot (1 is the flashlight, 2 and 3 are found tools) | **1 2 3** or mouse wheel | D-pad down (next) | Tap a slot |
+| Put the tool in your hands down | **X** | none | none |
 | Flashlight | **F** | D-pad up | Light button |
 | Sprint (walking is slow on purpose) | **Shift** | L3 | Run button |
 | Ping wheel (hold, aim, release) | **G** | D-pad left | Ping button |

@@ -1,15 +1,32 @@
--- Primary tools (doc section 6): Witness Camera, Lantern, Radio, Plumb Line.
--- Also lights Lantern shrines, which make a room safe to rest in.
+-- Tools (doc section 6; owner, 2026-10-04): the Witness Camera, Lantern, Radio
+-- and Plumb Line are found around the house, not picked in the hub. Each player
+-- has three slots (Logic/Inventory): slot 1 is the flashlight, always, and 2 and
+-- 3 hold found tools, one thing in your hands at a time. This service owns the
+-- inventories, the pickups lying on tables, what each tool does, and Lantern
+-- shrines (which make a room safe to rest in).
+--
+-- Players are told only the slot ids, which slot is in their hands, and film;
+-- `PA.Tool` stays "the tool in your hands now" so everything that read it
+-- before (Witness pings, the Radio signal) keeps working.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Assets = require(Shared.Assets)
 local Net = require(Shared.Net)
+local Tools = require(Shared.Data.Tools)
+local Inventory = require(Shared.Logic.Inventory)
+local ToolPlacement = require(Shared.Logic.ToolPlacement)
 local Rng = require(Shared.Lib.Rng)
+local Sfx = require(Shared.Lib.Sfx)
+
+local Dressing = require(script.Parent.Parent.World.Dressing)
+local ToolPickups = require(script.Parent.Parent.World.ToolPickups)
 
 local PA = Constants.PlayerAttributes
 
@@ -17,6 +34,9 @@ local ToolService = {}
 
 local lastUse: { [Player]: number } = {}
 local lanterns: { [Player]: PointLight } = {}
+local inventories: { [Player]: any } = {}
+local pickups: { [string]: { item: any, model: Model } } = {} -- uid -> the tool lying in the house
+local nextUid = 0
 
 function ToolService:Init(services)
 	self.services = services
@@ -51,6 +71,28 @@ function ToolService:Start()
 	Net.onServer("UseTool", { interval = 0.25, types = { "string?", "Vector3?" } }, function(player, targetId, position)
 		self:Use(player, targetId, position)
 	end)
+	Net.onServer("SelectSlot", { interval = 0.08, burst = 8, types = { "number" } }, function(player, slot)
+		self:SelectSlot(player, slot)
+	end)
+	Net.onServer("DropItem", { interval = 0.4, types = {} }, function(player)
+		self:DropHeld(player)
+	end)
+	-- A player who goes down, is lost or leaves the house leaves their tools behind
+	-- for the squad to pick up.
+	self.PlayerState.Downed:Connect(function(player)
+		self:_dropAll(player)
+	end)
+	self.PlayerState.Lost:Connect(function(player)
+		self:_dropAll(player)
+	end)
+	self.PlayerState.Extracted:Connect(function(player)
+		self:_dropAll(player)
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		self:_dropAll(player)
+		inventories[player] = nil
+		lastUse[player] = nil
+	end)
 
 	-- Radio static: how close the stalker is, muddied by Drift.
 	local accumulator = 0
@@ -78,17 +120,14 @@ function ToolService:Start()
 	end)
 end
 
-function ToolService:BeginRun(players: { Player })
-	local solo = #players == 1
+function ToolService:BeginRun(players: { Player }, rng)
 	for _, player in players do
-		local tool = player:GetAttribute(PA.Tool)
-		player:SetAttribute(
-			PA.Film,
-			tool == "Camera" and (solo and Config.Tools.CameraFilmSolo or Config.Tools.CameraFilm) or 0
-		)
+		inventories[player] = Inventory.new()
 		player:SetAttribute("RadioSignal", nil)
 		lastUse[player] = nil
+		self:_publish(player)
 	end
+	self:_spawnWorldTools(rng, #players)
 end
 
 function ToolService:EndRun()
@@ -97,6 +136,223 @@ function ToolService:EndRun()
 		lanterns[player] = nil
 		if player.Parent then
 			player:SetAttribute("LanternOn", false)
+		end
+	end
+	for uid, entry in pickups do
+		entry.model:Destroy()
+		pickups[uid] = nil
+	end
+	for player in inventories do
+		inventories[player] = nil
+		if player.Parent then
+			for _, name in PA.Slots do
+				player:SetAttribute(name, nil)
+			end
+			player:SetAttribute(PA.ActiveSlot, nil)
+			player:SetAttribute(PA.Tool, nil)
+			player:SetAttribute(PA.Film, 0)
+		end
+	end
+end
+
+-- Inventory ---------------------------------------------------------------------
+
+-- Is the flashlight what's in this player's hands? True outside a run, where
+-- there is no inventory to say otherwise (PlayerStateService refuses a light
+-- when it isn't).
+function ToolService:TorchHeld(player: Player): boolean
+	local inv = inventories[player]
+	return inv == nil or Inventory.torchHeld(inv)
+end
+
+-- Tell the player what they carry. Their hands drive everything else: the held
+-- tool id, film on the camera, and a lit lantern going out when it's put away.
+function ToolService:_publish(player: Player)
+	local inv = inventories[player]
+	if not inv then
+		return
+	end
+	for slot, id in Inventory.ids(inv) do
+		player:SetAttribute(PA.Slots[slot], id)
+	end
+	player:SetAttribute(PA.ActiveSlot, inv.active)
+	local held = Inventory.heldId(inv)
+	player:SetAttribute(PA.Tool, held ~= Inventory.TORCH and held or nil)
+	local film = 0
+	for _, item in inv.slots do
+		if item and item.id == "Camera" then
+			film = item.film or 0
+			if item == Inventory.held(inv) then
+				break
+			end
+		end
+	end
+	player:SetAttribute(PA.Film, film)
+	local light = lanterns[player]
+	if light and held ~= "Lantern" then
+		light:Destroy()
+		lanterns[player] = nil
+		player:SetAttribute("LanternOn", false)
+	end
+end
+
+function ToolService:SelectSlot(player: Player, slot)
+	local inv = inventories[player]
+	if not inv or type(slot) ~= "number" or not self.PlayerState:CanAct(player) then
+		return
+	end
+	if Inventory.select(inv, slot) then
+		if not Inventory.torchHeld(inv) then
+			self.PlayerState:SetFlashlight(player, false)
+		end
+		self:_publish(player)
+	end
+end
+
+-- F on the keyboard: the torch comes out first if something else is in your hands.
+function ToolService:OnFlashlightRequest(player: Player, on: boolean)
+	local inv = inventories[player]
+	if on and inv and not Inventory.torchHeld(inv) and self.PlayerState:CanAct(player) then
+		Inventory.select(inv, Inventory.TORCH_SLOT)
+		self:_publish(player)
+	end
+	self.PlayerState:SetFlashlight(player, on)
+end
+
+function ToolService:DropHeld(player: Player)
+	local inv = inventories[player]
+	if not inv or not self.PlayerState:CanAct(player) or inv.active <= Inventory.TORCH_SLOT then
+		return
+	end
+	local item = Inventory.drop(inv, inv.active)
+	if item then
+		self:_putDown(player, item)
+		self:_publish(player)
+	end
+end
+
+function ToolService:_dropAll(player: Player)
+	local inv = inventories[player]
+	if not inv then
+		return
+	end
+	for _, item in Inventory.dropAll(inv) do
+		self:_putDown(player, item)
+	end
+	self:_publish(player)
+end
+
+-- World pickups -----------------------------------------------------------------
+
+local function newUid(): string
+	nextUid += 1
+	return "tool:" .. nextUid
+end
+
+-- Leave a tool lying somewhere: `cframe` is on the surface, `yaw` turns it.
+function ToolService:_makePickup(item, cframe: CFrame, yaw: number)
+	local folder = self.World.folder
+	if not folder then
+		return
+	end
+	local holder = folder:FindFirstChild("ToolPickups")
+	if not holder then
+		holder = Instance.new("Folder")
+		holder.Name = "ToolPickups"
+		holder.Parent = folder
+	end
+	local uid = item.uid
+	local model = ToolPickups.make(holder, item, cframe, yaw, function(player)
+		self:_take(player, uid)
+	end)
+	if model then
+		pickups[uid] = { item = item, model = model }
+	end
+end
+
+-- Where a put-down tool lands: on the floor a stride in front of the player,
+-- stopping short of a wall.
+function ToolService:_putDown(player: Player, item)
+	local root = self.PlayerState:Root(player)
+	if not root then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local feet = root.Position - Vector3.new(0, (humanoid and humanoid.HipHeight or 2) + root.Size.Y / 2, 0)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	forward = forward.Magnitude > 0.1 and forward.Unit or Vector3.new(0, 0, -1)
+	local reach = 2
+	local hit = Workspace:Raycast(root.Position, forward * reach, params)
+	if hit then
+		reach = math.max(0.4, hit.Distance - 0.5)
+	end
+	local spot = CFrame.new(feet + forward * reach)
+	self:_makePickup(item, spot, Rng.new(Rng.hash(item.uid)):NextNumber(0, math.pi * 2))
+	Sfx.play("Cloth", root.Position, 0.5, 1)
+	self.services.NoiseService:Emit(root.Position, 6, player, "tool")
+end
+
+function ToolService:_take(player: Player, uid: string)
+	local entry = pickups[uid]
+	local inv = inventories[player]
+	if not entry or not inv or not self.PlayerState:CanAct(player) then
+		return
+	end
+	local root = self.PlayerState:Root(player)
+	local hit = entry.model.PrimaryPart
+	if not root or not hit or (root.Position - hit.Position).Magnitude > Config.Tools.PickupRange then
+		return
+	end
+	local ok, slot, swapped = Inventory.pickup(inv, entry.item)
+	if not ok then
+		notify(player, "Your hands are full. Hold a tool to swap it, or press X to put one down.", "warning")
+		return
+	end
+	pickups[uid] = nil
+	entry.model:Destroy()
+	if swapped then
+		self:_putDown(player, swapped)
+	end
+	self:_publish(player)
+	local info = Tools.ById[entry.item.id]
+	notify(
+		player,
+		string.format("Took the %s (slot %d). Press %d to hold it.", info and info.name or entry.item.id, slot, slot),
+		"good"
+	)
+	Sfx.play("Cloth", root.Position, 0.5, 1.1)
+end
+
+-- Leave the house's tools on its tables: one of each, plus the extras bigger
+-- squads get (Config.Tools), each on a piece of furniture it makes sense on, in
+-- rooms spread across the house, from the seeded `rng`.
+function ToolService:_spawnWorldTools(rng, squadSize: number)
+	local world = self.World.World
+	if not world or not rng then
+		return
+	end
+	local start
+	for id, record in world.rooms do
+		if record.role == "start" then
+			start = id
+		end
+	end
+	local distances = start and self.World:Distances(start) or {}
+	local surfaces = ToolPickups.surfaces(world, distances)
+	local supply = ToolPlacement.supply(squadSize, Tools.Ids, Config.Tools)
+	local placed = ToolPlacement.plan(rng, surfaces, supply, Tools.Homes, Config.Tools)
+	for _, entry in placed do
+		local spot = Dressing.claim(entry.surface.source)
+		if spot then
+			local item = { id = entry.tool, uid = newUid() }
+			if entry.tool == "Camera" then
+				item.film = squadSize == 1 and Config.Tools.CameraFilmSolo or Config.Tools.CameraFilm
+			end
+			self:_makePickup(item, spot, rng:NextNumber(-0.5, 0.5))
 		end
 	end
 end
@@ -195,8 +451,10 @@ function ToolService:Use(player: Player, targetId, position)
 end
 
 function ToolService:_camera(player: Player, targetId, position)
-	local film = player:GetAttribute(PA.Film) or 0
-	if film <= 0 then
+	local inv = inventories[player]
+	local item = inv and Inventory.held(inv)
+	local film = item and item.film or 0
+	if not item or film <= 0 then
 		notify(player, "Out of film.", "warning")
 		return
 	end
@@ -211,7 +469,8 @@ function ToolService:_camera(player: Player, targetId, position)
 		notify(player, "Too far for the camera.", "warning")
 		return
 	end
-	player:SetAttribute(PA.Film, film - 1)
+	item.film = film - 1
+	self:_publish(player)
 	self.services.NoiseService:Emit(head.Position, 12, player, "tool")
 	local caption = self.services.AnomalyService:Photograph(player, entry)
 	Net.get("PhotoResult")

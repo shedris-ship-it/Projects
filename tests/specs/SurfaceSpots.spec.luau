@@ -50,6 +50,22 @@ return function(test, check, Shared, require)
 		check.truthy(seen > 0, "the counter still has places for things")
 	end)
 
+	test("nothing is set down on a workbench's vice", function()
+		local size = Props.Kinds.Workbench.size
+		local viceX = size[1] / 2 - 1
+		local seen = 0
+		for seed = 1, 40 do
+			for _, spot in (plan("Workbench", seed)) do
+				seen += 1
+				check.truthy(
+					math.abs(spot.x - viceX) >= 0.4 + 0.5,
+					"workbench spot at x=" .. spot.x .. " is on the vice"
+				)
+			end
+		end
+		check.truthy(seen > 0, "the workbench still has places for things")
+	end)
+
 	test("a piano's things stay on the body, not over the keyboard end", function()
 		for seed = 1, 40 do
 			for _, spot in (plan("Piano", seed)) do

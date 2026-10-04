@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
-local Tools = require(Shared.Data.Tools)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
@@ -22,7 +21,7 @@ function Lobby.new(ctx)
 	self.gui = gui
 	local panel = Ui.new("Frame", {
 		Position = UDim2.fromOffset(24, 24),
-		Size = UDim2.fromOffset(380, 560),
+		Size = UDim2.fromOffset(380, 440),
 		BackgroundColor3 = Ui.Theme.panel,
 		BackgroundTransparency = 0.1,
 		Parent = gui,
@@ -56,32 +55,9 @@ function Lobby.new(ctx)
 		end
 	)
 
-	Ui.label("Your tool", {
+	Ui.label("Tools are found in the house: look on tables, desks and dressers.", {
 		Position = UDim2.fromOffset(0, 158),
-		Size = UDim2.new(1, 0, 0, 18),
-		Font = Ui.Theme.fontBold,
-		TextSize = 14,
-		Parent = panel,
-	})
-	local toolGrid = Ui.new("Frame", {
-		Position = UDim2.fromOffset(0, 180),
-		Size = UDim2.new(1, 0, 0, 84),
-		BackgroundTransparency = 1,
-		Parent = panel,
-	})
-	Ui.new(
-		"UIGridLayout",
-		{ CellSize = UDim2.new(0.5, -4, 0, 38), CellPadding = UDim2.fromOffset(8, 8), Parent = toolGrid }
-	)
-	self.toolButtons = {}
-	for _, tool in Tools.List do
-		self.toolButtons[tool.id] = Ui.button(tool.name, { TextSize = 14, Parent = toolGrid }, function()
-			Net.get("SelectTool"):FireServer(tool.id)
-		end)
-	end
-	self.toolDescription = Ui.label("", {
-		Position = UDim2.fromOffset(0, 268),
-		Size = UDim2.new(1, 0, 0, 40),
+		Size = UDim2.new(1, 0, 0, 36),
 		TextSize = 13,
 		TextColor3 = Ui.Theme.textDim,
 		Parent = panel,
@@ -89,13 +65,13 @@ function Lobby.new(ctx)
 
 	self.readyButton = Ui.button(
 		"Ready",
-		{ Position = UDim2.fromOffset(0, 314), Size = UDim2.new(1, 0, 0, 44), TextSize = 18, Parent = panel },
+		{ Position = UDim2.fromOffset(0, 202), Size = UDim2.new(1, 0, 0, 44), TextSize = 18, Parent = panel },
 		function()
 			Net.get("SetReady"):FireServer(not player:GetAttribute(Constants.PlayerAttributes.Ready))
 		end
 	)
 	self.countdown = Ui.label("", {
-		Position = UDim2.fromOffset(0, 362),
+		Position = UDim2.fromOffset(0, 250),
 		Size = UDim2.new(1, 0, 0, 20),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 15,
@@ -103,14 +79,14 @@ function Lobby.new(ctx)
 		Parent = panel,
 	})
 	Ui.label("Squad", {
-		Position = UDim2.fromOffset(0, 388),
+		Position = UDim2.fromOffset(0, 282),
 		Size = UDim2.new(1, 0, 0, 18),
 		Font = Ui.Theme.fontBold,
 		TextSize = 14,
 		Parent = panel,
 	})
 	self.squad = Ui.label("", {
-		Position = UDim2.fromOffset(0, 408),
+		Position = UDim2.fromOffset(0, 302),
 		Size = UDim2.new(1, 0, 0, 80),
 		TextSize = 13,
 		TextYAlignment = Enum.TextYAlignment.Top,
@@ -156,27 +132,14 @@ function Lobby:Render()
 			.. (lobby.difficulty == "Hard" and "  (faster Drift, more red herrings)" or "")
 		local lines = {}
 		for _, p in lobby.players do
-			local tool = Tools.ById[p.tool]
 			local status = p.state == Constants.PlayerStates.Lobby or p.state == nil
 			table.insert(
 				lines,
-				string.format(
-					"%s  ·  %s  ·  %s",
-					p.name,
-					tool and tool.role or "?",
-					status and (p.ready and "READY" or "not ready") or "in the house"
-				)
+				string.format("%s  ·  %s", p.name, status and (p.ready and "READY" or "not ready") or "in the house")
 			)
 		end
 		self.squad.Text = table.concat(lines, "\n")
 	end
-	local toolId = player:GetAttribute(Constants.PlayerAttributes.Tool)
-	for id, button in self.toolButtons do
-		button.BackgroundColor3 = id == toolId and Ui.Theme.accent or Ui.Theme.panelLight
-		button.TextColor3 = id == toolId and Ui.Theme.ink or Ui.Theme.text
-	end
-	local tool = Tools.ById[toolId]
-	self.toolDescription.Text = tool and tool.description or ""
 	local ready = player:GetAttribute(Constants.PlayerAttributes.Ready) == true
 	self.readyButton.Text = ready and "Ready! (click to cancel)" or "Ready"
 	self.readyButton.BackgroundColor3 = ready and Ui.Theme.good or Ui.Theme.panelLight

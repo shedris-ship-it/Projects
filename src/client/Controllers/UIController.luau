@@ -36,6 +36,7 @@ function UIController:Start()
 	for _, name in
 		{
 			"Hud",
+			"Hotbar",
 			"FocusMarkers",
 			"Toasts",
 			"PingWheel",

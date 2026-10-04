@@ -11,7 +11,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
-local Tools = require(Shared.Data.Tools)
 local Locations = require(Shared.Data.Locations)
 local PropFactory = require(Shared.World.PropFactory)
 
@@ -106,53 +105,6 @@ function LobbyService:_build()
 		decal:Destroy()
 	end
 
-	-- Tool pedestals along the north wall.
-	for i, tool in Tools.List do
-		local x = -18 + (i - 1) * 12
-		local base = CFrame.new(o + Vector3.new(x, 0, -22))
-		PropFactory.part(
-			folder,
-			"Pedestal",
-			Vector3.new(4, 3, 4),
-			base * CFrame.new(0, 1.5, 0),
-			Color3.fromRGB(60, 50, 42),
-			PropFactory.material("Wood")
-		)
-		local item = PropFactory.part(
-			folder,
-			"Tool_" .. tool.id,
-			Vector3.new(1.6, 1.6, 1.6),
-			base * CFrame.new(0, 3.9, 0),
-			PropFactory.rgb(tool.color),
-			PropFactory.material("Neon"),
-			{ collide = false }
-		)
-		local glow = Instance.new("PointLight")
-		glow.Range = 8
-		glow.Brightness = 0.8
-		glow.Color = PropFactory.rgb(tool.color)
-		glow.Parent = item
-		local sign = PropFactory.part(
-			folder,
-			"Sign",
-			Vector3.new(7, 2.2, 0.2),
-			base * CFrame.new(0, 7, -2),
-			Color3.fromRGB(40, 32, 26),
-			PropFactory.material("Wood"),
-			{ collide = false }
-		)
-		PropFactory.surfaceText(sign, Enum.NormalId.Back, "Name", tool.name, { color = Color3.fromRGB(240, 226, 200) })
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "Take " .. tool.name
-		prompt.ObjectText = tool.role
-		prompt.MaxActivationDistance = 9
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = item
-		prompt.Triggered:Connect(function(player)
-			self:SelectTool(player, tool.id)
-		end)
-	end
-
 	-- Contract table: toggles difficulty.
 	local tableCF = CFrame.new(o + Vector3.new(20, 0, 0)) * CFrame.Angles(0, math.rad(-90), 0)
 	local contract = PropFactory.build("Table", tableCF, folder, { name = "ContractTable" })
@@ -194,7 +146,6 @@ function LobbyService:Start()
 				end
 			end)
 		end)
-		player:SetAttribute(PA.Tool, Tools.Default)
 		player:SetAttribute(PA.Ready, false)
 		if data then
 			data:WaitForProfile(player, 8)
@@ -215,9 +166,6 @@ function LobbyService:Start()
 		end)
 	end)
 
-	Net.onServer("SelectTool", { interval = 0.2, types = { "string" } }, function(player, toolId)
-		self:SelectTool(player, toolId)
-	end)
 	Net.onServer("SetReady", { interval = 0.2, types = { "boolean" } }, function(player, ready)
 		self:SetReady(player, ready == true)
 	end)
@@ -239,14 +187,6 @@ function LobbyService:LobbyPlayers(): { Player }
 		end
 	end
 	return list
-end
-
-function LobbyService:SelectTool(player: Player, toolId)
-	if type(toolId) ~= "string" or not Tools.ById[toolId] or not self:InLobby() then
-		return
-	end
-	player:SetAttribute(PA.Tool, toolId)
-	self:Broadcast()
 end
 
 function LobbyService:SetDifficulty(player: Player, difficulty)
@@ -327,7 +267,6 @@ function LobbyService:Broadcast()
 		table.insert(list, {
 			userId = player.UserId,
 			name = player.DisplayName,
-			tool = player:GetAttribute(PA.Tool),
 			ready = player:GetAttribute(PA.Ready) == true,
 			state = player:GetAttribute(PA.State),
 		})

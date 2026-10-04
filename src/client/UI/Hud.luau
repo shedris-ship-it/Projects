@@ -1,5 +1,5 @@
--- The HUD is deliberately small (doc section 8): a Focus ring, the current
--- tool and the squad. There is no crosshair (UI/FocusMarkers marks what you
+-- The HUD is deliberately small (doc section 8): a Focus ring, what is in your
+-- hands (the three slots are UI/Hotbar) and the squad. There is no crosshair (UI/FocusMarkers marks what you
 -- look at). Drift is never a bar; you read it from the world, and from one word.
 
 local Players = game:GetService("Players")
@@ -201,7 +201,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"Q hold: Witness · R: tool · F: light · Shift: run · G: ping · C: callout · Tab: Case File · F1: settings",
+		"Q hold: Witness · R: use · 1 2 3 / wheel: slots · X: put down · F: light · Shift: run · G: ping · Tab: Case File · F1: settings",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),
@@ -289,12 +289,15 @@ function Hud:Update()
 	end
 	self.ring.Visible = active
 
-	-- Tool
+	-- What's in your hands (the slots themselves are UI/Hotbar)
 	local toolId = player:GetAttribute(PA.Tool)
 	local tool = Tools.ById[toolId]
-	self.toolLabel.Text = tool and tool.name or ""
+	local torchHeld = toolId == nil and (player:GetAttribute(PA.ActiveSlot) or 1) == 1
+	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or "")
 	local detail = ""
-	if toolId == "Camera" then
+	if torchHeld then
+		detail = player:GetAttribute(PA.Flashlight) and "F: switch off" or "F: switch on"
+	elseif toolId == "Camera" then
 		detail = string.format("Film: %d", player:GetAttribute(PA.Film) or 0)
 	elseif toolId == "Radio" then
 		local signal = player:GetAttribute("RadioSignal") or 0

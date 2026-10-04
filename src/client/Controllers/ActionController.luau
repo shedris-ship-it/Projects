@@ -2,6 +2,7 @@
 -- through ContextActionService so every action gets a mobile button.
 --
 --   Q  hold to Witness        R  use tool          F  flashlight
+--   1 2 3 or wheel  choose a slot (1 is the torch)   X  put the tool down
 --   Shift  sprint             G  hold for pings    C  callouts
 --   Tab  Case File            E  doors / hide / revive (prompts)
 --   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
@@ -21,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Feel = require(Shared.Logic.Feel)
+local Inventory = require(Shared.Logic.Inventory)
 local Net = require(Shared.Net)
 
 local PA = Constants.PlayerAttributes
@@ -95,6 +97,26 @@ function ActionController:Start()
 			Net.get("SetFlashlight"):FireServer(turningOn)
 		end
 	end, true, "Light", Enum.KeyCode.F, Enum.KeyCode.DPadUp)
+
+	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools. The
+	-- server decides; these only ask.
+	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three } do
+		self:_bind("ConsensusSlot" .. slot, function(inputState)
+			if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+				Net.get("SelectSlot"):FireServer(slot)
+			end
+		end, false, nil, key)
+	end
+	self:_bind("ConsensusCycleSlot", function(inputState)
+		if inputState == Enum.UserInputState.Begin then
+			self:_cycleSlot(1)
+		end
+	end, false, nil, Enum.KeyCode.DPadDown)
+	self:_bind("ConsensusDrop", function(inputState)
+		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+			Net.get("DropItem"):FireServer()
+		end
+	end, false, nil, Enum.KeyCode.X)
 
 	self:_bind("ConsensusSprint", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
@@ -185,12 +207,37 @@ function ActionController:Start()
 		self:_updateFlashlight(dt)
 		self:_updateHiddenCamera()
 	end)
+	-- The wheel flips between slots, but only while the mouse is captured for
+	-- looking (a menu that frees the mouse keeps its own scrolling).
+	UserInputService.InputChanged:Connect(function(input, processed)
+		if
+			input.UserInputType == Enum.UserInputType.MouseWheel
+			and not processed
+			and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
+			and self.state:IsActive()
+			and not self.state:IsHidden()
+		then
+			self:_cycleSlot(input.Position.Z > 0 and -1 or 1)
+		end
+	end)
 	UserInputService.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement and self.state:IsHidden() then
 			peekYaw = math.clamp(peekYaw - input.Delta.X * 0.004, -0.6, 0.6)
 			peekPitch = math.clamp(peekPitch - input.Delta.Y * 0.004, -0.4, 0.4)
 		end
 	end)
+end
+
+-- The next slot with something in it, from the slots the server last told us.
+function ActionController:_cycleSlot(direction: number)
+	local mirror = { slots = {}, active = player:GetAttribute(PA.ActiveSlot) or 1 }
+	for slot, name in PA.Slots do
+		local id = player:GetAttribute(name)
+		mirror.slots[slot] = (type(id) == "string" and id ~= "") and { id = id } or false
+	end
+	if Inventory.cycle(mirror, direction) then
+		Net.get("SelectSlot"):FireServer(mirror.active)
+	end
 end
 
 -- Camera -------------------------------------------------------------------------------

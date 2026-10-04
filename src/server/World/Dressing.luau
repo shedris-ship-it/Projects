@@ -304,9 +304,13 @@ function Dressing.build(world, rng)
 	end
 
 	-- Each surface's spots are worked out once, so nothing lands on top of
-	-- something else.
+	-- something else. The last spot on every top is left free: the house leaves
+	-- a found tool there (Services/ToolService, World/ToolPickups).
 	local function take(s)
 		s.spots = s.spots or surfaceSpots(rng, s.prop, s.kind)
+		if (s.next or 0) >= #s.spots - 1 then
+			return nil
+		end
 		s.next = (s.next or 0) + 1
 		return s.spots[s.next]
 	end
@@ -346,7 +350,28 @@ function Dressing.build(world, rng)
 			end
 		end
 	end
+	-- Plan whatever was never touched, last, so the tool pickups find every top
+	-- with its spots. The extra random draws come after all the others, so no
+	-- earlier placement moves.
+	for _, s in surfaces do
+		s.spots = s.spots or surfaceSpots(rng, s.prop, s.kind)
+		s.next = s.next or 0
+	end
+	world.surfaces = surfaces
 	return phones, photos, clutter
+end
+
+-- Places left on a top after the dressing, and the next of them.
+function Dressing.free(s): number
+	return #s.spots - s.next
+end
+
+function Dressing.claim(s): CFrame?
+	if Dressing.free(s) <= 0 then
+		return nil
+	end
+	s.next += 1
+	return s.spots[s.next]
 end
 
 return Dressing

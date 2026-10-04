@@ -56,7 +56,13 @@ Constants.RunState = {
 Constants.PlayerAttributes = {
 	State = "RunState", -- "Lobby", "Active", "Downed", "Lost", "Extracted"
 	Focus = "Focus",
+	-- The tool in your hands right now, or nil with the torch or empty hands
+	-- (so everything that reads "your tool" still works with found tools).
 	Tool = "Tool",
+	-- The three inventory slots (Logic/Inventory): ids, "" when empty, and
+	-- which one is in your hands (1 to 3). Slot 1 is always the flashlight.
+	Slots = { "Slot1", "Slot2", "Slot3" },
+	ActiveSlot = "ActiveSlot",
 	Film = "Film",
 	Battery = "Battery",
 	Flashlight = "Flashlight",

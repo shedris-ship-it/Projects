@@ -493,6 +493,13 @@ Config.Tools = {
 	LanternLightSeconds = 2,
 	LanternLightSecondsNoTool = 8,
 	RadioRange = 80,
+	-- Tools are found around the house (owner, 2026-10-04): one of each, and
+	-- squads of ExtraCopiesFromSquad or more get these extra copies as well.
+	ExtraCopiesFromSquad = 3,
+	ExtraCopies = { Camera = 1, Lantern = 1 },
+	CameraMaxSteps = 3, -- the Camera is within this many rooms of where you start, so a solo player finds it
+	PickupRange = 9, -- studs; the server re-checks it on every pickup
+	PickupScale = 0.8, -- a tool lying on a table is this size next to the one in your hand
 }
 
 Config.Difficulty = {
@@ -583,6 +590,56 @@ Config.ViewModel = {
 	-- wall between your eye and it, so a torch tucked against a wall never puts
 	-- its light inside the geometry (a shadow-casting light inside a wall is black).
 	BeamWallGap = 0.15,
+	Scale = 0.7, -- everything is built a little big for the screen; this brings it to size
+	-- How each thing in your hands sits in the view (owner, 2026-10-04: "wonky",
+	-- and the hands were off the bottom of the screen). Every number is in
+	-- studs in the camera's frame (x right, y up) with `at` the item's distance
+	-- ahead; `wrist` is measured from the item's middle, `back` toward you. Tune
+	-- these in Studio; tests/specs/ViewFrame.spec checks the hands stay on screen
+	-- at every field of view and aspect ratio.
+	--   turn   = degrees: pitch (positive lifts the front), yaw, roll
+	--   wrist  = where the right hand's wrist is; left = a second hand, if two-handed
+	--   yaw    = how far the forearm swings out to the right (left hand: to the left)
+	--   tilt   = how steeply the forearm rises towards the hand
+	Poses = {
+		Flashlight = {
+			at = { 0.5, -0.32, 1.3 },
+			turn = { 3, -4, 0 },
+			wrist = { 0.03, -0.22, 0.3 },
+			yaw = 14,
+			tilt = 24,
+		},
+		Camera = {
+			at = { 0.05, -0.3, 1.25 },
+			turn = { 4, 0, 0 },
+			wrist = { 0.38, -0.22, 0.28 },
+			left = { -0.34, -0.24, 0.22 },
+			yaw = 18,
+			tilt = 22,
+		},
+		Lantern = {
+			at = { 0.42, -0.45, 1.25 },
+			turn = { 0, 0, 0 },
+			wrist = { 0, 0.3, 0.3 },
+			yaw = 28,
+			tilt = 30,
+		},
+		Radio = {
+			at = { 0.3, -0.3, 1.25 },
+			turn = { -15, 180, 0 }, -- turned round so the dial and grille face you
+			wrist = { 0.12, -0.28, 0.22 },
+			yaw = 22,
+			tilt = 26,
+		},
+		PlumbLine = {
+			at = { 0.38, -0.5, 1.25 }, -- hangs from the hand, so low: the bob may dip off a narrow screen
+			turn = { 0, 0, 0 },
+			wrist = { 0, 0.34, 0.28 },
+			yaw = 24,
+			tilt = 30,
+		},
+	},
+	ArmHandForward = 0.18, -- the hand's middle sits this far (unscaled) in front of the wrist
 }
 
 Config.Debug = {

@@ -17,7 +17,7 @@ How the code implements the design doc. The design reasons themselves live in [`
 | Service | Owns |
 | --- | --- |
 | RunOrchestrator | The phase state machine, run setup and teardown, win/lose, extraction, rewards, resync for late clients |
-| LobbyService | The hub: tool pedestals, difficulty, ready-up countdown, character loading |
+| LobbyService | The hub: difficulty, ready-up countdown, character loading |
 | WorldService | Builds and clears the house (`World/LevelBuilder`). Spatial queries: room at a position, doorways, lights, slots. Collision groups |
 | PlayerStateService | Active / Downed / Lost (Echo) / Extracted. Revives, isolation for Drift, movement noise, the speed sanity check, flashlight and battery, AFK |
 | WitnessService | Witnessable registry, Witness windows and anchoring, Focus, camera view reports, line-of-sight helpers, pings, callouts |
@@ -28,7 +28,7 @@ How the code implements the design doc. The design reasons themselves live in [`
 | VerdictService | The Deliberation Table and vote rules (`Logic/Verdict`) |
 | HidingService | Hiding spots, capacity, peek camera, hold breath and gasps, stalker inspections |
 | DoorService | Opening, closing and bracing doors; stalker door delays; knocks |
-| ToolService | Witness Camera, Lantern and shrines, Radio, Plumb Line |
+| ToolService | Each player's three slots (`Logic/Inventory`), the tools lying in the house (`Logic/ToolPlacement`, `World/ToolPickups`), pickups and drops, and what the Witness Camera, Lantern (and shrines), Radio and Plumb Line do. `PA.Tool` is the tool in your hands now; `Slot1..3` and `ActiveSlot` are what you carry |
 | NoiseService | Noise events the stalker hears |
 | SquadProfileService | Habit counters with decay (`Logic/SquadProfile`), each Witness's gaze habits (`Logic/GazeHabits`), and the end-of-run Dossier |
 | StalkerService | The Guest's mode machine, arrival, lazy visibility, hunts and retreats. Uses `Stalker/Director` (pacing), `Stalker/Stalk` (between hunts: moves from `Data/StalkMoves`, rules from `Logic/StalkRules`), `Stalker/Tactician` (hunts), `Stalker/Body` (the physical body: facing, zoom, lunge, pose-aware head points), `Stalker/Sight` (who can see what, stealth steps), `Stalker/Perception`, `Stalker/Navigator` and `Stalker/StalkerModel` |
@@ -96,7 +96,9 @@ Every client → server remote goes through `Net.onServer`, which applies a per-
 | Callout | C→S | `type: string`, `position: Vector3` | 2 s |
 | UseTool | C→S | `targetId: string?`, `position: Vector3?` | 0.25 s; film, cooldowns and range checked |
 | SetFlashlight, HoldBreath, SetReady | C→S | `boolean` | 0.05–0.2 s |
-| SelectTool, SetDifficulty, CastVote | C→S | `string` | 0.2–0.3 s; whitelisted values |
+| SetDifficulty, CastVote | C→S | `string` | 0.2–0.3 s; whitelisted values |
+| SelectSlot | C→S | `number` | 0.08 s, burst 8; only 1 to 3, only while active and not hiding |
+| DropItem | C→S | none | 0.4 s; puts the tool in your hands on the floor in front of you |
 | LeaveHiding, RequestSync | C→S | none | 0.3 s / 2 s |
 | RitualAction | C→S | `table?` | 0.2 s; only during Resolution |
 | SaveSettings | C→S | `table` | 1 s; keys whitelisted, numbers range-checked |

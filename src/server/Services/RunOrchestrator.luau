@@ -174,7 +174,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.VerdictService:Reset()
 		services.PlayerStateService:BeginRun(players)
 		services.WitnessService:ResetFocus(players)
-		services.ToolService:BeginRun(players)
+		services.ToolService:BeginRun(players, rng:Fork("tools"))
 		services.DriftService:Begin(difficulty)
 		services.AnomalyService:Setup({
 			players = players,

@@ -45,7 +45,7 @@ Open world, PvP or traitor roles, a long story campaign, and VR. A short, replay
 
 A run lasts about 25 minutes across six phases, and a rising Drift meter makes sure it can never stall.
 
-1. **Briefing (about 2 min).** In the hub the squad picks a contract (location and difficulty), chooses a tool kit and cosmetics, and readies up. Voice is live in the hub so friends are already talking.
+1. **Briefing (about 2 min).** In the hub the squad picks a contract (location and difficulty) and cosmetics, and readies up. Tools are not chosen here: they are found in the house (section 6). Voice is live in the hub so friends are already talking.
 2. **Arrival (3–4 min).** Drift is low, the stalker is dormant and divergences are mild and harmless. This teaches Witnessing and lets players learn the layout before it turns on them.
 3. **Investigation (12–15 min).** Players search rooms, collect Evidence and pin it to the shared Case Board, which narrows the 12 anomaly types. Drift rises, the stalker climbs tiers, and the first hunts begin.
 4. **Verdict (1–3 min).** At the Deliberation Table the squad must agree unanimously on which anomaly it is. A wrong verdict spikes Drift and triggers a hunt, and arguing burns time because Drift keeps climbing.
@@ -297,7 +297,9 @@ Witnessing costs Focus. Each player has 100 Focus, Witnessing costs about 20, an
 
 ### Tools that make players depend on each other
 
-Each player picks one primary tool in the briefing. Different tools give different information, so nobody can solve a run alone.
+Tools are found, not chosen (owner, 2026-10-04). Each house leaves one of each tool on a table, desk, dresser, bench or chest, in rooms spread across the house and on furniture that makes sense for it (a plumb line on a workbench, a radio on a dresser). Squads of three or four also find a second Witness Camera and Lantern. The Camera is always within a few rooms of the start, so a lone player can reach it. Different tools give different information, so nobody can solve a run alone.
+
+Every player carries three slots, and only one thing is in their hands at a time. Slot 1 is the flashlight, always, and can't be dropped. Slots 2 and 3 hold found tools. Putting the flashlight away means working in the dark, which is the point: the Lantern lights its own way, everything else is done by feel. Press 1, 2 or 3 or spin the mouse wheel to change what you hold, and X to put a tool down. A player who is downed or lost leaves their tools where they fell for the squad to pick up. Who carries what is decided in the house, by whoever grabs it first, and can change mid-run.
 
 | Tool | What it does | Why it creates conversation |
 | --- | --- | --- |
@@ -316,7 +318,7 @@ Each player picks one primary tool in the briefing. Different tools give differe
 
 - **Disagreement without blame.** The fiction says the place is lying, not your friends. There is no PvP, no traitor role, and no friendly fire.
 - **Verdict pressure.** 2-player squads need unanimity. At 3–4 players, a majority carries after 90 seconds of debate, which prevents one stubborn player stalling the run while Drift climbs.
-- **Soft roles.** Tools create natural jobs: photographer, lightkeeper, operator and surveyor. Nobody is locked into one.
+- **Soft roles.** Tools create natural jobs: photographer, lightkeeper, operator and surveyor. Nobody is locked into one, because tools are found and can be handed on.
 - **Strangers.** The tutorial run and structured callouts need to work for strangers with no mic. Match by age band so voice works inside the group.
 - **Griefing controls.** Players pass through each other (no body-blocking doorways), AFK players are removed after about 60 seconds, and mute and report are one tap away.
 
@@ -480,7 +482,7 @@ Prices are starting hypotheses to test, in Robux.
 
 ### Free progression loop
 
-- **Marks:** soft currency earned every run, win or lose, spent on free tool variants and cosmetics.
+- **Marks:** soft currency earned every run, win or lose, spent on cosmetics (tool skins).
 - **Clearance levels 1–50:** unlock new contracts, locations and optional difficulty modifiers.
 - **Daily contract:** a fixed seed for everyone, so players compare runs and share clips.
 - **Dossier:** collectible entries about each stalker and anomaly, discovered through play.

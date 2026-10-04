@@ -85,7 +85,7 @@ local Props = {
 	Crib = { size = { 5, 4, 3 }, color = { 200, 190, 170 }, material = "Wood" },
 	Washer = { size = { 3.5, 4, 3.5 }, color = { 220, 220, 216 }, material = "SmoothPlastic" },
 	Boxes = { size = { 4, 4, 4 }, color = { 150, 120, 84 }, material = "Cardboard" },
-	Workbench = { size = { 10, 3.6, 3.5 }, color = { 110, 86, 60 }, material = "WoodPlanks" },
+	Workbench = { size = { 10, 3.6, 3.5 }, top = true, color = { 110, 86, 60 }, material = "WoodPlanks" },
 	Car = { size = { 7, 5, 14 }, color = { 60, 72, 66 }, material = "Metal" },
 	-- The body is d - 1 deep, set back half a stud, so its top is z -1.5 to 0.5.
 	Piano = {
@@ -134,6 +134,9 @@ local function keepouts(kindName: string, size)
 		local x, basin = counterSink(size[1])
 		local margin = 0.55 -- the widest dish is about 1 wide, and it is jittered
 		return { { x0 = x - basin / 2 - margin, x1 = x + basin / 2 + margin } }
+	elseif kindName == "Workbench" then
+		-- The vice stands at x = w/2 - 1, 0.8 wide (World/PropFactory).
+		return { { x0 = size[1] / 2 - 1 - 0.4 - 0.55, x1 = size[1] / 2 } }
 	end
 	return {}
 end

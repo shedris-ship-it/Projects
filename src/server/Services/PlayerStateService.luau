@@ -89,7 +89,8 @@ function PlayerStateService:Start()
 	end)
 
 	Net.onServer("SetFlashlight", { interval = 0.15, types = { "boolean" } }, function(player, on)
-		self:SetFlashlight(player, on == true)
+		-- Through ToolService: asking for the light puts the torch in your hands first.
+		self.services.ToolService:OnFlashlightRequest(player, on == true)
 	end)
 
 	local accumulator = 0
@@ -471,6 +472,11 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 		return
 	end
 	if on and (record.state ~= States.Active or record.battery <= 0) then
+		on = false
+	end
+	-- Only the torch in your hands can be lit (owner, 2026-10-04: one thing in your
+	-- hands at a time). The one choke point, so no caller can light it by accident.
+	if on and not self.services.ToolService:TorchHeld(player) then
 		on = false
 	end
 	if record.flashlight ~= on then
