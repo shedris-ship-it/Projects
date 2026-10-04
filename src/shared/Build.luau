@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.3",
-	note = "found tools and 3 slots, believable windows, torch beam, ceiling lights, the EXIT sign and a new plant",
+	id = "2026-10-04.4",
+	note = "the mansion: F2 layout mansion builds the two-floor house (the old house is still the default)",
 }

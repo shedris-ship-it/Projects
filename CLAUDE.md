@@ -163,7 +163,12 @@ The agreed plan, in order:
        - code: `Logic/RoomRects`, `Logic/FloorPlan`, `Logic/MansionHouse`, `Logic/MansionGen`, mansion rules in `Logic/LayoutValidator`, `mansion` blocks in `Data/Rooms`, `Config.Mansion`, `Data/MansionFallback`
        - tools: `lune run tools/plan <seed> mansion` prints a house, and `tools/mansionstats` prints the tuning numbers; example plans are in `docs/plans/mansion-examples.md`
        - `tests/golden/LevelGraph.txt` and `Golden.spec` prove the old generator's houses never change. Rerun `lune run tools/golden` only for an approved change.
-       - Next is **M2, the builder, in a local Studio session.**
+     - **M2 mostly done (2026-10-04, build `2026-10-04.4`):**
+       - F2 `layout mansion|cells|default` picks the house for the next run.
+       - New code: `World/MansionBuilder` (two floors, the hall's gallery and staircase, dog-leg stairwells, sconces) and `Logic/RoomFit` (40x40 furniture fitted to any room).
+       - `WorldService`, the client and the Case File handle rooms as rectangles on floors.
+       - Checked in Studio on three seeds: clean consoles, seams aligned, stairs walkable, and Gate A still holds. Results and open items are in `docs/plans/mansion-generation.md` section 5.
+       - Next is **M3:** the Guest and the Companion on the stairs (`Navigator` stair waypoints), noise between floors, a bare-room mode, and `navtest`. Ask the owner to try TC-45 first.
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.

@@ -1,6 +1,6 @@
 # The mansion: generation design
 
-Status: **M1 done (2026-10-04): the generator, validator and tests exist as pure logic; nothing in Studio uses them yet** (`Config.Level.Mode` is still `"Cells"`). Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
+Status (2026-10-04): **M1 done, M2 mostly done.** Build `2026-10-04.4`: F2 `layout mansion` builds the mansion in Studio; the old house is still the default (`Config.Level.Mode = "Cells"`). Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
 
 ## 1. The owner's decisions
 
@@ -144,6 +144,38 @@ New, for mansion layouts only:
 | M3 | Navigation and "bare rooms": `Navigator` routes along lanes and up stairs, `RandomPointIn`, peek spots and flank from seams, Companion on stairs, noise damped between floors, the Case File map per floor; F2 `plan`, `layout`, `navtest` | Studio | `navtest` 0 stuck on 3 seeds; hunts work on both floors; 3 clients |
 | M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |
 | M5 | Retune lights, dust and stalker distances; docs; with the owner's approval `Mode = "Mansion"` | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
+
+### M2 as built (2026-10-04)
+- **Code:**
+  - `World/MansionBuilder` builds rooms as rectangles over two floors, each wall broken per storey for its doorways.
+  - The hall gets a gallery, railings, a carpeted central staircase and sconces; stairwells are dog-legs with a sconce on the half landing.
+  - The front door is locked; the exit is built; corridors get a runner and more lights the longer they are.
+  - Stairs are invisible wedge ramps under steps you can't collide with.
+- **Furniture:** `Logic/RoomFit` fits each template's 40x40 furniture to its room and doorways (stopgap until M4). Chairs follow their table, and decor keeps off furniture.
+- **The rest of the game:**
+  - `WorldService` does `RoomAt` per floor, doorway and approach points from seams, walkable points, and the per-floor snapshot.
+  - The client finds rooms by rectangle and floor, and the Case File map draws both floors.
+  - The Guest ducks at seam panels.
+  - `AnomalyService` reads `seamList`, and peek spots come from the seams.
+- **Checked in Studio (one client):**
+  - Seeds 61, 1800820264 and 7 build in 0.07-0.12 s with clean consoles, and their layout hashes match Lune.
+  - Top-down views of seed 61 match the printed plan on both floors.
+  - Every seam's two wall layers agree to 0.000 studs on all three seeds.
+  - `clip` shows no overlaps on 1800820264 (seed 61's three, from the first fit, were fixed in RoomFit).
+  - A character walked from the spawn up the grand stair, round to a stairwell, down both flights, across the house and up the back stairs to the bridge. Studio's pathfinding finds routes between rooms but not through closed doors; I opened one locally.
+  - The Guest arrived and caught me on the ground floor.
+  - Gate A still passes: the old house is parts 2151, hash 1550694282.
+- **Not checked yet:**
+  - the Case File map (Tab can't be sent through Studio's input tool)
+  - multiple clients
+  - the Guest and the Companion crossing between floors: `Navigator` still walks straight lines between doorway points, with no stair waypoints (M3)
+  - noise between floors
+  - the frame rate on a real machine
+- **Known look issues for M4/M5:**
+  - Some rooms (the dining room) are dim.
+  - Corridors are 20 wide with no closets yet.
+  - Corridor hiding spots are counted by the validator but not built.
+  - Furniture is the old 40x40 sets squeezed or stretched; the hall's own furniture is sparse.
 
 ### M2 Gate A baseline (taken 2026-10-04)
 Build `2026-10-04.3`, old mode, F2 `seed 1800820264` then `start`: 15 rooms on the first attempt, matching `lune run tools/plan 1800820264`. Running `tools/studio/partdump.luau` through `execute_luau` (Server) gave **parts 2151, hash 1550694282** on two fresh runs. After the builder is rewritten for rectangles, the old mode must give the same two numbers. If it doesn't, change the script to return the differing lines.
