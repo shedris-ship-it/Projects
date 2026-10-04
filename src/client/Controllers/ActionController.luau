@@ -229,13 +229,20 @@ function ActionController:Start()
 end
 
 -- The next slot with something in it, from the slots the server last told us.
+-- The attribute lags a round trip, so a second flick of the wheel would read the
+-- same slot as the first; the slot just asked for is remembered for a moment.
 function ActionController:_cycleSlot(direction: number)
-	local mirror = { slots = {}, active = player:GetAttribute(PA.ActiveSlot) or 1 }
+	local current = player:GetAttribute(PA.ActiveSlot) or 1
+	if self.pendingSlot and os.clock() < (self.pendingUntil or 0) then
+		current = self.pendingSlot
+	end
+	local mirror = { slots = {}, active = current }
 	for slot, name in PA.Slots do
 		local id = player:GetAttribute(name)
 		mirror.slots[slot] = (type(id) == "string" and id ~= "") and { id = id } or false
 	end
 	if Inventory.cycle(mirror, direction) then
+		self.pendingSlot, self.pendingUntil = mirror.active, os.clock() + 0.35
 		Net.get("SelectSlot"):FireServer(mirror.active)
 	end
 end

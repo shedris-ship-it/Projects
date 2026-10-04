@@ -104,15 +104,6 @@ function Inventory.dropAll(inv)
 	return items
 end
 
-function Inventory.has(inv, id: string): boolean
-	for _, item in inv.slots do
-		if item and item.id == id then
-			return true
-		end
-	end
-	return false
-end
-
 -- The three slot ids for display, "" for empty.
 function Inventory.ids(inv): { string }
 	local out = {}

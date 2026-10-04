@@ -55,6 +55,7 @@ function ViewModelController:Init(controllers)
 	self.lower = 0 -- 0 raised, 1 lowered (while you switch what you hold)
 	self.tuck = 0
 	self.rayParams = nil
+	self.shadowParts = nil
 end
 
 function ViewModelController:_build()
@@ -85,6 +86,7 @@ function ViewModelController:_hideAll()
 			model.Parent = nil
 		end
 	end
+	self:_shadowless(player.Character, false)
 	-- Not holding a torch: ActionController puts the light back at the camera.
 	local actions = self.controllers.ActionController
 	if actions then
@@ -92,17 +94,34 @@ function ViewModelController:_hideAll()
 	end
 end
 
--- Roblox shows the avatar's own arms in first person; ours replace them. The
--- hidden body also stops casting shadows on this client, or it would throw one
--- across the torch beam that now starts just beside it.
+-- Roblox shows the avatar's own arms in first person; ours replace them.
 local function hideStockBody(character: Model)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.LocalTransparencyModifier = 1
-			if d.CastShadow then
+		end
+	end
+end
+
+-- While you look out of your own head, the hidden body stops casting shadows on
+-- this client, or it would throw one across the torch beam that starts just
+-- beside it. Put back exactly as it was when you leave first person.
+function ViewModelController:_shadowless(character: Model?, on: boolean)
+	if on and character and not self.shadowParts then
+		self.shadowParts = {}
+		for _, d in character:GetDescendants() do
+			if d:IsA("BasePart") and d.CastShadow then
 				d.CastShadow = false
+				table.insert(self.shadowParts, d)
 			end
 		end
+	elseif not on and self.shadowParts then
+		for _, d in self.shadowParts do
+			if d.Parent then
+				d.CastShadow = true
+			end
+		end
+		self.shadowParts = nil
 	end
 end
 
@@ -193,8 +212,10 @@ function ViewModelController:_update(dt: number)
 	end
 	hideStockBody(character)
 	if self.builtFor ~= character or not self.rightArm then
+		self.shadowParts = nil -- a new body: the old parts are gone
 		self:_build()
 	end
+	self:_shadowless(character, true)
 	self:_updateItem(dt)
 
 	local actions = self.controllers.ActionController

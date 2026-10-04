@@ -145,8 +145,9 @@ function ToolService:EndRun()
 	for player in inventories do
 		inventories[player] = nil
 		if player.Parent then
-			for _, name in PA.Slots do
+			for slot, name in PA.Slots do
 				player:SetAttribute(name, nil)
+				player:SetAttribute(PA.SlotFilms[slot], nil)
 			end
 			player:SetAttribute(PA.ActiveSlot, nil)
 			player:SetAttribute(PA.Tool, nil)
@@ -178,16 +179,17 @@ function ToolService:_publish(player: Player)
 	player:SetAttribute(PA.ActiveSlot, inv.active)
 	local held = Inventory.heldId(inv)
 	player:SetAttribute(PA.Tool, held ~= Inventory.TORCH and held or nil)
-	local film = 0
-	for _, item in inv.slots do
-		if item and item.id == "Camera" then
-			film = item.film or 0
-			if item == Inventory.held(inv) then
-				break
-			end
+	-- Film rides with each Camera: one count per slot for the bar, and the one in
+	-- your hands (or the first you carry) for everything else.
+	local film = nil
+	for slot, item in inv.slots do
+		local count = (item and item.id == "Camera") and (item.film or 0) or 0
+		player:SetAttribute(PA.SlotFilms[slot], count)
+		if item and item.id == "Camera" and (film == nil or item == Inventory.held(inv)) then
+			film = count
 		end
 	end
-	player:SetAttribute(PA.Film, film)
+	player:SetAttribute(PA.Film, film or 0)
 	local light = lanterns[player]
 	if light and held ~= "Lantern" then
 		light:Destroy()
@@ -286,9 +288,13 @@ function ToolService:_putDown(player: Player, item)
 	local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
 	forward = forward.Magnitude > 0.1 and forward.Unit or Vector3.new(0, 0, -1)
 	local reach = 2
-	local hit = Workspace:Raycast(root.Position, forward * reach, params)
-	if hit then
-		reach = math.max(0.4, hit.Distance - 0.5)
+	-- Several heights, so a bench or a chest below waist height stops it too (a
+	-- single ray from the middle of the body passes over them).
+	for _, height in { 0.4, 1.4, 2.6, (root.Position.Y - feet.Y) } do
+		local hit = Workspace:Raycast(feet + Vector3.new(0, height, 0), forward * reach, params)
+		if hit then
+			reach = math.min(reach, math.max(0.4, hit.Distance - 0.5))
+		end
 	end
 	local spot = CFrame.new(feet + forward * reach)
 	self:_makePickup(item, spot, Rng.new(Rng.hash(item.uid)):NextNumber(0, math.pi * 2))
@@ -303,8 +309,14 @@ function ToolService:_take(player: Player, uid: string)
 		return
 	end
 	local root = self.PlayerState:Root(player)
+	local head = self.PlayerState:Head(player)
 	local hit = entry.model.PrimaryPart
-	if not root or not hit or (root.Position - hit.Position).Magnitude > Config.Tools.PickupRange then
+	if not root or not head or not hit or (root.Position - hit.Position).Magnitude > Config.Tools.PickupRange then
+		return
+	end
+	-- A tool in the next room can't be taken through the wall (the prompt has no
+	-- line-of-sight rule of its own, so the server holds it).
+	if not self.Witness:ClearLine(head.Position, hit.Position + Vector3.new(0, 0.3, 0), { entry.model }) then
 		return
 	end
 	local ok, slot, swapped = Inventory.pickup(inv, entry.item)

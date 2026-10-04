@@ -71,13 +71,39 @@ local function goodIds(surface: string): { string }
 	return ids
 end
 
--- A sample that still hasn't loaded 2.5 s after it was asked to play is dead.
+-- A sample that never loads is dead. Slow is not dead: a cold cache on a bad
+-- connection can take many seconds, so this only drops one when Roblox itself
+-- reports the fetch failed or timed out, or when it is still not there 20 s
+-- after it was first asked for.
+local watching: { [string]: boolean } = {}
 local function judge(sound: Sound?, id: string)
-	if not sound or id == Assets.StockFootstep then
+	if not sound or id == Assets.StockFootstep or watching[id] then
 		return
 	end
-	task.delay(2.5, function()
-		if sound.Parent and not sound.IsLoaded and not badIds[id] then
+	watching[id] = true
+	task.spawn(function()
+		local waited = 0
+		while waited < 20 do
+			task.wait(2.5)
+			waited += 2.5
+			if sound.IsLoaded or badIds[id] then
+				watching[id] = nil
+				return
+			end
+			if not sound.Parent then
+				-- This step's sound is gone (it was cleaned up); ask again next time.
+				watching[id] = nil
+				return
+			end
+			local ok, status = pcall(function()
+				return ContentProvider:GetAssetFetchStatus(id)
+			end)
+			if ok and (status == Enum.AssetFetchStatus.Failure or status == Enum.AssetFetchStatus.TimedOut) then
+				break
+			end
+		end
+		watching[id] = nil
+		if not sound.IsLoaded and not badIds[id] then
 			badIds[id] = true
 			badVersion += 1
 			warn("[Consensus] footstep sample never loaded, dropping it: " .. id)

@@ -317,8 +317,11 @@ function Dressing.build(world, rng)
 
 	for _, s in surfaces do
 		if phones < D.Telephones and hallLike(s) and rng:Chance(D.TelephoneChance) then
-			telephone(s.record.model, take(s))
-			phones += 1
+			local spot = take(s)
+			if spot then
+				telephone(s.record.model, spot)
+				phones += 1
+			end
 		end
 	end
 	for _, s in surfaces do

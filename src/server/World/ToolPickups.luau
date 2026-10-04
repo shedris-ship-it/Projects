@@ -93,9 +93,4 @@ function ToolPickups.make(parent: Instance, item, cframe: CFrame, yaw: number, o
 	return model, prompt
 end
 
--- Where a dropped tool comes to rest: on the floor at the player's feet.
-function ToolPickups.floorSpot(position: Vector3): CFrame
-	return CFrame.new(position.X, position.Y, position.Z)
-end
-
 return ToolPickups

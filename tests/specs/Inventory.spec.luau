@@ -112,12 +112,4 @@ return function(test, check, Shared, require)
 		check.equal(table.concat(Inventory.ids(inv), ","), "Flashlight,,", "only the torch left")
 		check.equal(inv.active, 1, "torch in hand")
 	end)
-
-	test("has finds an id in any slot", function()
-		local inv = Inventory.new()
-		Inventory.pickup(inv, tool("Radio", "a"))
-		check.truthy(Inventory.has(inv, "Radio"), "has the radio")
-		check.truthy(not Inventory.has(inv, "Camera"), "no camera")
-		check.truthy(Inventory.has(inv, "Flashlight"), "has the torch")
-	end)
 end

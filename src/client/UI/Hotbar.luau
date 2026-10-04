@@ -168,7 +168,6 @@ function Hotbar:Update()
 	end
 	local ids = self:_ids()
 	local active = player:GetAttribute(PA.ActiveSlot) or 1
-	local film = player:GetAttribute(PA.Film) or 0
 	for slot, entry in self.slots do
 		local id = ids[slot]
 		if self.shown[slot] ~= id then
@@ -192,7 +191,7 @@ function Hotbar:Update()
 		entry.extra.Text = ""
 		entry.meter.Visible = false
 		if id == "Camera" then
-			entry.extra.Text = "x" .. film
+			entry.extra.Text = "x" .. (player:GetAttribute(PA.SlotFilms[slot]) or 0)
 		elseif id == "Lantern" and isActive and player:GetAttribute("LanternOn") then
 			entry.extra.Text = "lit"
 		elseif id == Inventory.TORCH then

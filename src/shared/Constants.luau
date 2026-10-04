@@ -63,6 +63,7 @@ Constants.PlayerAttributes = {
 	-- which one is in your hands (1 to 3). Slot 1 is always the flashlight.
 	Slots = { "Slot1", "Slot2", "Slot3" },
 	ActiveSlot = "ActiveSlot",
+	SlotFilms = { "Film1", "Film2", "Film3" }, -- film on the Camera in each slot (0 for anything else)
 	Film = "Film",
 	Battery = "Battery",
 	Flashlight = "Flashlight",
