@@ -803,7 +803,12 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					or Enum.NormalId.Right,
 				"Sign",
 				"EXIT",
-				{ color = Color3.fromRGB(200, 60, 50), ppu = 20 }
+				{
+					color = Color3.fromRGB(200, 60, 50),
+					ppu = Config.Exit.Sign.ppu,
+					size = UDim2.fromScale(Config.Exit.Sign.w, Config.Exit.Sign.h),
+					position = UDim2.fromScale(Config.Exit.Sign.x, Config.Exit.Sign.y),
+				}
 			)
 			-- Panels, a knob and a kick plate on the house side, like the other doors
 			-- (they are children, so they open with the slab).
@@ -820,33 +825,34 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					{ collide = false, castShadow = false, shape = shape }
 				)
 			end
+			local exitCfg = Config.Exit
 			for _, sx in { -1, 1 } do
 				detail(
 					"Panel",
-					Vector3.new(DOOR_W * 0.36, DOOR_H * 0.3, 0.08),
-					CFrame.new(sx * DOOR_W * 0.22, -DOOR_H * 0.2, -0.34),
+					Vector3.new(DOOR_W * exitCfg.PanelSize[1], DOOR_H * exitCfg.PanelSize[2], 0.08),
+					CFrame.new(sx * DOOR_W * exitCfg.PanelOffset[1], DOOR_H * exitCfg.PanelOffset[2], -0.34),
 					Color3.fromRGB(78, 54, 40),
 					"Wood"
 				)
 			end
 			detail(
 				"KickPlate",
-				Vector3.new(DOOR_W - 0.7, 0.8, 0.06),
+				Vector3.new(DOOR_W - 0.7, exitCfg.KickPlateHeight, 0.06),
 				CFrame.new(0, -DOOR_H / 2 + 0.6, -0.32),
 				brass,
 				"Metal"
 			)
 			detail(
 				"KnobPlate",
-				Vector3.new(0.4, 1.1, 0.06),
-				CFrame.new(DOOR_W * 0.36, -DOOR_H * 0.04, -0.33),
+				Vector3.new(exitCfg.KnobPlate[1], exitCfg.KnobPlate[2], 0.06),
+				CFrame.new(DOOR_W * exitCfg.KnobOffset[1], DOOR_H * exitCfg.KnobOffset[2], -0.33),
 				brass,
 				"Metal"
 			)
 			detail(
 				"Knob",
 				Vector3.new(0.45, 0.45, 0.45),
-				CFrame.new(DOOR_W * 0.36, -DOOR_H * 0.04, -0.55),
+				CFrame.new(DOOR_W * exitCfg.KnobOffset[1], DOOR_H * exitCfg.KnobOffset[2], -0.55),
 				brass,
 				"Metal",
 				Enum.PartType.Ball

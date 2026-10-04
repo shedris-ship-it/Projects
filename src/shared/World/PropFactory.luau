@@ -13,6 +13,7 @@ local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
 local Tells = require(script.Parent.Parent.Data.Tells)
 local Rng = require(script.Parent.Parent.Lib.Rng)
+local PlantLeaves = require(script.Parent.Parent.Logic.PlantLeaves)
 
 local PropFactory = {}
 
@@ -108,7 +109,10 @@ local function surfaceText(target: BasePart, face: Enum.NormalId, name: string, 
 	local label = Instance.new("TextLabel")
 	label.Name = o.labelName or "Text"
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = o.size or UDim2.fromScale(1, 1)
+	if o.position then
+		label.Position = o.position
+	end
 	label.Font = o.font or Enum.Font.SpecialElite
 	label.TextScaled = true
 	label.TextWrapped = true
@@ -1119,7 +1123,7 @@ function builders.Dresser(model, cf, size, color, material)
 	end
 end
 
-function builders.Plant(model, cf, _size, color, material)
+function builders.Plant(model, cf, _size, color, _material)
 	local clay = Color3.fromRGB(150, 80, 60)
 	local slate = PropFactory.material("Slate")
 	part(model, "Pot", Vector3.new(1.6, 1.4, 1.4), cf * CFrame.new(0, 0.8, 0) * UPRIGHT, clay, slate, { shape = CYL })
@@ -1141,32 +1145,36 @@ function builders.Plant(model, cf, _size, color, material)
 		slate,
 		{ shape = CYL, collide = false, castShadow = false }
 	)
-	-- All foliage stays within Props.Plant.reach of the centre: the 2 x 2 footprint
-	-- fits a corridor strip, and leaves used to reach 1.95 into the closets.
-	local reach = Props.Kinds.Plant.reach
+	-- A short stem, then thin blades fanned round it (owner, 2026-10-04: the old
+	-- plant was a few huge balls of speckled foliage that clipped furniture and
+	-- walls). Logic/PlantLeaves keeps every leaf within Props.Plant.reach of the
+	-- middle, so the 2 x 2 footprint is all the plant ever takes.
 	part(
 		model,
-		"Leaves",
-		Vector3.new(reach * 2, 3.2, reach * 2),
-		cf * CFrame.new(0, 3.2, 0),
-		color,
-		material,
-		{ shape = BALL }
+		"Stem",
+		Vector3.new(1.3, 0.14, 0.14),
+		cf * CFrame.new(0, 2.25, 0) * UPRIGHT,
+		Color3.fromRGB(58, 52, 34),
+		PropFactory.material("Fabric"),
+		{ shape = CYL, collide = false, castShadow = false }
 	)
-	-- A few more clumps of leaf round the main one, each a little different.
-	local rng = Rng.new(Rng.hash(tostring(cf.Position)))
-	for i = 1, 4 do
-		local a = i * math.pi / 2 + rng:NextNumber(-0.4, 0.4)
-		local size = rng:NextNumber(0.9, 1.2)
-		local r = math.min(rng:NextNumber(0.25, 0.45), reach - size / 2)
+	local leafMaterial = PropFactory.material("Fabric")
+	local leaves = PlantLeaves.layout(Rng.new(Rng.hash(tostring(cf.Position))), Config.Plant, Props.Kinds.Plant.reach)
+	for _, leaf in leaves do
+		local base =
+			Vector3.new(math.cos(leaf.azimuth) * leaf.baseRadius, 1.62, math.sin(leaf.azimuth) * leaf.baseRadius)
 		part(
 			model,
 			"Leaf",
-			Vector3.new(size, size * 1.3, size),
-			cf * CFrame.new(math.cos(a) * r, rng:NextNumber(2.2, 3.8), math.sin(a) * r),
-			shade(color, rng:NextNumber(0.8, 1.15)),
-			material,
-			{ shape = BALL, collide = false, castShadow = false }
+			Vector3.new(0.05, leaf.length, leaf.width),
+			cf
+				* CFrame.new(base)
+				* CFrame.Angles(0, -leaf.azimuth, 0)
+				* CFrame.Angles(0, 0, -leaf.tilt)
+				* CFrame.new(0, leaf.length / 2, 0),
+			shade(color, leaf.shade),
+			leafMaterial,
+			{ collide = false, castShadow = false }
 		)
 	end
 end

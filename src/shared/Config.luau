@@ -192,6 +192,36 @@ Config.Lighting = {
 	},
 }
 
+-- The exit door's house side (owner, 2026-10-04: the EXIT letters were drawn
+-- across the whole slab, over the knob and the panels). Everything is a
+-- fraction of the slab, measured as the door looks from inside the house, so
+-- World/LevelBuilder and tests/specs/Exit.spec read the same numbers.
+Config.Exit = {
+	-- The sign: a band across the top of the door, well clear of the details.
+	Sign = { x = 0.11, y = 0.08, w = 0.78, h = 0.2, ppu = 40 },
+	-- Two raised lower panels (size as a fraction of the slab; centre as a
+	-- fraction from the slab's middle, x either side, y negative is down).
+	PanelSize = { 0.36, 0.3 },
+	PanelOffset = { 0.22, -0.2 },
+	-- The knob plate (studs) and where it sits, as a fraction from the middle.
+	KnobPlate = { 0.4, 1.1 },
+	KnobOffset = { 0.36, -0.04 },
+	KickPlateHeight = 0.8, -- studs, resting 0.6 above the bottom edge
+}
+
+-- The potted plant's leaves (owner, 2026-10-04: the old one was a pot with a few
+-- huge balls of speckled foliage that clipped furniture and walls). Leaves are
+-- thin blades fanned round a stem; Logic/PlantLeaves lays them out and keeps every
+-- corner within Props.Kinds.Plant.reach of the plant's middle.
+Config.Plant = {
+	Count = { 8, 10 },
+	Length = { 1.2, 1.8 }, -- studs
+	Width = { 0.36, 0.52 },
+	Tilt = { 8, 28 }, -- degrees out from straight up
+	BaseRadius = { 0.08, 0.22 }, -- where a leaf leaves the soil, from the middle
+	Margin = 0.05, -- kept this far inside the reach
+}
+
 -- What you see through the windows (owner, 2026-10-04: the painted night was
 -- "cartoony", with the same goofy moon in every window). One moon a run, in a
 -- fixed compass direction: a window shows it only if it looks that way, and
