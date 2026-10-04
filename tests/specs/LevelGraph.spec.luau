@@ -18,6 +18,9 @@ return function(test, check, Shared, require)
 			check.equal(room.rotation, b.rooms[i].rotation, "rotation")
 		end
 		check.equal(#a.edges, #b.edges, "edge count")
+		-- Everything else too: seams, doors, roles.
+		local FloorPlan = require(Shared.Logic.FloorPlan)
+		check.equal(FloorPlan.fingerprint(a), FloorPlan.fingerprint(b), "fingerprint")
 	end)
 
 	test("different seeds give different layouts", function()
