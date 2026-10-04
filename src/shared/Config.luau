@@ -144,9 +144,10 @@ Config.Level = {
 	DoorChance = 0.65,
 	LaneHalfWidth = 4, -- doorway-to-centre lanes kept clear of furniture
 	BandDepth = 8, -- furniture lives within this many studs of a wall
-	-- Which generator builds the house: "Cells" (Logic/LevelGraph, today's
-	-- house) or "Mansion" (Logic/MansionGen) once the owner approves it.
-	Mode = "Cells",
+	-- Which generator builds the house: "Cells" (Logic/LevelGraph, the old
+	-- house) or "Mansion" (Logic/MansionGen). The owner wanted the mansion when
+	-- readying up normally (2026-10-04); F2 `layout cells` brings the old one back.
+	Mode = "Mansion",
 }
 
 -- The mansion generator (docs/plans/mansion-generation.md). Rooms are

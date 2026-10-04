@@ -164,7 +164,7 @@ The agreed plan, in order:
        - tools: `lune run tools/plan <seed> mansion` prints a house, and `tools/mansionstats` prints the tuning numbers; example plans are in `docs/plans/mansion-examples.md`
        - `tests/golden/LevelGraph.txt` and `Golden.spec` prove the old generator's houses never change. Rerun `lune run tools/golden` only for an approved change.
      - **M2 mostly done (2026-10-04, build `2026-10-04.4`):**
-       - F2 `layout mansion|cells|default` picks the house for the next run.
+       - The mansion is the default house since build `2026-10-04.5` (the owner readied up and expected it); F2 `layout cells|mansion|default` picks the house for the next run.
        - New code: `World/MansionBuilder` (two floors, the hall's gallery and staircase, dog-leg stairwells, sconces) and `Logic/RoomFit` (40x40 furniture fitted to any room).
        - `WorldService`, the client and the Case File handle rooms as rectangles on floors.
        - Checked in Studio on three seeds: clean consoles, seams aligned, stairs walkable, and Gate A still holds. Results and open items are in `docs/plans/mansion-generation.md` section 5.

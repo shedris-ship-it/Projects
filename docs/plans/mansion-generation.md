@@ -1,6 +1,6 @@
 # The mansion: generation design
 
-Status (2026-10-04): **M1 done, M2 mostly done.** Build `2026-10-04.4`: F2 `layout mansion` builds the mansion in Studio; the old house is still the default (`Config.Level.Mode = "Cells"`). Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
+Status (2026-10-04): **M1 done, M2 mostly done.** Since build `2026-10-04.5` the mansion is the default house (`Config.Level.Mode = "Mansion"`, the owner wanted it when readying up normally); F2 `layout cells` builds the old house for one run. Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
 
 ## 1. The owner's decisions
 
@@ -13,7 +13,7 @@ The owner asked for this on 2026-10-04 ("I want really advanced procedural gener
 | Floors | **Two floors.** The grand staircase in the entrance, plus **1–2 stairwells**. |
 | Size | **18–24 rooms** in all, counting hallways and stairwells. |
 | Room sizes | 20, 30 or 40 studs a side on a 10-stud lattice. **Only the grand entrance is bigger** (about 40×50, double height, with a split staircase up to a balcony gallery). |
-| Old house | The old generator (`Logic/LevelGraph`) stays the default (`Config.Level.Mode = "Cells"`) until the owner approves the mansion. |
+| Old house | The old generator (`Logic/LevelGraph`) was the default until 2026-10-04, when the owner wanted the mansion on a normal ready-up. It stays in the code (`Config.Level.Mode = "Cells"`, or F2 `layout cells`) and its houses are golden-guarded. |
 
 ### Future gameplay the generator must leave room for (owner's notes, not built yet)
 - Most objects interactable; small ones physical (pick up, throw, stun the Guest briefly); closets you physically get into and close.
@@ -143,7 +143,7 @@ New, for mansion layouts only:
 | M2 | Builder: two floors, rectangle rooms, per-segment walls and door gaps, the double-height hall with gallery and grand stair, stairwells (walkable ramps under step visuals), porches, windows on outer stretches; `RoomAt` by floor; `Config.Level.Mode` | Studio | Old mode identical (part dump hash); `plan` matches the house; seams line up (`execute_luau`); no console errors |
 | M3 | Navigation and "bare rooms": `Navigator` routes along lanes and up stairs, `RandomPointIn`, peek spots and flank from seams, Companion on stairs, noise damped between floors, the Case File map per floor; F2 `plan`, `layout`, `navtest` | Studio | `navtest` 0 stuck on 3 seeds; hunts work on both floors; 3 clients |
 | M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |
-| M5 | Retune lights, dust and stalker distances; docs; with the owner's approval `Mode = "Mansion"` | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
+| M5 | Retune lights, dust and stalker distances; docs (`Mode = "Mansion"` already, since build `2026-10-04.5`) | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
 
 ### M2 as built (2026-10-04)
 - **Code:**
