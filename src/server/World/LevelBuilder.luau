@@ -129,6 +129,28 @@ local function buildWall(parent, center: Vector3, dirName: string, gap: boolean,
 	return panel
 end
 
+-- Which face of `part` points most nearly straight down (the pendant's glowing
+-- disc is a cylinder stood on its side, so its "Bottom" isn't world down).
+local function downFace(part: BasePart): Enum.NormalId
+	local best, bestDot = Enum.NormalId.Bottom, -math.huge
+	for _, face in
+		{
+			Enum.NormalId.Top,
+			Enum.NormalId.Bottom,
+			Enum.NormalId.Left,
+			Enum.NormalId.Right,
+			Enum.NormalId.Front,
+			Enum.NormalId.Back,
+		}
+	do
+		local dot = -part.CFrame:VectorToWorldSpace(Vector3.FromNormalId(face)).Y
+		if dot > bestDot then
+			best, bestDot = face, dot
+		end
+	end
+	return best
+end
+
 local function lightFor(kind: string, parentPart: BasePart, template)
 	local palette = Config.Lighting
 	local light
@@ -155,7 +177,15 @@ local function lightFor(kind: string, parentPart: BasePart, template)
 		-- Ceiling light: fluorescent in utility rooms, tungsten everywhere else.
 		local settings = template.light or {}
 		local family = palette.Families[template.family] or palette.Families.living
-		light = Instance.new("PointLight")
+		if palette.CeilingSpot then
+			-- A cone aimed down: nothing above the fixture is lit (see Config.Lighting).
+			local spot = Instance.new("SpotLight")
+			spot.Face = downFace(parentPart)
+			spot.Angle = palette.CeilingSpotAngle
+			light = spot
+		else
+			light = Instance.new("PointLight")
+		end
 		light.Color = PropFactory.rgb(settings.color or palette[family.ceiling])
 		light.Range = math.min((settings.range or 24) * palette.CeilingRangeScale, palette.CeilingMaxRange)
 		light.Brightness = (settings.brightness or 1.2) * palette.CeilingBrightnessScale
@@ -223,8 +253,10 @@ local function ceilingFixture(parent, center: Vector3, family: string?): BasePar
 			quiet
 		)
 		-- A fabric drum, glowing faintly from the bulb inside, and a brighter
-		-- diffuser underneath. The shade casts a shadow, so the ceiling right
-		-- above stays dark, like a real shaded lamp.
+		-- diffuser underneath. The light is a downward cone (lightFor), so the
+		-- ceiling right above stays dark, like a real shaded lamp. The shade no
+		-- longer casts a shadow: with the light 0.02 under it, it only ever
+		-- confused the shadow map.
 		glow(
 			PropFactory.part(
 				fixture,
@@ -233,7 +265,7 @@ local function ceilingFixture(parent, center: Vector3, family: string?): BasePar
 				CFrame.new(center + Vector3.new(0, HEIGHT - 1.05, 0)) * upright,
 				Color3.fromRGB(150, 116, 70),
 				PropFactory.material("Neon"),
-				{ collide = false, castShadow = true, query = false, shape = Enum.PartType.Cylinder }
+				{ collide = false, castShadow = false, query = false, shape = Enum.PartType.Cylinder }
 			)
 		)
 		diffuser = glow(

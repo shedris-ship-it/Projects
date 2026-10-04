@@ -276,7 +276,7 @@ local function trackLight(part: Instance)
 		return
 	end
 	-- Remember whether it was built to cast shadows.
-	-- Lamps (point lights that light a room) turn hunt red during a hunt
+	-- Lamps (point lights and ceiling spots that light a room) turn hunt red during a hunt
 	-- (docs/ART.md, reserved colours); windows, screens and bounce light don't.
 	-- A fixture's glowing parts follow its light: they dim when it dims or goes
 	-- out, and redden with it.
@@ -295,7 +295,8 @@ local function trackLight(part: Instance)
 		shadows = light.Shadows,
 		dim = 1,
 		color = light.Color,
-		lamp = light:IsA("PointLight") and light.Name == "KeyLight",
+		-- A ceiling fixture's key light is a downward SpotLight (Config.Lighting.CeilingSpot).
+		lamp = (light:IsA("PointLight") or light:IsA("SpotLight")) and light.Name == "KeyLight",
 		utility = fixture ~= nil and fixture:FindFirstChild("Housing") ~= nil, -- a fluorescent
 		glows = glows,
 	}

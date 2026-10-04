@@ -167,6 +167,15 @@ Config.Lighting = {
 	CeilingRangeScale = 1.5, -- on top of each template's light range
 	CeilingMaxRange = 40,
 	CeilingBrightnessScale = 1.3,
+	-- Ceiling fixtures throw their light downward from a SpotLight instead of a
+	-- PointLight (owner, 2026-10-04: a hard square patch on the ceiling that
+	-- "doesn't match the rest of the lighting"). A point light sat 0.02 studs
+	-- under the pendant's shade, inside the shadow map's near plane, so the
+	-- ceiling was lit through the shade in a crisp quadrilateral. A downward
+	-- cone never reaches the ceiling at all, which keeps it dark like every
+	-- other ceiling. Set CeilingSpot to false to get the old point lights back.
+	CeilingSpot = true,
+	CeilingSpotAngle = 175, -- degrees; 180 is a full hemisphere, a hair less keeps clear of the limit
 	-- A room lit only by a window or TV gets a soft bounce light in front of
 	-- it, standing in for light off the walls. It casts shadows so it can't
 	-- leak through into the next room.
