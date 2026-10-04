@@ -192,6 +192,26 @@ Config.Lighting = {
 	},
 }
 
+-- What you see through the windows (owner, 2026-10-04: the painted night was
+-- "cartoony", with the same goofy moon in every window). One moon a run, in a
+-- fixed compass direction: a window shows it only if it looks that way, and
+-- where it sits in the pane follows the angle. The sky is near-black with a
+-- soft dim glow, never a hard disc. Most panes are partly covered by a real
+-- 3D curtain, blind or boards (World/PropFactory), always leaving a clear
+-- part of the glass so The Guest's reflection and his face at the glass still
+-- read. Logic/WindowView decides, from the seed; Logic/WindowView.spec tests it.
+Config.Window = {
+	MoonElevation = { 20, 46 }, -- degrees above the horizon, one per run
+	MoonHalfView = 70, -- degrees either side of straight out a window still shows the moon
+	-- Chances of each covering for a window (they're normalised).
+	Covers = { bare = 0.28, sheer = 0.32, blinds = 0.25, boards = 0.15 },
+	-- Moonlight spilling in through a window that looks at the moon (a faint,
+	-- shadowless patch on the floor); windows with their own key light don't get it.
+	SpillRange = 16,
+	SpillBrightness = 0.3,
+	SpillAngle = 110,
+}
+
 -- Trim and doors (docs/ART.md, step 3). Baseboards and crown moulding catch
 -- the light and make a box read as a room; door and window casings are
 -- painted lighter than any wall, so exits read even in a dark room (rule 4).

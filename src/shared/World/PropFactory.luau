@@ -1447,7 +1447,127 @@ function PropFactory.build(kindName: string, cf: CFrame, parent: Instance, overr
 end
 
 -- Wall decor: cf sits on the wall surface, LookVector pointing into the room.
-function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, seed: number?)
+-- A real 3D covering over a window, in front of the glass and always leaving
+-- part of it clear (the Guest's reflection and his face at the glass still read).
+-- All parts sit within 0.6 studs of the wall (Rooms spec) and never collide.
+local function windowCover(model, cf: CFrame, cover: string, w: number, h: number, iw: number, ih: number, rng)
+	local loose = { collide = false, castShadow = false, query = false }
+	if cover == "sheer" then
+		-- A rod, and a sheer panel at each side hanging in gathered folds.
+		local brass = Color3.fromRGB(96, 80, 56)
+		part(
+			model,
+			"CoverRod",
+			Vector3.new(w + 0.8, 0.14, 0.14),
+			cf * CFrame.new(0, h / 2 + 0.5, -0.46),
+			brass,
+			PropFactory.material("Metal"),
+			loose
+		)
+		for _, sx in { -1, 1 } do
+			trim(
+				model,
+				"CoverFinial",
+				Vector3.new(0.3, 0.3, 0.3),
+				cf * CFrame.new(sx * (w / 2 + 0.5), h / 2 + 0.5, -0.46),
+				brass,
+				BALL
+			)
+		end
+		local panelWidth = (w + 0.2) * rng:NextNumber(0.3, 0.38)
+		local top, bottom = h / 2 + 0.42, -h / 2 + 0.15
+		local folds = 4
+		for _, sx in { -1, 1 } do
+			local edge = sx * (w / 2 + 0.1)
+			for i = 0, folds - 1 do
+				local fw = panelWidth / folds
+				local x = edge - sx * (fw * (i + 0.5))
+				part(
+					model,
+					"CoverFold",
+					Vector3.new(fw + 0.04, top - bottom, 0.08),
+					cf * CFrame.new(x, (top + bottom) / 2, -(i % 2 == 0 and 0.4 or 0.52)),
+					shade(Color3.fromRGB(204, 198, 178), 0.9 + (i % 2) * 0.12),
+					PropFactory.material("Fabric"),
+					{ collide = false, castShadow = false, query = false, transparency = 0.38 }
+				)
+			end
+		end
+	elseif cover == "blinds" then
+		-- Venetian blinds drawn part-way down, the slats tilted open.
+		local drawn = ih * rng:NextNumber(0.4, 0.62)
+		local slats = 11
+		local pitch = drawn / slats
+		local white = Color3.fromRGB(186, 180, 162)
+		part(
+			model,
+			"BlindHead",
+			Vector3.new(iw + 0.2, 0.22, 0.28),
+			cf * CFrame.new(0, ih / 2 + 0.02, -0.34),
+			shade(white, 0.85),
+			PropFactory.material("SmoothPlastic"),
+			loose
+		)
+		for i = 1, slats do
+			part(
+				model,
+				"BlindSlat",
+				Vector3.new(iw - 0.1, pitch * 0.72, 0.04),
+				cf * CFrame.new(0, ih / 2 - 0.2 - (i - 0.5) * pitch, -0.34) * CFrame.Angles(math.rad(28), 0, 0),
+				white,
+				PropFactory.material("SmoothPlastic"),
+				loose
+			)
+		end
+		part(
+			model,
+			"BlindBottom",
+			Vector3.new(iw - 0.1, 0.12, 0.08),
+			cf * CFrame.new(0, ih / 2 - 0.2 - drawn - 0.04, -0.34),
+			shade(white, 0.8),
+			PropFactory.material("SmoothPlastic"),
+			loose
+		)
+		for _, sx in { -1, 1 } do
+			part(
+				model,
+				"BlindCord",
+				Vector3.new(0.025, drawn + 0.2, 0.025),
+				cf * CFrame.new(sx * (iw / 2 - 0.35), ih / 2 - 0.2 - (drawn + 0.04) / 2, -0.37),
+				Color3.fromRGB(150, 144, 128),
+				PropFactory.material("Fabric"),
+				loose
+			)
+		end
+	elseif cover == "boards" then
+		-- Planks nailed across, slightly crooked, with the night showing between.
+		for i = 1, 3 do
+			local y = (1 - i) * (ih * 0.34) + rng:NextNumber(-0.15, 0.15) + ih * 0.04
+			part(
+				model,
+				"CoverPlank",
+				Vector3.new(w * 0.96, 0.6, 0.1),
+				cf
+					* CFrame.new(rng:NextNumber(-0.12, 0.12), y, -0.3 - i * 0.02)
+					* CFrame.Angles(0, 0, math.rad(rng:NextNumber(-7, 7))),
+				shade(Color3.fromRGB(104, 84, 62), rng:NextNumber(0.8, 1.1)),
+				PropFactory.material("Wood"),
+				loose
+			)
+		end
+	end
+end
+
+-- opts (windows only): { view = Logic/WindowView.view, key = true when the window
+-- is its room's light }. A window built without them (the sealed-window tell,
+-- which must read cleanly) is bare, with a plain dark sky.
+function PropFactory.buildDecor(
+	kindName: string,
+	cf: CFrame,
+	parent: Instance,
+	seed: number?,
+	opts: { view: any?, key: boolean? }?
+)
 	local kind = Props.WallDecor[kindName]
 	local model = Instance.new("Model")
 	model.Name = kindName
@@ -1497,9 +1617,11 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 	elseif kindName == "Window" then
 		-- A window you look into rather than a picture of one (docs/ART.md,
 		-- step 3): a painted casing and sill around the pane, and behind the
-		-- glass the night sky glowing faintly, lighter at the top, with the
-		-- muntins dark against it. The casing is lighter than any wall, like a
-		-- door's, and the inner opening leaves room for a Sealed window's bricks.
+		-- glass a near-black night sky with, where one faces the moon, a soft
+		-- glow (Logic/WindowView), the muntins dark against it, and a real
+		-- curtain, blind or boards over part of it. The casing is lighter than
+		-- any wall, like a door's, and the inner opening leaves room for a
+		-- Sealed window's bricks.
 		local paint = rgb(Config.Trim.Paint)
 		local cw, cd = 0.45, 0.18
 		local iw, ih = w - 2 * cw, h - 2 * cw
@@ -1541,14 +1663,18 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 			PropFactory.material("SmoothPlastic"),
 			{ collide = false, query = false, castShadow = false }
 		)
+		local view = opts and opts.view or { cover = "bare", moonVisible = false }
 		local gui = Instance.new("SurfaceGui")
 		gui.Name = "Night"
 		gui.Face = Enum.NormalId.Front
 		gui.LightInfluence = 0
-		gui.Brightness = 1.4
+		gui.Brightness = 1
 		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 		gui.PixelsPerStud = 20
 		gui.Parent = sky
+		-- A real night sky is nearly black: deep blue overhead, a little paler at
+		-- the horizon, then the dark ground fading up from the bottom (owner,
+		-- 2026-10-04: no painted scenery). Only a soft moon where one looks its way.
 		local fill = Instance.new("Frame")
 		fill.Size = UDim2.fromScale(1, 1)
 		fill.BorderSizePixel = 0
@@ -1557,87 +1683,50 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 		local gradient = Instance.new("UIGradient")
 		gradient.Rotation = 90
 		gradient.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(74, 94, 140)),
-			ColorSequenceKeypoint.new(0.6, Color3.fromRGB(34, 44, 68)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 16, 24)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(11, 14, 24)),
+			ColorSequenceKeypoint.new(0.74, Color3.fromRGB(27, 33, 49)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 18, 28)),
 		})
 		gradient.Parent = fill
-		-- Drawn on the same pane: a moon with a halo, a scatter of stars and tree
-		-- silhouettes along the bottom, different in every window (seeded by its
-		-- place) so the house isn't looking out on one repeated picture.
-		local scene = Rng.new(Rng.hash(tostring(cf.Position)))
-		local function box(name, size, position, colour, transparency, round, anchor)
-			local f = Instance.new("Frame")
-			f.Name = name
-			f.Size = size
-			f.Position = position
-			f.AnchorPoint = anchor or Vector2.zero
-			f.BackgroundColor3 = colour
-			f.BackgroundTransparency = transparency
-			f.BorderSizePixel = 0
-			if round then
+		local ground = Instance.new("Frame")
+		ground.Name = "Ground"
+		ground.AnchorPoint = Vector2.new(0, 1)
+		ground.Position = UDim2.fromScale(0, 1)
+		ground.Size = UDim2.fromScale(1, 0.26)
+		ground.BorderSizePixel = 0
+		ground.BackgroundColor3 = Color3.fromRGB(3, 4, 7)
+		ground.Parent = gui
+		local fade = Instance.new("UIGradient")
+		fade.Rotation = 90
+		fade.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.55, 0.35),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		fade.Parent = ground
+		if view.moonVisible then
+			-- A dim moon in a glow: a few wide, faint rings round a small pale core,
+			-- so it reads as light on the glass, never as a flat disc.
+			local function ring(name: string, pixels: number, colour: Color3, transparency: number)
+				local f = Instance.new("Frame")
+				f.Name = name
+				f.AnchorPoint = Vector2.new(0.5, 0.5)
+				f.Position = UDim2.fromScale(view.moonX, view.moonY)
+				f.Size = UDim2.fromOffset(pixels, pixels)
+				f.BackgroundColor3 = colour
+				f.BackgroundTransparency = transparency
+				f.BorderSizePixel = 0
 				local corner = Instance.new("UICorner")
-				corner.CornerRadius = UDim.new(round, 0)
+				corner.CornerRadius = UDim.new(0.5, 0)
 				corner.Parent = f
+				f.Parent = gui
 			end
-			f.Parent = gui
-			return f
-		end
-		for _ = 1, scene:NextInteger(6, 11) do
-			local s = scene:NextInteger(1, 2)
-			box(
-				"Star",
-				UDim2.fromOffset(s, s),
-				UDim2.fromScale(scene:NextNumber(0.04, 0.96), scene:NextNumber(0.03, 0.55)),
-				Color3.fromRGB(235, 236, 255),
-				scene:NextNumber(0.1, 0.6),
-				0.5
-			)
-		end
-		local mx, my = scene:NextNumber(0.2, 0.8), scene:NextNumber(0.12, 0.38)
-		local moonSize = math.floor(ih * 20 * 0.26)
-		box(
-			"MoonHalo",
-			UDim2.fromOffset(moonSize * 2.2, moonSize * 2.2),
-			UDim2.fromScale(mx, my),
-			Color3.fromRGB(150, 168, 210),
-			0.86,
-			0.5,
-			Vector2.new(0.5, 0.5)
-		)
-		box(
-			"Moon",
-			UDim2.fromOffset(moonSize, moonSize),
-			UDim2.fromScale(mx, my),
-			Color3.fromRGB(238, 234, 214),
-			0,
-			0.5,
-			Vector2.new(0.5, 0.5)
-		)
-		local x = -0.02
-		while x < 1 do
-			local width = scene:NextNumber(0.1, 0.22)
-			local height = scene:NextNumber(0.14, 0.34)
-			local dark = Color3.fromRGB(6, 8, 12)
-			box(
-				"Trunk",
-				UDim2.fromScale(0.018, height * 0.5),
-				UDim2.fromScale(x + width / 2, 1),
-				dark,
-				0,
-				nil,
-				Vector2.new(0.5, 1)
-			)
-			box(
-				"Crown",
-				UDim2.fromScale(width, height),
-				UDim2.fromScale(x + width / 2, 1 - height * 0.35),
-				dark,
-				0,
-				0.5,
-				Vector2.new(0.5, 1)
-			)
-			x += width * scene:NextNumber(0.6, 0.95)
+			local glow = Color3.fromRGB(150, 172, 220)
+			ring("MoonGlow", 64, glow, 0.975)
+			ring("MoonGlow", 44, glow, 0.95)
+			ring("MoonGlow", 30, glow, 0.92)
+			ring("MoonGlow", 19, Color3.fromRGB(180, 198, 232), 0.86)
+			ring("Moon", 8, Color3.fromRGB(214, 222, 238), 0.3)
 		end
 		-- A faintly tinted, nearly clear pane. Roblox's Glass material hides the
 		-- sky up close (so the window changed with distance), and reflectance
@@ -1670,6 +1759,31 @@ function PropFactory.buildDecor(kindName: string, cf: CFrame, parent: Instance, 
 			PropFactory.material("Wood"),
 			{ collide = false, castShadow = false }
 		)
+		windowCover(model, cf, view.cover, w, h, iw, ih, rng)
+		-- Moonlight spilling in from a window that looks at the moon: a faint,
+		-- shadowless patch on the floor. On its own invisible part, never on the
+		-- glass, because LevelBuilder lights a key window by finding the first
+		-- Light on the glass.
+		if view.moonVisible and not (opts and opts.key) then
+			local anchor = part(
+				model,
+				"SpillAnchor",
+				Vector3.new(0.2, 0.2, 0.2),
+				cf * CFrame.new(0, 0, -0.3),
+				Color3.new(),
+				PropFactory.material("SmoothPlastic"),
+				{ collide = false, query = false, castShadow = false, transparency = 1 }
+			)
+			local spill = Instance.new("SurfaceLight")
+			spill.Name = "MoonSpill"
+			spill.Face = Enum.NormalId.Front
+			spill.Color = rgb(Config.Lighting.Moonlight)
+			spill.Range = Config.Window.SpillRange
+			spill.Brightness = Config.Window.SpillBrightness
+			spill.Angle = Config.Window.SpillAngle
+			spill.Shadows = false
+			spill.Parent = anchor
+		end
 		lightPart = glass
 	elseif kindName == "Mirror" then
 		part(

@@ -18,6 +18,7 @@ local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
 local Dressing = require(script.Parent.Dressing)
+local WindowView = require(Shared.Logic.WindowView)
 local Grime = require(script.Parent.Grime)
 local Trim = require(script.Parent.Trim)
 
@@ -307,6 +308,9 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		spawns = {},
 		shrines = {},
 		props = {},
+		-- One moon a run, in a fixed compass direction (Logic/WindowView): a window
+		-- shows it only if it looks that way. A fork, so nothing else moves.
+		moon = WindowView.moon(rng:Fork("moon"), Config.Window),
 	}
 	local cells = layout.cells
 	local prefabs = ServerStorage:FindFirstChild("RoomPrefabs")
@@ -588,7 +592,23 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 					continue
 				end
 				local cf = slotCFrame(roomCF, decor, decor.y)
-				local decorModel, lightPart = PropFactory.buildDecor(decor.kind, cf, model, room.id * 100 + #decor.id)
+				-- What is outside this window: which covering it has, and the moon where one
+				-- faces it. Its own fork of the seed, so no other part of the house moves.
+				local decorOptions
+				if decor.kind == "Window" then
+					local outward = -cf.LookVector
+					decorOptions = {
+						key = decor.key == true,
+						view = WindowView.view(
+							rng:Fork("window:" .. room.id .. ":" .. decor.id),
+							WindowView.azimuth(outward.X, outward.Z),
+							world.moon,
+							Config.Window
+						),
+					}
+				end
+				local decorModel, lightPart =
+					PropFactory.buildDecor(decor.kind, cf, model, room.id * 100 + #decor.id, decorOptions)
 				decorModel:SetAttribute(Attr.CId, "decor:" .. room.id .. ":" .. decor.id)
 				if decor.key and lightPart then
 					keyLightPart, keyLightKind = lightPart, "window"
