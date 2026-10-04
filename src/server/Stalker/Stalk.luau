@@ -281,9 +281,10 @@ function Stalk:_peekSpots()
 	local spots = {}
 	for id, seam in world.seams do
 		if seam.connected and not divergent[id] then
-			local a, b = world.rooms[seam.a], world.rooms[seam.b]
-			local n = flat(b.center - a.center).Unit
-			local c = (a.center + b.center) / 2
+			-- The doorway itself (in the mansion, room centres don't line up
+			-- with their doorways).
+			local n = flat(seam.normal).Unit
+			local c = seam.floorPosition
 			for _, s in PeekSpots.forDoorway(c.X, c.Z, n.X, n.Z, cfg) do
 				local position = Vector3.new(s.x, c.Y, s.z)
 				local hide = Vector3.new(s.hideX, c.Y, s.hideZ)

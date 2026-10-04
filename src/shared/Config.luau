@@ -188,6 +188,9 @@ Config.Mansion = {
 	SiteHalfWidth = 100, -- wings stay within this many studs east and west of the hall's centre
 	SiteDepth = 130, -- and this far behind the front line
 	-- Candidate scoring when packing rooms (Logic/MansionGen).
+	-- Wall sconces in the double-height rooms, whose one ceiling light can't
+	-- reach the gallery or a stairwell's landings.
+	Sconce = { range = 18, brightness = 1.1, height = 6.2 },
 	Placement = {
 		Top = 6, -- weighted pick among this many best candidates
 		Contact = 1, -- per extra neighbour a door could join

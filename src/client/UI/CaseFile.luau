@@ -222,45 +222,64 @@ function CaseFile:_renderMap()
 		Ui.label("No map yet.", { Parent = self.body })
 		return
 	end
+	-- Rooms are rectangles (x, z, w, d in studs); the mansion's two floors are
+	-- drawn side by side, the hall and stairwells on both.
+	local floors = layout.mode == "Mansion" and 2 or 1
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	for _, room in layout.rooms do
-		minX, maxX = math.min(minX, room.gx), math.max(maxX, room.gx)
-		minZ, maxZ = math.min(minZ, room.gz), math.max(maxZ, room.gz)
+		minX, maxX = math.min(minX, room.x), math.max(maxX, room.x + room.w)
+		minZ, maxZ = math.min(minZ, room.z), math.max(maxZ, room.z + room.d)
 	end
-	local cols, rows = maxX - minX + 1, maxZ - minZ + 1
-	local cell = math.floor(math.min(560 / rows, 900 / cols))
+	local gap = 30 -- studs between the floors' plans
+	local width = (maxX - minX) * floors + gap * (floors - 1)
+	local height = maxZ - minZ
+	local scale = math.min(540 / height, 900 / width)
 	local canvas = Ui.new("Frame", {
-		Size = UDim2.fromOffset(cols * cell, rows * cell),
+		Size = UDim2.fromOffset(width * scale, height * scale + 24),
 		BackgroundTransparency = 1,
 		Parent = self.body,
 	})
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local here = root and self.ctx.state:RoomAt(root.Position)
-	for _, room in layout.rooms do
-		local isHere = here and here.id == room.id
-		local tag = room.role == "start" and " (Case Board)"
-			or room.role == "deliberation" and " (Table)"
-			or room.role == "exit" and " (Exit)"
-			or ""
-		if room.lantern then
-			tag ..= " (Lantern)"
+	for floor = 0, floors - 1 do
+		local left = floor * (maxX - minX + gap)
+		if floors > 1 then
+			Ui.label(floor == 0 and "Ground floor" or "Upper floor", {
+				Position = UDim2.fromOffset(left * scale, height * scale + 4),
+				Size = UDim2.fromOffset((maxX - minX) * scale, 18),
+				TextSize = 13,
+				TextColor3 = Ui.Theme.textDim,
+				Parent = canvas,
+			})
 		end
-		Ui.new("TextLabel", {
-			Position = UDim2.fromOffset((room.gx - minX) * cell + 3, (room.gz - minZ) * cell + 3),
-			Size = UDim2.fromOffset(cell - 6, cell - 6),
-			BackgroundColor3 = isHere and Ui.Theme.accent
-				or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight),
-			Text = room.name .. tag,
-			TextWrapped = true,
-			TextSize = 12,
-			Font = Ui.Theme.font,
-			TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
-			Parent = canvas,
-		}, { Ui.corner(4) })
+		for _, room in layout.rooms do
+			if room.tall or (room.floor or 0) == floor then
+				local isHere = here and here.id == room.id
+				local tag = room.role == "start" and " (Case Board)"
+					or room.role == "deliberation" and " (Table)"
+					or room.role == "exit" and " (Exit)"
+					or ""
+				if room.lantern then
+					tag ..= " (Lantern)"
+				end
+				Ui.new("TextLabel", {
+					Position = UDim2.fromOffset((left + room.x - minX) * scale + 2, (room.z - minZ) * scale + 2),
+					Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
+					BackgroundColor3 = isHere and Ui.Theme.accent
+						or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight),
+					Text = room.name .. tag,
+					TextWrapped = true,
+					TextSize = 12,
+					Font = Ui.Theme.font,
+					TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
+					Parent = canvas,
+				}, { Ui.corner(4) })
+			end
+		end
 	end
 	Ui.label("Rooms only: doorways aren't drawn, because the house won't agree on them.", {
-		Position = UDim2.fromOffset(0, rows * cell + 6),
-		Size = UDim2.fromOffset(cols * cell, 18),
+		Position = UDim2.fromOffset(0, height * scale + 24),
+		Size = UDim2.fromOffset(width * scale, 18),
 		TextSize = 12,
 		TextColor3 = Ui.Theme.textDim,
 		Parent = canvas,

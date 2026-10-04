@@ -164,6 +164,62 @@ local function run(parent, frame: CFrame, a: Vector3, b: Vector3, normal: Vector
 	segment(parent, "Crown", frame, a, b, normal, HEIGHT - T.CrownHeight, T.CrownHeight, T.CrownDepth, color, material)
 end
 
+-- Baseboard (and wainscot) along a stretch of wall face from `a` to `b`,
+-- broken for doorways centred at `cuts` (distances from `a`), and the crown
+-- above unless `crown` is false (the lower storey of a double-height room);
+-- `baseboard` false leaves the baseboard off (a stairwell's upper storey has
+-- no floor along most of its walls). For rooms of any size
+-- (World/MansionBuilder); `frame` is the frame the points are in, at floor
+-- level.
+function Trim.stretch(
+	parent,
+	frame: CFrame,
+	a: Vector3,
+	b: Vector3,
+	normal: Vector3,
+	cuts,
+	wainscot,
+	crown: boolean?,
+	baseboard: boolean?
+)
+	local color, material = wood()
+	local length = (b - a).Magnitude
+	local along = (b - a).Unit
+	local sorted = table.clone(cuts)
+	table.sort(sorted)
+	local from = 0
+	local pieces = {}
+	for _, cut in sorted do
+		table.insert(pieces, { from, cut - EDGE })
+		from = cut + EDGE
+	end
+	table.insert(pieces, { from, length })
+	for _, piece in pieces do
+		if baseboard ~= false and piece[2] - piece[1] > 0.05 then
+			local p0, p1 = a + along * piece[1], a + along * piece[2]
+			if wainscot then
+				wainscotStrip(parent, frame, p0, p1, normal, wainscot)
+			end
+			segment(parent, "Baseboard", frame, p0, p1, normal, 0, T.BaseboardHeight, T.BaseboardDepth, color, material)
+		end
+	end
+	if crown ~= false then
+		segment(
+			parent,
+			"Crown",
+			frame,
+			a,
+			b,
+			normal,
+			HEIGHT - T.CrownHeight,
+			T.CrownHeight,
+			T.CrownDepth,
+			color,
+			material
+		)
+	end
+end
+
 -- Every wall face of a room. `dirs` maps world side names to unit vectors;
 -- `openings[side]` is true where the side has a doorway-sized opening (a seam
 -- or the exit). For a corridor room, `corridor` = { halfWidth, filled, rotate }
@@ -294,9 +350,11 @@ end
 
 -- Trim that flips with a seam. `faces` are the two rooms' wall faces at the
 -- seam (centre at floor level, LookVector into each room, with the room
--- model to parent to, its wall `surface`: color, material, variant, and its
--- `wainscot` surface if it has one); `through` is the unit vector from room A
--- to room B.
+-- model to parent to, its wall `surface`: color, material, variant, its
+-- `wainscot` surface if it has one, and optionally the `span` of wall face
+-- its skin covers, { from, to } across the face from the doorway's centre;
+-- a 40x40 cell's whole wall by default); `through` is the unit vector from
+-- room A to room B.
 function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 	local function tagger(role: string)
 		return function(p: BasePart?)
@@ -346,9 +404,10 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 		-- The wall surface: whole while it's a wall, around the opening while
 		-- it's a doorway.
 		local half = DOOR_W / 2
-		asWall(skin(f.parent, f.face, -INNER, INNER, 0, HEIGHT, f.surface))
-		asDoor(skin(f.parent, f.face, -INNER, -half, 0, HEIGHT, f.surface))
-		asDoor(skin(f.parent, f.face, half, INNER, 0, HEIGHT, f.surface))
+		local s0, s1 = f.span and f.span[1] or -INNER, f.span and f.span[2] or INNER
+		asWall(skin(f.parent, f.face, s0, s1, 0, HEIGHT, f.surface))
+		asDoor(skin(f.parent, f.face, s0, -half, 0, HEIGHT, f.surface))
+		asDoor(skin(f.parent, f.face, half, s1, 0, HEIGHT, f.surface))
 		asDoor(skin(f.parent, f.face, -half, half, DOOR_H, HEIGHT, f.surface))
 	end
 	-- Lining for the sides and top of the opening, through both wall layers.

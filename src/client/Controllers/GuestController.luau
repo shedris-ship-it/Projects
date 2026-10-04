@@ -203,6 +203,36 @@ local FINGER_CURL = {
 	Lunge = -0.25,
 }
 
+-- How far he ducks for a doorway in the mansion, whose doorways aren't on a
+-- 40-stud grid: from the seam panels nearby (every seam, doorway or not, so
+-- ducking never gives a tell away), like GuestPose.stoop does on the grid.
+local seamPanels, seamPanelsAt = {}, -math.huge
+local function mansionStoop(position: Vector3): number
+	local now = os.clock()
+	if now - seamPanelsAt > 2 then
+		seamPanels = CollectionService:GetTagged(Constants.Tags.Seam)
+		seamPanelsAt = now
+	end
+	local best = 0
+	for _, panel in seamPanels do
+		if panel:IsA("BasePart") and panel.Parent then
+			local p, size = panel.Position, panel.Size
+			if math.abs(position.Y - p.Y) < 8 then
+				local lateral, depth
+				if size.X > size.Z then
+					lateral, depth = math.abs(position.X - p.X), math.abs(position.Z - p.Z)
+				else
+					lateral, depth = math.abs(position.Z - p.Z), math.abs(position.X - p.X)
+				end
+				if lateral <= Config.Level.DoorWidth / 2 + 1 then
+					best = math.max(best, math.clamp(1 - depth / 3, 0, 1))
+				end
+			end
+		end
+	end
+	return best
+end
+
 function GuestController:_frame(dt: number)
 	local model, root = guest.model, guest.root
 	local position = root.Position
@@ -235,8 +265,15 @@ function GuestController:_frame(dt: number)
 		gazeYaw, gazePitch = GuestPose.gazeAngles(rel.X, rel.Y, rel.Z)
 	end
 	local origin = Config.Level.Origin
-	local stoop =
-		GuestPose.stoop(position.X - origin.x, position.Z - origin.z, Config.Level.CellSize, Config.Level.DoorWidth / 2)
+	local layout = self.state and self.state.layout
+	local stoop = if layout and layout.mode == "Mansion"
+		then mansionStoop(position)
+		else GuestPose.stoop(
+			position.X - origin.x,
+			position.Z - origin.z,
+			Config.Level.CellSize,
+			Config.Level.DoorWidth / 2
+		)
 	local lean = model:GetAttribute("GuestLean") or 0
 	local values, planted = GuestPose.step(guest.pose, {
 		pose = pose,

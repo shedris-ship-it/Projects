@@ -308,7 +308,8 @@ end
 -- the start room's spawns and Case Board, and a Lantern room's shrine.
 -- ctx: { room (layout record: id, role, lantern), record, template, roomCF,
 -- model, rng, center (floor point the room faces), prefabs, inner (optional
--- inner half extents), facesOutside(slot), inFilledArm(x, z),
+-- inner half extents), fixtureAt (optional: where the ceiling light hangs
+-- from, for a double-height room), facesOutside(slot), inFilledArm(x, z),
 -- wallInFilledArm(slot) }.
 function LevelBuilder.furnish(world, ctx)
 	local room, record, template = ctx.room, ctx.record, ctx.template
@@ -467,7 +468,7 @@ function LevelBuilder.furnish(world, ctx)
 
 	-- Key light: one motivated source per room (doc section 8).
 	if not keyLightPart then
-		keyLightPart = ceilingFixture(model, center, template.family)
+		keyLightPart = ceilingFixture(model, ctx.fixtureAt or center, template.family)
 		keyLightKind = "ceiling"
 	end
 	local light = keyLightPart:FindFirstChildWhichIsA("Light")
@@ -585,7 +586,7 @@ function LevelBuilder.furnish(world, ctx)
 		end
 		world.caseBoardPart = boardPart
 	end
-	if room.lantern then
+	if room.lantern and template.shrine then
 		local s = template.shrine
 		local pos = roomCF:PointToWorldSpace(Vector3.new(s.x, 0, s.z))
 		local cf = CFrame.lookAt(pos, Vector3.new(center.X, 0, center.Z)) * CFrame.Angles(0, math.pi, 0)

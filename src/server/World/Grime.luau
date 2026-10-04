@@ -54,10 +54,35 @@ local function card(parent, name: string, cf: CFrame, width: number, height: num
 	return part
 end
 
+-- A room's walls as grime sees them: its centre at floor level, and per side
+-- the distance to the wall face (`inner`), half the face's length (`half`)
+-- and where its doorways are along it (`openings`). A 40x40 cell has one
+-- opening in the middle of each shared wall; the mansion builder gives its
+-- rooms their own (`record.walls`).
+local function wallsOf(record)
+	if record.walls then
+		return record.walls
+	end
+	local inner, half, openings = {}, {}, {}
+	for side, info in record.sides do
+		inner[side], half[side] = INNER, INNER
+		openings[side] = (info.neighbour ~= nil or info.exit) and { 0 } or {}
+	end
+	return {
+		center = record.center,
+		inner = inner,
+		half = half,
+		openings = openings,
+		radius = math.huge,
+		ceiling = HEIGHT,
+	}
+end
+
 -- A point on a wall face, `along` across it and `y` up, facing into the room.
-local function onWall(center: Vector3, dir: Vector3, along: number, y: number): CFrame
+local function onWall(walls, side: string, along: number, y: number): CFrame
+	local dir = DIRS[side]
 	local perp = Vector3.new(math.abs(dir.Z), 0, math.abs(dir.X))
-	local pos = center + dir * (INNER - G.WallOffset) + perp * along + UP * y
+	local pos = walls.center + dir * (walls.inner[side] - G.WallOffset) + perp * along + UP * y
 	return CFrame.lookAt(pos, pos - dir)
 end
 
@@ -79,16 +104,20 @@ end
 -- A spot along a wall face for grime of this width, or nil: away from the
 -- seam in the middle of a shared wall or the exit, and from anything in
 -- `clear` on that face.
-local function wallSpot(rng, record, side: string, width: number, clear)
+local function wallSpot(rng, walls, side: string, width: number, clear)
 	local dir = DIRS[side]
-	local info = record.sides[side]
-	local shared = info.neighbour ~= nil or info.exit
+	local reach = walls.half[side] - width / 2 - 1
 	for _ = 1, 8 do
-		local along = rng:NextNumber(-(INNER - width / 2 - 1), INNER - width / 2 - 1)
-		local ok = not shared or math.abs(along) - width / 2 >= G.SeamClearance
+		local along = rng:NextNumber(-reach, reach)
+		local ok = true
+		for _, opening in walls.openings[side] do
+			if math.abs(along - opening) - width / 2 < G.SeamClearance then
+				ok = false
+			end
+		end
 		if ok then
 			local perp = Vector3.new(math.abs(dir.Z), 0, math.abs(dir.X))
-			local spot = record.center + dir * INNER + perp * along
+			local spot = walls.center + dir * walls.inner[side] + perp * along
 			for _, p in clear do
 				local flat = Vector3.new(p.X - spot.X, 0, p.Z - spot.Z)
 				-- Only things on this face count.
@@ -110,14 +139,15 @@ function Grime.build(world, rng)
 		local record = world.rooms[room.id]
 		local model = record.model
 		local family = record.template.family
+		local walls = wallsOf(record)
 
 		-- Ceiling water stains, clear of the light in the middle.
 		if textures.WaterStain ~= "" and rng:Chance(G.CeilingStainChance) then
 			local size = rng:NextNumber(G.CeilingStainSize[1], G.CeilingStainSize[2])
 			local angle = rng:NextNumber(0, 2 * math.pi)
-			local radius = rng:NextNumber(6, 14)
-			local pos = record.center
-				+ Vector3.new(math.cos(angle) * radius, HEIGHT - G.CeilingOffset, math.sin(angle) * radius)
+			local radius = rng:NextNumber(math.min(6, walls.radius), math.min(14, walls.radius))
+			local pos = walls.center
+				+ Vector3.new(math.cos(angle) * radius, walls.ceiling - G.CeilingOffset, math.sin(angle) * radius)
 			local cf = CFrame.lookAt(pos, pos - UP) * CFrame.Angles(0, 0, rng:NextNumber(0, 2 * math.pi))
 			card(model, "GrimeStain", cf, size, size, textures.WaterStain, rng)
 		end
@@ -133,13 +163,13 @@ function Grime.build(world, rng)
 		-- at a seam, a wall slot or a piece of decor.
 		if textures.RustStreak ~= "" and rng:Chance(G.BloodChance) then
 			local side = sides[rng:NextInteger(1, 4)]
-			local along = wallSpot(rng, record, side, 2.4, clear)
+			local along = wallSpot(rng, walls, side, 2.4, clear)
 			if along then
 				local size = rng:NextNumber(G.BloodSize[1], G.BloodSize[2])
 				local blood = card(
 					model,
 					"GrimeBlood",
-					onWall(record.center, DIRS[side], along, rng:NextNumber(2.8, 6)),
+					onWall(walls, side, along, rng:NextNumber(2.8, 6)),
 					size * 0.7,
 					size * 1.5,
 					textures.RustStreak,
@@ -183,13 +213,13 @@ function Grime.build(world, rng)
 			-- A pipe somewhere behind the wall has been leaking for years.
 			if family == "utility" and rng:Chance(G.UtilityRustChance) then
 				local side = sides[rng:NextInteger(1, 4)]
-				local along = wallSpot(rng, record, side, 2, clear)
+				local along = wallSpot(rng, walls, side, 2, clear)
 				if along then
 					local height = rng:NextNumber(3, 5)
 					card(
 						model,
 						"GrimeRust",
-						onWall(record.center, DIRS[side], along, HEIGHT - 0.6 - height / 2),
+						onWall(walls, side, along, HEIGHT - 0.6 - height / 2),
 						rng:NextNumber(1.4, 2),
 						height,
 						textures.RustStreak,
@@ -204,12 +234,12 @@ function Grime.build(world, rng)
 			for _ = 1, rng:NextInteger(G.Scuffs[1], G.Scuffs[2]) do
 				local side = sides[rng:NextInteger(1, 4)]
 				local width = rng:NextNumber(3, 5)
-				local along = wallSpot(rng, record, side, width, clear)
+				local along = wallSpot(rng, walls, side, width, clear)
 				if along then
 					card(
 						model,
 						"GrimeScuffs",
-						onWall(record.center, DIRS[side], along, rng:NextNumber(1.1, 1.8)),
+						onWall(walls, side, along, rng:NextNumber(1.1, 1.8)),
 						width,
 						1.6,
 						textures.Scuffs,
@@ -223,12 +253,12 @@ function Grime.build(world, rng)
 		if textures.PictureGhost ~= "" and rng:Chance(G.PictureGhostChance) then
 			local side = sides[rng:NextInteger(1, 4)]
 			local width = rng:NextNumber(2.6, 4)
-			local along = wallSpot(rng, record, side, width, clear)
+			local along = wallSpot(rng, walls, side, width, clear)
 			if along then
 				card(
 					model,
 					"GrimeGhost",
-					onWall(record.center, DIRS[side], along, rng:NextNumber(6, 7)),
+					onWall(walls, side, along, rng:NextNumber(6, 7)),
 					width,
 					width * rng:NextNumber(1.1, 1.35),
 					textures.PictureGhost,

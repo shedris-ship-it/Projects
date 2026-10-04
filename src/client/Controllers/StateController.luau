@@ -136,17 +136,26 @@ function StateController:SetSetting(key: string, value: any)
 	Net.get("SaveSettings"):FireServer(table.clone(self.settings))
 end
 
--- World position -> grid cell, using the layout snapshot.
+-- World position -> room, using the layout snapshot. Rooms are rectangles
+-- (x, z their north-west corner from the origin) on a floor; in the mansion,
+-- upstairs is anything near the upper floor's level, and the hall and the
+-- stairwells stand on both floors.
 function StateController:RoomAt(position: Vector3)
 	local layout = self.layout
 	if not layout then
 		return nil
 	end
-	local gx = math.floor((position.X - layout.origin[1]) / layout.cell + 0.5)
-	local gz = math.floor((position.Z - layout.origin[3]) / layout.cell + 0.5)
+	local x = position.X - layout.origin[1]
+	local z = position.Z - layout.origin[3]
+	local floor = 0
+	if layout.mode == "Mansion" then
+		floor = position.Y - layout.origin[2] >= (layout.pitch or 11) - 0.5 and 1 or 0
+	end
 	for _, room in layout.rooms do
-		if room.gx == gx and room.gz == gz then
-			return room
+		if room.x and x >= room.x and x < room.x + room.w and z >= room.z and z < room.z + room.d then
+			if room.tall or (room.floor or 0) == floor then
+				return room
+			end
 		end
 	end
 	return nil

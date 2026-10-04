@@ -17,6 +17,7 @@ local Locations = require(Shared.Data.Locations)
 local Anomalies = require(Shared.Data.Anomalies)
 local Tells = require(Shared.Data.Tells)
 local LevelGraph = require(Shared.Logic.LevelGraph)
+local MansionGen = require(Shared.Logic.MansionGen)
 
 local Phases = Constants.Phases
 local RS = Constants.RunState
@@ -163,7 +164,14 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	services.Telemetry:SetRun(seed)
 
 	local ok, err = pcall(function()
-		local layout = LevelGraph.generate(seed, Rooms.List, Config.Level)
+		-- The old house or the mansion (docs/plans/mansion-generation.md); F2
+		-- `layout` overrides Config.Level.Mode for testing.
+		local layout
+		if (self.layoutMode or Config.Level.Mode) == "Mansion" then
+			layout = MansionGen.generate(seed, Rooms.Mansion, Config.Mansion)
+		else
+			layout = LevelGraph.generate(seed, Rooms.List, Config.Level)
+		end
 		if layout.fallback then
 			warn("[Consensus] seed " .. seed .. " fell back to the authored layout")
 		end
@@ -517,6 +525,11 @@ end
 
 function RunOrchestrator:SetNextSeed(seed: number?)
 	self.nextSeed = seed
+end
+
+-- "Cells" (the old house), "Mansion", or nil for Config.Level.Mode.
+function RunOrchestrator:SetLayoutMode(mode: string?)
+	self.layoutMode = mode
 end
 
 function RunOrchestrator:SetForcedAnomaly(id: string?)

@@ -161,9 +161,17 @@ function AnomalyService:_placeSite(index: number, tellId: string, isRedHerring: 
 			roomName = room.name,
 		}
 		if tell.slot == "seam" then
+			-- A mansion room lists its seams (a wall can hold more than one); an
+			-- old 40x40 room has at most one per side.
+			local seams = room.seamList
+			if not seams then
+				seams = {}
+				for _, dir in { "N", "E", "S", "W" } do
+					table.insert(seams, room.sides[dir].seam)
+				end
+			end
 			local candidates = {}
-			for _, dir in { "N", "E", "S", "W" } do
-				local seam = room.sides[dir].seam
+			for _, seam in seams do
 				if seam and not reserved[seam.id] and not self.siteByTarget[seam.id] then
 					table.insert(candidates, seam)
 				end

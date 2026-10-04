@@ -37,7 +37,7 @@ local function reply(player: Player, text: string)
 end
 
 local HELP = table.concat({
-	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off>",
+	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off> · layout cells|mansion|default",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
 	"lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off",
@@ -108,6 +108,11 @@ function DebugService:Run(player: Player, text: string)
 		local seed = tonumber(args[2])
 		orchestrator:SetNextSeed(seed)
 		reply(player, "next run seed " .. tostring(seed))
+	elseif command == "layout" then
+		-- Which house the next run builds (docs/plans/mansion-generation.md).
+		local mode = ({ cells = "Cells", mansion = "Mansion" })[args[2] or ""]
+		orchestrator:SetLayoutMode(mode)
+		reply(player, "next run layout " .. (mode or ("default (" .. Config.Level.Mode .. ")")))
 	elseif command == "anomaly" then
 		local wanted = args[2]
 		local match = nil

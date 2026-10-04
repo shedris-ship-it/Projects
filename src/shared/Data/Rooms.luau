@@ -628,6 +628,8 @@ local Rooms = {
 --   maxSeams  most walls it can share with other rooms (busy small rooms)
 --   sockets   per floor, the template sides that may hold a doorway
 --   hides     hiding spots a generated-size room provides (corridor closets)
+--   authored  its furniture is placed for its own size, not a 40x40 room
+--             (Logic/RoomFit leaves it where it is)
 local MansionUse = {
 	living_room = { floors = { 0 }, zone = "public", size = { 40, 30 }, weight = 2 },
 	study = { floors = { 0, 1 }, zone = { [0] = "public", [1] = "private" }, size = { 30, 20 }, weight = 2 },
@@ -685,7 +687,7 @@ local MansionExtras = {
 			{ id = "curtain2", kind = "Curtain", x = 12, z = 23.75, ry = 180 },
 			{ id = "clock", kind = "GrandfatherClock", x = -18.5, z = 10, ry = 90 },
 			{ id = "coatrack", kind = "CoatRack", x = 17, z = 21 },
-			{ id = "rug", kind = "Rug", x = 0, z = 12 },
+			{ id = "rug", kind = "Rug", x = 0, z = 13 },
 		},
 		decor = {
 			{ id = "portrait", kind = "Painting", side = "E", along = 12, y = 6.5 },
@@ -697,6 +699,7 @@ local MansionExtras = {
 		shrine = { x = -16, z = 18 },
 		mansion = {
 			role = "start",
+			authored = true,
 			tall = true,
 			floors = { 0, 1 },
 			zone = "hall",
@@ -723,6 +726,7 @@ local MansionExtras = {
 		shrine = { x = 0, z = 10 },
 		mansion = {
 			role = "stair",
+			authored = true,
 			tall = true,
 			floors = { 0, 1 },
 			zone = { [0] = "service", [1] = "private" },
@@ -746,6 +750,7 @@ local MansionExtras = {
 		shrine = { x = 0, z = 10 },
 		mansion = {
 			role = "stair",
+			authored = true,
 			tall = true,
 			floors = { 0, 1 },
 			zone = { [0] = "public", [1] = "private" },

@@ -13,8 +13,12 @@ local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
 
 local LevelBuilder = require(script.Parent.Parent.World.LevelBuilder)
+local MansionBuilder = require(script.Parent.Parent.World.MansionBuilder)
+local FloorPlan = require(Shared.Logic.FloorPlan)
+local RoomRects = require(Shared.Logic.RoomRects)
 
 local CELL = Config.Level.CellSize
+local PITCH = Config.Mansion.FloorPitch
 
 local WorldService = {
 	World = nil,
@@ -61,15 +65,22 @@ function WorldService:Build(layout, rng)
 	self.folder = folder
 	-- Build the whole house unparented and parent it once: one replication
 	-- burst instead of thousands of incremental ones.
-	self.World = LevelBuilder.build(layout, Rooms.ById, folder, rng)
+	-- The old house (40x40 cells) or the mansion (docs/plans/mansion-generation.md).
+	if layout.mode == "Mansion" then
+		self.World = MansionBuilder.build(layout, Rooms.MansionById, folder, rng)
+	else
+		self.World = LevelBuilder.build(layout, Rooms.ById, folder, rng)
+	end
 	folder.Parent = Workspace
 	self.lastBuildSeconds = os.clock() - started
 	print(
 		string.format(
-			"[Consensus] built %d rooms (seed %s, attempt %s) in %.2fs",
+			"[Consensus] built %d rooms (%s, seed %s, attempt %s, layout hash %d) in %.2fs",
 			#layout.rooms,
+			layout.mode or "Cells",
 			tostring(layout.seed),
 			tostring(layout.attempts),
+			FloorPlan.hash(layout),
 			self.lastBuildSeconds
 		)
 	)
@@ -102,12 +113,22 @@ function WorldService:LayoutSnapshot()
 	if not world then
 		return nil
 	end
+	-- Every room as a rectangle (x, z its north-west corner from the origin;
+	-- a 40x40 cell in the old house) on its floor; tall rooms stand on both.
+	local rects = RoomRects.ofLayout(world.layout, Config.Level)
 	local rooms = {}
-	for id, room in world.rooms do
+	for _, rect in rects do
+		local room = world.rooms[rect.id]
 		table.insert(rooms, {
-			id = id,
+			id = rect.id,
 			gx = room.gx,
 			gz = room.gz,
+			x = rect.x,
+			z = rect.z,
+			w = rect.w,
+			d = rect.d,
+			floor = rect.floor or 0,
+			tall = rect.tall,
 			name = room.name,
 			role = room.role,
 			lantern = room.lantern,
@@ -119,7 +140,14 @@ function WorldService:LayoutSnapshot()
 		return a.id < b.id
 	end)
 	local o = Config.Level.Origin
-	return { rooms = rooms, cell = CELL, origin = { o.x, o.y, o.z }, seed = world.layout.seed }
+	return {
+		rooms = rooms,
+		cell = CELL,
+		pitch = PITCH,
+		mode = world.layout.mode or "Cells",
+		origin = { o.x, o.y, o.z },
+		seed = world.layout.seed,
+	}
 end
 
 function WorldService:BroadcastLayout(player: Player?)
@@ -136,12 +164,26 @@ end
 
 -- Queries ------------------------------------------------------------------
 
+-- Which floor of the mansion a point is on: upstairs once it is near the
+-- upper floor's level (stairs and the hall stand on both floors).
+local function floorAt(y: number): number
+	return y >= PITCH - 0.5 and 1 or 0
+end
+WorldService.FloorAt = floorAt
+
 function WorldService:RoomAt(position: Vector3): number?
 	local world = self.World
 	if not world then
 		return nil
 	end
 	local o = Config.Level.Origin
+	if world.index then
+		local y = position.Y - o.y
+		if y < -20 or y > 2 * PITCH + 20 then
+			return nil
+		end
+		return world.index[floorAt(y)]:At(position.X - o.x, position.Z - o.z)
+	end
 	local gx = math.floor((position.X - o.x) / CELL + 0.5)
 	local gz = math.floor((position.Z - o.z) / CELL + 0.5)
 	if position.Y < o.y - 20 or position.Y > o.y + 40 then
@@ -178,12 +220,25 @@ end
 
 -- Centre of the doorway between two neighbouring rooms, at floor level.
 function WorldService:DoorwayPoint(a: number, b: number): Vector3
+	if self.World.index then
+		local seam = self:SeamBetween(a, b)
+		if seam then
+			return seam.floorPosition
+		end
+	end
 	local ra, rb = self.World.rooms[a], self.World.rooms[b]
 	return (ra.center + rb.center) / 2
 end
 
 -- A point just inside room `a`, in front of its doorway to `b`.
 function WorldService:ApproachPoint(a: number, b: number, inset: number?): Vector3
+	if self.World.index then
+		local seam = self:SeamBetween(a, b)
+		if seam then
+			local into = seam.a == a and -seam.normal or seam.normal
+			return seam.floorPosition + into * (inset or 3)
+		end
+	end
 	local ra, rb = self.World.rooms[a], self.World.rooms[b]
 	local dir = (rb.center - ra.center).Unit
 	return ra.center + dir * (CELL / 2 - (inset or 3))
@@ -210,6 +265,9 @@ function WorldService:SetRoomLight(id: number, on: boolean)
 	room.light.Enabled = on
 	if room.bounce then
 		room.bounce.Enabled = on
+	end
+	for _, light in room.extraLights or {} do
+		light.Enabled = on
 	end
 	room.lightPart:SetAttribute("Lit", on)
 end
@@ -276,6 +334,18 @@ end
 -- arms that were filled in.
 function WorldService:RandomPointIn(roomId: number, rng): Vector3
 	local room = self:Room(roomId)
+	if room.rect then
+		-- The mansion: inside the room's clear middle, away from the furniture
+		-- along its walls. The hall's is in front of the staircase and a
+		-- stairwell's at the foot of its stairs, round its walkable centre.
+		if room.tall then
+			return room.center + Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3))
+		end
+		local band = Config.Level.BandDepth
+		local hx = math.max(1, room.rect.w / 2 - band)
+		local hz = math.max(1, room.rect.d / 2 - band)
+		return room.center + Vector3.new(rng:NextNumber(-hx, hx), 0, rng:NextNumber(-hz, hz))
+	end
 	local along = rng:NextNumber(-9, 9)
 	if room.corridor then
 		local inner = room.corridor - 1.5
