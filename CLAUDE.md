@@ -100,7 +100,8 @@ All must pass. When MCP is available, also start a play session and check the co
 
 ## Git
 
-- Work on the current branch (`claude/quirky-gauss-cfc8my`; there is no `main` yet) unless the owner says otherwise.
+- A cloud session works on the `claude/*` branch it is given, and the owner's clone only has that work after they `git fetch` and check the branch out (README, "Getting a Claude session's work into Studio"). Always tell the owner the branch name and the build id (`src/shared/Build.luau`) at the end of a session, and bump `Build.id` in every commit meant to reach Studio. If the owner reports old behaviour that a commit already removed, suspect their checkout or Rojo sync first: ask for the build id on the hub panel or in the F2 overlay.
+- A local session works on the owner's current branch (`claude/quirky-gauss-cfc8my`; there is no `main` yet) unless the owner says otherwise.
 - Commit after each verified chunk with a clear message, and push so the work is backed up.
 - Don't force-push or rewrite history. Don't open pull requests unless asked.
 

@@ -6,6 +6,7 @@
 local Stats = game:GetService("Stats")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
@@ -84,6 +85,13 @@ function DebugOverlay:Update(dt: number)
 		self.fpsClock = 0
 	end
 	local lines = {
+		-- Both sides' build ids: if they differ, the place is half-synced.
+		string.format(
+			"build   client %s · server %s%s",
+			Build.id,
+			tostring(self.data and self.data.version or "?"),
+			(self.data and self.data.version and self.data.version ~= Build.id) and "  <-- MISMATCH" or ""
+		),
 		string.format(
 			"client  %3.0f fps · %.0f MB · %d instances",
 			self.fps,

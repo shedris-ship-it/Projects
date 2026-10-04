@@ -5,7 +5,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Build = require(Shared.Build)
 local Net = require(Shared.Net)
+
+print("[Consensus] server build " .. Build.id .. ": " .. Build.note)
 
 Net.createAll()
 

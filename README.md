@@ -28,6 +28,20 @@ rojo build default.project.json -o Consensus.rbxlx   # a place file to open in S
 rojo serve                                           # then click Connect in the Studio Rojo plugin
 ```
 
+### 2b. Getting a Claude session's work into Studio
+
+A Claude cloud session saves its work on its own branch on GitHub (named like `claude/ecstatic-noether-7skntv`), not on the branch you have checked out. Until you fetch that branch and switch to it, Studio keeps showing your old code. In PowerShell, in the repo folder:
+
+```powershell
+git status                       # stash or commit anything of yours first (git stash)
+git fetch origin
+git checkout claude/ecstatic-noether-7skntv     # the branch name Claude tells you
+git pull
+git log -1 --oneline             # should be the commit Claude names
+```
+
+Then stop `rojo serve` and start it again, press **Connect** (or **Okay → Connect**) in Studio's Rojo panel, **accept every change in its dialog**, and stop and restart Play. To check it worked, look for `build 2026-…` on the hub panel, press **F2** (the first line shows the client and server build ids, and says MISMATCH if the place is half-synced), or read `[Consensus] server build …` in the Output window. Compare the id with the one Claude tells you.
+
 ### 3. Studio settings
 
 In **Game Settings** (after publishing the place once):
@@ -86,7 +100,7 @@ These commands work in Studio, or on live servers for user ids listed in `Config
 help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt
 seed <n> · anomaly <PhantomArchitecture|Counterfeit|Gaze|off>   (applies to the next run)
 start · end · skip (end Arrival) · resolve (jump to the ritual) · reveal (anomaly + evidence)
-lights on|off · focus · perf
+lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists overlapping props)
 down [name] · revive [name]   (yourself if no name; any part of a display name works)
 guest here [studs] · guest walk [studs] [speed] · guest pose <Idle|Hold|Walk|Run|Creep|BackAway|Peek|Zoom|Lunge|Bow>
 guest form <0-2> · guest smile <0-1> · guest lean <-1..1> · guest off   (pose The Guest for screenshots)

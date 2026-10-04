@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Build = require(Shared.Build)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 
@@ -99,6 +100,15 @@ function Lobby.new(ctx)
 		TextColor3 = Ui.Theme.textDim,
 		TextYAlignment = Enum.TextYAlignment.Bottom,
 		Parent = panel,
+	})
+	-- Which build is running, so a half-synced place is easy to spot.
+	Ui.label("build " .. Build.id, {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 24, 1, -16),
+		Size = UDim2.fromOffset(300, 16),
+		TextSize = 12,
+		TextColor3 = Ui.Theme.textDim,
+		Parent = gui,
 	})
 	Ui.button("Settings & how to play", {
 		AnchorPoint = Vector2.new(1, 0),

@@ -3,6 +3,9 @@
 
 local Controllers = script.Parent:WaitForChild("Controllers")
 
+local Build = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Build"))
+print("[Consensus] client build " .. Build.id)
+
 local controllers = {}
 for _, module in Controllers:GetChildren() do
 	if module:IsA("ModuleScript") then

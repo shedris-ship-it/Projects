@@ -13,6 +13,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Anomalies = require(Shared.Data.Anomalies)
 local Tells = require(Shared.Data.Tells)
+local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 
@@ -246,6 +247,7 @@ function DebugService:Snapshot()
 		anomaly = anomaly and anomaly.id or "-",
 		stalker = services.StalkerService:DebugState(),
 		signals = signals,
+		version = Build.id,
 		buildSeconds = services.WorldService.lastBuildSeconds,
 		serverHeartbeatMs = Stats.HeartbeatTimeMs,
 		instances = Stats.InstanceCount,
