@@ -177,7 +177,7 @@ local function public(session)
 end
 
 function PuzzleService:_open(session, player: Player): boolean
-	if not self:_near(player, session) then
+	if KINDS[session.kind].noScreen or not self:_near(player, session) then
 		return false
 	end
 	if session.operator and session.operator ~= player and session.operator.Parent then
@@ -311,6 +311,16 @@ function PuzzleService:DebugVisit(player: Player, kind: string?): string
 		self:_open(session, player)
 	end)
 	return "at " .. session.id
+end
+
+-- A mechanism with no screen says it's done (the dumbwaiter: its heirloom
+-- taken out of the car).
+function PuzzleService:MarkSolved(session, player: Player?)
+	if session.state.solved then
+		return
+	end
+	session.state.solved = true
+	self:_solved(session, player)
 end
 
 -- F2 `solve [id]`: the puzzle you're at (or the one named, or the first

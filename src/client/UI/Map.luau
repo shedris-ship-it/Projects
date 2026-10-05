@@ -38,6 +38,7 @@ local MARKS = {
 	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
 	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
 	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
+	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
 }
 
 function Map.new(ctx)

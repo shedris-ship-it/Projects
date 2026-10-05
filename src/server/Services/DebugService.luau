@@ -352,6 +352,28 @@ function DebugService:Run(player: Player, text: string)
 			seconds > 0 and string.format("guest stunned for %.2fs", seconds)
 				or "he shrugged it off (immune or retreating)"
 		)
+	elseif command == "grab" then
+		-- Take a thing into your hands: the one named (`grab thing:12`), or the nearest.
+		local hands = services.HandsService
+		local head = services.PlayerStateService:Head(player)
+		local id = args[2]
+		if not id and head then
+			local best = math.huge
+			for thingId, thing in hands.things do
+				local d = (thing.model:GetPivot().Position - head.Position).Magnitude
+				if d < best then
+					id, best = thingId, d
+				end
+			end
+		end
+		local thing = id and hands.things[id]
+		if not thing then
+			reply(player, "usage: grab [thing id] (nothing near)")
+		else
+			hands:Grab(player, id)
+			local held = hands:Held(player)
+			reply(player, held and ("holding " .. thing.model.Name) or "couldn't take it (too far?)")
+		end
 	elseif command == "throwat" then
 		-- Throw what you carry straight at his chest, as if you'd aimed it
 		-- (`throwat case`: at the nearest locked display case's glass); with

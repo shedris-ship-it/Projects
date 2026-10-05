@@ -679,8 +679,16 @@ Config.Progression = {
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
 	Flavours = { key = 3, padlock = 2, power = 2, crank = 1 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
-	Enabled = { key = true, padlock = true, power = true, safe = true, musicbox = true, crank = true },
-	Keepers = { container = 4, safe = 2, musicbox = 3 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
+	Enabled = {
+		key = true,
+		padlock = true,
+		power = true,
+		safe = true,
+		musicbox = true,
+		crank = true,
+		dumbwaiter = true,
+	},
+	Keepers = { container = 4, safe = 2, musicbox = 3, dumbwaiter = 2 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
 	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round
@@ -761,6 +769,19 @@ Config.Crank = {
 	Beside = 3.5, -- the crank this far past the door's edge (about 7 studs from the doorway's middle)
 	Clearance = 1.6, -- anyone this close to the doorway's line stops it dropping
 }
+
+-- The dumbwaiter (R2c; Logic/Dumbwaiter, server/Puzzles/Dumbwaiter): a
+-- crank downstairs, an open hatch upstairs, the car between.
+Config.Dumbwaiter = {
+	EndClear = 1.5, -- studs from the end of the shared wall
+	DoorClear = 5, -- and from any doorway on either floor
+	Step = 2, -- spots tried along the wall this far apart
+	Rise = 0.18, -- of the way up a second, cranked (about 5.5 s to the top)
+	Fall = 0.35, -- of the way down a second, let go
+	CreakNoise = 12, -- cranking it, heard from you
+	Reach = 6,
+}
+Config.Progression.Dumbwaiter = Config.Dumbwaiter -- the planner looks for stacked rooms with these
 
 -- The map (Services/MapService, UI/Map): what counts as seen.
 Config.Map = {

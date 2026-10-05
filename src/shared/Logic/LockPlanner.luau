@@ -33,6 +33,7 @@
 -- dumbwaiter: a crank downstairs, a hatch upstairs); all of them must be open
 -- before what it makes is needed.
 
+local Dumbwaiter = require(script.Parent.Dumbwaiter)
 local Graph = require(script.Parent.Graph)
 local MansionHouse = require(script.Parent.MansionHouse)
 local Props = require(script.Parent.Parent.Data.Props)
@@ -205,6 +206,9 @@ LockPlanner.Keepers = {
 	{ id = "container" },
 	{ id = "safe", puzzle = "safe", where = "homely" },
 	{ id = "musicbox", puzzle = "musicbox", where = "piano", second = "homely" },
+	-- A dumbwaiter between two stacked rooms (Logic/Dumbwaiter): it's taken
+	-- from the upper room; its crank is in the one below.
+	{ id = "dumbwaiter", puzzle = "dumbwaiter", stacked = true },
 }
 
 -- What kind of lock a region's gate can be. The first is the plain key; the
@@ -671,7 +675,24 @@ local function attempt(ctx, rng, cfg, k: number)
 			local keeper = LockPlanner.Keepers[k]
 			local weight = (cfg.Keepers or {})[keeper.id] or 0
 			if enabled[keeper.id] and weight > 0 and not usedPuzzles[keeper.puzzle] then
-				if plan.stats.puzzles < cfg.MaxPuzzles then
+				if plan.stats.puzzles < cfg.MaxPuzzles and keeper.stacked then
+					-- Two stacked rooms, both open no later than this region,
+					-- the upper one in it.
+					local stacks = {}
+					for _, pair in Dumbwaiter.pairs(ctx.layout, cfg.Dumbwaiter or {}) do
+						local upperRegion, groundRegion = roomRegion[pair.upper], roomRegion[pair.ground]
+						if
+							upperRegion == entry.region
+							and position[groundRegion] <= position[entry.region]
+							and not used[pair.upper]
+						then
+							table.insert(stacks, pair)
+						end
+					end
+					if #stacks > 0 then
+						table.insert(keepers, { keeper = keeper, weight = weight, stacks = stacks })
+					end
+				elseif plan.stats.puzzles < cfg.MaxPuzzles then
 					local rooms = {}
 					for _, id in regions[entry.region].rooms do
 						if id ~= ctx.dining and not used[id] and LockPlanner.Where[keeper.where](ctx, id) then
@@ -700,9 +721,13 @@ local function attempt(ctx, rng, cfg, k: number)
 			end
 			local keeper = choice.keeper
 			if keeper.puzzle then
-				room = rng:Pick(choice.rooms)
+				local stack = choice.stacks and rng:Pick(choice.stacks)
+				room = stack and stack.upper or rng:Pick(choice.rooms)
 				local puzzleId = keeper.puzzle .. ":1"
 				local puzzle = { kind = keeper.puzzle, room = room, seed = rng:NextInteger(1, 2 ^ 30) }
+				if stack then
+					puzzle.rooms = { stack.upper, stack.ground }
+				end
 				if keeper.second then
 					-- Its other half: a room open no later than this one.
 					local seconds = {}

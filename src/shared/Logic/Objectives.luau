@@ -36,6 +36,9 @@ Objectives.Stations = {
 	crank = function(room: string)
 		return "A shutter in the " .. room .. " won't stay up on its own."
 	end,
+	dumbwaiter = function(room: string)
+		return "Something sits in the dumbwaiter in the " .. room .. "."
+	end,
 }
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }
