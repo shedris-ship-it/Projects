@@ -19,6 +19,8 @@ The owner asked for this on 2026-10-04 ("I want really advanced procedural gener
 | Company between floors | Players on **different floors are apart** (isolation, Drift, who the Guest picks as most alone, rescuers near a lunge), unless both are in the hall or the same stairwell. |
 
 ### Future gameplay the generator must leave room for (owner's notes, not built yet)
+Now planned in full in [`gameplay-rework.md`](gameplay-rework.md) (2026-10-04): locks and bolts on seams from a lock planner that runs after generation, and real door/wall flips (R3) checked by this validator.
+
 - Most objects interactable; small ones physical (pick up, throw, stun the Guest briefly); closets you physically get into and close.
 - Procedural puzzles that are fun minigames in their own right (the owner's example: Fallout's terminals), not "find the runes".
 - House changes that matter for play (a door becomes a wall and closes a loop) or are unsettling, and **the layout changing only after players are used to it, and only where nobody can see**.

@@ -1,9 +1,10 @@
 # Consensus: notes for Claude
 
-Consensus is a 2–4 player co-op horror game for Roblox. Reality only holds when two players agree on it: each player sees a slightly different house, and a learning stalker exploits the disagreements. This repo is a Rojo project holding the vertical slice from `docs/DesignDoc.md`: The Halfway House, The Guest, and three playable anomalies.
+Consensus is a 2–4 player co-op horror game for Roblox. Reality only holds when two players agree on it: each player sees a slightly different house, and a learning stalker exploits the disagreements. This repo is a Rojo project holding the vertical slice from `docs/DesignDoc.md`: The Halfway House, The Guest, and three playable anomalies. **The owner chose a gameplay rework on 2026-10-04** (`docs/plans/gameplay-rework.md`): a procedural escape with locks, keys, puzzles and a physical, hands-on house replaces the anomalies, evidence and verdict. Divergence stays as atmosphere only.
 
 Read these before starting real work:
 - `docs/DesignDoc.md`: the design and roadmap. It is the spec. Section numbers are cited throughout the code.
+- `docs/plans/gameplay-rework.md`: the rework now under way. Where it disagrees with the design doc, it wins.
 - `docs/ARCHITECTURE.md`: how the code implements it (services, run flow, divergence model, remote protocol, security).
 - `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-15).
 - `README.md`: setup, controls, debug commands, how to add rooms and anomalies.
@@ -118,7 +119,13 @@ Done: design doc Phase 1, most of the code side of Phase 2, plus some of Phase 3
 
 The agreed plan, in order:
 1. **Studio findings.** Fix anything the owner reports, and any console errors you find in play mode.
-2. **Visual pass (in progress, chosen first).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
+2. **The gameplay rework (current work, owner's choice 2026-10-04).** Read `docs/plans/gameplay-rework.md` first: the owner's decisions (section 2), the systems, and the commit list (section 9).
+   - The owner found the clue-hunting loop a chore and wants a P.T.-style experience: a house where nearly everything can be touched, physical props you carry and throw (a hit stuns the Guest briefly) with a 4th "hands" slot, walk-in closets, heavy beds you push together to barricade doors, Resident Evil progression (locks, keys, backtracking, shortcuts) made procedural, puzzles that are fun minigames on their own, and house changes that change play or unsettle.
+   - Decided: escape with a finale (**set the table**: heirlooms laid at the dining table for the Guest), out through the front door; keys per player; divergence as atmosphere only; Amnesia-style hands; Drift kept and retuned; the four first puzzles (home computer, breaker panel, safe by ear, music box); the torch clips to your shirt in any slot but 1.
+   - Order: **R1a** hands core → **R2a** the escape slice behind `Config.Run.Loop` (F2 `loop escape`), then a squad playtest → **R1b** world physics → **R2b** the other puzzles, escape as the default, then the old loop retires → R3 the living house → R4 variety, then M4 merged with interactive props.
+   - Done: R0, the design document (2026-10-04).
+   - Retired by the rework: the old item "three more anomalies (Redaction, Dead Air, Mimic)" and "two anomalies on Hard".
+3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)
      - 10-stud ceilings
@@ -153,7 +160,7 @@ The agreed plan, in order:
      - floor stripes upstairs: ground-floor walls now stop inside the slab (`MansionBuilder`, `SLAB_TUCK`)
      - glowing curtains: window light and moon spill leave from a `LightPane` in front of the covering
      - z-fighting and poke-through in the bed, armchair/sofa, bathtub rim, standalone curtains, rug layers and crib (`PropFactory`)
-     - Claude's recommendation (not yet decided by the owner): this bug pass first, then the gameplay rework, then the full visual refinement merged with M4.
+     - Decided (2026-10-04): the gameplay rework comes next (item 2), then the full visual refinement merged with M4.
    - Waiting on the owner (two or more clients): TC-16 to TC-21 in `docs/TESTING.md` — the teammate bleed-out marker, two watchers freezing him and cancelling a lunge, tier 1 seen by one player only, no popping in or out, the window reflection and face at the glass (Studio MCP screenshots can't show client-made 3D GUIs), and how the poses look in motion.
    - Deferred from the step 6 plan: honest tracking (a per-room belief map plus Director "scent" hints). Between hunts he still reads his target's real position; perception and line of sight gate the lunge.
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
@@ -163,7 +170,7 @@ The agreed plan, in order:
      - whether moonlit bedrooms are too dark
    - Next, in order:
      - **the mansion (the owner's next big request, 2026-10-04).** The Halfway House becomes a lived-in 1988 mansion: every run starts in a double-height grand entrance, two floors joined by the grand stair and 1–2 stairwells, 18–24 rooms of 20–40 studs on a 10-stud lattice, generated as architecture (spine, zones, service wing behind the dining room). The design and phases (M1 pure generator, M2 builder, M3 navigation, M4 furnishing and art, M5 retune) are in `docs/plans/mansion-generation.md`; `docs/plans/variable-room-sizes.md` section 5 is still the map of code that assumes 40×40 cells. Read both before opening any file.
-     - The owner's planned gameplay rework (physics props, enterable closets, procedural puzzles, the layout changing when unobserved) is recorded there as context; keep the generator compatible with it.
+     - The gameplay rework (item 2) builds on the generator: locks go on seams, the lock planner is a post-pass that never rejects a house, and R3's door/wall flips reuse the validator.
      - **M1 done (2026-10-04), pure logic only:**
        - code: `Logic/RoomRects`, `Logic/FloorPlan`, `Logic/MansionHouse`, `Logic/MansionGen`, mansion rules in `Logic/LayoutValidator`, `mansion` blocks in `Data/Rooms`, `Config.Mansion`, `Data/MansionFallback`
        - tools: `lune run tools/plan <seed> mansion` prints a house, and `tools/mansionstats` prints the tuning numbers; example plans are in `docs/plans/mansion-examples.md`
@@ -181,16 +188,12 @@ The agreed plan, in order:
        - F2 `plan`, `where`, `navtest [fast]`, `navtest room <id>`, `navtest retreat [n]`.
        - Studio results (navtest 0 stuck, 0 falls, 0 phases on 3 seeds and the old house) and open items are in `docs/plans/mansion-generation.md`, "M3 as built".
        - Waiting on the owner: TC-46 to TC-50, including 3 clients.
-       - Next is **M4** (furnishing, the bare-room mode, corridor closets, mansion art).
+       - Next is **M4** (furnishing, the bare-room mode, corridor closets, mansion art), after the rework and merged with its interactive props.
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
-3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.
-   - Their tells already exist in `Data/Tells.luau`.
-   - For each one, write `src/server/Rituals/<Id>.luau` (`prepare`, `new`, `Start`, `Update`, `Destroy`, a `Completed` signal; follow the existing three).
-   - Set `implemented = true` in `Data/Anomalies.luau`, add it to `Data/Locations.luau`, and add its stalker twist.
-4. **Tutorial run**, also never cut. Currently there's only a how-to-play screen.
+4. **Tutorial run**, never cut. Build it after R2 so it teaches the new loop. Currently there's only a how-to-play screen.
 5. **Hub place, MemoryStore matchmaking, reserved and private servers.** The owner must publish the places in Creator Hub; walk them through it.
-6. **Daily contract**, and **two anomalies on Hard** (currently one).
+6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
 7. **Second location:** St. Odile Ward, with The Orderly. The archetype data already exists.
 
 Design doc rule (section 10): don't pile content onto a core that hasn't passed **Gate 2**, meaning the slice is fun with friends. Keep nudging the owner to run a 2–4 person squad playtest and ask testers *"Did it ever feel like it cheated?"*

@@ -4,6 +4,8 @@ Oct 2, 2026 · @Sheamus
 
 ## 1. Concept
 
+> **Superseded in part (2026-10-04).** The gameplay rework ([`plans/gameplay-rework.md`](plans/gameplay-rework.md)) replaces the anomaly, evidence and Witnessing loop with a procedural escape: locks, keys, puzzles and a physical, hands-on house. Divergence stays as atmosphere only, and the stalker stays. Read this section for the original pitch.
+
 Consensus is a 2–4 player co-op horror game built on one rule: reality only holds when at least two people agree on it. The squad's job is to find the single anomaly corrupting a location and neutralise it, while a learning stalker exploits every disagreement between them.
 
 That rule is what turns your list of ideas into one game instead of a pile of features. Every system below is an expression of it.
@@ -42,6 +44,8 @@ You and two friends enter a suburban house. Within minutes your friend insists t
 Open world, PvP or traitor roles, a long story campaign, and VR. A short, replayable, well-lit game beats a big unfinished one.
 
 ## 2. Core loop and run structure
+
+> **Superseded in part (2026-10-04).** The run is now an escape with a finale (the dinner); see [`plans/gameplay-rework.md`](plans/gameplay-rework.md) sections 3, 6 and 8. Drift stays, with new events; getting caught, revives and Echoes are unchanged.
 
 A run lasts about 25 minutes across six phases, and a rising Drift meter makes sure it can never stall.
 
@@ -89,6 +93,8 @@ Drift is a shared 0–100 meter that answers your "consequence for not progressi
 
 ## 3. Procedural generation
 
+> **Updated (2026-10-04).** The layout is the mansion ([`plans/mansion-generation.md`](plans/mansion-generation.md)); evidence planning is replaced by the lock planner ([`plans/gameplay-rework.md`](plans/gameplay-rework.md) section 5), and the fairness contract gains rules for locks, barricades and house shifts (section 12 there).
+
 Generate the arrangement, not the art: hand-built rooms are assembled by a seeded graph generator, and a validator guarantees every run is solvable, loopable and fair. Fully procedural rooms look cheap, while hand-lit prefabs are what give a Roblox game its graphical edge.
 
 | Layer | What varies per run | Hard constraint |
@@ -131,6 +137,8 @@ Rooms carry mood tags such as tight, open and watched. The generator avoids thre
 Anomalies, rooms, tells, stalker archetypes and the validator's thresholds should all live in data modules. Adding anomaly 9 or a fourth location then means authoring content, not rewriting the generator. Generation runs on the server behind a loading screen and should take one to three seconds.
 
 ## 4. The 12 anomalies
+
+> **Retired by the gameplay rework (2026-10-04).** Anomalies, tells, the Case Board, the verdict and the rituals are replaced by locks, keys and puzzles ([`plans/gameplay-rework.md`](plans/gameplay-rework.md)). Their code retires in R2b. Kept here for the record.
 
 Each anomaly attacks a different channel of perception, leaves its own set of tells, and ends with a unique resolution ritual that needs the whole squad. Together they cover space, time, identity, sound, light, memory, topology, objects, attention, absence, environment and scale.
 
@@ -275,6 +283,8 @@ Build The Guest first for the vertical slice, then The Orderly. The remaining th
 - Ask every playtester one question: "Did it ever feel like it cheated?" A yes means a telegraph or fairness rule is missing.
 
 ## 6. Social design and proximity voice
+
+> **Superseded in part (2026-10-04).** Witnessing, anchoring and Focus retire; tools are now found items in four slots (slot 4 is your hands); see [`plans/gameplay-rework.md`](plans/gameplay-rework.md) sections 4 and 11. Voice, pings, callouts and the social design notes still apply.
 
 Voice is the game's main instrument, so every system should give players a reason to describe what they perceive, plus a non-voice way to do the same. Roblox voice is not default: players must be 13 or older, complete an age check (ID or facial age estimation), opt in, and are matched for voice with users of similar age groups ([Roblox Help](https://en.help.roblox.com/hc/en-us/articles/34506487825428-How-do-I-turn-on-Voice-Chat)). A large share of your audience will not have voice, which makes the fallbacks below essential. Voice is switched on per experience in Studio under Experience Settings, Communication, and it needs a place capped at 100 players or fewer.
 
