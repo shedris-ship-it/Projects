@@ -911,7 +911,12 @@ function StalkerService:_updateArrival(now: number)
 	for _, spot in candidates do
 		-- On the storey the spot is on (he can come in upstairs).
 		local floor = Vector3.new(spot.X, services.WorldService:FloorBase(spot.Y), spot.Z)
-		if self.bodyCtl:Fits(floor) and not self:_spotSeen(floor) and self:_minPlayerDistance(floor) >= 15 then
+		if
+			self.bodyCtl:Fits(floor)
+			and not self:_spotSeen(floor)
+			and self:_minPlayerDistance(floor) >= 15
+			and self:_squadCanReach(floor)
+		then
 			local room = services.WorldService:RoomAt(floor)
 			local centre = room and services.WorldService:Room(room).center or floor + Vector3.new(0, 0, -1)
 			self.bodyCtl:Place(floor, centre)
@@ -930,8 +935,9 @@ end
 
 function StalkerService:_beginTelegraph(seconds: number?)
 	local duration = seconds or self.rng:NextNumber(S.TelegraphSeconds[1], S.TelegraphSeconds[2])
-	if not self.arrived then
-		-- The final hunt can't wait for the knock: he's simply there.
+	-- The final hunt can't wait for the knock: he's simply there. And behind a
+	-- locked door from them (the escape), he's moved, unseen, to their side.
+	if not self.arrived or not self:_squadCanReach(self.bodyCtl.root.Position) then
 		self:_forceArrive()
 	end
 	self.mode = Modes.Telegraph
@@ -943,13 +949,21 @@ function StalkerService:_beginTelegraph(seconds: number?)
 	self:_publish()
 end
 
+-- In the escape, only where the squad can get to (Services/LockService): a
+-- locked door is a wall to him too, so he must be on their side of it.
+function StalkerService:_squadCanReach(position: Vector3): boolean
+	local locks = self.services.LockService
+	return locks == nil or locks:Reachable(position)
+end
+
 function StalkerService:_forceArrive()
 	local spot = self.services.WorldService:Room(self.services.WorldService:RoomIds()[1]).center
 	local best, bestDistance = spot, -1
 	for _, id in self.services.WorldService:RoomIds() do
 		local centre = self.services.WorldService:Room(id).center
 		local d = self:_minPlayerDistance(centre)
-		if d > bestDistance and not self:_spotSeen(centre) and self.bodyCtl:Fits(centre) then
+		local reachable = self.services.LockService == nil or self.services.LockService:Reachable(id)
+		if d > bestDistance and reachable and not self:_spotSeen(centre) and self.bodyCtl:Fits(centre) then
 			best, bestDistance = centre, d
 		end
 	end

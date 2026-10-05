@@ -755,6 +755,11 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 	return problems
 end
 
+-- The locked seams' ids, sorted.
+function LockPlanner.lockIds(plan): { string }
+	return sortedKeys(plan.locks)
+end
+
 -- How many regions a house of `rooms` rooms is cut into.
 function LockPlanner.regionCount(rooms: number, cfg): number
 	for _, band in cfg.Regions do

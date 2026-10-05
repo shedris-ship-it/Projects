@@ -4,6 +4,11 @@
 local Config = {}
 
 Config.Run = {
+	-- The run's goal (docs/plans/gameplay-rework.md): "Clues" is the old loop
+	-- (evidence, the Case Board, a verdict); "Escape" is the rework's (locks,
+	-- keys, the computer, the dinner, out the front door). F2 `loop` picks the
+	-- next run's. Escape becomes the default once it's played (R2b.7).
+	Loop = "Clues",
 	MinPlayers = 1,
 	MaxPlayers = 4,
 	LobbyCountdown = 5,

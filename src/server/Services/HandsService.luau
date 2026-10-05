@@ -39,6 +39,9 @@ local Groups = Constants.CollisionGroups
 local States = Constants.PlayerStates
 
 local HandsService = {
+	-- (player, thing): someone took hold of a small thing (a key goes on their
+	-- ring instead: Services/ItemService).
+	Grabbed = Signal.new(),
 	-- (thing, thrower): a throw just left someone's hands.
 	Thrown = Signal.new(),
 	-- (thing, from, to): a thrown thing moved this step (the stun's hit test).
@@ -281,6 +284,23 @@ function HandsService:Grab(player: Player, id: string)
 	-- Taking hold of something puts your hands in your hands (slot 4).
 	self.Tools:SelectSlot(player, Inventory.HANDS_SLOT)
 	Sfx.play("Cloth", position, 0.25, 1.25)
+	self.Grabbed:Fire(player, thing)
+end
+
+-- A thing leaves the house's physics for good (a key put on a ring, an
+-- heirloom set at the table): out of anyone's hands, no longer tracked.
+function HandsService:Forget(thing, destroy: boolean?)
+	if thing.holder then
+		self:Release(thing.holder)
+	end
+	self.things[thing.id] = nil
+	self.awake[thing] = nil
+	thing.state = "gone"
+	CollectionService:RemoveTag(thing.model, Constants.Tags.Grabbable)
+	thing.model:SetAttribute("Grab", nil)
+	if destroy then
+		thing.model:Destroy()
+	end
 end
 
 -- Let go of whatever is in their hands: it falls where it is.

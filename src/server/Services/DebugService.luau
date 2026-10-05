@@ -48,6 +48,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
+	"loop escape|clues|default (the next run's goal) · locks (the escape's locks to Output) · unlock <seam|all> · give <token> · items",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -120,6 +121,63 @@ function DebugService:Run(player: Player, text: string)
 		local mode = ({ cells = "Cells", mansion = "Mansion" })[args[2] or ""]
 		orchestrator:SetLayoutMode(mode)
 		reply(player, "next run layout " .. (mode or ("default (" .. Config.Level.Mode .. ")")))
+	elseif command == "loop" then
+		-- The escape or the old loop for the next run (docs/plans/gameplay-rework.md).
+		local loop = ({ escape = "Escape", clues = "Clues" })[args[2] or ""]
+		orchestrator:SetLoop(loop)
+		reply(player, "next run loop " .. (loop or ("default (" .. Config.Run.Loop .. ")")))
+	elseif command == "locks" then
+		local lines = services.LockService:Describe()
+		print("[debug] locks:\n  " .. table.concat(lines, "\n  "))
+		reply(player, #lines > 0 and (#lines .. " locks (listed in Output)") or "no locks (not an escape run?)")
+	elseif command == "unlock" then
+		local target = args[2] or ""
+		if target == "all" then
+			services.LockService:UnlockAll()
+			reply(player, "every lock open")
+		else
+			-- Seam ids are lower case already ("seam:2-3").
+			reply(
+				player,
+				services.LockService:Unlock(target, player, nil) and ("unlocked " .. target) or "no such lock"
+			)
+		end
+	elseif command == "give" then
+		-- A key onto your ring, or an heirloom at your feet.
+		local token = args[2] or ""
+		local plan = services.LockService.plan
+		local info = plan and plan.tokens[token]
+		if not info then
+			reply(player, "usage: give <token> (key:1, heirloom:2, ...)")
+		elseif info.kind == "key" then
+			services.LockService:GiveKey(player, token, info.label)
+			reply(player, "on your ring: " .. info.label)
+		else
+			local position = services.PlayerStateService:Position(player)
+			if position then
+				local floor = services.WorldService:FloorBase(position.Y)
+				services.ItemService:_make(token, CFrame.new(position.X + 2, floor, position.Z))
+				reply(player, "at your feet: " .. services.ItemService:Label(token))
+			end
+		end
+	elseif command == "items" then
+		local plan = services.LockService.plan
+		if not plan then
+			reply(player, "not an escape run")
+			return
+		end
+		local lines = {}
+		for id, token in plan.tokens do
+			local where = token.producer.kind == "container" and ("room " .. token.producer.room)
+				or ("puzzle " .. token.producer.id)
+			table.insert(
+				lines,
+				string.format("%s (%s) %s%s", id, token.kind, where, services.ItemService.found[id] and ", found" or "")
+			)
+		end
+		table.sort(lines)
+		print("[debug] items:\n  " .. table.concat(lines, "\n  "))
+		reply(player, #lines .. " items (listed in Output)")
 	elseif command == "anomaly" then
 		local wanted = args[2]
 		local match = nil

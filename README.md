@@ -115,6 +115,7 @@ block <room> <room> (shut that doorway to everyone) · block off · door <room> 
 drag <right> <away> (your hand on the door or drawer you're looking at, in studs: Studio's input tool can't move a locked mouse)
 furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)
 push <dx> <dz> [people] [seconds] (the nearest pushable furniture, as if that many pushed it that way)
+loop escape|clues|default (the next run's goal: the rework's escape, or the old clue hunt) · locks · unlock <seam|all> · give <token> · items
 stun [seconds] (as if hit by a throw) · throwat (throw what you carry, or the nearest thing, at him) · lure [radius] (a noise nobody made, where you look)
 ```
 

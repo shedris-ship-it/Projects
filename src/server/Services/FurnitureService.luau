@@ -45,8 +45,9 @@ function FurnitureService:Init(services)
 	self.pieces = {} -- id -> piece
 	self.spaces = {} -- every space a piece opens onto
 	self.moving = {} -- piece -> true while it moves
-	-- Optional (R2a): function(space, at: CFrame) -> Model?, what belongs in
-	-- a space instead of junk; return false to leave it empty.
+	-- Optional (Services/ItemService): function(space, at: CFrame) -> (Model?,
+	-- thing?), what belongs in a space instead of junk (already a thing your
+	-- hands can take, or not yet); false to leave it empty.
 	self.Filler = nil
 end
 
@@ -301,9 +302,9 @@ function FurnitureService:_fill(space)
 	local seed = world and world.layout and world.layout.seed or 0
 	local rng = Rng.new(Rng.hash(space.id .. ":" .. tostring(seed)))
 	at *= CFrame.Angles(0, rng:NextNumber(-0.6, 0.6), 0)
-	local model
+	local model, thing
 	if self.Filler then
-		model = self.Filler(space, at)
+		model, thing = self.Filler(space, at)
 	end
 	if model == nil then
 		if rng:NextNumber() >= F.JunkChance then
@@ -314,7 +315,9 @@ function FurnitureService:_fill(space)
 	if not model then
 		return
 	end
-	local thing = self.Hands:AddThing(model, Physical.Dressing[model.Name] or { class = "light", label = model.Name })
+	if typeof(thing) ~= "table" then
+		thing = self.Hands:AddThing(model, Physical.Dressing[model.Name] or { class = "light", label = model.Name })
+	end
 	if thing then
 		table.insert(space.contents, thing)
 		thing.inside = space

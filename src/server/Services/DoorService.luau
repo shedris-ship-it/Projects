@@ -226,6 +226,16 @@ function DoorService:Drag(door, degrees: number, player: Player): boolean
 	if not door.state or os.clock() < door.forcedUntil then
 		return false
 	end
+	if door.locked then
+		-- Pulled on: it rattles in its frame (now and then, not 30 times a second).
+		if degrees > D.LatchAngle * 2 and os.clock() - (door.triedAt or 0) > 1.2 then
+			door.triedAt = os.clock()
+			if self.LockHandler then
+				self.LockHandler(door, player)
+			end
+		end
+		return false
+	end
 	door.holder = player
 	door.heldUntil = os.clock() + H.HoldSeconds
 	return self:SetAngle(door, degrees)
@@ -250,6 +260,9 @@ end
 
 -- Open toward room `b` side so the slab swings out of the doorway.
 function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boolean?)
+	if door.locked then
+		return
+	end
 	local target = open and D.OpenAngle or 0
 	if not door.state or door.state.target == target then
 		return
@@ -278,6 +291,13 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 end
 
 function DoorService:Toggle(door, player: Player?)
+	if door.locked then
+		-- The escape's locks (Services/LockService) decide: a key, a code, a bolt.
+		if self.LockHandler then
+			self.LockHandler(door, player)
+		end
+		return
+	end
 	local opening = not door.state or door.state.target < D.PassAngle
 	self:SetOpen(door, opening, player, false)
 end
@@ -303,6 +323,56 @@ function DoorService:IsBraced(door): boolean
 		return true
 	end
 	return self:HeldBy(door) ~= nil and door.state.target <= D.LatchAngle * 2
+end
+
+-- Locks (the escape, Services/LockService) ------------------------------------
+
+-- Lock a door shut where it is (it's swung shut first), or unlock it. A
+-- locked door is a wall to everyone (WorldService:SeamCost).
+function DoorService:SetLocked(door, locked: boolean)
+	if not door.state then
+		return
+	end
+	if locked then
+		local state = door.state
+		state.value, state.target, state.latched = 0, 0, true
+		door.open = false
+		door.slab.CanCollide = true
+		self.moving[door] = nil
+		self:_place(door)
+		door.slab:SetAttribute("Value", 0)
+		Articulation.setLocked(state, true)
+	else
+		Articulation.setLocked(door.state, false)
+	end
+	door.locked = locked or nil
+	door.slab:SetAttribute("Locked", locked or nil)
+	door.bracePrompt.Enabled = not locked and not door.open
+end
+
+function DoorService:RefreshPrompt(door)
+	door.prompt.ObjectText = door.locked and "Locked door" or "Door"
+	door.prompt.ActionText = door.locked and "Try" or (door.open and "Close" or "Open")
+end
+
+-- Parts hung on a door (a lock plate) swing with it.
+function DoorService:Adopt(door, model: Instance)
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			table.insert(door.parts, p)
+			table.insert(door.offsets, door.slab.CFrame:ToObjectSpace(p.CFrame))
+		end
+	end
+end
+
+function DoorService:Disown(door, model: Instance)
+	for i = #door.parts, 1, -1 do
+		local p = door.parts[i]
+		if not p.Parent or p:IsDescendantOf(model) then
+			table.remove(door.parts, i)
+			table.remove(door.offsets, i)
+		end
+	end
 end
 
 -- Bang on a braced door (noise only).

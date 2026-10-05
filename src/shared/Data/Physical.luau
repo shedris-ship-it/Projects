@@ -70,6 +70,11 @@ local Dressing = {
 	Candle = { class = "light", label = "Candle" },
 	Spool = { class = "light", label = "Thread" },
 	PillBottle = { class = "light", label = "Pill bottle" },
+	-- The escape's items (World/Items, Services/ItemService); each one's own
+	-- label rides on the model.
+	Key = { class = "light", label = "Key" },
+	Heirloom = { class = "medium", label = "Heirloom" },
+	Printout = { class = "light", label = "Printout" },
 }
 
 -- Every piece of furniture, by prop kind (section 4.6; the owner asked for

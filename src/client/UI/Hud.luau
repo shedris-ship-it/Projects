@@ -323,6 +323,11 @@ function Hud:Update()
 	if carrying then
 		detail ..= "  ·  carrying a key"
 	end
+	-- The escape's keys on your ring (Services/LockService).
+	local keys = player:GetAttribute(PA.Keys)
+	if typeof(keys) == "string" and keys ~= "" then
+		detail ..= "  ·  🔑 " .. (string.gsub(keys, "\n", ", "))
+	end
 	self.toolDetail.Text = detail
 	local actions = self.ctx.controllers.ActionController
 	self.staminaFill.Size = UDim2.fromScale(actions.stamina or 1, 1)

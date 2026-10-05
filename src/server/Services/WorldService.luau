@@ -264,6 +264,10 @@ function WorldService:SeamCost(seamId: string, who: string?): number?
 		return nil
 	end
 	local door = seam.door
+	-- Locked (the escape, Services/LockService): a wall to everyone, him too.
+	if door and door.locked then
+		return nil
+	end
 	if door and not door.open and who ~= "guestRetreat" then
 		local ajar = door.state and not door.state.latched
 		return ajar and Config.Nav.DoorCost / 2 or Config.Nav.DoorCost

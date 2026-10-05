@@ -2,6 +2,13 @@
 -- Investigation -> (Verdict) -> Resolution -> Extraction -> Debrief -> Lobby.
 -- Owns win/lose: the anomaly is resolved and at least one Witness extracts,
 -- or Drift reaches 100, or every Witness is Lost.
+--
+-- The escape (Config.Run.Loop "Escape", F2 `loop escape`; docs/plans/
+-- gameplay-rework.md) runs the same machine with a different goal: the house
+-- is planned into locked regions (Logic/LockPlanner), there's no anomaly,
+-- evidence or verdict, and Investigation lasts until the table is set
+-- (Services/FinaleService). Then the final hunt starts and the front door
+-- opens: Extraction, out of the house.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +24,7 @@ local Locations = require(Shared.Data.Locations)
 local Anomalies = require(Shared.Data.Anomalies)
 local Tells = require(Shared.Data.Tells)
 local LevelGraph = require(Shared.Logic.LevelGraph)
+local LockPlanner = require(Shared.Logic.LockPlanner)
 local MansionGen = require(Shared.Logic.MansionGen)
 
 local Phases = Constants.Phases
@@ -143,6 +151,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	local seed = self.nextSeed or Random.new():NextInteger(1, 2147483646)
 	self.nextSeed = nil
 	local rng = Rng.new(seed)
+	local escape = (self.loop or Config.Run.Loop) == "Escape"
 
 	self.run = {
 		seed = seed,
@@ -156,24 +165,53 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		extracted = {},
 		wrongVerdicts = 0,
 		huntsSurvivedStart = 0,
+		escape = escape,
 	}
 	self:_setPhase(Phases.Generating)
 	ReplicatedStorage.RunState:SetAttribute(RS.Seed, seed)
 	ReplicatedStorage.RunState:SetAttribute(RS.Difficulty, difficultyName)
 	ReplicatedStorage.RunState:SetAttribute(RS.SquadSize, #players)
+	ReplicatedStorage.RunState:SetAttribute(RS.Loop, escape and "Escape" or "Clues")
 	services.Telemetry:SetRun(seed)
 
 	local ok, err = pcall(function()
 		-- The old house or the mansion (docs/plans/mansion-generation.md); F2
 		-- `layout` overrides Config.Level.Mode for testing.
 		local layout
-		if (self.layoutMode or Config.Level.Mode) == "Mansion" then
+		local mansion = (self.layoutMode or Config.Level.Mode) == "Mansion"
+		if mansion then
 			layout = MansionGen.generate(seed, Rooms.Mansion, Config.Mansion)
 		else
 			layout = LevelGraph.generate(seed, Rooms.List, Config.Level)
 		end
 		if layout.fallback then
 			warn("[Consensus] seed " .. seed .. " fell back to the authored layout")
+		end
+		if escape then
+			-- The locks, keys and heirlooms, planned before the house is built so
+			-- every locked doorway gets a door (nested: the fingerprint holds).
+			local plan = LockPlanner.plan(
+				layout,
+				mansion and Rooms.MansionById or Rooms.ById,
+				rng:Fork("progression"),
+				Config.Progression,
+				mansion and Config.Mansion or Config.Level,
+				difficultyName == "Hard" and 1 or 0
+			)
+			layout.progression = plan
+			for _, seam in layout.seams do
+				if plan.locks[seam.id] then
+					seam.door = true
+				end
+			end
+			print(
+				string.format(
+					"[Consensus] escape: %d regions, %d locks, %d heirlooms",
+					#plan.order,
+					#LockPlanner.lockIds(plan),
+					#plan.finale.heirlooms
+				)
+			)
 		end
 		services.WorldService:Build(layout, rng:Fork("build"))
 		services.NoiseService:Clear()
@@ -184,14 +222,23 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.WitnessService:ResetFocus(players)
 		services.ToolService:BeginRun(players, rng:Fork("tools"))
 		services.DriftService:Begin(difficulty)
-		services.AnomalyService:Setup({
-			players = players,
-			rng = rng:Fork("anomaly"),
-			locationId = location.id,
-			forced = self.forcedAnomaly,
-			difficulty = difficulty,
-			squadSize = #players,
-		})
+		if escape then
+			services.AnomalyService:SetupAtmosphere({ rng = rng:Fork("anomaly") })
+			local plan = layout.progression
+			services.LockService:Begin(plan)
+			services.ItemService:Begin(plan, rng:Fork("items"))
+			services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
+			services.FinaleService:Begin(plan)
+		else
+			services.AnomalyService:Setup({
+				players = players,
+				rng = rng:Fork("anomaly"),
+				locationId = location.id,
+				forced = self.forcedAnomaly,
+				difficulty = difficulty,
+				squadSize = #players,
+			})
+		end
 		services.CaseBoardService:Broadcast()
 	end)
 	if not ok then
@@ -218,14 +265,14 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		anomalyId = services.AnomalyService:Anomaly().id,
 		runStart = os.clock(),
 	})
-	services.VerdictService:SetEnabled(true)
+	services.VerdictService:SetEnabled(not escape)
 	self.run.started = os.clock()
 	self:_setPhase(Phases.Arrival, Config.Run.ArrivalSeconds)
-	Net.get("Notify")
-		:FireAllClients(
-			string.format("%s. Something here is wrong. Find it, agree on it, end it.", location.name),
-			"phase"
-		)
+	Net.get("Notify"):FireAllClients(
+		escape and "The front door locks behind you. The table is laid for a guest."
+			or string.format("%s. Something here is wrong. Find it, agree on it, end it.", location.name),
+		"phase"
+	)
 	services.Telemetry:Log("RunStarted", {
 		players = #players,
 		difficulty = difficultyName,
@@ -291,6 +338,18 @@ function RunOrchestrator:_onRitualComplete()
 			.. ".",
 		"good"
 	)
+end
+
+-- The escape's dinner is served (Services/FinaleService): the final hunt,
+-- and the front door is open. Out.
+function RunOrchestrator:BeginEscape()
+	local run = self.run
+	if not run or not run.escape or self.phase ~= Phases.Investigation and self.phase ~= Phases.Arrival then
+		return
+	end
+	run.resolved = true
+	self:_setPhase(Phases.Extraction, Config.Run.ExtractionSeconds)
+	self.services.StalkerService:StartFinalHunt()
 end
 
 function RunOrchestrator:_onExtracted(player: Player)
@@ -439,7 +498,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				drift = drift,
 				confirmedTells = confirmed,
 				survivedHunts = 0,
-				anomalyId = (run.resolved and anomaly) and anomaly.id or nil,
+				anomalyId = (run.resolved and anomaly and not run.escape) and anomaly.id or nil,
 				stalker = run.location.stalker,
 			})
 			Net.get("Dossier"):FireClient(player, {
@@ -536,13 +595,22 @@ function RunOrchestrator:SetForcedAnomaly(id: string?)
 	self.forcedAnomaly = id
 end
 
+-- "Clues" or "Escape" for the next run, or nil for Config.Run.Loop.
+function RunOrchestrator:SetLoop(loop: string?)
+	self.loop = loop
+end
+
 function RunOrchestrator:Run()
 	return self.run
 end
 
 function RunOrchestrator:SkipToResolution()
 	if self.run and (self.phase == Phases.Arrival or self.phase == Phases.Investigation) then
-		self:_onVerdict(self.services.AnomalyService:Anomaly().id, true)
+		if self.run.escape then
+			self.services.FinaleService:Serve()
+		else
+			self:_onVerdict(self.services.AnomalyService:Anomaly().id, true)
+		end
 	end
 end
 

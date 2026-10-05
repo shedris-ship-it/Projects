@@ -52,6 +52,7 @@ Constants.RunState = {
 	RitualProgress = "RitualProgress",
 	RitualText = "RitualText",
 	ConfirmedCount = "ConfirmedCount",
+	Loop = "Loop", -- "Clues" or "Escape" (Config.Run.Loop)
 }
 
 -- Attributes on each Player.
@@ -78,6 +79,9 @@ Constants.PlayerAttributes = {
 	Ready = "Ready",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",
+	-- The keys on your ring (the escape, Services/LockService): their names,
+	-- one a line.
+	Keys = "Keys",
 }
 
 Constants.Phases = {

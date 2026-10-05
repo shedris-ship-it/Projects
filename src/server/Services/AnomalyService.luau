@@ -367,6 +367,28 @@ function AnomalyService:Setup(ctx)
 	return anomaly
 end
 
+-- The escape (docs/plans/gameplay-rework.md): no anomaly to find, no tells,
+-- no ritual and no per-player differences to solve; only the house's
+-- portraits, clocks and radios. `Anomaly()` answers with a stand-in so the
+-- services that ask still have a name.
+AnomalyService.Escape = { id = "Escape", name = "The house", implemented = true }
+
+function AnomalyService:SetupAtmosphere(ctx)
+	self:_reset()
+	local world = self.World.World
+	local rng = ctx.rng
+	self.folder = Instance.new("Folder")
+	self.folder.Name = "Anomaly"
+	self.folder.Parent = self.World.folder
+	self.anomaly = AnomalyService.Escape
+	local rooms = roomOrder(world, rng:Fork("rooms"))
+	self:_placePortraits(rng:Fork("portraits"), rooms)
+	self:_placeDecor(rng:Fork("decor"), rooms)
+	self.World:SetStalkerUsesSeams(false)
+	print("[Consensus] escape: no anomaly, atmosphere only")
+	return self.anomaly
+end
+
 function AnomalyService:RitualContext(ctx)
 	return {
 		services = self.services,
