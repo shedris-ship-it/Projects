@@ -54,7 +54,7 @@ LockPlanner.Containers = {
 -- What a room's template offers: hiding spots, places to keep things, a desk
 -- for the computer.
 function LockPlanner.offers(template, mansion: boolean)
-	local hides, containers, desk = 0, 0, false
+	local hides, containers, desk, piano = 0, 0, false, false
 	for _, prop in template and template.props or {} do
 		local kind = Props.Kinds[prop.kind]
 		if kind and kind.hide then
@@ -65,12 +65,14 @@ function LockPlanner.offers(template, mansion: boolean)
 		end
 		if prop.kind == "Desk" then
 			desk = true
+		elseif prop.kind == "Piano" then
+			piano = true
 		end
 	end
 	if mansion and template and template.mansion and template.mansion.hides then
 		hides += template.mansion.hides
 	end
-	return { hides = hides, containers = containers, desk = desk }
+	return { hides = hides, containers = containers, desk = desk, piano = piano }
 end
 
 local function sortedKeys(t): { any }
@@ -177,6 +179,10 @@ LockPlanner.Where = {
 		local template = ctx.templatesById[ctx.byId[id].template]
 		return template ~= nil and template.family == "utility" and template.id ~= "bathroom"
 	end,
+	-- A room with a piano (the music box's tune is played back on it).
+	piano = function(ctx, id)
+		return ctx.offers[id].piano
+	end,
 	-- A lived-in room for a wall safe behind a painting: a bedroom, the
 	-- study, the den... (not the hall or the dining room).
 	homely = function(ctx, id)
@@ -193,9 +199,12 @@ LockPlanner.Where = {
 -- the default; Logic/Leads gives it a lead), or a puzzle that holds it,
 -- standing in a room of the heirloom's region that suits it. Drawn against
 -- each other by Config.Progression.Keepers weights, in this order.
+--   second  a puzzle in two rooms: where its other half lies (the music
+--           box, in a room open no later than the piano's)
 LockPlanner.Keepers = {
 	{ id = "container" },
 	{ id = "safe", puzzle = "safe", where = "homely" },
+	{ id = "musicbox", puzzle = "musicbox", where = "piano", second = "homely" },
 }
 
 -- What kind of lock a region's gate can be. The first is the plain key; the
@@ -248,7 +257,7 @@ function LockPlanner.producerRooms(plan, token): { number }
 		return producer.rooms
 	elseif producer.kind == "puzzle" then
 		local puzzle = plan.puzzles[producer.id]
-		return puzzle and { puzzle.room } or {}
+		return puzzle and (puzzle.rooms or { puzzle.room }) or {}
 	end
 	return { producer.room }
 end
@@ -690,7 +699,20 @@ local function attempt(ctx, rng, cfg, k: number)
 			if keeper.puzzle then
 				room = rng:Pick(choice.rooms)
 				local puzzleId = keeper.puzzle .. ":1"
-				plan.puzzles[puzzleId] = { kind = keeper.puzzle, room = room, seed = rng:NextInteger(1, 2 ^ 30) }
+				local puzzle = { kind = keeper.puzzle, room = room, seed = rng:NextInteger(1, 2 ^ 30) }
+				if keeper.second then
+					-- Its other half: a room open no later than this one.
+					local seconds = {}
+					for _, id in ctx.ids do
+						local fits = id ~= room and id ~= ctx.dining and LockPlanner.Where[keeper.second](ctx, id)
+						if fits and position[roomRegion[id]] <= position[entry.region] then
+							table.insert(seconds, id)
+						end
+					end
+					local other = rng:Pick(seconds) or room
+					puzzle.rooms = { room, other }
+				end
+				plan.puzzles[puzzleId] = puzzle
 				plan.stats.puzzles += 1
 				usedPuzzles[keeper.puzzle] = true
 				producer = { kind = "puzzle", id = puzzleId }

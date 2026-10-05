@@ -35,6 +35,7 @@ local MARKS = {
 	display = { text = "CASE", color = Color3.fromRGB(170, 200, 220) },
 	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
 	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
+	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
 }
 
 function Map.new(ctx)

@@ -58,6 +58,7 @@ Assets.Sounds = {
 	LockClick = "rbxassetid://9125343042", -- PSE "Door Lock Button Clicks 1": picking a small lock
 	Flush = "rbxassetid://9120106611", -- PSE "Toilet Flush Two Flushes Gushing Water 1" (R2c interactables)
 	Tap = "rbxassetid://9113368238", -- PSE "Bathroom Faucet Running Water 1": a tap left running, looped
+	MusicBoxNote = "rbxassetid://9117042092", -- PSE "Music Box Swan Lake Single Notes 3": one note, pitched per key
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

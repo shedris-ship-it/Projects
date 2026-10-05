@@ -66,6 +66,7 @@ function AudioController:Start()
 	group("Ambient")
 	self:_heirlooms()
 	self:_loops()
+	self:_combs()
 	group("UI")
 	self:_applyVolumes(self.state.settings)
 	self.state.SettingsChanged:Connect(function(settings)
@@ -488,6 +489,36 @@ function AudioController:_loops()
 		watch(part)
 	end
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.SoundLoop):Connect(watch)
+end
+
+-- The music box (server/Puzzles/MusicBox): with subtitles on, the tooth of
+-- each note it plays lights up as it sounds, and it's captioned when near.
+function AudioController:_combs()
+	local function watch(model: Instance)
+		model:GetAttributeChangedSignal("Comb"):Connect(function()
+			local key, index = string.match(tostring(model:GetAttribute("Comb")), "^(%d+):(%d+)")
+			local tooth = key and model:FindFirstChild("Tooth" .. key)
+			if not tooth or not self.state.settings.subtitles then
+				return
+			end
+			local color, material = tooth.Color, tooth.Material
+			tooth.Color = Color3.fromRGB(255, 230, 150)
+			tooth.Material = Enum.Material.Neon
+			task.delay(0.35, function()
+				if tooth.Parent then
+					tooth.Color, tooth.Material = color, material
+				end
+			end)
+			local camera = workspace.CurrentCamera
+			if index == "1" and camera and (camera.CFrame.Position - tooth.Position).Magnitude < 40 then
+				self:Caption("[a music box plays its tune]")
+			end
+		end)
+	end
+	for _, model in CollectionService:GetTagged("ConsensusMusicBox") do
+		watch(model)
+	end
+	CollectionService:GetInstanceAddedSignal("ConsensusMusicBox"):Connect(watch)
 end
 
 -- Subtitles for key audio cues (accessibility, doc section 8).

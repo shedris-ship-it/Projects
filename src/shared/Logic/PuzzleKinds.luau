@@ -19,4 +19,5 @@ return {
 	padlock = require(Puzzles.Padlock),
 	breaker = require(Puzzles.Breaker),
 	safe = require(Puzzles.Safe),
+	musicbox = require(Puzzles.MusicBox),
 }

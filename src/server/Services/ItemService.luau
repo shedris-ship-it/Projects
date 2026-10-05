@@ -365,6 +365,11 @@ function ItemService:_top(room: number, rng): CFrame?
 	return spot and spot * CFrame.Angles(0, math.pi, 0)
 end
 
+-- For other systems' things on a top (the music box).
+function ItemService:TopSpot(room: number, rng): CFrame?
+	return self:_top(room, rng)
+end
+
 -- A free wall spot in `room`, turned so +Z faces into the room, at about
 -- eye height (wall slots are for pictures, a little higher).
 function ItemService:_wall(room: number, rng): CFrame?

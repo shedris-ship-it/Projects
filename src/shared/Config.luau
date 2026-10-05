@@ -679,8 +679,8 @@ Config.Progression = {
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
 	Flavours = { key = 3, padlock = 2, power = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
-	Enabled = { key = true, padlock = true, power = true, safe = true },
-	Keepers = { container = 4, safe = 2 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
+	Enabled = { key = true, padlock = true, power = true, safe = true, musicbox = true },
+	Keepers = { container = 4, safe = 2, musicbox = 3 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
 	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round
@@ -729,6 +729,21 @@ Config.Breaker = {
 	DecoyChance = 0.5, -- another breaker is wrongly labelled with the door's room
 	TripNoise = 30, -- the main tripping: a loud clunk, and every light out
 	FlipNoise = 6,
+}
+
+-- The music box and the piano (R2c; Logic/Puzzles/MusicBox, server/Puzzles/
+-- MusicBox). Both play the one music-box note (Assets MusicBoxNote),
+-- pitched: the piano lower, like a toy piano gone out of tune.
+Config.MusicBox = {
+	NoteGap = 0.55, -- seconds between the box's notes
+	BoxPitch = 1,
+	BoxVolume = 0.6,
+	PianoPitch = 0.5,
+	PianoVolume = 0.85,
+	Lure = 22, -- the box playing carries this far (a lure, from whoever winds or carries it)
+	CarriedEvery = 7, -- carried, it plays its tune again this often
+	LureEvery = 3,
+	DiscordNoise = 35, -- (doc) a wrong note on the piano
 }
 
 -- The map (Services/MapService, UI/Map): what counts as seen.

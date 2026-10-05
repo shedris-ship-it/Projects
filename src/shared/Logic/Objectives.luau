@@ -30,6 +30,9 @@ Objectives.Stations = {
 	safe = function(room: string)
 		return "There's a safe in the " .. room .. "."
 	end,
+	musicbox = function(room: string)
+		return "The piano in the " .. room .. " is waiting for a tune."
+	end,
 }
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }
