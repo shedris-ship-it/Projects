@@ -159,6 +159,7 @@ function CompanionService:Begin(players: { Player }, spawnCFrame: CFrame)
 			halfWidth = 1,
 			path = Walker.CompanionPath,
 			opensDoors = "companion",
+			who = "player",
 		}, Random.new()),
 	}
 	self.player = players[1]

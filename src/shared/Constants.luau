@@ -100,6 +100,10 @@ Constants.CollisionGroups = {
 	Seam = "ConsensusSeam",
 	Door = "ConsensusDoor",
 	Phantom = "ConsensusPhantom",
+	-- Physical props (docs/plans/gameplay-rework.md section 4.2).
+	Prop = "ConsensusProp", -- small things, resting or thrown
+	Held = "ConsensusHeld", -- small things being carried
+	Heavy = "ConsensusHeavy", -- furniture you push
 }
 
 Constants.StalkerModes = {

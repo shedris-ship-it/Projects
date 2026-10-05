@@ -285,7 +285,7 @@ function NavTest.run(service, args, report: (string) -> ()): string
 			local stats0 = table.clone(walker.stats)
 			local phases0 = body.phases
 			local started = os.clock()
-			local failures, falls, legs = {}, 0, 0
+			local failures, falls, legs, noWays = {}, 0, 0, 0
 			local remaining = table.clone(spots)
 			while #remaining > 0 and service.navTesting do
 				local here = body.root.Position
@@ -307,6 +307,8 @@ function NavTest.run(service, args, report: (string) -> ()): string
 				-- Generous: closed doors cost him 1.5-3 s each to open.
 				local timeout = math.max(25, pickDistance / speed * 3 + 20)
 				local traced = 0
+				local noWaySince = nil
+				local noWay = false
 				while os.clock() - legStart < timeout and service.navTesting do
 					task.wait(0.2)
 					if trace and os.clock() - traced > 0.5 then
@@ -321,6 +323,17 @@ function NavTest.run(service, args, report: (string) -> ()): string
 					if walker:Arrived() then
 						break
 					end
+					-- Every way there is shut (F2 block, a lock): not a stuck
+					-- walk, so say so and go on.
+					if walker:Unreachable() then
+						noWaySince = noWaySince or os.clock()
+						if os.clock() - noWaySince > 3 then
+							noWay = true
+							break
+						end
+					else
+						noWaySince = nil
+					end
 				end
 				legs += 1
 				local feet = body.root.Position - Vector3.new(0, offset, 0)
@@ -332,14 +345,18 @@ function NavTest.run(service, args, report: (string) -> ()): string
 				local line = string.format(
 					"%-30s %s in %.1fs",
 					spot.label,
-					arrived and "ok" or string.format("STUCK %.1f studs short", short),
+					arrived and "ok"
+						or noWay and "NO WAY (every doorway there is shut)"
+						or string.format("STUCK %.1f studs short", short),
 					os.clock() - legStart
 				) .. (fell and ", FELL" or "")
 				print("[navtest] " .. line)
-				if not arrived then
+				if noWay then
+					noWays += 1
+				elseif not arrived then
 					print("[navtest]   " .. walker:Describe())
 				end
-				if not arrived or fell then
+				if (not arrived and not noWay) or fell then
 					table.insert(failures, line)
 				end
 			end
@@ -347,10 +364,11 @@ function NavTest.run(service, args, report: (string) -> ()): string
 			body:SetPose(Poses.Idle)
 			local stats = walker.stats
 			local summary = string.format(
-				"navtest%s: %d legs, %d failed · %d falls · %d phases · %d stuck moments, %d side-steps, %d re-plans, %d navmesh fallbacks · %.0fs",
+				"navtest%s: %d legs, %d failed, %d with no way · %d falls · %d phases · %d stuck moments, %d side-steps, %d re-plans, %d navmesh fallbacks · %.0fs",
 				fast and " fast" or "",
 				legs,
 				#failures,
+				noWays,
 				falls,
 				body.phases - phases0,
 				stats.stuck - stats0.stuck,

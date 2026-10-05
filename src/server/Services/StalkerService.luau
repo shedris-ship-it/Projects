@@ -51,6 +51,7 @@ local RS = Constants.RunState
 local Poses = GuestPose.Poses
 
 local TIER_MODES = { [0] = Modes.Dormant, [1] = Modes.Watching, [2] = Modes.Closing, [3] = Modes.Intruding }
+local INSPECT_REACH = 7 -- studs from a hiding spot's front: further, and he can't check it
 
 local StalkerService = {}
 
@@ -140,6 +141,16 @@ function StalkerService:Begin(ctx)
 		opensDoors = "stalker",
 		usesSeams = function()
 			return self.services.WorldService.stalkerUsesSeams == true
+		end,
+		-- Locks hold him only in a chase (docs/plans/gameplay-rework.md 5.5),
+		-- so a hunt stays inside the part of the house the squad can reach.
+		who = function()
+			local mode = self.mode
+			local chasing = mode == Modes.Hunting
+				or mode == Modes.Telegraph
+				or mode == Modes.Retreating
+				or mode == Modes.Departing
+			return chasing and "guestHunt" or "guest"
 		end,
 	}, self.rng:Fork("nav"))
 	self.bodyCtl = Body.new(self.body, self.navigator)
@@ -1056,7 +1067,7 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 	if action.type == "goto" then
 		local ratio = action.speed / (S.SprintSpeedRatio * Config.Player.SprintSpeed)
 		self:_walkTo(action.position, speed * math.min(1, ratio), self:_lanternAvoid())
-		if body:Arrived() or elapsed > 25 then
+		if body:Arrived() or body:Unreachable() or elapsed > 25 then
 			nextAction()
 		end
 	elseif action.type == "wait" then
@@ -1067,8 +1078,23 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 			nextAction()
 		end
 	elseif action.type == "inspect" then
-		body:Hold()
 		local spot = action.spot
+		-- Only a spot he is standing at: a walk that timed out or found no
+		-- way there never checks a hiding place from across the house.
+		local front = spot.frontPosition
+		local feet = body.root.Position
+		if
+			front
+			and (
+				(Vector3.new(front.X, 0, front.Z) - Vector3.new(feet.X, 0, feet.Z)).Magnitude > INSPECT_REACH
+				or math.abs(front.Y - feet.Y) > 6
+			)
+		then
+			data.inspectSound = nil
+			nextAction()
+			return
+		end
+		body:Hold()
 		body:FacePoint(spot.anchor and spot.anchor.Position or body.root.Position)
 		if not data.inspectSound then
 			data.inspectSound = true

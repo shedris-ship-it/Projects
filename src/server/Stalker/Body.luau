@@ -211,6 +211,11 @@ function Body:Arrived(): boolean
 	return self.navigator:Arrived()
 end
 
+-- No way to where he was going (locked or blocked): he stands still.
+function Body:Unreachable(): boolean
+	return self.navigator:Unreachable()
+end
+
 -- Yanked out of sight: a short, very fast straight glide, still facing
 -- you. Only as far as his body clears (Stalker/Clearance): never through a
 -- wall, a door frame or a railing. Returns immediately; Busy() is true until

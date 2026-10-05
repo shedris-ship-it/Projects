@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.10",
-	note = "Visual audit: no floor stripes upstairs, curtains no longer glow, bed, armchair, sofa, tub, crib and rug fixed",
+	id = "2026-10-04.11",
+	note = "Rework R1a.1: one passage model for every route (doors now, locks later), no walking at walls when there is no way, F2 block",
 }

@@ -26,6 +26,11 @@ local WorldService = {
 	World = nil,
 	Built = Signal.new(),
 	Cleared = Signal.new(),
+	-- (seamId, why): who may pass a seam changed (a lock, a barricade, a
+	-- door turned to wall). Doors opening and shutting don't count: they only
+	-- cost time, which routes read when they're made.
+	PassageChanged = Signal.new(),
+	passageVersion = 0,
 }
 
 function WorldService:Init()
@@ -49,6 +54,20 @@ function WorldService:Init()
 	-- gets physically stuck on one.
 	PhysicsService:CollisionGroupSetCollidable(Groups.Stalker, Groups.Door, false)
 	PhysicsService:CollisionGroupSetCollidable(Groups.Phantom, "Default", false)
+	-- Physical props (docs/plans/gameplay-rework.md section 4.2). Small things
+	-- resting or thrown (Prop) and carried (Held) never touch players or The
+	-- Guest: a carried thing can't fling its holder or shove a friend, and a
+	-- throw's hit on him is decided in code. Heavy furniture you push collides
+	-- with everyone but Echoes.
+	for _, group in { Groups.Prop, Groups.Held } do
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.Players, false)
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.Echo, false)
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.Stalker, false)
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.Phantom, false)
+	end
+	PhysicsService:CollisionGroupSetCollidable(Groups.Held, Groups.Held, false)
+	PhysicsService:CollisionGroupSetCollidable(Groups.Heavy, Groups.Echo, false)
+	PhysicsService:CollisionGroupSetCollidable(Groups.Heavy, Groups.Phantom, false)
 end
 
 -- Phantom Architecture's stalker twist: it walks through solid seams.
@@ -93,6 +112,8 @@ function WorldService:Build(layout, rng)
 	self.adjacency = Graph.adjacency(ids, layout.edges)
 	-- The graph The Guest and the Companion walk by (Logic/NavGraph).
 	self.nav = NavGraph.build(layout, NavGraph.options(Config))
+	self.passageChangedAt = {}
+	self.debugBlocked = {}
 	self.World.nav = self.nav
 	self.Built:Fire(self.World)
 	self:BroadcastLayout()
@@ -221,21 +242,78 @@ function WorldService:FloorBase(y: number): number
 	return o + floorAt(y - o) * PITCH
 end
 
+-- The passage model (docs/plans/gameplay-rework.md section 5.1): who may pass
+-- a seam right now, and what it costs them in studs; nil means they can't.
+-- Every route and distance the Guest, the Companion and the stalker's map of
+-- the squad use comes through here, so locks (R2a), barricades (R1b) and
+-- doors turned to walls (R3) only need adding in this one place. who:
+--   "player"        players and the Companion
+--   "guest"         The Guest between hunts
+--   "guestHunt"     The Guest hunting
+--   "guestRetreat"  distances while he backs away: how far, not how slow,
+--                   so a shut door costs nothing
+-- Today the only thing on a seam is a door: a shut one costs
+-- Config.Nav.DoorCost (opening it takes 1.5-3 s).
+function WorldService:SeamCost(seamId: string, who: string?): number?
+	local world = self.World
+	local seam = world and world.seams[seamId]
+	if not seam then
+		return 0
+	end
+	if self.debugBlocked and self.debugBlocked[seamId] then
+		return nil
+	end
+	local door = seam.door
+	if door and not door.open and who ~= "guestRetreat" then
+		return Config.Nav.DoorCost
+	end
+	return 0
+end
+
+-- F2 `block <room> <room>`: shut a doorway to everyone, for testing what the
+-- Guest and the Companion do with no way through. nil seam: open them all.
+function WorldService:DebugBlock(seamId: string?, blocked: boolean)
+	self.debugBlocked = self.debugBlocked or {}
+	if seamId then
+		self.debugBlocked[seamId] = blocked or nil
+		self:MarkPassageChanged(seamId, "debug")
+	else
+		for id in self.debugBlocked do
+			self.debugBlocked[id] = nil
+			self:MarkPassageChanged(id, "debug")
+		end
+	end
+end
+
+-- Something changed who may pass a seam. Walkers whose way crosses it re-route
+-- (Stalker/Walker reads passageVersion and PassageChangedSince).
+function WorldService:MarkPassageChanged(seamId: string, why: string)
+	self.passageVersion += 1
+	if self.passageChangedAt then
+		self.passageChangedAt[seamId] = self.passageVersion
+	end
+	self.PassageChanged:Fire(seamId, why)
+end
+
+function WorldService:PassageChangedSince(seamId: string, version: number): boolean
+	local at = self.passageChangedAt and self.passageChangedAt[seamId]
+	return at ~= nil and at > version
+end
+
 -- The way between two points (floor spots or roots): { steps = { { position,
 -- node, kind, room, seam, stair, door } }, cost }, or nil. Steps are empty
 -- when both are in the same room on the same level. opts as NavGraph.search
--- (avoid, solid, extra); closed doors cost Config.Nav.DoorCost.
+-- (avoid, solid, extra), plus who (SeamCost; "guest" if not given).
 function WorldService:Route(from: Vector3, to: Vector3, opts)
 	local nav, world = self.nav, self.World
 	if not nav or not world then
 		return nil
 	end
 	opts = table.clone(opts or {})
-	opts.doorCost = opts.doorCost
-		or function(seamId: string): number
-			local seam = world.seams[seamId]
-			return (seam and seam.door and not seam.door.open) and nav.options.doorCost or 0
-		end
+	local who = opts.who or "guest"
+	opts.doorCost = opts.doorCost or function(seamId: string): number?
+		return self:SeamCost(seamId, who)
+	end
 	local route = NavGraph.route(nav, toLayout(from), self:RoomAt(from), toLayout(to), self:RoomAt(to), opts)
 	if not route then
 		return nil
@@ -252,9 +330,17 @@ function WorldService:Route(from: Vector3, to: Vector3, opts)
 end
 
 -- Every graph node's walking distance from a point (for weighing options).
+-- opts as NavGraph.search, plus who: seams are charged by SeamCost when given.
 function WorldService:NavDistances(from: Vector3, opts)
 	if not self.nav then
 		return nil
+	end
+	if opts and opts.who and not opts.doorCost then
+		local who = opts.who
+		opts = table.clone(opts)
+		opts.doorCost = function(seamId: string): number?
+			return self:SeamCost(seamId, who)
+		end
 	end
 	return NavGraph.search(self.nav, NavGraph.attach(self.nav, toLayout(from), self:RoomAt(from)), opts)
 end

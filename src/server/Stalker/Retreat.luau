@@ -21,6 +21,7 @@ local Poses = GuestPose.Poses
 
 local REPLAN_SECONDS = 1.5
 local CLOSING_STUDS = 4 -- someone this much nearer than at the last plan: plan again
+local RETREAT = { who = "guestRetreat" }
 
 local Retreat = {}
 Retreat.__index = Retreat
@@ -84,7 +85,7 @@ function Retreat:Step(face: Player?, stand: { Vector3 }?)
 		or now - self.plannedAt > REPLAN_SECONDS
 		or closing
 		or body.backBlockedAt > self.plannedAt
-		or (not self.plan.cornered and body:Arrived())
+		or (not self.plan.cornered and (body:Arrived() or body:Unreachable()))
 	if due then
 		self:_plan(players, here, now)
 		self.distances = {}
@@ -124,14 +125,16 @@ function Retreat:_plan(players: { Vector3 }, here: Vector3, now: number)
 	if self.doorwaysFor ~= nav then
 		self.doorways, self.doorwaysFor = RetreatPlan.doorways(nav), nav
 	end
-	local dist, parent = worldService:NavDistances(feet)
+	-- Distance, not delay (a shut door costs nothing), and a lock is a wall
+	-- for him and for them (WorldService:SeamCost, "guestRetreat").
+	local dist, parent = worldService:NavDistances(feet, RETREAT)
 	local me = { point = worldService.ToLayout(feet), room = worldService:RoomAt(feet), dist = dist, parent = parent }
 	local them = {}
 	for _, pos in players do
 		table.insert(them, {
 			point = worldService.ToLayout(pos),
 			room = worldService:RoomAt(pos),
-			dist = (worldService:NavDistances(pos)),
+			dist = (worldService:NavDistances(pos, RETREAT)),
 		})
 	end
 	local plan = RetreatPlan.choose(nav, me, them, {

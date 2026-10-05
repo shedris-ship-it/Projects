@@ -30,6 +30,7 @@ local REPLAN_SECONDS = 0.25 -- a moving target re-routes at most this often
 local RELEG_SECONDS = 0.5 -- and re-plans its last leg on the navmesh at most this often
 local LOOKAHEAD_SECONDS = 0.3
 local PLAN_TIMEOUT = 1.5 -- a navmesh plan slower than this is abandoned for the graph's own way
+local UNREACHABLE_RETRY = 1 -- with no way there, try the graph again this often
 
 local function flat(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
@@ -42,6 +43,8 @@ end
 --   path        PathfindingService agent parameters,
 --   opensDoors  "stalker" (waits, bangs braced doors) or "companion",
 --   usesSeams   function() -> bool: walks through solid seams (Phantom twist)
+--   who         who he walks as, for WorldService:SeamCost (a string, or a
+--               function returning one; "guest" if not given)
 -- }
 function Walker.new(services, agent, rng)
 	return setmetatable({
@@ -71,6 +74,8 @@ function Walker.new(services, agent, rng)
 		lookaheadAt = 0,
 		canTeleport = nil, -- function() -> bool: nobody could see a nudge
 		allowNudge = true,
+		unreachable = false, -- the last route found no way there
+		routeVersion = 0, -- WorldService.passageVersion when the route was made
 		stats = { routes = 0, legs = 0, replans = 0, fallbacks = 0, stuck = 0, sidesteps = 0, nudges = 0, skipped = 0 },
 	}, Walker)
 end
@@ -127,7 +132,10 @@ function Walker:SetDestination(target: Vector3, opts)
 	self.speed = opts.speed or self.speed
 	self.humanoid.WalkSpeed = self.speed
 	local now = os.clock()
-	if self.destination and not opts.force then
+	-- With no way there last time, look again now and then (a door may have
+	-- been unlocked), however often the caller asks.
+	local retry = self.unreachable and now - self.routedAt >= UNREACHABLE_RETRY
+	if self.destination and not opts.force and not retry then
 		local moved = (self.destination - target).Magnitude
 		-- Same destination: keep the route, including once it has arrived,
 		-- so callers can re-issue it every tick and still see Arrived().
@@ -152,11 +160,39 @@ function Walker:SetDestination(target: Vector3, opts)
 	self.options = opts
 	self.routedAt = now
 	self.stats.routes += 1
-	local route = self.World:Route(self:Feet(), target, {
+	local feet = self:Feet()
+	local who = self.agent.who
+	if type(who) == "function" then
+		who = who()
+	end
+	self.routeVersion = self.World.passageVersion
+	local route = self.World:Route(feet, target, {
 		avoid = opts.avoid,
 		extra = opts.extra,
 		solid = self.agent.usesSeams and self.agent.usesSeams() or false,
+		who = who,
 	})
+	-- No way there from inside the house (every way is locked or blocked):
+	-- stand and wait to be given somewhere else, rather than walk a straight
+	-- line at a wall. Outside the house (arriving from the porch) there is no
+	-- graph to ask, so the straight walk stays.
+	local fromRoom, toRoom = self.World:RoomAt(feet), self.World:RoomAt(target)
+	self.unreachable = route == nil and fromRoom ~= nil and toRoom ~= nil and fromRoom ~= toRoom
+	if self.unreachable then
+		self.stats.unreachable = (self.stats.unreachable or 0) + 1
+		self.goals = {}
+		self.index = 1
+		self.pendingDoor = nil
+		if self.leg and self.leg.connection then
+			self.leg.connection:Disconnect()
+		end
+		self.leg = nil
+		self.token += 1
+		if not self.root.Anchored then
+			self.humanoid:MoveTo(self.root.Position)
+		end
+		return
+	end
 	self.goals = goalsOf(route, target)
 	self.index = 1
 	self.pendingDoor = nil
@@ -239,6 +275,7 @@ function Walker:Stop()
 	self.goals = {}
 	self.index = 1
 	self.destination = nil
+	self.unreachable = false
 	self.pendingDoor = nil
 	if self.leg and self.leg.connection then
 		self.leg.connection:Disconnect()
@@ -251,7 +288,25 @@ function Walker:Stop()
 end
 
 function Walker:Arrived(): boolean
-	return self.index > #self.goals
+	return not self.unreachable and self.index > #self.goals
+end
+
+-- The last route found no way to the destination (locked or blocked doors):
+-- he is standing still. Callers should pick somewhere else.
+function Walker:Unreachable(): boolean
+	return self.unreachable
+end
+
+-- Whether a seam this route still has to cross has changed who may pass it
+-- since the route was made.
+function Walker:_routeCrossesChanged(): boolean
+	for i = self.index, #self.goals do
+		local seam = self.goals[i].seam
+		if seam and self.World:PassageChangedSince(seam, self.routeVersion) then
+			return true
+		end
+	end
+	return false
 end
 
 function Walker:Remaining(): number
@@ -295,7 +350,7 @@ function Walker:Describe(): string
 				))
 			or "no leg",
 		self.stage,
-		self.pendingDoor and " · at a door" or "",
+		(self.pendingDoor and " · at a door" or "") .. (self.unreachable and " · no way there" or ""),
 		feet.X,
 		feet.Y,
 		feet.Z,
@@ -322,8 +377,30 @@ function Walker:_advanceGoal(now: number)
 	self:_startGoal()
 end
 
+-- Route again from wherever he is to the same destination.
+function Walker:_reroute()
+	local destination, options = self.destination, self.options
+	if destination then
+		self:SetDestination(destination, {
+			speed = options and options.speed,
+			avoid = options and options.avoid,
+			extra = options and options.extra,
+			force = true,
+		})
+	end
+end
+
 -- Advance along the route. Returns true while still travelling.
 function Walker:Step(now: number): boolean
+	-- A doorway ahead was locked or blocked since the route was made; or he
+	-- had no way at all and something opened.
+	if self.routeVersion ~= self.World.passageVersion then
+		local changed = self.unreachable or self:_routeCrossesChanged()
+		self.routeVersion = self.World.passageVersion
+		if changed then
+			self:_reroute()
+		end
+	end
 	local goal = self.goals[self.index]
 	if not goal then
 		return false
@@ -496,14 +573,8 @@ function Walker:_checkStuck(now: number, feet: Vector3, point: Vector3)
 	elseif self.stage >= 4 then
 		-- Give this goal up and route again from wherever he is.
 		self.stats.skipped += 1
-		local destination, options = self.destination, self.options
-		if destination then
-			self:SetDestination(destination, {
-				speed = options and options.speed,
-				avoid = options and options.avoid,
-				extra = options and options.extra,
-				force = true,
-			})
+		if self.destination then
+			self:_reroute()
 			self.stage = 0
 		end
 	end

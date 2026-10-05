@@ -375,7 +375,10 @@ end
 --   avoid:    { [roomId] = true } rooms not to walk through (lit Lanterns)
 --   allow:    { [roomId] = true } rooms walked through anyway (start, goal)
 --   solid:    walk through solid seams too (Phantom Architecture's twist)
---   doorCost: function(seamId) -> extra studs for that doorway (a closed door)
+--   doorCost: function(seamId) -> extra studs for that doorway (a closed door),
+--             or nil when nobody of this kind may pass it now (a lock; docs/
+--             plans/gameplay-rework.md section 5.1). Charged on the way into
+--             the doorway node, so it holds from both sides.
 --   extra:    function(nodeId) -> extra studs for passing that node
 function NavGraph.search(graph, sources, opts)
 	opts = opts or {}
@@ -401,7 +404,8 @@ function NavGraph.search(graph, sources, opts)
 						step = opts.solid and step * factor or nil
 					end
 					if step and target.kind == "doorway" and opts.doorCost then
-						step += opts.doorCost(link.seam)
+						local cost = opts.doorCost(link.seam)
+						step = cost and step + cost or nil
 					end
 				end
 				if step and avoid and target.kind ~= "doorway" and avoid[target.room] and not allow[target.room] then

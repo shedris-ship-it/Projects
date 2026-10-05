@@ -183,6 +183,58 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("a door cost of nil blocks that doorway from both sides", function()
+		local rng = Rng.new(17)
+		for h = 1, 40 do
+			local graph = houses[h].graph
+			local open = {}
+			for id, seam in graph.seams do
+				if seam.connected then
+					table.insert(open, id)
+				end
+			end
+			table.sort(open)
+			-- One doorway shut: no route between its rooms walks through it.
+			local shut = rng:Pick(open)
+			local seam = graph.seams[shut]
+			local opts = {
+				doorCost = function(id)
+					return id ~= shut and 0 or nil
+				end,
+			}
+			for _, pair in { { seam.a, seam.b }, { seam.b, seam.a } } do
+				local a, b = graph.rooms[pair[1]], graph.rooms[pair[2]]
+				local route = NavGraph.route(graph, graph.nodes[a.nodes[1]], a.id, graph.nodes[b.nodes[1]], b.id, opts)
+				for _, step in route and route.steps or {} do
+					check.truthy(step.seam ~= shut, "a route walked through a shut doorway")
+				end
+			end
+			-- Every doorway of an ordinary room shut: no way in or out.
+			local ids = NavGraph.roomIds(graph)
+			local room
+			repeat
+				room = graph.rooms[rng:Pick(ids)]
+			until not room.tall
+			local sealed = {}
+			for id, s in graph.seams do
+				if s.a == room.id or s.b == room.id then
+					sealed[id] = true
+				end
+			end
+			local other
+			repeat
+				other = graph.rooms[rng:Pick(ids)]
+			until other.id ~= room.id
+			local route =
+				NavGraph.route(graph, graph.nodes[other.nodes[1]], other.id, graph.nodes[room.nodes[1]], room.id, {
+					doorCost = function(id)
+						return not sealed[id] and 0 or nil
+					end,
+				})
+			check.truthy(route == nil, "a route into a room whose every doorway is shut")
+		end
+	end)
+
 	test("separation: symmetric, and at least the flat distance", function()
 		local rng = Rng.new(9)
 		for _, house in houses do

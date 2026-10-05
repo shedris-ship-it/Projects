@@ -449,7 +449,7 @@ local function relocate(self, move, now)
 		self.body:SetGaze(nil)
 		self.body:Go(move.goal, G.WalkSpeed, nil, self:_unseenCost())
 	end
-	if self.body:Arrived() or now - move.started > 30 then
+	if self.body:Arrived() or self.body:Unreachable() or now - move.started > 30 then
 		move.walking = false
 		self.transit = false
 		return true
@@ -854,7 +854,10 @@ MOVES.Withdraw = {
 				self.body:Go(move.goal, G.WithdrawSpeed)
 			end
 		end
-		if not move.still and (not move.goal or self.body:Arrived() or now - move.started > 20) then
+		if
+			not move.still
+			and (not move.goal or self.body:Arrived() or self.body:Unreachable() or now - move.started > 20)
+		then
 			move.still = true
 			self.body:Hold()
 			self.body:SetPose(Poses.Idle)
