@@ -66,8 +66,9 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
 | Drag a door, drawer, cupboard door, lid or closet door, or pick something up | hold **left mouse** | hold RT (right stick moves your hand) | none yet |
 | Push furniture (heavy pieces need friends; walk backwards to pull) | hold **left mouse** on it and walk | hold RT and walk | none yet |
 | Throw what you carry (tap: a lob; hold: wind up) / bring it nearer or further | **right mouse** / mouse wheel | LT | none yet |
-| Doors, drawers, notes, keys at a lock, puzzles, fixtures, switches, hiding, revive, set a place at the table, squeeze past a barricade | **E** (prompts) | X | Tap the prompt |
+| Doors, drawers, notes, keys at a lock, puzzles, fixtures, switches, hiding, revive, set a place at the table | **E** (prompts) | X | Tap the prompt |
 | Crank ratchet, dumbwaiter jam box | **Q** (prompt) | LB | Tap the prompt |
+| Squeeze past a barricade (hold) | **Q** (prompt) | R3 | Tap the prompt |
 | Brace a door | **B** (prompt) | LB | Tap the prompt |
 | Use the tool in your hands | **R** | RB | Tool button |
 | Put the tool in your hands down | **X** | none | none |

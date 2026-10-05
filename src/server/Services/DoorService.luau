@@ -43,6 +43,7 @@ local BRACE_COOLDOWN = 30
 
 function DoorService:Init(services)
 	self.World = services.WorldService
+	self.Push = services.PushService
 	self.Noise = services.NoiseService
 	self.PlayerState = services.PlayerStateService
 	self.SquadProfile = services.SquadProfileService
@@ -200,42 +201,11 @@ function DoorService:_bodyStop(door, from: number, to: number): number?
 	return best
 end
 
--- Where a swing stops against a barricade pushed into it (Services/
--- PushService only lets a piece into a shut door's swing when it bars the
--- doorway): the door opens as far as the piece lets it.
+-- Where a swing stops against pushed furniture in its way (Services/
+-- PushService lets a piece into a shut door's swing, so the door opens only
+-- as far as the piece lets it).
 function DoorService:_pieceStop(door, from: number, to: number): number?
-	local world = self.World.World
-	local seam = world and world.seams[door.seamId]
-	if not seam or not seam.barricades or to <= from then
-		return nil
-	end
-	local shut = door.closedCFrame.Position - door.hinge
-	local best = nil
-	for _, entry in seam.barricades do
-		local frame, size = entry.piece.prop.frame, entry.piece.size
-		-- Points round its footprint, half a stud apart.
-		for _, edge in { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } } do
-			local steps = math.ceil((edge[1] ~= 0 and size.Z or size.X) / 0.5)
-			for i = 0, steps do
-				local t = i / steps - 0.5
-				local offset = edge[1] ~= 0 and Vector3.new(edge[1] * size.X / 2, 0, t * size.Z)
-					or Vector3.new(t * size.X, 0, edge[2] * size.Z / 2)
-				local body = frame:PointToWorldSpace(offset) - door.hinge
-				local stop = Articulation.sweepStop(
-					{ x = shut.X, z = shut.Z },
-					{ x = body.X, z = body.Z },
-					DOOR_LENGTH,
-					0.25,
-					from,
-					to
-				)
-				if stop and (best == nil or stop < best) then
-					best = stop
-				end
-			end
-		end
-	end
-	return best
+	return self.Push and self.Push:SwingStop(door, from, to)
 end
 
 -- Tell whoever holds it that it stopped in their hands (against him, against
@@ -269,6 +239,12 @@ function DoorService:_step(door, dt: number)
 	if stop then
 		-- It stops dead against someone, maybe someone nobody can see.
 		Articulation.stop(state, stop)
+		-- Stopped short of walkable (against a barricade): it's solid again,
+		-- and offers to open.
+		if not Articulation.passable(state) then
+			door.slab.CanCollide = true
+		end
+		door.prompt.ActionText = state.target >= D.PassAngle and "Close" or "Open"
 		self:_dragStopped(door)
 		if now - (door.bumpedAt or 0) > 1 then
 			door.bumpedAt = now

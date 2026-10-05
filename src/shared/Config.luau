@@ -786,7 +786,7 @@ Config.Progression.Dumbwaiter = Config.Dumbwaiter -- the planner looks for stack
 -- Barricades (gameplay rework 4.7; Logic/Barricade, Services/PushService).
 Config.Barricade = {
 	LaneDepth = 5, -- studs into the room from the wall that count as the doorway's lane
-	Cover = 0.4, -- a heavy piece covering this share of the lane's width bars it
+	Cover = 0.4, -- a heavy piece covering this share of the lane's width bars it (or standing on his walking points: NodeClear, below Config.Push)
 	MinWeight = 1, -- in people: lighter pieces don't bar anything
 	ShoveSeconds = { 3, 6 }, -- he bangs this long before he shoves it clear (light to heavy)
 	HuntScale = 0.8, -- quicker when hunting
@@ -871,6 +871,10 @@ Config.Push = {
 	KeepClear = 1.6, -- never pushed within this of a point The Guest walks by (a room's middle, a doorway)
 	DoorClear = 0.5, -- or into a door's swing
 }
+
+-- A barricade may stand on his walking points in a doorway (they're what
+-- pushed furniture otherwise keeps clear of): Logic/Barricade.
+Config.Barricade.NodeClear = Config.Push.KeepClear
 
 -- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch
 -- clipped to your shirt while you hold anything but it.

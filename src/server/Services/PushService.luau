@@ -41,6 +41,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
+local Articulation = require(Shared.Logic.Articulation)
 local Barricade = require(Shared.Logic.Barricade)
 local Physical = require(Shared.Data.Physical)
 local Props = require(Shared.Data.Props)
@@ -50,6 +51,7 @@ local Util = require(Shared.Lib.Util)
 
 local P = Config.Push
 local B = Config.Barricade
+local D = Config.Doors
 local Groups = Constants.CollisionGroups
 local DOOR_LENGTH = Config.Level.DoorWidth
 
@@ -146,6 +148,11 @@ function PushService:_setup(world)
 			}
 		end
 	end
+	-- Anything that starts out barring a doorway (RoomFit keeps lanes clear, so
+	-- nothing should) is known from the start.
+	for _, piece in self.pieces do
+		self:_refreshBars(piece)
+	end
 end
 
 -- Geometry -----------------------------------------------------------------------
@@ -186,7 +193,16 @@ local function laneOf(seam, position: Vector3)
 	local side = (position - seam.floorPosition):Dot(n) >= 0 and 1 or -1
 	local into = n * side
 	local p = seam.floorPosition
-	return { x = p.X, z = p.Z, ix = into.X, iz = into.Z, width = DOOR_LENGTH, depth = B.LaneDepth }, side
+	return {
+		x = p.X,
+		z = p.Z,
+		ix = into.X,
+		iz = into.Z,
+		width = DOOR_LENGTH,
+		depth = B.LaneDepth,
+		approach = Config.Nav.Approach,
+	},
+		side
 end
 
 local function isCharacter(part: BasePart): boolean
@@ -411,9 +427,12 @@ function PushService:_step(piece, dt: number)
 end
 
 -- Where The Guest walks: his graph's points (those near the piece, found when
--- the push began), and every door's swing. A doorway's own points and a shut
--- door's swing may be filled, but only by a piece that then bars the doorway
--- (a barricade, which everyone's routes know about).
+-- the push began), and doors. A doorway's own points may be filled only by a
+-- piece that then bars the doorway (a barricade, which everyone's routes
+-- know about). A shut door's swing may be filled while the door can still
+-- open far enough to walk through (it stops against the piece), or by a
+-- piece that then bars the doorway; an open door's leaf (it doesn't collide
+-- while open) is kept clear.
 function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3): boolean
 	local world = self.World.World
 	for _, node in piece.navNear or {} do
@@ -431,28 +450,108 @@ function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3)
 	end
 	for _, door in world and world.doors or {} do
 		local hinge = door.hinge
-		if hinge and math.abs(hinge.Y - to.Y) < 8 then
-			local reach = DOOR_LENGTH + P.DoorClear
-			local before = gap(from, size, Vector3.new(hinge.X, from.Y + 1, hinge.Z))
-			local after = gap(to, size, Vector3.new(hinge.X, to.Y + 1, hinge.Z))
-			if after < reach and after < before and (door.open or not self:_barsAt(piece, to, door.seamId)) then
-				return false
+		if
+			hinge
+			and door.state
+			and math.abs(hinge.Y - to.Y) < 8
+			and gap(to, size, Vector3.new(hinge.X, to.Y + 1, hinge.Z)) < DOOR_LENGTH + P.DoorClear
+		then
+			if door.open then
+				local at = door.state.value
+				if self:_doorRoom(piece, to, door, at) < at - 1 and self:_doorRoom(piece, from, door, at) >= at - 1 then
+					return false
+				end
+			else
+				local room = self:_doorRoom(piece, to, door, D.OpenAngle)
+				if
+					room < D.PassAngle
+					and room < self:_doorRoom(piece, from, door, D.OpenAngle)
+					and not self:_barsAt(piece, to, door.seamId)
+				then
+					return false
+				end
 			end
 		end
 	end
 	return true
 end
 
+-- How far a door could swing open (up to `upto` degrees) with the piece at
+-- `frame` in the way.
+function PushService:_doorRoom(piece, frame: CFrame, door, upto: number): number
+	local shut = door.closedCFrame.Position - door.hinge
+	local best = upto
+	for _, point in Barricade.edgePoints(footprint(frame, piece.size), 0.5) do
+		local stop = Articulation.sweepStop(
+			{ x = shut.X, z = shut.Z },
+			{ x = point.x - door.hinge.X, z = point.z - door.hinge.Z },
+			DOOR_LENGTH,
+			0.25,
+			0,
+			upto
+		)
+		if stop and stop < best then
+			best = stop
+		end
+	end
+	return best
+end
+
+-- Where a door swinging open from `from` to `to` stops against pushable
+-- furniture in its way (Services/DoorService), or nil.
+function PushService:SwingStop(door, from: number, to: number): number?
+	if to <= from or not door.hinge then
+		return nil
+	end
+	local shut = door.closedCFrame.Position - door.hinge
+	local best = nil
+	for _, piece in self.pieces do
+		local frame = piece.prop.frame
+		if
+			piece.model.Parent
+			and math.abs(frame.Y - door.hinge.Y) < 8
+			and gap(frame, piece.size, Vector3.new(door.hinge.X, frame.Y + 1, door.hinge.Z)) < DOOR_LENGTH + 0.5
+		then
+			for _, point in Barricade.edgePoints(footprint(frame, piece.size), 0.5) do
+				local stop = Articulation.sweepStop(
+					{ x = shut.X, z = shut.Z },
+					{ x = point.x - door.hinge.X, z = point.z - door.hinge.Z },
+					DOOR_LENGTH,
+					0.25,
+					from,
+					to
+				)
+				if stop and (best == nil or stop < best) then
+					best = stop
+				end
+			end
+		end
+	end
+	return best
+end
+
 -- Barricades -------------------------------------------------------------------------
 
--- Whether the piece, standing at `frame`, bars a doorway.
+-- Whether the piece, standing at `frame`, bars a doorway: across its lane or
+-- on his walking points (Logic/Barricade), or keeping its shut door from
+-- opening far enough to walk through.
 function PushService:_barsAt(piece, frame: CFrame, seamId: string): boolean
 	local world = self.World.World
 	local seam = world and world.seams[seamId]
-	if not seam or piece.weight < B.MinWeight or math.abs(frame.Y - seam.floorPosition.Y) > 4 then
+	-- Only a real doorway (a solid wall between rooms has walking points too,
+	-- for the day it becomes a doorway: those stay clear).
+	if not seam or not seam.connected or piece.weight < B.MinWeight or math.abs(frame.Y - seam.floorPosition.Y) > 4 then
 		return false
 	end
-	return Barricade.bars((laneOf(seam, frame.Position)), footprint(frame, piece.size), B)
+	if Barricade.bars((laneOf(seam, frame.Position)), footprint(frame, piece.size), B) then
+		return true
+	end
+	local door = seam.door
+	return door ~= nil
+		and door.state ~= nil
+		and not door.open
+		and gap(frame, piece.size, Vector3.new(door.hinge.X, frame.Y + 1, door.hinge.Z)) < DOOR_LENGTH + 0.5
+		and self:_doorRoom(piece, frame, door, D.OpenAngle) < D.PassAngle
 end
 
 -- Which doorways it bars where it stands now; who may pass each that changed
@@ -575,7 +674,11 @@ function PushService:_squeezePrompt(seam)
 		prompt.Name = "SqueezePrompt"
 		prompt.ActionText = "Squeeze past"
 		prompt.ObjectText = "Barricade"
-		prompt.KeyboardKeyCode = Enum.KeyCode.E
+		-- Its own key: Roblox shows one prompt per key, and the doorway's door
+		-- (E, and LB to brace) and the piece's own drawers and doors are right
+		-- here. Q is otherwise only a crank's ratchet or a dumbwaiter's jam.
+		prompt.KeyboardKeyCode = Enum.KeyCode.Q
+		prompt.GamepadKeyCode = Enum.KeyCode.ButtonR3
 		prompt.HoldDuration = B.SqueezeSeconds
 		prompt.MaxActivationDistance = B.SqueezeReach
 		prompt.RequiresLineOfSight = false
@@ -622,10 +725,14 @@ function PushService:Shove(piece, seam, from: Vector3): boolean
 	local mine = (from - seam.floorPosition):Dot(flat(seam.normal).Unit) >= 0 and 1 or -1
 	local along = Vector3.new(-lane.iz, 0, lane.ix)
 	local into = Vector3.new(lane.ix, 0, lane.iz)
-	for _, scale in { 1, 1.4 } do
+	for _, scale in { 1, 1.4, 2 } do
 		for _, shove in Barricade.shoves(lane, footprint(frame, piece.size), mine ~= side, B) do
 			local step = (along * shove[1] + into * shove[2]) * scale
-			if step.Magnitude > 0.05 and self:_clearAlong(piece, frame, step) then
+			if
+				step.Magnitude > 0.05
+				and not self:_barsAt(piece, frame + step, seam.id)
+				and self:_clearAlong(piece, frame, step)
+			then
 				self:_slide(piece, step)
 				return true
 			end
@@ -749,11 +856,13 @@ function PushService:_move(piece, step: Vector3)
 	self:_refreshBars(piece)
 end
 
--- F2 `barricade`: list what bars which doorway; `barricade here` puts the
--- nearest heavy piece across the nearest doorway on your side; `barricade
+-- F2 `barricade`: list what bars which doorway; `barricade here [piece]` puts
+-- the nearest heavy piece (or the one named, from anywhere) across the
+-- nearest doorway on your side; `barricade
 -- squeeze` squeezes you past the nearest barricade (as its prompt does);
--- `barricade shove` has him shove it, as if from where you stand.
-function PushService:DebugBarricade(player: Player, mode: string?): string
+-- `barricade shove` has him shove it, as if from where you stand; `barricade
+-- scan` checks every piece against every doorway.
+function PushService:DebugBarricade(player: Player, mode: string?, pieceId: string?): string
 	local world = self.World.World
 	local root = self.PlayerState:Root(player)
 	if not world or not root then
@@ -763,7 +872,8 @@ function PushService:DebugBarricade(player: Player, mode: string?): string
 	local nearest, best = nil, 12
 	for _, seam in world.seams do
 		local d = (seam.floorPosition + Vector3.new(0, 3, 0) - here).Magnitude
-		local wanted = (mode ~= "shove" and mode ~= "squeeze") or (seam.barricades and next(seam.barricades))
+		local wanted = seam.connected
+			and ((mode ~= "shove" and mode ~= "squeeze") or (seam.barricades and next(seam.barricades)))
 		if wanted and d < best then
 			nearest, best = seam, d
 		end
@@ -775,8 +885,8 @@ function PushService:DebugBarricade(player: Player, mode: string?): string
 		local lane = laneOf(nearest, here)
 		local into = Vector3.new(lane.ix, 0, lane.iz)
 		local along = Vector3.new(-lane.iz, 0, lane.ix)
-		local chosen, closest = nil, 18
-		for _, piece in self.pieces do
+		local chosen, closest = self.pieces[pieceId or ""], 18
+		for _, piece in chosen and {} or self.pieces do
 			local d = gap(piece.prop.frame, piece.size, nearest.floorPosition)
 			local sameSide = (piece.prop.frame.Position - nearest.floorPosition):Dot(into) > 0
 			if piece.weight >= B.MinWeight and sameSide and d < closest and not self:_occupied(piece) then
@@ -819,6 +929,18 @@ function PushService:DebugBarricade(player: Player, mode: string?): string
 		self:_squeeze(player, nearest)
 		local at = root.Position
 		return string.format("from (%.1f, %.1f) to (%.1f, %.1f)", here.X, here.Z, at.X, at.Z)
+	elseif mode == "scan" then
+		-- Every heavy piece against every doorway, where it stands now.
+		local count, lines = 0, {}
+		for _, piece in self.pieces do
+			for id, seam in world.seams do
+				if self:_barsAt(piece, piece.prop.frame, id) then
+					count += 1
+					table.insert(lines, piece.id .. " bars " .. id .. (seam.door and " (door)" or ""))
+				end
+			end
+		end
+		return count == 0 and "nothing bars any doorway" or table.concat(lines, "\n")
 	elseif mode == "shove" then
 		if not nearest then
 			return "no barricade within 12 studs"

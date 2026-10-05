@@ -59,7 +59,7 @@ local HELP = table.concat({
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
 	"locks (the locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
 	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
-	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here|squeeze|shove]",
+	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|scan]",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -186,7 +186,7 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "solve" then
 		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
 	elseif command == "barricade" then
-		reply(player, services.PushService:DebugBarricade(player, args[2]))
+		reply(player, services.PushService:DebugBarricade(player, args[2], args[3]))
 	elseif command == "crank" then
 		-- The crank doors; `crank up` rolls up and latches the nearest.
 		local cranks = services.CrankService

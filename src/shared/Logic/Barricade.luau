@@ -1,15 +1,24 @@
 -- Barricades (gameplay rework 4.7): a heavy piece pushed into a doorway's
 -- lane bars it. The lane is the doorway's width running a few studs into
--- the room from the wall; a piece covering enough of its width there makes
--- the doorway barricaded on that side. He bangs on it and shoves it clear
--- (a few seconds, never more than ShoveMax); a player can always squeeze
--- past, so nobody is ever shut in. Pure (tests/specs/Barricade.spec).
+-- the room from the wall. A piece bars the doorway on its side when it
+-- covers enough of the lane's width, or when it stands on either of The
+-- Guest's walking points there (the doorway itself, and the approach in
+-- front of it): pushing a piece in from the side reaches the approach long
+-- before it covers much of the width, and he can't walk to a point under a
+-- dresser. He bangs on it and shoves it clear (a few seconds, never more
+-- than ShoveMax); a player can always squeeze past, so nobody is ever shut
+-- in. Pure (tests/specs/Barricade.spec).
 --
 -- In plain x/z numbers: `lane` { x, z (the doorway's middle on the wall
--- line), ix, iz (unit, into the room), width, depth }; `piece` { x, z (its
--- middle), yaw (radians about up), w, d (its size along its own x and z) }.
+-- line), ix, iz (unit, into the room), width, depth, approach (how far into
+-- the room his approach point is) }; `piece` { x, z (its middle), yaw
+-- (radians about up), w, d (its size along its own x and z) }.
 
 local Barricade = {}
+
+-- A footprint grown by `margin` reaches this far along any direction past
+-- its own extent, whatever way it's turned (the diagonal of a unit square).
+local TURNED = math.sqrt(2)
 
 -- The piece's footprint in the lane's own axes: u along the wall (0 at the
 -- doorway's middle), v into the room (0 at the wall line).
@@ -41,23 +50,63 @@ function Barricade.cover(lane, piece): number
 	return math.clamp(overlap / lane.width, 0, 1)
 end
 
--- Does it bar the doorway?
+-- Whether the point (u, v) of the lane is on the piece's footprint grown by
+-- `margin`, measured in the piece's own axes (as Services/PushService keeps
+-- furniture off his walking points).
+function Barricade.covers(lane, piece, u: number, v: number, margin: number): boolean
+	local tx, tz = -lane.iz, lane.ix
+	local dx = lane.x + tx * u + lane.ix * v - piece.x
+	local dz = lane.z + tz * u + lane.iz * v - piece.z
+	local c, s = math.cos(piece.yaw), math.sin(piece.yaw)
+	local lx, lz = dx * c - dz * s, dx * s + dz * c
+	return math.abs(lx) <= piece.w / 2 + margin and math.abs(lz) <= piece.d / 2 + margin
+end
+
+-- Points round the piece's footprint about `spacing` apart, as { x, z }:
+-- what a door swinging into it would touch.
+function Barricade.edgePoints(piece, spacing: number): { { x: number, z: number } }
+	local c, s = math.cos(piece.yaw), math.sin(piece.yaw)
+	local points = {}
+	local function add(lx, lz)
+		table.insert(points, { x = piece.x + lx * c + lz * s, z = piece.z - lx * s + lz * c })
+	end
+	local nx = math.max(1, math.ceil(piece.w / spacing))
+	local nz = math.max(1, math.ceil(piece.d / spacing))
+	for i = 0, nx do
+		local lx = (i / nx - 0.5) * piece.w
+		add(lx, piece.d / 2)
+		add(lx, -piece.d / 2)
+	end
+	for i = 1, nz - 1 do
+		local lz = (i / nz - 0.5) * piece.d
+		add(piece.w / 2, lz)
+		add(-piece.w / 2, lz)
+	end
+	return points
+end
+
+-- Does it bar the doorway? Enough of the width, or on his walking points.
 function Barricade.bars(lane, piece, cfg): boolean
 	return Barricade.cover(lane, piece) >= cfg.Cover
+		or Barricade.covers(lane, piece, 0, lane.approach, cfg.NodeClear)
+		or Barricade.covers(lane, piece, 0, 0, cfg.NodeClear)
 end
 
 -- Ways he could shove it clear, as { u, v } shifts in the lane's axes, the
 -- likeliest first: away from him (deeper into the room when he's on the far
 -- side of the doorway), then aside along the wall either way, then both.
--- Each leaves the lane covered less than cfg.Cover, so the doorway is open.
+-- Each leaves the doorway open: the lane covered less than cfg.Cover and his
+-- walking points clear.
 function Barricade.shoves(lane, piece, fromOutside: boolean, cfg): { { number } }
 	local umin, umax, vmin = Barricade.extent(lane, piece)
 	local half, margin = lane.width / 2, 0.3
-	local deeper = math.max(0, lane.depth - vmin + margin)
-	-- Aside: far enough that what's left in the lane is under the cover share.
-	local keep = cfg.Cover * lane.width - margin
-	local right = math.max(0, (half - keep) - umin)
-	local left = math.min(0, (-half + keep) - umax)
+	local reach = cfg.NodeClear * TURNED + margin
+	local deeper = math.max(0, math.max(lane.depth, lane.approach + reach) + margin - vmin)
+	-- Aside: far enough that what's left in the lane is under the cover share
+	-- and clear of the middle of the lane, where he walks.
+	local edge = math.max(half - (cfg.Cover * lane.width - margin), reach)
+	local right = math.max(0, edge - umin)
+	local left = math.min(0, -edge - umax)
 	local list = {}
 	local function add(u, v)
 		table.insert(list, { u, v })
