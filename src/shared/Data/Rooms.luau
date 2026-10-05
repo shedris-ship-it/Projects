@@ -1078,6 +1078,24 @@ local MansionExtras = {
 		},
 	},
 	{
+		id = "servants_passage",
+		name = "Servants' Passage",
+		mood = "tight",
+		family = "corridor",
+		fixture = "bulb",
+		-- A narrow way behind the walls (docs/plans/level-design.md section
+		-- 10.4), entered only by hidden doors; the generator sizes it.
+		floor = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		wall = { material = "OldPlaster", color = { 126, 118, 104 } },
+		reverb = "Hallway",
+		light = { brightness = 0.75, range = 18, color = { 232, 194, 126 } },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		mansion = { role = "passage", floors = { 0, 1 }, zone = "passage" },
+	},
+	{
 		id = "main_corridor",
 		name = "Hallway",
 		mood = "watched",

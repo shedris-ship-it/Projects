@@ -43,7 +43,8 @@ return function(test, check, Shared, require)
 			for _, floor in m.floors do
 				check.truthy(MansionHouse.templateZone(template, floor) ~= nil, template.id .. " zone")
 			end
-			if m.role ~= "corridor" then
+			-- (Corridors and servants' passages are sized by the generator.)
+			if m.role ~= "corridor" and m.role ~= "passage" then
 				check.truthy(m.size ~= nil, template.id .. " size")
 				for _, value in m.size do
 					check.equal(value % config.Lattice, 0, template.id .. " size on the lattice")

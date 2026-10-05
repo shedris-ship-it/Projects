@@ -144,7 +144,7 @@ local function renderFloor(layout, rects, floor: number, bounds, lattice: number
 	end
 
 	-- Doors on this floor: an open doorway is a gap, a door slab "D", a solid
-	-- seam ":" (where a phantom doorway can appear).
+	-- seam ":" (where a phantom doorway can appear), a hidden door "H".
 	local function mark(dir: string, line: number, along: number, char: string)
 		if dir == "N" or dir == "S" then
 			local r, c = row(line), col(along)
@@ -158,7 +158,9 @@ local function renderFloor(layout, rects, floor: number, bounds, lattice: number
 	for _, seam in layout.seams do
 		if (seam.floor or 0) == floor and seam.line then
 			local char = ":"
-			if seam.connected then
+			if seam.hidden then
+				char = "H"
+			elseif seam.connected then
 				char = seam.door and "D" or " "
 			end
 			mark(seam.dir, seam.line, seam.along, char)
@@ -193,8 +195,29 @@ function FloorPlan.render(layout, config): string
 		high = math.max(high, RoomRects.topOf(rect))
 	end
 
+	-- The servants' passages (section 10.4), drawn and listed with the rooms.
+	for _, passage in layout.passages or {} do
+		table.insert(rects, {
+			id = passage.id,
+			x = passage.x,
+			z = passage.z,
+			w = passage.w,
+			d = passage.d,
+			floor = passage.floor,
+			room = passage,
+		})
+	end
 	local out = {}
 	local seamLayout = layout.mode and layout or RoomRects.seamsOfCells(layout, config)
+	if layout.passages then
+		seamLayout = table.clone(seamLayout)
+		seamLayout.seams = table.clone(seamLayout.seams)
+		for _, passage in layout.passages do
+			for _, seam in passage.seams do
+				table.insert(seamLayout.seams, seam)
+			end
+		end
+	end
 	for floor = low, high do
 		table.insert(out, high > low and (FloorPlan.StoreyNames[floor] or ("Floor " .. floor)) or "Plan")
 		for _, line in renderFloor(seamLayout, rects, floor, bounds, lattice) do
@@ -204,7 +227,7 @@ function FloorPlan.render(layout, config): string
 	end
 	table.insert(
 		out,
-		"Legend: D door, gap open doorway, : solid seam, F front door, X exit; S start, E exit, T table, L lantern"
+		"Legend: D door, gap open doorway, : solid seam, H hidden door, F front door, X exit; S start, E exit, T table, L lantern"
 	)
 	for _, rect in rects do
 		local room = rect.room

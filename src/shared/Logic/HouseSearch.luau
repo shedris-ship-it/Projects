@@ -49,6 +49,11 @@ function HouseSearch.candidate(seed: number, i: number, opts)
 		opts.mansion,
 		opts.extra
 	)
+	-- A servants' passage stays within one wing; if the planner drew its own
+	-- regions instead of the wings', it could cross one, so it goes.
+	if not plan.stats.wings then
+		layout.passages = nil
+	end
 	local leads = Leads.plan(plan, Leads.rooms(layout, opts.templatesById), rng:Fork("leads"), opts.leads)
 	local purposes = RoomPurpose.of(layout, plan, opts.templatesById, leads)
 	local metrics = HouseMetrics.measure(layout, plan, opts.templatesById, {

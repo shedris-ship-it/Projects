@@ -557,10 +557,13 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		moon = WindowView.moon(rng:Fork("moon"), Config.Window),
 	}
 	local o = origin()
+	-- The house's rooms and doorways and its servants' passages and their
+	-- hidden doors (section 10.4), which the game's other logic never counts.
+	local rooms, seams = MansionHouse.withPassages(layout)
 
 	-- Which room is where on each floor, for outer walls.
 	local index = MansionHouse.indices(M.Lattice)
-	for _, room in layout.rooms do
+	for _, room in rooms do
 		for _, floor in MansionHouse.floorsOf(room) do
 			index[floor]:Add(room)
 		end
@@ -577,10 +580,10 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		table.insert(openings[room.id][floor][side], entry)
 	end
 	local roomsById = {}
-	for _, room in layout.rooms do
+	for _, room in rooms do
 		roomsById[room.id] = room
 	end
-	for _, seam in layout.seams do
+	for _, seam in seams do
 		addOpening(roomsById[seam.a], seam.floor, seam.dir, seam.along, { seam = seam })
 		addOpening(roomsById[seam.b], seam.floor, OPPOSITE[seam.dir], seam.along, { seam = seam })
 	end
@@ -600,7 +603,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 	local ceilingMaterial, ceilingVariant = PropFactory.surface(ceiling.material)
 	local panelsByRoom = {}
 
-	for _, room in layout.rooms do
+	for _, room in rooms do
 		local template = templatesById[room.template]
 		local floorY = MansionBuilder.floorY(room.floor)
 		local top = RoomRects.topOf(room)
@@ -971,7 +974,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 
 	-- Seams and doors, once per pair of rooms that share a wall.
 	local ajarRng = rng:Fork("ajar")
-	for _, seam in layout.seams do
+	for _, seam in seams do
 		local roomA, roomB = world.rooms[seam.a], world.rooms[seam.b]
 		local x, z = RoomRects.doorPoint(seam.dir, seam.line, seam.along)
 		local midpoint = Vector3.new(o.X + x, MansionBuilder.floorY(seam.floor), o.Z + z)
@@ -987,6 +990,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			floorPosition = midpoint,
 			normal = normal,
 			floor = seam.floor,
+			hidden = seam.hidden,
 		}
 		LevelBuilder.markSeamPanels(panels, seam)
 		table.insert(roomA.seamList, record)
@@ -1027,6 +1031,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				surface = roomRecord.wallSurface,
 				wainscot = seam.floor == roomRecord.floor and roomRecord.wainscot or nil,
 				span = { math.min(s0, s1), math.max(s0, s1) },
+				-- A hidden door's room side (its passage is seam.b).
+				hidden = seam.hidden and roomRecord == roomA or nil,
 			}
 		end
 		Trim.seam(record, {
@@ -1035,7 +1041,16 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		}, midpoint, normal)
 
 		if seam.connected and seam.door then
-			LevelBuilder.seamDoor(world, seam, record, roomA, midpoint, normal, ajarRng)
+			local hidden = nil
+			if seam.hidden then
+				-- A bookcase in a lived-in room, the wall itself elsewhere.
+				local family = roomA.template.family
+				hidden = {
+					kind = (family == "living" or family == "bedroom") and "bookcase" or "panel",
+					surface = roomA.wallSurface,
+				}
+			end
+			LevelBuilder.seamDoor(world, seam, record, roomA, midpoint, normal, ajarRng, hidden)
 		end
 	end
 

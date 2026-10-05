@@ -222,7 +222,42 @@ function LockService:Begin(plan)
 			warn("[Consensus] lock on " .. seamId .. " has no door")
 		end
 	end
+	self:_hidden(self.World.World.layout)
 	self:_updateReach()
+end
+
+-- The servants' passages' hidden doors (docs/plans/level-design.md section
+-- 10.4): shut from the room side until someone finds them (a wall to
+-- everyone, The Guest too, till then); a latch on the passage side.
+function LockService:_hidden(layout)
+	for _, passage in layout.passages or {} do
+		for _, seam in passage.seams do
+			local record = self.World.World.seams[seam.id]
+			local door = record and record.door
+			if door then
+				local kind = door.model:FindFirstChild("CaseBack") and "Bookcase" or "Panel"
+				local lock = {
+					kind = "hidden",
+					side = passage.id,
+					barred = seam.barred,
+					disguise = kind,
+					found = kind == "Bookcase" and "The bookcase gives, and swings out on a narrow passage."
+						or "The panel gives under your hand: a door, onto a narrow passage.",
+				}
+				self.Doors:SetLocked(door, true)
+				door.lockId = seam.id
+				local entry = { lock = lock, door = door, seam = record, open = false, hidden = true }
+				self.locks[seam.id] = entry
+				-- Its prompt only shows close up, and names what it looks like.
+				local prompt = door.prompt
+				prompt.ObjectText = kind
+				prompt.ActionText = "Search"
+				prompt.MaxActivationDistance = Config.Mansion.Passages.SearchReach
+				prompt.RequiresLineOfSight = true
+				door.disguise = kind
+			end
+		end
+	end
 end
 
 -- Rooms the squad can walk to now: from the start and from wherever a
@@ -418,6 +453,23 @@ function LockService:_try(door, player: Player?)
 	elseif lock.kind == "power" then
 		self:_rattle(door)
 		notify(player, "An electric lock. The lamp by it is dark: no power.")
+	elseif lock.kind == "hidden" then
+		-- A servants' passage's door (docs/plans/level-design.md section 10.4):
+		-- a latch on the passage side; on the room side, finding it is pulling
+		-- on the right bookcase or panel.
+		if self:_sideOf(entry, player) == lock.side then
+			if lock.barred then
+				-- Into a wing opened later: it won't give from in here.
+				self:_rattle(door)
+				notify(player, "It won't move from this side.")
+				return
+			end
+			self:Unlock(door.lockId, player, "The latch lifts.")
+		else
+			self:Unlock(door.lockId, player, lock.found)
+			self.Doors:SetOpen(door, true, player)
+		end
+		return
 	elseif lock.kind == "seal" then
 		self:_rattle(door)
 		notify(player, "It won't move. Not that way.")
@@ -455,13 +507,21 @@ function LockService:Unlock(seamId: string, player: Player?, message: string?)
 		entry.plate = nil
 	end
 	Sfx.play("DoorLatch", entry.door.position, 0.6, 0.75)
+	if entry.hidden then
+		-- Found: a door like any other from now on, for everyone (him too).
+		entry.seam.found = true
+		local prompt = entry.door.prompt
+		prompt.MaxActivationDistance, prompt.RequiresLineOfSight = 8, false
+		self.Doors:RefreshPrompt(entry.door)
+	end
 	self.World:MarkPassageChanged(seamId, "unlocked")
 	self:_updateReach()
 	if message then
 		notify(player, message, "good")
 	end
-	-- Getting through a locked door calms the house (a bolt is only a shortcut).
-	if player and entry.lock.kind ~= "bolt" then
+	-- Getting through a locked door calms the house (a bolt or a hidden door
+	-- is only a shortcut).
+	if player and entry.lock.kind ~= "bolt" and entry.lock.kind ~= "hidden" then
 		self.services.DriftService:Apply("LockOpened")
 	end
 	self.Unlocked:Fire(seamId, entry.lock, player)

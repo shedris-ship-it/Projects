@@ -113,8 +113,11 @@ function WorldService:Build(layout, rng)
 		table.insert(ids, room.id)
 	end
 	self.adjacency = Graph.adjacency(ids, layout.edges)
-	-- The graph The Guest and the Companion walk by (Logic/NavGraph).
-	self.nav = NavGraph.build(layout, NavGraph.options(Config))
+	-- The graph The Guest and the Companion walk by (Logic/NavGraph), the
+	-- servants' passages in it (their hidden doors shut till found).
+	local navOptions = NavGraph.options(Config)
+	navOptions.passages = true
+	self.nav = NavGraph.build(layout, navOptions)
 	self.passageChangedAt = {}
 	self.debugBlocked = {}
 	self.World.nav = self.nav
@@ -149,6 +152,14 @@ function WorldService:LayoutSnapshot()
 	-- Every room as a rectangle (x, z its north-west corner from the origin;
 	-- a 40x40 cell in the old house) on its floor; tall rooms stand on both.
 	local rects = RoomRects.ofLayout(world.layout, Config.Level)
+	-- (The servants' passages too: the map only draws a room once someone
+	-- has been in it or seen through its door.)
+	for _, passage in world.layout.passages or {} do
+		table.insert(
+			rects,
+			{ id = passage.id, x = passage.x, z = passage.z, w = passage.w, d = passage.d, floor = passage.floor }
+		)
+	end
 	local rooms = {}
 	for _, rect in rects do
 		local room = world.rooms[rect.id]

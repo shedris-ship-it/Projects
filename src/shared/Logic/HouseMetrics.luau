@@ -534,6 +534,8 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		-- The squad's own wings, the cellar's and the attic's not counted
 		-- (they come on top).
 		m.mainWings = (m.regions or 0) - m.storeys
+		-- A servants' passage to find (section 10.4).
+		m.passages = layout.passages and #layout.passages or 0
 	end
 
 	-- Rooms with no reason to go in, and regions short of a hiding spot, a

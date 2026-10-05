@@ -400,7 +400,10 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 			asWall(panel)
 			asWall(rail)
 		end
-		casing(f.parent, f.face, asDoor)
+		-- (No casing round a hidden door on its room's side.)
+		if not f.hidden then
+			casing(f.parent, f.face, asDoor)
+		end
 		-- The wall surface: whole while it's a wall, around the opening while
 		-- it's a doorway.
 		local half = DOOR_W / 2

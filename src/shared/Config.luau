@@ -275,6 +275,19 @@ Config.Mansion = {
 		Heirloom = 4,
 		Tries = 8, -- packings of its rooms tried until they join its stairs into one piece
 	},
+	-- Servants' passages (docs/plans/level-design.md section 10.4): a narrow
+	-- way behind the walls of a wing, between two of its rooms by hidden
+	-- doors, where it saves this much walking.
+	Passages = {
+		Chance = 0.8, -- a house has one, if somewhere fits
+		Width = 10,
+		Lengths = { 30, 40, 50, 60 },
+		MinSaves = 40,
+		Jitter = 20,
+		-- Rooms a hidden door may open into (not a bathroom, the hall, a stair).
+		Zones = { public = true, dining = true, kitchen = true, service = true, private = true },
+		SearchReach = 4.5, -- a hidden door's "Search" shows only this close (and in sight)
+	},
 	LoopLength = { 4, 8 }, -- (doc)
 	MinLoops = 2, -- (doc)
 	MaxDeadEndChain = 2, -- (doc)
@@ -850,9 +863,10 @@ Config.LevelDesign = {
 		-- 2026-10-05): one that isn't costs more than anything else.
 		storeyWings = { band = { 0, 0 }, weight = 20 },
 		storeyIdle = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic wing holding nothing the run needs
-		storeyOneWay = { band = { 0, 0 }, weight = 3 }, -- a cellar or attic with one way in (a dead end)
+		storeyOneWay = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic with one way in (a dead end, a trap)
 		-- The squad's own wings, not counting the cellar's and the attic's.
 		mainWings = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 5 },
+		passages = { band = { 1, 9 }, weight = 2 }, -- a servants' passage to find
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
 		walk = {
 			band = { 900, 2200 },

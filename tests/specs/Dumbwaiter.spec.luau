@@ -198,22 +198,36 @@ return function(test, check, Shared, require)
 		check.truthy(taken > 0, "some walls are taken by furniture")
 	end)
 
-	test("seed 10 for four: the den's wall under the master bedroom is taken", function()
+	test("a wall the furniture fills is never offered (seed 3's garage, seen in Studio)", function()
 		-- Build 2026-10-05.29 planned a dumbwaiter between seed 3's garage and
 		-- the nursery over it, and the build found no room for it (seen in
-		-- Studio). Since the cellar and the attic (L2.2, L2.3) that house has
-		-- changed; this pins another pair whose shared wall the furniture
-		-- fills. (If the generator changes, pin another such pair.)
+		-- Studio). The houses have changed since; find pairs like it (spots on
+		-- their shared wall, none clear of the furniture) and check none is
+		-- offered to the planner.
 		local mansion = HouseSize.config(Config.Mansion, Config.Progression, 4)
-		local layout = MansionGen.generate(10, Rooms.Mansion, mansion)
-		local byId = roomsById(layout)
-		local ground, upper = byId[15], byId[21]
-		check.equal(ground and ground.template, "den", "room 15")
-		check.equal(upper and upper.template, "master_bedroom", "room 21")
-		check.truthy(#Dumbwaiter.spots(layout, ground, upper, cfg) > 0, "the shared wall has spots")
-		check.equal(#Dumbwaiter.spots(layout, ground, upper, cfg, templates), 0, "none clear of the furniture")
-		for _, pair in Dumbwaiter.pairs(layout, cfg, templates) do
-			check.truthy(not (pair.ground == 15 and pair.upper == 21), "not offered to the planner")
+		local found = 0
+		for seed = 1, 20 do
+			local layout = MansionGen.generate(seed, Rooms.Mansion, mansion)
+			local offered = {}
+			for _, pair in Dumbwaiter.pairs(layout, cfg, templates) do
+				offered[pair.ground .. ":" .. pair.upper] = true
+			end
+			for _, ground in layout.rooms do
+				for _, upper in layout.rooms do
+					if
+						(ground.floor or 0) == 0
+						and upper.floor == 1
+						and not ground.tall
+						and not upper.tall
+						and #Dumbwaiter.spots(layout, ground, upper, cfg) > 0
+						and #Dumbwaiter.spots(layout, ground, upper, cfg, templates) == 0
+					then
+						found += 1
+						check.truthy(not offered[ground.id .. ":" .. upper.id], "a taken wall offered to the planner")
+					end
+				end
+			end
 		end
+		check.truthy(found > 0, "some walls are taken by furniture")
 	end)
 end

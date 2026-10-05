@@ -482,13 +482,14 @@ function PushService:_doorRoom(piece, frame: CFrame, door, upto: number): number
 	local shut = door.closedCFrame.Position - door.hinge
 	local best = upto
 	for _, point in Barricade.edgePoints(footprint(frame, piece.size), 0.5) do
-		local stop = Articulation.sweepStop(
+		local stop = Articulation.sweepStopSigned(
 			{ x = shut.X, z = shut.Z },
 			{ x = point.x - door.hinge.X, z = point.z - door.hinge.Z },
 			DOOR_LENGTH,
 			0.25,
 			0,
-			upto
+			upto,
+			door.openSign
 		)
 		if stop and stop < best then
 			best = stop
@@ -513,13 +514,14 @@ function PushService:SwingStop(door, from: number, to: number): number?
 			and gap(frame, piece.size, Vector3.new(door.hinge.X, frame.Y + 1, door.hinge.Z)) < DOOR_LENGTH + 0.5
 		then
 			for _, point in Barricade.edgePoints(footprint(frame, piece.size), 0.5) do
-				local stop = Articulation.sweepStop(
+				local stop = Articulation.sweepStopSigned(
 					{ x = shut.X, z = shut.Z },
 					{ x = point.x - door.hinge.X, z = point.z - door.hinge.Z },
 					DOOR_LENGTH,
 					0.25,
 					from,
-					to
+					to,
+					door.openSign
 				)
 				if stop and (best == nil or stop < best) then
 					best = stop

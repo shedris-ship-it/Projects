@@ -273,6 +273,28 @@ function Articulation.sweepStop(shut, body, length: number, radius: number, from
 	return math.min(from, at + half)
 end
 
+-- The same for a hinge turning the other way (`sign` -1: a hidden door that
+-- swings out into its room): the body seen in the mirror of the shut line.
+function Articulation.sweepStopSigned(
+	shut,
+	body,
+	length: number,
+	radius: number,
+	from: number,
+	to: number,
+	sign: number?
+): number?
+	if sign == -1 then
+		local len = math.sqrt(shut.x * shut.x + shut.z * shut.z)
+		if len > 1e-6 then
+			local ux, uz = shut.x / len, shut.z / len
+			local along = body.x * ux + body.z * uz
+			body = { x = 2 * along * ux - body.x, z = 2 * along * uz - body.z }
+		end
+	end
+	return Articulation.sweepStop(shut, body, length, radius, from, to)
+end
+
 -- Lock or unlock. Locking only takes when it is shut and latched.
 function Articulation.setLocked(state, locked: boolean): boolean
 	if locked and not state.latched then

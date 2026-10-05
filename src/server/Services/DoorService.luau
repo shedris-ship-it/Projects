@@ -82,7 +82,7 @@ function DoorService:_setup(door)
 		kind = "hinge",
 		hinge = door.hinge,
 		axis = Vector3.yAxis,
-		sign = 1,
+		sign = door.openSign or 1,
 		shut = door.closedCFrame,
 		max = D.OpenAngle,
 		rate = D.SwingRate,
@@ -166,13 +166,14 @@ function DoorService:_guestStop(door, from: number, to: number): number?
 	end
 	local shut = door.closedCFrame.Position - door.hinge
 	local body = guest - door.hinge
-	return Articulation.sweepStop(
+	return Articulation.sweepStopSigned(
 		{ x = shut.X, z = shut.Z },
 		{ x = body.X, z = body.Z },
 		DOOR_LENGTH,
 		H.GuestRadius,
 		from,
-		to
+		to,
+		door.openSign
 	)
 end
 
@@ -185,13 +186,14 @@ function DoorService:_bodyStop(door, from: number, to: number): number?
 		local position = self.PlayerState:Position(player)
 		if position and math.abs(position.Y - door.hinge.Y - 3) < 5 then
 			local body = position - door.hinge
-			local stop = Articulation.sweepStop(
+			local stop = Articulation.sweepStopSigned(
 				{ x = shut.X, z = shut.Z },
 				{ x = body.X, z = body.Z },
 				DOOR_LENGTH,
 				H.BodyRadius,
 				from,
-				to
+				to,
+				door.openSign
 			)
 			if stop and (best == nil or math.abs(stop - from) < math.abs(best - from)) then
 				best = stop
@@ -446,6 +448,12 @@ function DoorService:SetLocked(door, locked: boolean)
 end
 
 function DoorService:RefreshPrompt(door)
+	if door.locked and door.disguise then
+		-- A hidden door still shut: what it looks like (Services/LockService).
+		door.prompt.ObjectText = door.disguise
+		door.prompt.ActionText = "Search"
+		return
+	end
 	door.prompt.ObjectText = door.locked and "Locked door" or "Door"
 	door.prompt.ActionText = door.locked and "Try" or (door.open and "Close" or "Open")
 end

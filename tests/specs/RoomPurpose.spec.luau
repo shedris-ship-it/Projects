@@ -86,10 +86,11 @@ return function(test, check, Shared, require)
 		check.equal(RoomPurpose.kitGaps(purposes, plan), 2)
 	end)
 
-	test("every mansion template has somewhere to hide, unless it's a stair", function()
+	test("every mansion template has somewhere to hide, unless it's a way through", function()
 		for _, template in Rooms.Mansion do
 			local offers = LockPlanner.offers(template, true)
-			check.truthy(offers.hides > 0 or template.mansion.role == "stair", template.id .. " has no hiding spot")
+			local through = template.mansion.role == "stair" or template.mansion.role == "passage"
+			check.truthy(offers.hides > 0 or through, template.id .. " has no hiding spot")
 		end
 	end)
 

@@ -1509,6 +1509,187 @@ function Builder:_doors(seams)
 	return finish(rng, nil, 0)
 end
 
+-- Servants' passages (docs/plans/level-design.md section 10.4): a narrow
+-- way along the outside of two rooms whose walls line up, each joined to it
+-- by a hidden door, where it saves the most walking between them. The house
+-- is whole and fair without it: it isn't one of the house's rooms or doors
+-- (`layout.passages`), so the validator, the lock planner and the level's
+-- measures never see it. Between two wings, the later wing's door opens
+-- only from its room: a shortcut home, never a way round a lock.
+function Builder:_passages(seams)
+	local cfg = self.config.Passages
+	local house = self.house
+	local template = self.p.roles.passage and self.p.roles.passage[1]
+	if not cfg or not self.wings or not template then
+		return {}
+	end
+	local rng = self.rng:Fork("passages")
+	if not rng:Chance(cfg.Chance) then
+		return {}
+	end
+	local region = self.wings.roomRegion
+	-- When each wing opens: a passage between two wings is a shortcut home
+	-- from the later one (its door won't open from inside the passage).
+	local opensAt = { [0] = 0 }
+	for i, r in self.wings.order do
+		opensAt[r] = i
+	end
+	local walk = MansionHouse.walker(house.rooms, seams, self.config)
+	local function open(seam)
+		return seam.connected == true
+	end
+	local joined = {}
+	for _, seam in seams do
+		if seam.connected then
+			joined[MansionHouse.pairKey(seam.a, seam.b)] = true
+		end
+	end
+	local distances = {}
+	local function between(a: number, b: number): number
+		distances[a] = distances[a] or walk(a, open)
+		return distances[a][b] or math.huge
+	end
+	local id = #house.rooms + 1
+	local l, width, share = house.lattice, cfg.Width, self.config.MinShared
+	local function fits(rect): boolean
+		if not house:InSite(rect) or not house.index[rect.floor]:Free(rect) then
+			return false
+		end
+		if rect.floor == 0 then
+			for _, area in house.keepOut do
+				if RoomRects.overlaps(rect, area) then
+					return false
+				end
+			end
+		end
+		return house:Supported(rect)
+	end
+	-- A hidden door between a room and the passage: in a shared stretch of
+	-- wall a doorway fits in, the passage's narrow end included (the door
+	-- in its middle).
+	local function hiddenSeam(room, rect, floor: number)
+		local c = RoomRects.contact(room, rect)
+		if not c then
+			return nil
+		end
+		if c.to - c.from >= share then
+			return house:Seam(room, rect, floor)
+		end
+		if c.to - c.from < width or not house:Socket(room, floor, c.dir) then
+			return nil
+		end
+		return { dir = c.dir, line = c.line, along = (c.from + c.to) / 2, floor = floor }
+	end
+	local function middleTo(room, x: number, z: number): number
+		local cx, cz = RoomRects.center(room)
+		return math.abs(cx - x) + math.abs(cz - z)
+	end
+	local best = nil
+	for _, floor in { 0, 1 } do
+		for _, a in house.rooms do
+			if (a.floor or 0) == floor and not a.tall and cfg.Zones[MansionHouse.zoneOf(a, floor)] then
+				for _, dir in DIRS do
+					for _, span in house.index[floor]:OuterSpans(a, dir) do
+						if span.to - span.from >= share then
+							for _, length in cfg.Lengths do
+								for start = span.from - length + share, span.to - share, l do
+									local rect
+									if dir == "N" then
+										rect = { x = start, z = a.z - width, w = length, d = width }
+									elseif dir == "S" then
+										rect = { x = start, z = a.z + a.d, w = length, d = width }
+									elseif dir == "W" then
+										rect = { x = a.x - width, z = start, w = width, d = length }
+									else
+										rect = { x = a.x + a.w, z = start, w = width, d = length }
+									end
+									rect.id, rect.floor, rect.template, rect.rotation = id, floor, template.id, 0
+									if fits(rect) then
+										-- The rooms it reaches with a wall a doorway fits in.
+										local reach = {}
+										for _, otherId in house:Neighbours(rect, floor) do
+											local other = house.byId[otherId]
+											local seam = not other.tall
+												and cfg.Zones[MansionHouse.zoneOf(other, floor)]
+												and hiddenSeam(other, rect, floor)
+											if seam then
+												table.insert(reach, { room = other, seam = seam })
+											end
+										end
+										for i = 1, #reach do
+											for j = i + 1, #reach do
+												local p, q = reach[i], reach[j]
+												local ra, rb = p.room, q.room
+												if
+													region[ra.id] ~= nil
+													and region[rb.id] ~= nil
+													and not joined[MansionHouse.pairKey(ra.id, rb.id)]
+												then
+													local ax, az =
+														RoomRects.doorPoint(p.seam.dir, p.seam.line, p.seam.along)
+													local bx, bz =
+														RoomRects.doorPoint(q.seam.dir, q.seam.line, q.seam.along)
+													local through = middleTo(ra, ax, az)
+														+ math.abs(ax - bx)
+														+ math.abs(az - bz)
+														+ middleTo(rb, bx, bz)
+													local saves = between(ra.id, rb.id) - through
+													local score = saves + rng:NextNumber() * cfg.Jitter
+													if
+														saves >= cfg.MinSaves and (best == nil or score > best.score)
+													then
+														best =
+															{ rect = rect, p = p, q = q, saves = saves, score = score }
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	if not best then
+		return {}
+	end
+	local rect = best.rect
+	local passage = {
+		id = id,
+		template = template.id,
+		floor = rect.floor,
+		x = rect.x,
+		z = rect.z,
+		w = rect.w,
+		d = rect.d,
+		rotation = 0,
+		zone = "passage",
+		kind = "passage",
+		passage = true,
+		mood = template.mood,
+		rooms = { best.p.room.id, best.q.room.id },
+		saves = math.floor(best.saves + 0.5),
+		seams = {},
+	}
+	local ra, rb = region[best.p.room.id], region[best.q.room.id]
+	local later = opensAt[ra] > opensAt[rb] and best.p.room.id or opensAt[rb] > opensAt[ra] and best.q.room.id or nil
+	for _, entry in { best.p, best.q } do
+		local seam = entry.seam
+		seam.from, seam.to = nil, nil
+		seam.a, seam.b = entry.room.id, id
+		seam.id = "seam:" .. entry.room.id .. "-" .. id
+		seam.connected, seam.door, seam.hidden = true, true, true
+		-- Into the later wing: found from its room only, never from the
+		-- passage (a shortcut home, not a way round a lock).
+		seam.barred = entry.room.id == later or nil
+		table.insert(passage.seams, seam)
+	end
+	return { passage }
+end
+
 -- Windows look outside: turn each room with windows (keeping its footprint)
 -- so the most face out, the window that lights the room counting most.
 function Builder:_orientWindows()
@@ -1592,6 +1773,7 @@ function MansionGen.attempt(rng, templates, config)
 	local seams = house:AllSeams()
 	local extra = builder:_doors(seams)
 	builder:_orientWindows()
+	local passages = builder:_passages(seams)
 
 	local ids = {}
 	for _, room in house.rooms do
@@ -1623,6 +1805,7 @@ function MansionGen.attempt(rng, templates, config)
 		exitDoor = exitDoor,
 		wings = builder.wings,
 		wingLog = builder.wingLog,
+		passages = #passages > 0 and passages or nil,
 		programme = builder.programme,
 	}
 end

@@ -65,11 +65,27 @@ local function roomIds(graph): { number }
 end
 NavGraph.roomIds = roomIds
 
--- Build the graph of a layout from either generator.
+-- Build the graph of a layout from either generator. With
+-- `options.passages`, a mansion's servants' passages and their hidden doors
+-- are in it too (the game walks them once they're found; the level's
+-- measures leave them out).
 function NavGraph.build(layout, options)
 	local mansion = layout.mode == "Mansion"
 	if not mansion then
 		layout = RoomRects.seamsOfCells(layout, { CellSize = options.cellSize, Lattice = options.lattice })
+	elseif options.passages and layout.passages then
+		local copy = table.clone(layout)
+		copy.rooms, copy.seams = {}, table.clone(layout.seams)
+		for _, room in layout.rooms do
+			table.insert(copy.rooms, room)
+		end
+		for _, passage in layout.passages do
+			table.insert(copy.rooms, passage)
+			for _, seam in passage.seams do
+				table.insert(copy.seams, seam)
+			end
+		end
+		layout = copy
 	end
 	local graph = {
 		nodes = {},

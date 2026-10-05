@@ -117,7 +117,8 @@ function MapService:_scan()
 		if view and age < 1 then
 			local eye = view.Position
 			for id, seam in world.seams do
-				if seam.connected then
+				-- (A hidden door isn't a door to anyone until it's found.)
+				if seam.connected and not (seam.hidden and not seam.found) then
 					local distance = (seam.position - eye).Magnitude
 					local door = self.doors[id]
 					local wanted = not door or (not door.known and distance <= M.LockSeenRange)

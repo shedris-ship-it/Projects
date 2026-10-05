@@ -117,6 +117,23 @@ function MansionHouse.storeyGroups(rooms, templatesById)
 	return groups
 end
 
+-- A layout's rooms and seams with its servants' passages and their hidden
+-- doors (docs/plans/level-design.md section 10.4), for what builds and walks
+-- the house; the escape's logic counts only the house's own.
+function MansionHouse.withPassages(layout)
+	if not layout.passages then
+		return layout.rooms, layout.seams
+	end
+	local rooms, seams = table.clone(layout.rooms), table.clone(layout.seams)
+	for _, passage in layout.passages do
+		table.insert(rooms, passage)
+		for _, seam in passage.seams do
+			table.insert(seams, seam)
+		end
+	end
+	return rooms, seams
+end
+
 -- How many rooms stand on the main floors: everything but the cellar's and
 -- the attic's (the room band counts these).
 function MansionHouse.mainRooms(rooms, templatesById): number
@@ -138,7 +155,18 @@ function MansionHouse.fitDoors(layout, room)
 		local localSide = MansionHouse.localSide(side, room.rotation or 0)
 		table.insert(doors, { side = localSide, along = (localSide == "N" or localSide == "S") and lx or lz })
 	end
-	for _, seam in layout.seams do
+	-- (The hidden doors into a servants' passage too: furniture keeps out of
+	-- their way like any other's.)
+	local seams = layout.seams
+	if layout.passages then
+		seams = table.clone(seams)
+		for _, passage in layout.passages do
+			for _, seam in passage.seams do
+				table.insert(seams, seam)
+			end
+		end
+	end
+	for _, seam in seams do
 		if (seam.floor or 0) == storey and (seam.a == room.id or seam.b == room.id) then
 			local side = seam.a == room.id and seam.dir or RoomRects.Opposite[seam.dir]
 			add(side, RoomRects.doorPoint(seam.dir, seam.line, seam.along))

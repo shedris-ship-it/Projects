@@ -17,6 +17,7 @@ local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
+local Rng = require(Shared.Lib.Rng)
 local Dressing = require(script.Parent.Dressing)
 local WindowView = require(Shared.Logic.WindowView)
 local Grime = require(script.Parent.Grime)
@@ -757,7 +758,148 @@ end
 -- The door in a connected seam: a panelled slab hinged on one jamb, some
 -- resting ajar (from `ajarRng`). `midpoint` is the doorway's centre at floor
 -- level and `normal` points from room A to room B.
-function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, normal: Vector3, ajarRng)
+
+-- The room side of a hidden door (docs/plans/level-design.md section 10.4):
+-- a bookcase, or a panel of the room's own wall with only a hairline round
+-- it. No knob, no casing; it swings out into the room. Its tells: a book
+-- pulled half out, or the hairline, and a scuffed arc on the floor where it
+-- swings. `closed` is the slab's frame; +Z faces the room.
+local function disguise(doorModel, closed: CFrame, hidden)
+	local quiet = { collide = false, query = false, castShadow = true }
+	local face = closed * CFrame.new(0, 0, WALL)
+	if hidden.kind == "bookcase" then
+		local wood = PropFactory.rgb(Config.Trim.Wood)
+		local depth = 0.9
+		local w, h = DOOR_W - 0.1, DOOR_H - 0.1
+		local inside = face * CFrame.new(0, 0, depth / 2)
+		PropFactory.part(
+			doorModel,
+			"CaseBack",
+			Vector3.new(w, h, 0.1),
+			face * CFrame.new(0, 0, 0.05),
+			wood,
+			PropFactory.material("Wood"),
+			quiet
+		)
+		for _, sx in { -1, 1 } do
+			PropFactory.part(
+				doorModel,
+				"CaseSide",
+				Vector3.new(0.25, h, depth),
+				inside * CFrame.new(sx * (w / 2 - 0.125), 0, 0),
+				wood,
+				PropFactory.material("Wood"),
+				quiet
+			)
+		end
+		local rng = Rng.new(Rng.hash(tostring(closed.Position)))
+		local rows = 4
+		local pulled = rng:NextInteger(1, rows)
+		for i = 0, rows do
+			local y = -h / 2 + 0.15 + i * (h - 0.3) / rows
+			PropFactory.part(
+				doorModel,
+				"Board",
+				Vector3.new(w - 0.5, 0.2, depth),
+				inside * CFrame.new(0, y, 0),
+				wood,
+				PropFactory.material("Wood"),
+				quiet
+			)
+			if i < rows then
+				local x = -w / 2 + 0.4
+				local first = true
+				while x < w / 2 - 0.8 do
+					local bw = rng:NextNumber(0.3, 0.6)
+					local bh = rng:NextNumber(1, 1.5)
+					local tint = Color3.fromHSV(rng:NextNumber(), 0.35, rng:NextNumber(0.25, 0.55))
+					-- The tell: one book in a row pulled half out.
+					local out = (i + 1 == pulled and first and x > -0.5) and 0.45 or 0
+					if out > 0 then
+						first = false
+					end
+					PropFactory.part(
+						doorModel,
+						"Book",
+						Vector3.new(bw, bh, depth - 0.3),
+						inside * CFrame.new(x + bw / 2, y + 0.1 + bh / 2, out),
+						tint,
+						PropFactory.material("SmoothPlastic"),
+						{ collide = false, query = false, castShadow = false }
+					)
+					x += bw + rng:NextNumber(0, 0.3)
+				end
+			end
+		end
+	else
+		local surface = hidden.surface
+		PropFactory.part(
+			doorModel,
+			"WallPanel",
+			Vector3.new(DOOR_W - 0.12, DOOR_H - 0.12, 0.06),
+			face * CFrame.new(0, 0, 0.03),
+			surface.color,
+			surface.material,
+			{ variant = surface.variant, collide = false, query = false }
+		)
+		-- The hairline round it.
+		local dark = Color3.fromRGB(18, 16, 14)
+		for _, edge in
+			{
+				{ x = 0, y = DOOR_H / 2 - 0.03, w = DOOR_W, h = 0.06 },
+				{ x = -DOOR_W / 2 + 0.03, y = 0, w = 0.06, h = DOOR_H },
+				{ x = DOOR_W / 2 - 0.03, y = 0, w = 0.06, h = DOOR_H },
+			}
+		do
+			PropFactory.part(
+				doorModel,
+				"Hairline",
+				Vector3.new(edge.w, edge.h, 0.02),
+				face * CFrame.new(edge.x, edge.y, 0.01),
+				dark,
+				PropFactory.material("SmoothPlastic"),
+				{ collide = false, query = false, castShadow = false }
+			)
+		end
+		-- The baseboard carries on across it.
+		PropFactory.part(
+			doorModel,
+			"Baseboard",
+			Vector3.new(DOOR_W - 0.12, 0.55, 0.12),
+			face * CFrame.new(0, -DOOR_H / 2 + 0.33, 0.1),
+			PropFactory.rgb(Config.Trim.Wood),
+			PropFactory.material("Wood"),
+			{ collide = false, query = false }
+		)
+	end
+end
+
+-- The scuffed arc on the floor where a hidden door swings into the room.
+local function scuffs(parent, hinge: Vector3, closed: CFrame)
+	local floorY = hinge.Y - DOOR_H / 2 + 0.05 + 0.03
+	local dark = Color3.fromRGB(34, 28, 22)
+	local radius = DOOR_W - 0.6
+	for i = 1, 7 do
+		local angle = math.rad(i * 11)
+		local away = -closed.RightVector
+		local into = closed.LookVector * -1
+		local dir = away * math.cos(angle) + into * math.sin(angle)
+		local at = Vector3.new(hinge.X, floorY, hinge.Z) + dir * radius
+		PropFactory.part(
+			parent,
+			"Scuff",
+			Vector3.new(0.12, 0.02, 0.9),
+			CFrame.lookAt(at, at + dir:Cross(Vector3.yAxis)),
+			dark,
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, query = false, castShadow = false, transparency = 0.55 }
+		)
+	end
+end
+
+-- `hidden` (a servants' passage's door): { kind = "bookcase" | "panel",
+-- surface = the room's wall }; its room is seam.a, on the slab's +Z side.
+function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, normal: Vector3, ajarRng, hidden)
 	local doorId = "door:" .. seam.a .. "-" .. seam.b
 	local closed = CFrame.lookAt(
 		midpoint + Vector3.new(0, DOOR_H / 2 - 0.05, 0),
@@ -776,7 +918,8 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 		doorColor,
 		PropFactory.material("Wood")
 	)
-	for _, z in { -0.2, 0.2 } do
+	-- (A hidden door is panelled on its passage side only.)
+	for _, z in hidden and { -0.2 } or { -0.2, 0.2 } do
 		for _, x in { -1.25, 1.25 } do
 			for _, panel in { { y = 1.55, h = 3.6 }, { y = -2.2, h = 2.4 } } do
 				PropFactory.part(
@@ -794,20 +937,34 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 	-- Hinge on the slab's +X edge, knob on the -X edge.
 	local hinge = (closed * CFrame.new(DOOR_W / 2 - 0.1, 0, 0)).Position
 	local knobOffset = -(DOOR_W / 2 - 0.7)
-	PropFactory.part(
-		doorModel,
-		"Knob",
-		Vector3.new(0.3, 0.3, 0.7),
-		closed * CFrame.new(knobOffset, -0.5, 0),
-		PropFactory.rgb(Config.Trim.Knob),
-		PropFactory.material("Metal"),
-		{ collide = false }
-	)
+	if hidden then
+		-- A plain latch on the passage side; the room side is disguised.
+		PropFactory.part(
+			doorModel,
+			"Latch",
+			Vector3.new(0.9, 0.2, 0.2),
+			closed * CFrame.new(knobOffset + 0.3, -0.3, -0.25),
+			PropFactory.rgb(Config.Trim.Knob),
+			PropFactory.material("Metal"),
+			{ collide = false }
+		)
+		disguise(doorModel, closed, hidden)
+	else
+		PropFactory.part(
+			doorModel,
+			"Knob",
+			Vector3.new(0.3, 0.3, 0.7),
+			closed * CFrame.new(knobOffset, -0.5, 0),
+			PropFactory.rgb(Config.Trim.Knob),
+			PropFactory.material("Metal"),
+			{ collide = false }
+		)
+	end
 	slab.CollisionGroup = Constants.CollisionGroups.Door
 	doorModel.PrimaryPart = slab
 	-- Some doors rest slightly ajar with darkness behind them (docs/ART.md).
 	-- Still closed for play: it blocks the way until someone opens it.
-	local ajar = ajarRng:Chance(Config.Trim.AjarChance)
+	local ajar = ajarRng:Chance(Config.Trim.AjarChance) and not hidden
 	if ajar then
 		local swing = CFrame.new(hinge) * CFrame.Angles(0, math.rad(Config.Trim.AjarAngle), 0) * CFrame.new(-hinge)
 		for _, p in doorModel:GetChildren() do
@@ -829,6 +986,10 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 		closedCFrame = closed,
 		hinge = hinge,
 		restAngle = ajar and Config.Trim.AjarAngle or 0, -- where it was built (DoorService swings it from here)
+		-- A hidden door swings out into its room (it would block the narrow
+		-- passage the other way).
+		openSign = hidden and -1 or nil,
+		hidden = hidden ~= nil,
 		open = false,
 		bracedUntil = 0,
 		lastBraced = -math.huge,
@@ -836,6 +997,9 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 	}
 	world.doors[doorId] = door
 	record.door = door
+	if hidden then
+		scuffs(roomA.model, hinge, closed)
+	end
 end
 
 -- A seam's panels (one per wall layer): solid on a wall, invisible and open
