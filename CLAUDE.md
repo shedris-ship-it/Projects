@@ -149,6 +149,11 @@ The agreed plan, in order:
      - **3-slot inventory with found tools**: slot 1 is the flashlight, 2 and 3 hold tools found on tables (`Logic/Inventory`, `Logic/ToolPlacement`, `World/ToolPickups`, `World/ToolModel`, `UI/Hotbar`); the hub tool pickers are gone; one item in your hands at a time (`Config.ViewModel.Poses`, `Logic/ViewFrame`)
      - build id (`src/shared/Build.luau`, bumped per commit) on the hub panel, F2 and Output, so a half-synced Studio is obvious; the EXIT sign is a small band clear of the knob and panels (`Config.Exit`); the plant is blade leaves inside its footprint (`Logic/PlantLeaves`, `Config.Plant`)
      - windows: no more painted scenery; near-black sky, one moon a run that only moon-facing windows show as a soft glow, a faint moonlight patch on the floor below those, and a seeded real-3D covering per window (sheer curtain, half-drawn blinds, boards or bare) (`Logic/WindowView`, `Config.Window`, `PropFactory.buildDecor`); the sealed-window tell is built bare
+   - Visual audit round 1 (2026-10-04, build `2026-10-04.10`, `docs/progress/2026-10-04-visual-audit/`), from the owner's screenshots; checked in Studio on seed 1316117598:
+     - floor stripes upstairs: ground-floor walls now stop inside the slab (`MansionBuilder`, `SLAB_TUCK`)
+     - glowing curtains: window light and moon spill leave from a `LightPane` in front of the covering
+     - z-fighting and poke-through in the bed, armchair/sofa, bathtub rim, standalone curtains, rug layers and crib (`PropFactory`)
+     - Claude's recommendation (not yet decided by the owner): this bug pass first, then the gameplay rework, then the full visual refinement merged with M4.
    - Waiting on the owner (two or more clients): TC-16 to TC-21 in `docs/TESTING.md` — the teammate bleed-out marker, two watchers freezing him and cancelling a lunge, tier 1 seen by one player only, no popping in or out, the window reflection and face at the glass (Studio MCP screenshots can't show client-made 3D GUIs), and how the poses look in motion.
    - Deferred from the step 6 plan: honest tracking (a per-room belief map plus Director "scent" hints). Between hunts he still reads his target's real position; perception and line of sight gate the lunge.
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.

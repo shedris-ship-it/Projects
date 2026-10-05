@@ -45,6 +45,10 @@ local DOOR_H = Config.Level.DoorHeight
 local DIRS = LevelBuilder.WorldDirs
 local OPPOSITE = RoomRects.Opposite
 local UP = Vector3.new(0, 1, 0)
+-- How far below the floor's top above a ground-floor wall stops: inside the
+-- slab (ceiling, then the floor over it), never level with its top, where it
+-- showed through the room upstairs as a stripe (owner, 2026-10-04).
+local SLAB_TUCK = 0.25
 
 -- The hall's gallery and staircase, in the hall's own frame (40x50). The
 -- numbers live in Logic/TallRooms, which the walkers' graph reads too.
@@ -619,7 +623,12 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		local storeys = room.tall and { 0, 1 } or { room.floor }
 		for band, floor in storeys do
 			local baseY = MansionBuilder.floorY(floor)
-			local top = room.tall and band == 2 and PITCH + 0.5 or PITCH
+			local top = PITCH
+			if room.tall and band == 2 then
+				top = PITCH + 0.5
+			elseif not room.tall and floor == 0 then
+				top = PITCH - SLAB_TUCK
+			end
 			for side, dir in DIRS do
 				local across = (side == "N" or side == "S") and hz or hx
 				local length = (side == "N" or side == "S") and room.w or room.d

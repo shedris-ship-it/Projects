@@ -284,42 +284,61 @@ local function legs(model, cf, w, d, h, color, material, inset)
 	end
 end
 
+-- Nothing pokes through anything else and no two faces share a plane, or they
+-- flicker (owner, 2026-10-04: the bed clipped): the frame and mattress stop at
+-- the boards, and the blanket runs over the low footboard to hang down in
+-- front of it.
 function builders.Bed(model, cf, size, color, material)
 	local w, d = size.X, size.Z
 	local wood = Color3.fromRGB(70, 50, 36)
 	local woodMat = PropFactory.material("Wood")
+	local head, foot, drape = 0.5, 0.4, 0.25 -- board thicknesses; the drape hangs inside the bed's length
+	local footFace = d / 2 - drape -- the footboard's outer face
+	local inside = d - head - foot - drape -- between the boards
+	local middle = (head - foot - drape) / 2 -- centre of that stretch
 	legs(model, cf, w, d, 1, wood, woodMat)
-	part(model, "Frame", Vector3.new(w, 0.8, d), cf * CFrame.new(0, 1.4, 0), wood, woodMat)
+	part(model, "Frame", Vector3.new(w - 0.2, 0.8, inside), cf * CFrame.new(0, 1.4, middle), wood, woodMat)
 	part(
 		model,
 		"Mattress",
-		Vector3.new(w - 0.4, 0.9, d - 0.6),
-		cf * CFrame.new(0, 2.25, 0.1),
+		Vector3.new(w - 0.4, 0.9, inside),
+		cf * CFrame.new(0, 2.25, middle),
 		Color3.fromRGB(214, 210, 200),
 		PropFactory.material("Fabric")
 	)
-	part(model, "Blanket", Vector3.new(w - 0.2, 0.3, d * 0.6), cf * CFrame.new(0, 2.75, d * 0.18), color, material)
-	-- The turned-down top of the sheet, and a blanket hanging over the foot.
+	-- The blanket, from just below the pillows to the foot's outer face, over
+	-- the footboard (top at 2.55) and the mattress (2.7).
+	local blanketFrom = -d * 0.12
+	part(
+		model,
+		"Blanket",
+		Vector3.new(w - 0.2, 0.3, footFace - blanketFrom),
+		cf * CFrame.new(0, 2.75, (blanketFrom + footFace) / 2),
+		color,
+		material
+	)
+	-- The turned-down top of the sheet, a hair wider than the blanket it lies on.
 	part(
 		model,
 		"Sheet",
-		Vector3.new(w - 0.2, 0.34, 1),
-		cf * CFrame.new(0, 2.78, -d * 0.1),
+		Vector3.new(w - 0.14, 0.34, 1),
+		cf * CFrame.new(0, 2.78, blanketFrom + 0.2),
 		Color3.fromRGB(226, 222, 210),
 		PropFactory.material("Fabric"),
 		{ castShadow = false }
 	)
+	-- The blanket hanging down in front of the footboard.
 	part(
 		model,
 		"Drape",
-		Vector3.new(w - 0.2, 1.2, 0.3),
-		cf * CFrame.new(0, 2.15, d / 2 - 0.05),
+		Vector3.new(w - 0.2, 1.2, drape),
+		cf * CFrame.new(0, 2.3, footFace + drape / 2),
 		shade(color, 0.9),
 		material,
 		{ castShadow = false }
 	)
-	part(model, "Headboard", Vector3.new(w, 4.5, 0.5), cf * CFrame.new(0, 2.25, -d / 2 + 0.25), wood, woodMat)
-	part(model, "Footboard", Vector3.new(w, 1.8, 0.4), cf * CFrame.new(0, 1.9, d / 2 - 0.2), wood, woodMat)
+	part(model, "Headboard", Vector3.new(w, 4.5, head), cf * CFrame.new(0, 2.25, -d / 2 + head / 2), wood, woodMat)
+	part(model, "Footboard", Vector3.new(w, 1.55, foot), cf * CFrame.new(0, 1.775, footFace - foot / 2), wood, woodMat)
 	for _, sx in { -1, 1 } do
 		part(
 			model,
@@ -334,7 +353,7 @@ function builders.Bed(model, cf, size, color, material)
 			model,
 			"Pillow",
 			Vector3.new(w * 0.4, 0.5, 1.6),
-			cf * CFrame.new(sx * w * 0.22, 3.05, -d / 2 + 1.5),
+			cf * CFrame.new(sx * w * 0.22, 2.9, -d / 2 + 1.5), -- sunk a little into the mattress, not floating on it
 			Color3.fromRGB(230, 228, 220),
 			PropFactory.material("Fabric"),
 			{ castShadow = false }
@@ -447,15 +466,19 @@ function builders.Curtain(model, cf, size, color, material)
 			BALL
 		)
 	end
-	-- Alternating deep and shallow folds so it hangs in gathers, not slabs.
+	-- Alternating deep and shallow folds so it hangs in gathers, not slabs. The
+	-- shallow ones are a little shorter at both ends, so neighbours that overlap
+	-- don't share a top or bottom face and flicker.
 	local n = 6
 	for i = 0, n - 1 do
 		local fw = w / n
-		local deep = (i % 2 == 0) and d - 0.3 or d - 0.05
+		local shallow = i % 2 == 0
+		local deep = shallow and d - 0.3 or d - 0.05
+		local tall = shallow and h - 0.36 or h - 0.3
 		part(
 			model,
 			"Fold",
-			Vector3.new(fw + 0.05, h - 0.3, deep),
+			Vector3.new(fw + 0.05, tall, deep),
 			cf * CFrame.new(-w / 2 + fw * (i + 0.5), (h - 0.3) / 2 + 0.1, 0),
 			shade(color, 0.9 + (i % 2) * 0.16),
 			material
@@ -479,11 +502,31 @@ function builders.Bathtub(model, cf, size, color, material)
 	local rim = shade(color, 1.06)
 	local flat = { castShadow = false }
 	-- The rim sits inside the tub's own footprint: it used to stand 0.2 out past
-	-- the back and sides, into the wall.
-	part(model, "Rim", Vector3.new(w, 0.3, 0.4), cf * CFrame.new(0, h, d / 2 - 0.2), rim, material, flat)
-	part(model, "Rim", Vector3.new(w, 0.3, 0.4), cf * CFrame.new(0, h, -d / 2 + 0.2), rim, material, flat)
+	-- the back and sides, into the wall. A hair inside the tub's sides, with the
+	-- side pieces between the end pieces, so no two faces share a plane and
+	-- flicker (owner, 2026-10-04).
+	local inset = 0.03
+	for _, sz in { -1, 1 } do
+		part(
+			model,
+			"Rim",
+			Vector3.new(w - 2 * inset, 0.3, 0.4),
+			cf * CFrame.new(0, h, sz * (d / 2 - inset - 0.2)),
+			rim,
+			material,
+			flat
+		)
+	end
 	for _, sx in { -1, 1 } do
-		part(model, "Rim", Vector3.new(0.4, 0.3, d), cf * CFrame.new(sx * (w / 2 - 0.2), h, 0), rim, material, flat)
+		part(
+			model,
+			"Rim",
+			Vector3.new(0.4, 0.3, d - 2 * inset - 0.8),
+			cf * CFrame.new(sx * (w / 2 - inset - 0.2), h, 0),
+			rim,
+			material,
+			flat
+		)
 		for _, sz in { -1, 1 } do
 			part(
 				model,
@@ -536,11 +579,15 @@ function builders.Bathtub(model, cf, size, color, material)
 end
 
 -- Sofa (three seats) and armchair (one): a base, rolled arms, a back and a
--- cushion and back cushion for every seat, on short wooden feet.
+-- cushion and back cushion for every seat, on short wooden feet. The base sits
+-- between the arms and the rolls stand proud of the arms' fronts, so no two
+-- faces share a plane and flicker (owner, 2026-10-04: the armchair clipped).
 local function seating(seats: number)
 	return function(model, cf, size, color, material)
 		local w, h, d = size.X, size.Y, size.Z
 		local wood = Color3.fromRGB(62, 44, 32)
+		local armW = seats > 1 and 0.9 or 0.8
+		local inner = w - 2 * armW
 		for _, sx in { -1, 1 } do
 			for _, sz in { -1, 1 } do
 				part(
@@ -554,22 +601,21 @@ local function seating(seats: number)
 				)
 			end
 		end
-		part(model, "Base", Vector3.new(w, 1.2, d), cf * CFrame.new(0, 1, 0), shade(color, 0.92), material)
-		local armW = seats > 1 and 0.9 or 0.8
+		part(model, "Base", Vector3.new(inner, 1.2, d), cf * CFrame.new(0, 1, 0), shade(color, 0.92), material)
 		for _, sx in { -1, 1 } do
 			local x = sx * (w / 2 - armW / 2)
-			part(model, "Arm", Vector3.new(armW, 1.9, d), cf * CFrame.new(x, 1.55, 0), shade(color, 0.85), material)
+			-- From the feet up, so the arm stands on them.
+			part(model, "Arm", Vector3.new(armW, 2.1, d), cf * CFrame.new(x, 1.45, 0), shade(color, 0.85), material)
 			part(
 				model,
 				"ArmRoll",
-				Vector3.new(d, armW + 0.15, armW + 0.15),
+				Vector3.new(d + 0.1, armW + 0.15, armW + 0.15),
 				cf * CFrame.new(x, 2.5, 0) * ALONG_Z,
 				shade(color, 0.9),
 				material,
 				{ shape = CYL, castShadow = false }
 			)
 		end
-		local inner = w - 2 * armW
 		part(
 			model,
 			"Back",
@@ -589,11 +635,13 @@ local function seating(seats: number)
 				shade(color, 1.06 + (i % 2) * 0.05),
 				material
 			)
+			-- Leaning back against the back, its top just short of it (it used to
+			-- poke through the back and out over its top).
 			part(
 				model,
 				"BackCushion",
-				Vector3.new(sw - 0.2, h - 2.4, 0.7),
-				cf * CFrame.new(x, 2.4 + (h - 2.4) / 2, -d / 2 + 1.3) * CFrame.Angles(math.rad(-10), 0, 0),
+				Vector3.new(sw - 0.2, h - 2.5, 0.7),
+				cf * CFrame.new(x, 2.4 + (h - 2.5) / 2, -d / 2 + 1.5) * CFrame.Angles(math.rad(-10), 0, 0),
 				shade(color, 1.02),
 				material,
 				{ castShadow = false }
@@ -878,14 +926,17 @@ end
 
 function builders.Crib(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
+	-- The posts stand just inside the base's edge and the rails sit on them as a
+	-- frame (it was one solid board, which covered the crib like a lid).
 	part(model, "Base", Vector3.new(w, 0.4, d), cf * CFrame.new(0, 1.2, 0), color, material)
-	legs(model, cf, w, d, h, shade(color, 0.9), material, 0.2)
+	legs(model, cf, w, d, h - 0.1, shade(color, 0.9), material, 0.25)
+	-- Bars from the base up to the rails.
 	for i = -4, 4 do
 		part(
 			model,
 			"Bar",
-			Vector3.new(0.12, h - 1.4, 0.12),
-			cf * CFrame.new(i * w / 9, 2.4, d / 2 - 0.1),
+			Vector3.new(0.12, h - 1.5, 0.12),
+			cf * CFrame.new(i * w / 9, (h + 1.3) / 2, d / 2 - 0.1),
 			color,
 			material,
 			{ castShadow = false }
@@ -893,14 +944,35 @@ function builders.Crib(model, cf, size, color, material)
 		part(
 			model,
 			"Bar",
-			Vector3.new(0.12, h - 1.4, 0.12),
-			cf * CFrame.new(i * w / 9, 2.4, -d / 2 + 0.1),
+			Vector3.new(0.12, h - 1.5, 0.12),
+			cf * CFrame.new(i * w / 9, (h + 1.3) / 2, -d / 2 + 0.1),
 			color,
 			material,
 			{ castShadow = false }
 		)
 	end
-	part(model, "Rail", Vector3.new(w, 0.2, d), cf * CFrame.new(0, h, 0), color, material, { collide = false })
+	for _, sz in { -1, 1 } do
+		part(
+			model,
+			"Rail",
+			Vector3.new(w, 0.2, 0.3),
+			cf * CFrame.new(0, h, sz * (d / 2 - 0.15)),
+			color,
+			material,
+			{ collide = false }
+		)
+	end
+	for _, sx in { -1, 1 } do
+		part(
+			model,
+			"Rail",
+			Vector3.new(0.3, 0.2, d - 0.6),
+			cf * CFrame.new(sx * (w / 2 - 0.15), h, 0),
+			color,
+			material,
+			{ collide = false }
+		)
+	end
 end
 
 function builders.Washer(model, cf, size, color, material)
@@ -1392,12 +1464,14 @@ function builders.Rug(model, cf, size, color, material)
 	local w, d = size.X, size.Z
 	local flat = { collide = false, castShadow = false }
 	part(model, "Rug", Vector3.new(w, 0.1, d), cf * CFrame.new(0, 0.05, 0), color, material, flat)
-	-- A darker field inside a lighter border, a medallion, and a fringe at each end.
+	-- A darker field inside a lighter border, a medallion, and a fringe at each
+	-- end. Each layer stands 0.02 above the one under it: closer, they flickered
+	-- across the room.
 	part(
 		model,
 		"Field",
-		Vector3.new(w - 1.2, 0.11, d - 1.2),
-		cf * CFrame.new(0, 0.052, 0),
+		Vector3.new(w - 1.2, 0.12, d - 1.2),
+		cf * CFrame.new(0, 0.06, 0),
 		shade(color, 0.72),
 		material,
 		flat
@@ -1405,8 +1479,8 @@ function builders.Rug(model, cf, size, color, material)
 	part(
 		model,
 		"Medallion",
-		Vector3.new(w * 0.34, 0.12, d * 0.34),
-		cf * CFrame.new(0, 0.054, 0),
+		Vector3.new(w * 0.34, 0.14, d * 0.34),
+		cf * CFrame.new(0, 0.07, 0),
 		shade(color, 1.2),
 		material,
 		flat
@@ -1740,7 +1814,7 @@ function PropFactory.buildDecor(
 		-- sky up close (so the window changed with distance), and reflectance
 		-- on a clear pane darkens whatever is behind it, a Sealed window's
 		-- bricks included.
-		local glass = part(
+		part(
 			model,
 			"Glass",
 			Vector3.new(iw, ih, 0.04),
@@ -1768,20 +1842,24 @@ function PropFactory.buildDecor(
 			{ collide = false, castShadow = false }
 		)
 		windowCover(model, cf, view.cover, w, h, iw, ih, rng)
+		-- The window's light (LevelBuilder adds the key light here when the window
+		-- lights its room) leaves from an invisible pane in front of the
+		-- covering, never from the glass: half a stud behind a sheer curtain it
+		-- turned the curtain into a lampshade and outlined the casing in light
+		-- (owner, 2026-10-04). Every covering sits within 0.6 studs of the wall.
+		local pane = part(
+			model,
+			"LightPane",
+			Vector3.new(iw, ih, 0.05),
+			cf * CFrame.new(0, 0, -0.7),
+			Color3.new(),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, query = false, castShadow = false, transparency = 1 }
+		)
 		-- Moonlight spilling in from a window that looks at the moon: a faint,
-		-- shadowless patch on the floor. On its own invisible part, never on the
-		-- glass, because LevelBuilder lights a key window by finding the first
-		-- Light on the glass.
+		-- shadowless patch on the floor, from the same pane. A key window has
+		-- its own light instead.
 		if view.moonVisible and not (opts and opts.key) then
-			local anchor = part(
-				model,
-				"SpillAnchor",
-				Vector3.new(0.2, 0.2, 0.2),
-				cf * CFrame.new(0, 0, -0.3),
-				Color3.new(),
-				PropFactory.material("SmoothPlastic"),
-				{ collide = false, query = false, castShadow = false, transparency = 1 }
-			)
 			local spill = Instance.new("SurfaceLight")
 			spill.Name = "MoonSpill"
 			spill.Face = Enum.NormalId.Front
@@ -1790,9 +1868,9 @@ function PropFactory.buildDecor(
 			spill.Brightness = Config.Window.SpillBrightness
 			spill.Angle = Config.Window.SpillAngle
 			spill.Shadows = false
-			spill.Parent = anchor
+			spill.Parent = pane
 		end
-		lightPart = glass
+		lightPart = pane
 	elseif kindName == "Mirror" then
 		part(
 			model,
