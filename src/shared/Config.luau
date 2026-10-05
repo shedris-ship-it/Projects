@@ -216,6 +216,7 @@ Config.Nav = {
 	DoorCost = 12, -- studs a closed door is worth (opening it takes 1.5-3 s)
 	SeamFactor = 1.6, -- Phantom Architecture's twist: walking through a solid seam costs this much more
 	AttachRise = 5, -- a point (a floor spot or a body's root) joins graph nodes no further above or below than this
+	SeenCost = 25, -- studs a doorway or stair someone is looking at is worth when he's sneaking
 }
 
 -- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room has
@@ -534,6 +535,7 @@ Config.Guest = {
 	CreepSpeedWatched = 0.7, -- tier 3, while one Witness stares at him
 	BackAwaySpeed = 3.5,
 	BackAwayMaxSeconds = 10,
+	ChaseLead = 0.7, -- seconds ahead of a fleeing player he can see that he runs for
 	ZoomSpeed = 55, -- the yank out of sight
 	SpottedFleeSeconds = 0.45, -- tier 1: how long you see him before he's gone
 	Tier1Cooldown = { 14, 30 }, -- tier 1: quiet between appearances

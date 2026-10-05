@@ -35,9 +35,10 @@ local function floorBase(y: number): number
 end
 Body.FloorBase = floorBase
 
--- How far behind him (the way he's moving) a wall may come while he backs
--- away, so his leaning body and arms never show through it.
-local POSED_CLEARANCE = 2.2
+-- How far behind his middle his heels and hanging hands reach while he
+-- backs away (Logic/GuestPose): a wall closer than this, the way he's
+-- moving, would show through him.
+local POSED_REACH = 1.4
 
 -- built: StalkerModel.build's result; navigator: Stalker/Walker.
 function Body.new(built, navigator)
@@ -68,7 +69,8 @@ function Body.new(built, navigator)
 		clearance = navigator.clearance, -- Stalker/Clearance
 		lastRoot = nil, -- for the phase check
 		phases = 0, -- times he was caught crossing a wall and put back
-		backBlockedAt = 0, -- last time a wall came within POSED_CLEARANCE behind him
+		backBlockedAt = 0, -- last time a wall came within POSED_REACH behind him
+		backBlocks = 0, -- how often that happened (F2 navtest retreat)
 		pose = Poses.Idle,
 		lean = 0,
 		gaze = nil, -- the player he's looking at
@@ -184,13 +186,14 @@ function Body:FacePlayer(player: Player)
 end
 
 -- Walk a route through the house (Stalker/Walker) at a speed. Facing is
--- whatever was last set; FaceMovement for an ordinary walk.
-function Body:Go(destination: Vector3, speed: number, avoid)
+-- whatever was last set; FaceMovement for an ordinary walk. `extra` makes
+-- some ways dearer (Stalk:_unseenCost: the ones someone is looking at).
+function Body:Go(destination: Vector3, speed: number, avoid, extra)
 	if self.special then
 		return
 	end
 	self:_unanchor()
-	self.navigator:SetDestination(destination, { speed = speed, avoid = avoid })
+	self.navigator:SetDestination(destination, { speed = speed, avoid = avoid, extra = extra })
 end
 
 -- Step straight towards a point nearby (stealth steering within a room).
@@ -359,8 +362,10 @@ function Body:_checkPhase(now: number)
 	if self.pose == Poses.BackAway then
 		local velocity = flat(root.AssemblyLinearVelocity)
 		if velocity.Magnitude > 0.5 then
-			local ahead = position + velocity.Unit * POSED_CLEARANCE
-			if not self.clearance:Clear(position, ahead) then
+			if self.clearance:Crossed(position, position + velocity.Unit * POSED_REACH) then
+				if now - self.backBlockedAt > 0.5 then
+					self.backBlocks += 1
+				end
 				self.backBlockedAt = now
 			end
 		end

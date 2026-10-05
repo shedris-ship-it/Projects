@@ -220,10 +220,12 @@ function Stalk:_pickTarget(now: number)
 	for _, player in ps:ActivePlayers() do
 		local pos = self:_estimate(player)
 		if pos then
+			-- Company counts only on the same floor (owner, 2026-10-04).
 			local nearest = 40
+			local worldService = self.services.WorldService
 			for _, other in ps:LivingPlayers() do
 				local otherPos = other ~= player and self:_estimate(other)
-				if otherPos then
+				if otherPos and worldService:Together(otherPos, pos, 40) then
 					nearest = math.min(nearest, (otherPos - pos).Magnitude)
 				end
 			end
@@ -344,7 +346,7 @@ function Stalk:_findPeek(tier: number, why)
 		local door = seams[spot.seam] and seams[spot.seam].door
 		if near[spot.watches] and not (door and not door.open) then
 			why.near = (why.near or 0) + 1
-			local d = planar(spot.position, targetPos)
+			local d = worldService:Separation(spot.position, targetPos)
 			if d >= minDistance and d <= 60 then
 				why.range = (why.range or 0) + 1
 				-- The target must be able to see the peeking head from where
@@ -369,19 +371,18 @@ function Stalk:_findPeek(tier: number, why)
 end
 
 -- A point a few studs away that the target can't see: where he's yanked to
--- when you catch him without a door frame to hide behind.
+-- when you catch him without a door frame to hide behind. His whole body
+-- must clear the way there (Stalker/Clearance), with floor under the end.
 function Stalk:_escapePoint(from: Vector3): Vector3
 	local best, bestScore = nil, -math.huge
 	local targetPos = self:_targetPos() or from
+	local worldService = self.services.WorldService
 	for i = 0, 11 do
 		local angle = i / 12 * math.pi * 2
 		local point = from + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 9
-		if
-			self.body:Fits(point)
-			and self.services.WitnessService:ClearLine(from + Vector3.new(0, 2, 0), point + Vector3.new(0, 2, 0), {})
-		then
+		if self.body:Fits(point) and self.body.clearance:Clear(from, point) then
 			local hidden = not self.sight:AnyoneSees(self.sight.BodyPoints(point))
-			local score = (hidden and 100 or 0) + planar(point, targetPos)
+			local score = (hidden and 100 or 0) + worldService:Separation(point, targetPos)
 			if score > bestScore then
 				best, bestScore = point, score
 			end
@@ -407,6 +408,32 @@ function Stalk:_farPoint(): Vector3?
 	return best
 end
 
+-- Sneaking: a way someone is looking at costs him more (Config.Nav.SeenCost),
+-- so he goes round the long way you won't see. Each graph point is checked
+-- at most twice a second.
+function Stalk:_unseenCost()
+	local worldService = self.services.WorldService
+	local nav = worldService.nav
+	if not nav then
+		return nil
+	end
+	if self.exposureFor ~= nav then
+		self.exposure, self.exposureFor = {}, nav
+	end
+	local cache, sight = self.exposure, self.sight
+	return function(nodeId: number): number
+		local now = os.clock()
+		local entry = cache[nodeId]
+		if entry and now - entry.t < 0.5 then
+			return entry.cost
+		end
+		local point = worldService.FromLayout(nav.nodes[nodeId]) + Vector3.new(0, 5.6, 0)
+		local cost = sight:AnyoneSees({ point }) and Config.Nav.SeenCost or 0
+		cache[nodeId] = { t = now, cost = cost }
+		return cost
+	end
+end
+
 -- Moves -----------------------------------------------------------------------------
 
 local MOVES = {}
@@ -420,7 +447,7 @@ local function relocate(self, move, now)
 		self.body:FaceMovement()
 		self.body:SetPose(Poses.Walk)
 		self.body:SetGaze(nil)
-		self.body:Go(move.goal, G.WalkSpeed)
+		self.body:Go(move.goal, G.WalkSpeed, nil, self:_unseenCost())
 	end
 	if self.body:Arrived() or now - move.started > 30 then
 		move.walking = false
@@ -466,7 +493,8 @@ MOVES.Peek = {
 				return self:_holdStare(ctx)
 			end
 			if relocate(self, move, now) then
-				if planar(self.body.root.Position, spot.position) > 2.5 then
+				local feet = self.body.root.Position.Y - self.body.built.groundOffset
+				if planar(self.body.root.Position, spot.position) > 2.5 or math.abs(feet - spot.position.Y) > 3 then
 					return true -- couldn't get there
 				end
 				move.peeking = now
@@ -506,7 +534,10 @@ MOVES.DoorwayStand = {
 		local worldService = self.services.WorldService
 		local point = worldService:ApproachPoint(pass.from, pass.to, 1.5)
 		local targetPos = self:_targetPos()
-		if not targetPos or planar(point, targetPos) < G.PeekMinDistance[math.clamp(ctx.tier, 1, 3)] then
+		if
+			not targetPos
+			or worldService:Separation(point, targetPos) < G.PeekMinDistance[math.clamp(ctx.tier, 1, 3)]
+		then
 			return false
 		end
 		if self.sight:AnyoneSees(self.sight.BodyPoints(point)) then
@@ -558,7 +589,7 @@ MOVES.CreepBehind = {
 		if distance > 22 then
 			-- Far: walk the house towards them (unhurried, unseen).
 			self.body:SetPose(Poses.Walk)
-			self.body:Go(targetPos, ctx.tier >= 3 and G.WalkSpeed * 0.8 or G.WalkSpeed)
+			self.body:Go(targetPos, ctx.tier >= 3 and G.WalkSpeed * 0.8 or G.WalkSpeed, nil, self:_unseenCost())
 			return now > move.untilT
 		end
 		-- Near: sneak, step by step, to just behind their back.
@@ -615,7 +646,7 @@ MOVES.ShadowBehind = {
 			-- Too far to follow: close in first, unhurried.
 			self.body:FaceMovement()
 			self.body:SetPose(Poses.Walk)
-			self.body:Go(targetPos, G.WalkSpeed)
+			self.body:Go(targetPos, G.WalkSpeed, nil, self:_unseenCost())
 		elseif speed < 1 or ctx.distance < move.keep then
 			-- You stopped; so did he.
 			self.body:Hold()
@@ -623,7 +654,7 @@ MOVES.ShadowBehind = {
 		else
 			self.body:FaceMovement()
 			self.body:SetPose(Poses.Walk)
-			self.body:Go(targetPos, math.clamp(speed * 0.95, 3, G.WalkSpeed + 2))
+			self.body:Go(targetPos, math.clamp(speed * 0.95, 3, G.WalkSpeed + 2), nil, self:_unseenCost())
 		end
 		self.body:SetGaze(self.target)
 		return now > move.untilT
@@ -740,6 +771,7 @@ MOVES.Yank = {
 -- when stared at up close at tier 2, or when two Witnesses stare him down.
 MOVES.BackAway = {
 	start = function(self, move, ctx)
+		self.service.retreat:Reset()
 		move.untilT = ctx.now + G.BackAwayMaxSeconds
 		move.face = ctx.nearestWatcher or self.target
 		move.unseenFor = 0
@@ -841,7 +873,7 @@ function Stalk:_alone(victim: Player): boolean
 	for _, other in ps:LivingPlayers() do
 		if other ~= victim and ps:IsActive(other) then
 			local pos = self:Known(other)
-			if pos and planar(pos, victimPos) <= G.ContactAloneRadius then
+			if pos and self.services.WorldService:Together(pos, victimPos, G.ContactAloneRadius) then
 				return false
 			end
 		end
@@ -1059,7 +1091,7 @@ function Stalk:_tells(now: number, ctx)
 		local foot = self.body.root.Position - Vector3.new(0, self.body.built.groundOffset, 0)
 		for _, player in self.services.PlayerStateService:RunPlayers() do
 			local pos = self.services.PlayerStateService:Position(player)
-			if pos and (pos - foot).Magnitude < 40 then
+			if pos and (pos - foot).Magnitude < self.services.WorldService:AudibleRadius(40, foot, pos) then
 				Net.get("GuestEvent"):FireClient(player, { kind = "creak", position = foot })
 			end
 		end
@@ -1119,7 +1151,12 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		self.sensedPos, self.sensedSeen = self:Known(self.target)
 		-- He's walked to where he last saw or heard them and they aren't
 		-- there: that clue is spent, and so is that room.
-		if self.sensedPos and not self.sensedSeen and planar(self.sensedPos, here) <= G.CheckedRadius then
+		if
+			self.sensedPos
+			and not self.sensedSeen
+			and planar(self.sensedPos, here) <= G.CheckedRadius
+			and math.abs(self.sensedPos.Y - here.Y) < 6
+		then
 			local m = self.service.perception.memory[self.target]
 			self.checkedAt[self.target] = m and m.t
 			local room = self.services.WorldService:RoomAt(self.sensedPos)
@@ -1144,11 +1181,14 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 			backAngle = SightMath.angle(look.X, look.Z, d.X, d.Z)
 		end
 	end
+	-- Walking distances: someone on the other floor is a staircase away.
+	local worldService = self.services.WorldService
 	local nearest, nearestDistance = nil, math.huge
 	for _, w in playerWatchers do
 		local pos = ps:Position(w)
-		if pos and planar(pos, here) < nearestDistance then
-			nearest, nearestDistance = w, planar(pos, here)
+		local d = pos and worldService:Separation(pos, here)
+		if d and d < nearestDistance then
+			nearest, nearestDistance = w, d
 		end
 	end
 	local ctx = {
@@ -1161,7 +1201,7 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		known = targetPos ~= nil,
 		seen = self.sensedSeen,
 		targetLook = look,
-		distance = targetPos and planar(targetPos, here) or math.huge,
+		distance = targetPos and worldService:Separation(targetPos, here) or math.huge,
 		backAngle = backAngle,
 		targetWatching = self.target ~= nil and table.find(playerWatchers, self.target) ~= nil,
 	}

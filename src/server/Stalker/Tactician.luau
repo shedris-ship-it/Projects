@@ -82,7 +82,8 @@ end
 local function nearestClosedDoor(services, position: Vector3, maxDistance: number)
 	local best, bestDistance = nil, maxDistance
 	for _, door in services.WorldService.World.doors do
-		if not door.open then
+		-- On the same floor: a door under your feet isn't near you.
+		if not door.open and math.abs(door.position.Y - position.Y) < 6 then
 			local d = (door.position - position).Magnitude
 			if d < bestDistance then
 				best, bestDistance = door, d
@@ -288,7 +289,8 @@ function Tactician:_plan(id: string, ctx)
 		local facing = ctx.memory.facing or Vector3.new(0, 0, -1)
 		local behind = memoryPos - Vector3.new(facing.X, 0, facing.Z).Unit * 10
 		local behindRoom = worldService:RoomAt(behind)
-		if behindRoom then
+		-- Somewhere he can stand: not inside furniture, not over the hall.
+		if behindRoom and services.StalkerService.bodyCtl:Fits(behind) then
 			moveTo(behind, stalk)
 		end
 		moveTo(memoryPos, run)

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.7",
-	note = "M3: the Guest walks by graph and navmesh, never through walls; F2 navtest, where, plan",
+	id = "2026-10-04.8",
+	note = "M3: smart retreat (backs out the best way, holds when cornered), floor-aware Guest, F2 navtest retreat",
 }

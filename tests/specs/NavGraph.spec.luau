@@ -143,6 +143,19 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("halfway up a flight, a point joins both ends of it", function()
+		for _, house in houses do
+			local graph = house.graph
+			for _, stair in graph.stairs do
+				local a, b = graph.nodes[stair.a], graph.nodes[stair.b]
+				-- A body's root halfway up: on the ramp's line, 4.6 above it.
+				local mid = { x = (a.x + b.x) / 2, y = (a.y + b.y) / 2 + 4.6, z = (a.z + b.z) / 2 }
+				local joined = NavGraph.attach(graph, mid, stair.room)
+				check.truthy(joined[stair.a] ~= nil and joined[stair.b] ~= nil, "mid-flight joins both ends")
+			end
+		end
+	end)
+
 	test("routes: found between any two rooms, never shorter than the straight line", function()
 		local rng = Rng.new(5)
 		for _, house in houses do

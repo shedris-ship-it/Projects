@@ -77,6 +77,7 @@ function NavGraph.build(layout, options)
 		rooms = {},
 		seams = {},
 		climbs = {},
+		stairs = {}, -- { a, b, room }: the flights, for joining points halfway up one
 		pitch = options.pitch,
 		options = options,
 	}
@@ -207,6 +208,9 @@ function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 	end
 	for _, l in shape.links do
 		addLink(ids[l.a], ids[l.b], l.stair and { stair = true } or nil)
+		if l.stair then
+			table.insert(graph.stairs, { a = ids[l.a], b = ids[l.b], room = room.id })
+		end
 	end
 	-- Where each doorway joins: [storey][line index] = { { t, node } }.
 	local joins = { [0] = {}, [1] = {} }
@@ -302,6 +306,29 @@ function NavGraph.attach(graph, point, roomId: number?)
 	end
 	if not any and nearest then
 		out[nearest] = nearestCost
+	end
+	-- Halfway up a flight: both ends, by way of the flight (the end above
+	-- or below may be too far up or down to count on its own).
+	for _, stair in graph.stairs do
+		if stair.room == roomId then
+			local a, b = graph.nodes[stair.a], graph.nodes[stair.b]
+			local dx, dy, dz = b.x - a.x, b.y - a.y, b.z - a.z
+			local length2 = dx * dx + dy * dy + dz * dz
+			local t = math.clamp(((point.x - a.x) * dx + (point.y - a.y) * dy + (point.z - a.z) * dz) / length2, 0, 1)
+			local p = { x = a.x + dx * t, y = a.y + dy * t, z = a.z + dz * t }
+			-- Roots stand a few studs above the ramp: measure across, not up.
+			local across = flatDistance(point, p)
+			local above = point.y - p.y
+			if t > 0 and t < 1 and across <= 3 and above >= -1 and above <= rise + 1 then
+				local length = math.sqrt(length2)
+				for _, end_ in { { stair.a, t * length }, { stair.b, (1 - t) * length } } do
+					local cost = end_[2] + across
+					if out[end_[1]] == nil or cost < out[end_[1]] then
+						out[end_[1]] = cost
+					end
+				end
+			end
+		end
 	end
 	return out
 end

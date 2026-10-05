@@ -204,6 +204,7 @@ local function toLayout(p: Vector3)
 	local o = Config.Level.Origin
 	return { x = p.X - o.x, y = p.Y - o.y, z = p.Z - o.z }
 end
+WorldService.ToLayout = toLayout
 
 local function fromLayout(p): Vector3
 	local o = Config.Level.Origin
@@ -434,6 +435,20 @@ function WorldService:RandomPointIn(roomId: number, rng): Vector3
 		-- along its walls. The hall's is in front of the staircase and a
 		-- stairwell's at the foot of its stairs, round its walkable centre.
 		if room.tall then
+			-- A point of the hall's or the stairwell's walk shape, on either
+			-- storey (the gallery, the upper landing): never over the void.
+			local nav = self.nav and self.nav.rooms[roomId]
+			local points = {}
+			for _, id in nav and nav.nodes or {} do
+				local node = self.nav.nodes[id]
+				if node.kind == "tall" and node.region ~= "landing" then
+					table.insert(points, node)
+				end
+			end
+			if #points > 0 then
+				local node = points[rng:NextInteger(1, #points)]
+				return fromLayout(node) + Vector3.new(rng:NextNumber(-1.5, 1.5), 0, rng:NextNumber(-1.5, 1.5))
+			end
 			return room.center + Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3))
 		end
 		local band = Config.Level.BandDepth

@@ -37,6 +37,7 @@ local StalkerModel = require(StalkerFolder.StalkerModel)
 local Body = require(StalkerFolder.Body)
 local Walker = require(StalkerFolder.Walker)
 local NavTest = require(StalkerFolder.NavTest)
+local Retreat = require(StalkerFolder.Retreat)
 local Perception = require(StalkerFolder.Perception)
 local Sight = require(StalkerFolder.Sight)
 local Stalk = require(StalkerFolder.Stalk)
@@ -152,6 +153,7 @@ function StalkerService:Begin(ctx)
 	self.tactician = Tactician.new(self.services, self.perception, archetype, self.rng:Fork("tactics"))
 	self.director = Director.new(self.services, self.rng:Fork("director"), ctx.difficulty)
 	self.stalk = Stalk.new(self)
+	self.retreat = Retreat.new(self)
 	self.mode = Modes.Dormant
 	self.tier = 0
 	self.final = false
@@ -495,12 +497,15 @@ end
 
 -- Helpers --------------------------------------------------------------------------
 
+-- Distances to players are walking distances (WorldService:Separation): a
+-- player on the floor above is a staircase away, not right here.
 function StalkerService:_minPlayerDistance(position: Vector3): number
 	local best = math.huge
+	local worldService = self.services.WorldService
 	for _, player in self.services.PlayerStateService:LivingPlayers() do
 		local pos = self.services.PlayerStateService:Position(player)
 		if pos then
-			best = math.min(best, (flat(pos) - flat(position)).Magnitude)
+			best = math.min(best, worldService:Separation(pos, position))
 		end
 	end
 	return best
@@ -508,10 +513,12 @@ end
 
 function StalkerService:_nearestPlayer(position: Vector3): Player?
 	local best, bestDistance = nil, math.huge
+	local worldService = self.services.WorldService
 	for _, player in self.services.PlayerStateService:LivingPlayers() do
 		local pos = self.services.PlayerStateService:Position(player)
-		if pos and (flat(pos) - flat(position)).Magnitude < bestDistance then
-			best, bestDistance = player, (flat(pos) - flat(position)).Magnitude
+		local d = pos and worldService:Separation(pos, position)
+		if d and d < bestDistance then
+			best, bestDistance = player, d
 		end
 	end
 	return best
@@ -538,47 +545,10 @@ local function playerPosition(services)
 	end
 end
 
--- Backing away, still facing `face` (or whoever is nearest): towards the
--- neighbouring room furthest from everyone. Called each tick while retreating.
+-- Backing away, still facing `face` (or whoever is nearest), to the best
+-- way out (Stalker/Retreat). Called each tick while retreating.
 function StalkerService:_backAwayStep(face: Player?)
-	local body = self.bodyCtl
-	local here = body.root.Position
-	local who = (face and face.Parent) and face or self:_nearestPlayer(here)
-	if who then
-		body:FacePlayer(who)
-		body:SetGaze(who)
-	end
-	body:SetPose(Poses.BackAway)
-	local worldService = self.services.WorldService
-	local now = os.clock()
-	if not self.backAwayGoal or now > (self.backAwayReplan or 0) or body:Arrived() then
-		self.backAwayReplan = now + 2
-		local best, bestDistance = nil, -1
-		local room = worldService:RoomAt(here)
-		local options = room and table.clone(worldService:Neighbours(room)) or {}
-		if room then
-			table.insert(options, room)
-		end
-		for _, id in options do
-			local centre = worldService:Room(id).center
-			local d = self:_minPlayerDistance(centre)
-			if id == room then
-				-- Its own room's far corner from the nearest player.
-				local pos = who and self.services.PlayerStateService:Position(who)
-				if pos then
-					centre = here + flat(here - pos).Unit * 8
-					d = self:_minPlayerDistance(centre) - 4
-				end
-			end
-			if d > bestDistance then
-				best, bestDistance = centre, d
-			end
-		end
-		self.backAwayGoal = best
-	end
-	if self.backAwayGoal then
-		body:Go(self.backAwayGoal, G.BackAwaySpeed)
-	end
+	self.retreat:Step(face)
 end
 
 -- Director (1 Hz) ------------------------------------------------------------------
@@ -656,7 +626,8 @@ function StalkerService:_scare(card)
 		local best, bestDistance = nil, 30
 		for _, door in services.WorldService.World.doors do
 			local d = (door.position - pos).Magnitude
-			if not door.open and d < bestDistance and d > 6 then
+			-- A door on your own floor (a knock through the ceiling isn't one).
+			if not door.open and d < bestDistance and d > 6 and math.abs(door.position.Y - pos.Y) < 6 then
 				best, bestDistance = door, d
 			end
 		end
@@ -677,7 +648,12 @@ function StalkerService:_scare(card)
 		})
 	elseif card.id == "doorSlam" then
 		for _, door in services.WorldService.World.doors do
-			if door.open and (door.position - pos).Magnitude < 40 and not self:_spotSeen(door.position) then
+			if
+				door.open
+				and (door.position - pos).Magnitude < 40
+				and math.abs(door.position.Y - pos.Y) < 6
+				and not self:_spotSeen(door.position)
+			then
 				services.DoorService:SetOpen(door, false, nil, true)
 				break
 			end
@@ -836,7 +812,8 @@ function StalkerService:_updateArrival(now: number)
 		table.insert(candidates, services.WorldService:RandomPointIn(id, self.rng))
 	end
 	for _, spot in candidates do
-		local floor = Vector3.new(spot.X, Config.Level.Origin.y, spot.Z)
+		-- On the storey the spot is on (he can come in upstairs).
+		local floor = Vector3.new(spot.X, services.WorldService:FloorBase(spot.Y), spot.Z)
 		if self.bodyCtl:Fits(floor) and not self:_spotSeen(floor) and self:_minPlayerDistance(floor) >= 15 then
 			local room = services.WorldService:RoomAt(floor)
 			local centre = room and services.WorldService:Room(room).center or floor + Vector3.new(0, 0, -1)
@@ -875,7 +852,7 @@ function StalkerService:_forceArrive()
 	for _, id in self.services.WorldService:RoomIds() do
 		local centre = self.services.WorldService:Room(id).center
 		local d = self:_minPlayerDistance(centre)
-		if d > bestDistance and not self:_spotSeen(centre) then
+		if d > bestDistance and not self:_spotSeen(centre) and self.bodyCtl:Fits(centre) then
 			best, bestDistance = centre, d
 		end
 	end
@@ -1007,8 +984,7 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 		data.plan = nil
 		data.chasing = chase
 		self.bodyCtl:SetGaze(chase)
-		local pos = services.PlayerStateService:Position(chase)
-		self:_walkTo(pos, speed, self:_lanternAvoid())
+		self:_walkTo(self:_leadPoint(chase), speed, self:_lanternAvoid())
 	else
 		if data.chasing then
 			data.chasing = nil
@@ -1022,6 +998,31 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 	if not self.final and now >= data.endsAt then
 		self:_endHunt()
 	end
+end
+
+-- Where a fleeing player he can see will be in a moment: he runs for that,
+-- not for where they were (cutting the corner they're about to take). Only
+-- a spot he could stand on, on their side of any wall.
+function StalkerService:_leadPoint(player: Player): Vector3
+	local services = self.services
+	local pos = services.PlayerStateService:Position(player)
+	local root = services.PlayerStateService:Root(player)
+	if not pos or not root then
+		return pos or self.bodyCtl.root.Position
+	end
+	local velocity = flat(root.AssemblyLinearVelocity)
+	if velocity.Magnitude < 2 then
+		return pos
+	end
+	local lead = pos + velocity * G.ChaseLead
+	if
+		services.WorldService:RoomAt(lead)
+		and services.WitnessService:ClearLine(pos, lead, { self.body.model })
+		and self.bodyCtl:Fits(lead)
+	then
+		return lead
+	end
+	return pos
 end
 
 function StalkerService:_runPlan(now: number, _dt: number, speed: number)
@@ -1148,7 +1149,7 @@ function StalkerService:_retreat(reason: string)
 	end
 	self.bodyCtl:CancelSpecial()
 	self.mode = reason == "resolved" and Modes.Departing or Modes.Retreating
-	self.backAwayGoal = nil
+	self.retreat:Reset()
 	self.data = {
 		untilT = now + G.BackAwayMaxSeconds,
 		unseenFor = 0,

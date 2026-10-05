@@ -100,6 +100,130 @@ function NavTest.where(service, player: Player): string
 	return table.concat(lines, "\n")
 end
 
+-- F2 `navtest retreat [n]`: n back-aways from awkward places (in front of a
+-- doorway, a room's corner, the gallery), each from a stand-in player six
+-- studs away towards the middle of the room. Counts phases (he crossed a
+-- wall), wall brushes (a wall came within reach of his back), corners held,
+-- and the distance he gained.
+function NavTest.retreat(service, args, report: (string) -> ()): string
+	local worldService = service.services.WorldService
+	local nav = worldService.nav
+	local body, walker = service.bodyCtl, service.navigator
+	local count = math.clamp(tonumber(args[3]) or 12, 1, 60)
+	local rng = Random.new(7)
+	-- Candidate spots, with the way into their room.
+	local spots = {}
+	for _, id in NavGraph.roomIds(nav) do
+		local room = nav.rooms[id]
+		local cx, cz = room.rect.x + room.rect.w / 2, room.rect.z + room.rect.d / 2
+		for _, nodeId in room.nodes do
+			local node = nav.nodes[nodeId]
+			if node.kind == "approach" or (node.kind == "tall" and node.region == "gallery") then
+				table.insert(spots, { node = node, cx = cx, cz = cz, label = node.kind })
+			end
+		end
+		if not room.tall then
+			-- A corner, 2.5 studs from both walls.
+			local hx, hz = room.rect.w / 2 - 3, room.rect.d / 2 - 3
+			local sx, sz = rng:NextInteger(0, 1) * 2 - 1, rng:NextInteger(0, 1) * 2 - 1
+			table.insert(spots, {
+				node = { x = cx + sx * hx, y = room.storey * nav.pitch, z = cz + sz * hz },
+				cx = cx,
+				cz = cz,
+				label = "corner",
+			})
+		end
+	end
+	service.navTesting = true
+	service.debugHold = true
+	service.parked = false
+	service.arrived = true
+	service:_setVisible("all")
+	task.spawn(function()
+		local ok, err = pcall(function()
+			walker.allowNudge = false
+			local phases0, brushes0 = body.phases, body.backBlocks
+			local episodes, held, gained, skipped = 0, 0, 0, 0
+			local byKind = {}
+			for _ = 1, count * 4 do
+				if episodes >= count or not service.navTesting then
+					break
+				end
+				local spot = spots[rng:NextInteger(1, #spots)]
+				local position = worldService.FromLayout(spot.node)
+				if body:Fits(position) then
+					local toward = Vector3.new(spot.cx - spot.node.x, 0, spot.cz - spot.node.z)
+					toward = toward.Magnitude > 0.1 and toward.Unit or Vector3.new(0, 0, 1)
+					local stand = position + toward * 6 + Vector3.new(0, 3, 0)
+					body:Place(position, stand)
+					service.retreat:Reset()
+					task.wait(0.3)
+					local start = worldService:Separation(stand, body.root.Position)
+					local brushes = body.backBlocks
+					local phases = body.phases
+					local began = os.clock()
+					while os.clock() - began < 6 and service.navTesting do
+						service.retreat:Step(nil, { stand })
+						task.wait(0.1)
+					end
+					local gain = worldService:Separation(stand, body.root.Position) - start
+					local cornered = service.retreat:Cornered()
+					episodes += 1
+					gained += gain
+					if cornered then
+						held += 1
+					end
+					local kind = byKind[spot.label] or { n = 0, brushes = 0, phases = 0 }
+					kind.n += 1
+					kind.brushes += body.backBlocks - brushes
+					kind.phases += body.phases - phases
+					byKind[spot.label] = kind
+					print(
+						string.format(
+							"[navtest] retreat from %-9s %s: gained %.1f studs%s, %d wall brushes, %d phases",
+							spot.label,
+							worldService:Room(worldService:RoomAt(position) or 0)
+									and worldService:Room(worldService:RoomAt(position)).name
+								or "?",
+							gain,
+							cornered and " (held: cornered)" or "",
+							body.backBlocks - brushes,
+							body.phases - phases
+						)
+					)
+				else
+					skipped += 1
+				end
+			end
+			body:Hold()
+			body:SetPose(Poses.Idle)
+			local kinds = {}
+			for label, kind in byKind do
+				table.insert(kinds, string.format("%s %d (%d brushes)", label, kind.n, kind.brushes))
+			end
+			table.sort(kinds)
+			local summary = string.format(
+				"navtest retreat: %d back-aways · %d phases · %d wall brushes · %d held when cornered · %.1f studs gained on average · %s",
+				episodes,
+				body.phases - phases0,
+				body.backBlocks - brushes0,
+				held,
+				episodes > 0 and gained / episodes or 0,
+				table.concat(kinds, ", ")
+			)
+			print("[Consensus] " .. summary)
+			report(summary)
+		end)
+		walker.allowNudge = true
+		service.navTesting = false
+		if not ok then
+			warn("[Consensus] navtest retreat failed: " .. tostring(err))
+			report("navtest retreat failed: " .. tostring(err))
+		end
+	end)
+	return string.format("navtest retreat: %d back-aways; results in Output", count)
+end
+
 -- F2 `navtest [fast]`.
 function NavTest.run(service, args, report: (string) -> ()): string
 	if not service.active or not service.body then
@@ -115,6 +239,9 @@ function NavTest.run(service, args, report: (string) -> ()): string
 	local worldService = service.services.WorldService
 	if not worldService.nav or not worldService.World then
 		return "no house built"
+	end
+	if args[2] == "retreat" then
+		return NavTest.retreat(service, args, report)
 	end
 	local fast = args[2] == "fast" or args[4] == "fast"
 	local speed = fast and 19 or 8

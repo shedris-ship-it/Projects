@@ -20,6 +20,7 @@ RetreatPlan.Weights = {
 	Toward = 18, -- his first step heads towards a player (per unit of cosine)
 	Walk = 0.15, -- per stud he walks
 	PassClear = 5, -- a way that passes closer than this to anyone isn't a way out
+	Keep = 8, -- the spot he's already heading for: a new one must beat it by this much
 	Cornered = 4, -- the best spot must beat standing still by this much
 }
 
@@ -46,7 +47,8 @@ end
 -- me:      { point, room, dist, parent } (dist and parent from NavGraph.search
 --          from him)
 -- players: { { point, room, dist } } (dist from NavGraph.distancesFrom)
--- options: { budget (studs he may walk), doorways = RetreatPlan.doorways(graph) }
+-- options: { budget (studs he may walk), doorways = RetreatPlan.doorways(graph),
+--            keep = the node he's already heading for (no dithering) }
 -- Returns { node, score, safety, here, cornered }, or nil if he can't move.
 function RetreatPlan.choose(graph, me, players, options)
 	local W = RetreatPlan.Weights
@@ -130,6 +132,7 @@ function RetreatPlan.choose(graph, me, players, options)
 				- (deadEnd and W.DeadEnd or 0)
 				- W.Toward * toward
 				- W.Walk * walked
+				+ (node == options.keep and W.Keep or 0)
 			if
 				best == nil
 				or score > best.score + 1e-9
