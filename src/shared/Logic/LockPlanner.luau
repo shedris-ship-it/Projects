@@ -19,9 +19,10 @@
 --   order      the regions in the order they open (not counting 0)
 --   locks      [seam id] = { kind = a gate kind (LockPlanner.Gates) | "bolt",
 --              needs = { token }?, side = room id (a bolt opens from there; a
---              gate with `side` is worked from there), region, inside }
+--              gate with `side` is worked from there), region, inside,
+--              mark = a mark (Data/Marks) on a door that takes something found }
 --   tokens     [token id] = { kind = "key" | "code" | "heirloom" | ..., opens = seam id?,
---              label, producer = { kind = "container", room } | { kind = "puzzle", id }
+--              label, mark?, producer = { kind = "container", room } | { kind = "puzzle", id }
 --              | { kind = <a producer kind>, rooms = { room ids } } }
 --   puzzles    [puzzle id] = { kind = "terminal" | ..., room, seed }
 --   finale     { table = room id, heirlooms = { token ids }, cut = { seam ids }, goal = room id }
@@ -37,6 +38,7 @@ local Dumbwaiter = require(script.Parent.Dumbwaiter)
 local Graph = require(script.Parent.Graph)
 local MansionHouse = require(script.Parent.MansionHouse)
 local Interactables = require(script.Parent.Parent.Data.Interactables)
+local Marks = require(script.Parent.Parent.Data.Marks)
 local Props = require(script.Parent.Parent.Data.Props)
 
 local LockPlanner = {}
@@ -256,7 +258,8 @@ LockPlanner.Keepers = {
 -- kind is switched on). Each entry:
 --   token      the token kind that opens it (nil: nothing to find)
 --   puzzle     the puzzle that makes the token, standing in a room `where` allows
---   label      the token's label, from the name of the room behind the gate
+--   label      the token's label, from the door's mark (never the room behind
+--              it, which nobody has seen: docs/plans/level-design.md section 11)
 --   side       worked from its outer side (a crank), with no token
 --   count      tokens it needs (the double lock: two keys, kept far apart)
 --   available  (ctx, gate seam) -> boolean, for kinds that need a particular doorway
@@ -274,7 +277,7 @@ LockPlanner.Gates = {
 		puzzle = "terminal",
 		where = "desk",
 		label = function(name)
-			return "The code for the padlock on the " .. name .. " door"
+			return "The code for the " .. name .. " padlock"
 		end,
 	},
 	-- An electric lock, powered from the fuse box (Logic/Puzzles/Breaker).
@@ -505,11 +508,6 @@ local function regionNeighbours(ctx, roomRegion)
 	return neighbours
 end
 
-local function roomName(ctx, id: number): string
-	local template = ctx.templatesById[ctx.byId[id].template]
-	return template and template.name or ("room " .. id)
-end
-
 -- A room in `region` to keep something in, favouring rooms with furniture to
 -- keep it in, never the dining room. In the mansion, a room with no reason
 -- of its own to go in comes first (what's kept there becomes its reason),
@@ -639,6 +637,14 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 	}
 	local counts = {} -- token kind -> how many so far
 	local usedPuzzles = {} -- puzzle kind -> true once one stands in the house
+	-- Marks (docs/plans/level-design.md section 11): every door that takes
+	-- something found gets its own, drawn from a fork of their own so nothing
+	-- else about the plan changes.
+	local marks = rng:Fork("marks"):Shuffle(table.clone(Marks.Ids))
+	local marked = 0
+	-- The regions that must be open before each one can be (its door's side
+	-- and wherever what opens it lies, and theirs in turn).
+	local behind = { [0] = {} }
 	local enabled = cfg.Enabled or {}
 	-- What the run's adventure wants (a mansion's programme; nothing else).
 	local deck = ctx.layout.programme and ctx.layout.programme.deck or {}
@@ -678,28 +684,38 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			end)
 		end
 		local inside = roomRegion[gate.a] == r and gate.a or gate.b
+		local outer = inside == gate.a and gate.b or gate.a
 		regions[r].gate = gate.id
 		-- What opens it, made somewhere already open (the region just before by
-		-- preference; as the wings planned it).
-		local earlier = {}
+		-- preference; as the wings planned it), and never before the door can
+		-- be seen: lock first (docs/plans/level-design.md section 11), so
+		-- whoever finds it already knows a door it might fit. A key kept beside
+		-- a backtrack's bolted door, with its real door in a wing not yet open,
+		-- left a playtest stuck holding a key for a door nobody had seen. Only
+		-- regions that can't open before the door's own do (not merely later
+		-- in this order: a squad may open wings in another).
+		local doorRegion = roomRegion[outer]
+		local function seen(region: number): boolean
+			return position[region] < index and (region == doorRegion or behind[region][doorRegion] == true)
+		end
+		local afterDoor = {}
 		for _, id in ctx.ids do
-			if position[roomRegion[id]] < index then
-				table.insert(earlier, id)
+			if seen(roomRegion[id]) then
+				table.insert(afterDoor, id)
 			end
 		end
 		local nearRooms, walk
 		if wings then
 			local keyRegion = wings.keyRegion[r]
-			nearRooms = keyRegion and regions[keyRegion].rooms or earlier
+			nearRooms = (keyRegion and seen(keyRegion)) and regions[keyRegion].rooms or afterDoor
 			-- Walking studs from the door, over what's open by now.
-			local outer = inside == gate.a and gate.b or gate.a
 			walk = ctx.walker(outer, function(seam)
 				return seam.connected == true
 					and position[roomRegion[seam.a]] < index
 					and position[roomRegion[seam.b]] < index
 			end)
 		else
-			nearRooms = rng:Chance(cfg.NearProducer) and regions[previous].rooms or earlier
+			nearRooms = (rng:Chance(cfg.NearProducer) and seen(previous)) and regions[previous].rooms or afterDoor
 		end
 		-- The kinds this gate could be: the key always, and every other kind
 		-- switched on that fits here (its puzzle has somewhere already open to
@@ -723,6 +739,16 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 							end
 						end
 						if #rooms > 0 then
+							-- Lock first: a puzzle that could only stand where its door
+							-- can't be seen yet is drawn less (its code or power is for
+							-- a door nobody knows; the mark still tells them later).
+							local anySeen = false
+							for _, id in rooms do
+								anySeen = anySeen or seen(roomRegion[id])
+							end
+							if not anySeen then
+								weight *= cfg.UnseenStation or 1
+							end
 							table.insert(options, { gate = kind, weight = weight, rooms = rooms })
 						end
 					end
@@ -748,6 +774,12 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 		end
 		local kind = choice.gate
 		local needs = nil
+		local mark = nil
+		if kind.token then
+			marked += 1
+			mark = marks[(marked - 1) % #marks + 1]
+		end
+		local markName = mark and Marks.ById[mark].name or "plain"
 		if kind.token and kind.count then
 			-- Several of one token, each kept somewhere else: the second a long
 			-- walk from the first.
@@ -767,7 +799,7 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 				local room = keepingRoom(
 					ctx,
 					rng,
-					n == 1 and nearRooms or earlier,
+					n == 1 and nearRooms or afterDoor,
 					first and { [first] = true } or nil,
 					nil,
 					apart,
@@ -778,7 +810,8 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 				plan.tokens[token] = {
 					kind = kind.token,
 					opens = gate.id,
-					label = kind.label(roomName(ctx, inside)) .. " (one of " .. kind.count .. ")",
+					mark = mark,
+					label = kind.label(markName) .. " (one of " .. kind.count .. ")",
 					producer = { kind = "container", room = room },
 				}
 				table.insert(needs, token)
@@ -789,9 +822,16 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			local producer
 			if kind.puzzle then
 				local puzzleId = kind.puzzle .. ":1"
+				-- Lock first for a puzzle too, where it has a choice.
+				local suited = {}
+				for _, id in choice.rooms do
+					if seen(roomRegion[id]) then
+						table.insert(suited, id)
+					end
+				end
 				plan.puzzles[puzzleId] = {
 					kind = kind.puzzle,
-					room = stationRoom(ctx, rng, choice.rooms),
+					room = stationRoom(ctx, rng, #suited > 0 and suited or choice.rooms),
 					seed = rng:NextInteger(1, 2 ^ 30),
 				}
 				plan.stats.puzzles += 1
@@ -809,7 +849,8 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			plan.tokens[token] = {
 				kind = kind.token,
 				opens = gate.id,
-				label = kind.label(roomName(ctx, inside)),
+				mark = mark,
+				label = kind.label(markName),
 				producer = producer,
 			}
 			needs = { token }
@@ -819,8 +860,22 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			needs = needs,
 			region = r,
 			inside = inside,
-			side = kind.side and (inside == gate.a and gate.b or gate.a) or nil,
+			mark = mark,
+			side = kind.side and outer or nil,
 		}
+		-- What must be open before this region can be.
+		local before = table.clone(behind[doorRegion])
+		before[doorRegion] = true
+		for _, need in needs or {} do
+			for _, room in LockPlanner.producerRooms(plan, plan.tokens[need]) do
+				local t = roomRegion[room]
+				before[t] = true
+				for x in behind[t] do
+					before[x] = true
+				end
+			end
+		end
+		behind[r] = before
 		-- Every other way in is bolted on this side: a shortcut once you're in.
 		for _, seam in boundary do
 			if seam ~= gate then

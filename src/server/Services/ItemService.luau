@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Rooms = require(Shared.Data.Rooms)
@@ -226,7 +227,7 @@ function ItemService:_make(token: string, at: CFrame)
 	local folder = self.World.content
 	local model
 	if info.kind == "key" then
-		model = Items.key(at, info.label, folder)
+		model = Items.key(at, info.label, folder, Marks.glyph(info.mark))
 	elseif info.kind == "heirloom" then
 		model = Items.heirloom(self.heirloomKinds[token].id, at, folder)
 	else
@@ -430,7 +431,7 @@ function ItemService:_placeDisplay(token: string?, room: number, rng): boolean
 	if token then
 		local info = self.plan.tokens[token]
 		if info.kind == "key" then
-			shown = Items.key(inside, info.label, model)
+			shown = Items.key(inside, info.label, model, Marks.glyph(info.mark))
 		else
 			shown = Items.heirloom(self.heirloomKinds[token].id, inside, model)
 		end

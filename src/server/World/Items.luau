@@ -38,8 +38,9 @@ end
 
 local Items = {}
 
--- A brass key with a paper tag saying which door (`label`), lying at `at`.
-function Items.key(at: CFrame, label: string, parent: Instance): Model
+-- A brass key with a paper tag saying which door (`label`, with its mark's
+-- `glyph`: docs/plans/level-design.md section 11), lying at `at`.
+function Items.key(at: CFrame, label: string, parent: Instance, glyph: string?): Model
 	local model = Instance.new("Model")
 	model.Name = "Key"
 	part(model, "Bow", Vector3.new(0.06, 0.32, 0.32), at * CFrame.new(-0.28, 0.03, 0) * UPRIGHT, BRASS, metal(), {
@@ -58,7 +59,7 @@ function Items.key(at: CFrame, label: string, parent: Instance): Model
 		PropFactory.material("Fabric"),
 		FLAT
 	)
-	tagText(tag, label)
+	tagText(tag, (glyph and glyph ~= "") and (glyph .. " " .. label) or label)
 	model.Parent = parent
 	return model
 end

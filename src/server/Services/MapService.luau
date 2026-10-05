@@ -20,6 +20,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 
 local M = Config.Map
@@ -89,6 +90,10 @@ function MapService:_seeDoor(seamId: string, tried: boolean?, close: boolean?)
 	end
 	if (tried or close) and not door.known then
 		door.known = true
+		-- A locked door's place, for the journal's keys and the objective line.
+		if self.Locks.locks[seamId] then
+			self.Finale:DoorKnown(seamId)
+		end
 	end
 end
 
@@ -182,8 +187,10 @@ function MapService:State()
 		elseif entry and not entry.open and not door.open then
 			if door.known then
 				kind = entry.lock.kind
-				if kind ~= "bolt" then
-					label = self.World:Room(entry.lock.inside or seam.b).name
+				-- Its mark, never the room behind it (nobody has seen that).
+				local mark = entry.lock.mark and Marks.ById[entry.lock.mark]
+				if mark then
+					label = mark.glyph .. " " .. mark.name
 				end
 			else
 				kind = "unknown" -- a door nobody has tried: it might be locked

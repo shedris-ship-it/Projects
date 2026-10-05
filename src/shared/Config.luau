@@ -877,6 +877,10 @@ Config.Progression = {
 	LoopBonus = 2.5, -- region 0 favours rooms that close a loop
 	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
 	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
+	-- A puzzle gate whose station could only stand where its door can't be
+	-- seen yet is drawn this much less (lock first: docs/plans/level-design.md
+	-- section 11).
+	UnseenStation = 0.3,
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
 	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
@@ -932,6 +936,11 @@ Config.LevelDesign = {
 		corridorTokens = { band = { 0, 0 }, weight = 1 },
 		heirloomRegions = { band = { 2, 9 }, weight = 2 },
 		keyWalkMin = { band = { 40, math.huge }, weight = 1, scale = 20 }, -- a key is never right by its door
+		-- Lock first (docs/plans/level-design.md section 11): the share of keys,
+		-- codes and power found once their door could be seen, and the studs
+		-- walked holding one whose door nobody has seen.
+		lockFirst = { band = { 0.6, 1 }, bySquad = { { 0.7, 1 } }, weight = 3, scale = 0.1 },
+		heldKeyBlind = { band = { 0, 0 }, weight = 1, scale = 100 },
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)
@@ -958,6 +967,13 @@ Config.LevelDesign = {
 
 Config.Mansion.Wings.Stage = Config.Progression
 Config.Mansion.Programme.Enabled = Config.Progression.Enabled
+
+-- The marks on keys and lock plates (Data/Marks, docs/plans/level-design.md
+-- section 11): a brass disc above the lock on both faces of a door.
+Config.Marks = {
+	DiscSize = 0.8, -- studs across: readable at about 6 studs by torchlight
+	DiscHeight = 1.7, -- above the plate's centre line (stays on a glazed door's solid part)
+}
 
 -- How keys and heirlooms are found (R2c "leads, not rummaging"; Logic/Leads,
 -- Services/ItemService): a note that says where, a keepsake box, a locked

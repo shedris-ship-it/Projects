@@ -1,6 +1,6 @@
 # The house as a designed level
 
-Status (2026-10-05): **L0 and L1 done** (builds `2026-10-05.25` to `.30`; section 9, "L1 as built"). The adventure now decides where the doors, wings and shortcuts go; the house follows the squad's size; every room's reason is counted and filled; and each run is the best of 12 candidate houses. **L2 done** (builds `2026-10-05.32` to `.38`, section 10): storeys from the cellar to the attic; the cellar and the attic, each a locked wing of its own on top of the squad's; servants' passages behind hidden doors; the laundry chute; corridor closets, glazed gates and archways; house types. The owner chose L2 before the squad playtest ("continue with L2", 2026-10-05). **Next: the squad playtest** (`TESTING.md` TC-68 on, TC-90 to TC-99), then L3–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
+Status (2026-10-05): **L0 and L1 done** (builds `2026-10-05.25` to `.30`; section 9, "L1 as built"). The adventure now decides where the doors, wings and shortcuts go; the house follows the squad's size; every room's reason is counted and filled; and each run is the best of 12 candidate houses. **L2 done** (builds `2026-10-05.32` to `.38`, section 10): storeys from the cellar to the attic; the cellar and the attic, each a locked wing of its own on top of the squad's; servants' passages behind hidden doors; the laundry chute; corridor closets, glazed gates and archways; house types. The owner chose L2 before the squad playtest ("continue with L2", 2026-10-05). The owner's first playtest of it (solo, build `.38`) got stuck holding the right key at the wrong door; **L3 now** (section 11, the owner's choice of 2026-10-05): Resident Evil's level design made ours, starting with **L3.0 done** (build `.39`: marks on keys and doors, lock first, clearer locks). Then the squad playtest after L3.3 (`TESTING.md` TC-68 on, TC-90 to TC-102), and L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
 
 ## 1. Why
 
@@ -304,3 +304,144 @@ Done before the house types (10.6), which change the generator the most.
 - **Studio** (one client): seed 5 for four (a courtyard house, 28 rooms, 5 wings): built in 0.11 s, the search 1.4 s, clean console; `navtest fast` 34 legs, 0 failed, 0 stuck. The old house's code wasn't touched (Gate A last checked at L2.7). An aerial screenshot didn't read (depth of field); the printed plans show the shapes.
 - **The fallback re-frozen** (`tools/plan 61 mansion freeze 2`, which now keeps the wings, the passages, the chute and the house type): seed 61 for two players, a centre plan with an attic, a passage and a chute.
 - **Not done from the plan:** the H and the tower stair (the hall must touch the front line, which an H's recessed middle doesn't); windows that look across the courtyard at the far wing (the windows show the night outside, not the house); the search keeping consecutive runs from repeating a type (each house draws its own).
+
+## 11. L3 with Resident Evil's level design, made ours (plan approved 2026-10-05)
+
+### 11.0 Why: the first playtest of the level design
+The owner played build `.38` solo (seed 165547210, squad 1: 21 rooms, three wings, the attic). The level design "feels much more dynamic and advanced than before, the game actually feels like its getting somewhere". They got stuck at "an inaccessible doorway to one of the wings ... the door didn't budge". Read from their running session, it was a legibility failure, five faults stacked:
+
+1. **The key named a room nobody had seen.** It was the "Service Passage key", named after the room *behind* its door. Its door, at the foot of the back stairs, gave no clue which key it wanted.
+2. **The key was in the wrong wing.** The backtrack beat kept it in the starting wing beside the bolted dining→kitchen door, while its real door was in a wing not yet open (`Wings.realise`: `keyRegion[r] = parentRegion[r]`).
+3. **The message didn't help.** Trying the attic door with that key said only "Locked. It needs a key."
+4. **The objective line pointed at the wrong door.** It kept only the last locked door tried, named by the room behind it ("The Attic Stairs door is locked").
+5. **A safe in the locked attic was "seen" through the ceiling.** A station counted as seen within 14 studs in a straight line, so the line pointed into a wing they couldn't reach.
+
+They held the right key, stood at the wrong door, and never went down the back stairs.
+
+The owner then asked for ideas from Resident Evil's level design, bundled with L3, each working with the systems we have (locks, the planner's stages, noise and lures, the map, hiding, call-outs) and giving the squad a reason to split up and talk. The game should keep its own identity, never a clone. The rules:
+- never a key behind its own lock;
+- no dead ends deeper than now;
+- scales with the squad;
+- measured with `housestats` and the scorecard.
+
+### 11.1 What's in and what's out
+
+| Idea | Verdict | How it plays here |
+| --- | --- | --- |
+| Keys with a mark, not a label | **In, first** (L3.0) | Every key, and every lock plate on both faces, carries one mark. Describing a mark is talking: "mine has scissors on it". |
+| Lock before key (RE's core rule) | **In** (L3.0) | A key lies in the wing where its door is first seen, or one that can only open after it. |
+| Tool locks | **In, the centrepiece** (L3.3) | The crowbar pries boarded doorways: slow, a screech a plank, pausable. Bolt cutters cut chains on cupboards, chests and doors: quick, one loud snap. Loud work wants a lookout, and two watchers freeze him. RE has nothing like it. |
+| Reusable keys | **In, as one house key a run** (L3.2) | Its mark repeats on its own gate and on 1–2 locked side rooms (pockets) in older wings, seen earlier. It's never used up, and drops off the ring when its last door is open. |
+| Steps inside a wing | **In, light** (L3.4) | Three or four players, wings of 5+ rooms. The prize sits in a pocket whose opener (a tool, the house key, the fuse box, a crank) is in the wing's other branch or the parallel wing. Never a second key hunt. |
+| The map marks rooms with nothing left | **In** (L3.5) | A tick once someone has been in and everything the run needs from it is taken; a circle where something is seen but not done. |
+| Peek before you can get in | **In** (L3.3, L3.5) | Gaps between the boards and glazed gates show what's inside. The house plans in the study draw one floor's outline for everyone. |
+| Two halves | **Out** | The double lock already sends two people to two far rooms for one door. Joining halves adds an inventory step and no new talk. |
+| Item box, typewriter saves, ammo, combining items | **Out** | Solo inventory management, or fights the co-op loop. |
+
+**Identity, what makes it ours:**
+- Nobody fights; everybody talks.
+- Silence is what progress costs (RE spends ammo).
+- Watching is a job.
+- The keys belong to the family: L3.1 makes the marks family members' charms, and the heirlooms set at his table are theirs.
+- Our own words: marks, tags, boards, chains; never emblems, crests or spade keys.
+
+### 11.2 Phases
+1. **L3.0** The stuck fix: marks, lock first, messages, the objective line, stations, the map and journal (11.5).
+2. **L3.1** The family (`Logic/Family`): members, names, rooms, mark, heirloom; notes written in their own voice that mention their mark.
+3. **L3.2** Pockets and the house key:
+   - A pocket is a leaf room (one doorway) in an older wing, or a cupboard or chest, shut by the house key's mark, boards or a chain.
+   - At least one pocket a house holds something the run needs.
+   - The solver treats a pocket as a lock; its opener is never used up.
+4. **L3.3** Tools:
+   - Crowbar and BoltCutters in `Data/Tools`, homed on workbenches and in the garage or the cellar.
+   - Boards and chains are new lock kinds; their rules live in `Logic/ToolLocks` (pausable progress, noise per plank or snap).
+   - A tool can go down the laundry chute to a friend.
+5. **L3.4** Steps inside a wing (three or four players).
+6. **L3.5** The map that saves time: cleared ticks, unfinished circles, the house plans, who carries which key.
+7. **L3.6** The rest of L3 as planned:
+   - furniture laid out for play (the old M4);
+   - landmarks at junctions;
+   - the room options of section 4;
+   - photos and drawings.
+
+The owner's solo retest follows L3.0, and the squad playtest follows L3.3 (Gate 2 still hasn't been passed).
+
+### 11.3 Solo against four
+
+|  | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- |
+| Marks; lock first (`lockFirst` band) | ≥ 0.7 | ≥ 0.6 | ≥ 0.6 | ≥ 0.6 |
+| House key's extra doors | 1, about half of runs | 1 | 1–2 | 2 |
+| Tools a run | 1 | 1 | 2 | 2 |
+| Tool locks | 1–2 | 2 | 2–3 | 3–4 |
+| Pockets | 1–2 | 2–3 | 3–4 | 4–5 |
+| Steps inside a wing | none | none | ≤ 1 | ≤ 2 |
+| Prying | about 4 s | about 6 s | about 6 s | about 6 s |
+
+- **Solo:** shorter and fewer pockets; prying is shorter and pausable, with a hiding spot near every tool lock, because one player can't freeze him. Legibility matters most solo, with nobody to ask.
+- **Four:**
+  - both tools in a run, so the squad splits up to fetch them;
+  - one pries while another watches;
+  - the house key sends someone back through old wings;
+  - inner steps sit across parallel wings, so groups trade openers by talking.
+
+### 11.4 Fairness and measurement
+- **The solver opens everything**, reusable keys and tools included, and no opener lies behind a lock that needs it.
+- **Pockets are leaves:** every stage's `checkShape` holds (dead ends ≤ 3, region 0's loop ≥ 100 studs).
+- **Every lock shows what it wants from both faces**, and no key is named after a room.
+- **The objective line never names a room nobody has entered.**
+- **A hiding spot lies within reach of every tool lock.**
+- **The old house's builder is untouched** (Gate A).
+- **New scorecard lines:** `lockFirst` and `heldKeyBlind` (L3.0); `pockets`, `pocketReturns`, `houseKeyDoors`, `toolLocks` and `wingSteps` (later).
+
+### 11.5 L3.0 as built (build `2026-10-05.39`)
+- **Marks** (`Data/Marks`): star ★, sun ☀, flower ✿, note ♪, umbrella ☂, phone ☎, scissors ✂, heart ♥, cloud ☁.
+  - Things a 1988 house is full of, easy to say.
+  - Each is a plain text glyph that Roblox draws in one colour. Checked in Studio: the moon, the chess pieces and the anchor came out as empty boxes or coloured emoji, so they're out.
+- **Where they come from:** `LockPlanner` gives every door that takes something found (a key, a double lock, a padlock, power) its own mark, drawn from a fork of its own so nothing else about a plan changes. The token carries the same mark, and labels come from it: "phone key", "The code for the note padlock", "Power for the sun door".
+- **Where they show:**
+  - `LockService` engraves the mark on a brass plaque above the lock on both faces (`Config.Marks`). It sits on a glazed door's solid part too.
+  - The key's paper tag shows it.
+  - The ring reads "🔑 ☎ phone key".
+  - The fuse box labels the door's breaker "☎ PHONE DOOR".
+  - Mom's fuse-box note says "the door with the phone on it".
+  - The map labels a known lock by its mark, no longer by the room behind it.
+- **Messages** (`LockService:_keyRefusal`):
+  - with the wrong key: "Your umbrella key doesn't fit. This lock has a sun."
+  - with several keys: "None of your keys fit. ..."
+  - with none: "Locked. There's a sun on the plate."
+  - Padlocks, power and the double lock name their mark too.
+  - Bolts: "Bolted from the other side. There must be another way round."
+- **The objective line** (`Logic/Objectives.lockLine`, `FinaleService`). It gives one sentence about locks, the first that applies:
+  1. a key someone holds whose door has been tried or seen up close: "The sun key fits the door in the Back Stairs, on the ground floor." (A stairwell's storey is named.)
+  2. a key whose door nobody has found: "Somewhere there's a door with an umbrella on it."
+  3. the newest locked door tried and not yet open, named by its mark and the room it's seen from: "The note door in the Upper Hall has a padlock."
+  Doors are never named by the room behind them.
+- **The journal:** each key on your ring says "Its door: in the Back Stairs, on the ground floor" or "not found yet".
+- **Stations** (puzzles, cases, cranks) count as seen only by someone in their own room and within 14 studs.
+- **Lock first** (`LockPlanner`, both the wings and the grown regions):
+  - A key, or a double lock's keys, lies only in a region that can't open before the region its door is seen from: that region, or one whose opening needs it (its door's side, where what opens it lies, and so on). Being merely later in the plan's order isn't enough, because a squad may open wings in another order.
+  - A puzzle's station goes on the same side where it can; a puzzle gate whose station can't is drawn ×0.3 (`Config.Progression.UnseenStation`).
+- **Measured** (`HouseMetrics`):
+  - `lockFirst`: the share of keys, codes and power found while their door's region was open.
+  - `heldKeyBlind`: the studs walked holding one before its door's region opened.
+
+  Single houses, 30 seeds, holding a key found before its door could be seen:
+
+  | Squad | Before | After |
+  | --- | --- | --- |
+  | 1 | 3 houses | 1 |
+  | 4 | 6 houses | 1 |
+
+  The ones left are puzzle codes with no room on the door's side. Searched houses: all 30 solo houses and 28 of 30 four-player houses have none. The playtest house now keeps the sun key (the service passage's) in the playroom, the same wing as its door.
+- **Studio** (one client, seed 165547210 for one):
+  - clean consoles;
+  - the plaques drawn and readable (screenshot);
+  - `give key:2` then trying the sun door: "Your umbrella key doesn't fit. This lock has a sun.", and the line "Somewhere there's a door with an umbrella on it.";
+  - `give key:1`: the line "The sun key fits the door in the Back Stairs, on the ground floor.", the journal entry the same, and "The sun key turns." at the door;
+  - standing where the owner saw the attic's safe through the ceiling: no safe in the line;
+  - `navtest room 14` (the long upper hall where he was nudged six times in the playtest): 0 stuck, 0 side-steps.
+- **Not done or open:**
+  - The six nudges didn't reproduce. They came while he closed in on the owner hiding in a corridor closet; watch for `GuestNudge` near closets.
+  - Two clients.
+  - The owner's retest (TC-100 to TC-102).

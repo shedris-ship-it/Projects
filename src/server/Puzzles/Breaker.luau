@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Breaker = require(Shared.Logic.Puzzles.Breaker)
 local Circuits = require(Shared.Logic.Circuits)
 local Config = require(Shared.Config)
+local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
 local RoomRects = require(Shared.Logic.RoomRects)
@@ -59,15 +60,19 @@ function Kind.create(service, id: string, puzzle)
 	local rng = Rng.new(puzzle.seed)
 	local wiring = Circuits.plan(roomsOf(world), world.layout.start, world.layout.deliberation, rng:Fork("circuits"), B)
 	-- The door it powers: the gate whose token this panel makes.
-	local seamId, inside
+	local seamId, inside, mark
 	for _, token in plan.tokens do
 		if token.producer.kind == "puzzle" and token.producer.id == id and token.opens then
 			seamId = token.opens
 			inside = plan.locks[seamId] and plan.locks[seamId].inside
+			mark = token.mark and Marks.ById[token.mark]
 		end
 	end
 	local gate = inside and wiring.roomCircuit[inside] or 2
-	local gateName = string.upper(inside and service.World:Room(inside).name or "DOOR")
+	-- Its breaker is labelled by the door's mark, as the door's plate is (the
+	-- room behind it is one nobody has seen: docs/plans/level-design.md 11).
+	local gateName = mark and (mark.glyph .. " " .. string.upper(mark.name) .. " DOOR")
+		or string.upper(inside and service.World:Room(inside).name or "DOOR")
 	-- Labels: each breaker's own, never another's by mistake (the planted
 	-- mistakes are Breaker.generate's).
 	local labels, used = {}, {}
@@ -207,9 +212,12 @@ function Kind.hint(service, session, rng)
 		return
 	end
 	local items = service.services.ItemService
-	local where = items:RoomPhrase(lock.inside)
+	-- The door by its mark, as its plate shows it (the room behind it is one
+	-- nobody has seen yet).
+	local mark = lock.mark and Marks.ById[lock.mark]
+	local where = mark and ("the door with the " .. mark.name .. " on it") or (items:RoomPhrase(lock.inside) .. " door")
 	local text = string.format(
-		"The labels in the fuse box are wrong since your father redid them.\n\nThe lock on %s door is number %d.\n\n- Mom",
+		"The labels in the fuse box are wrong since your father redid them.\n\nThe lock on %s is number %d.\n\n- Mom",
 		where,
 		session.spec.gate
 	)

@@ -236,6 +236,100 @@ return function(test, check, Shared, require)
 		check.truthy(doubles > 0, "some double locks")
 	end)
 
+	-- docs/plans/level-design.md section 11 (L3.0): keys named by a mark on
+	-- their door, never by the room behind it.
+	test("every door that takes something found has a mark of its own, and what opens it carries it", function()
+		local Marks = require(Shared.Data.Marks)
+		for i, house in houses do
+			local plan = house.plan
+			local byId = {}
+			for _, room in house.layout.rooms do
+				byId[room.id] = room
+			end
+			local used, marked = {}, 0
+			for seamId, lock in plan.locks do
+				if lock.needs then
+					marked += 1
+					local mark = lock.mark and Marks.ById[lock.mark]
+					check.truthy(mark ~= nil, "house " .. i .. ": " .. seamId .. " has a mark")
+					if mark then
+						used[lock.mark] = true
+						local behind = house.templates[byId[lock.inside].template].name
+						for _, need in lock.needs do
+							local token = plan.tokens[need]
+							check.equal(
+								token.mark,
+								lock.mark,
+								"house " .. i .. ": " .. need .. " carries its door's mark"
+							)
+							check.truthy(
+								string.find(token.label, mark.name, 1, true) ~= nil,
+								"house " .. i .. ": " .. token.label .. " is named by its mark"
+							)
+							check.truthy(
+								string.find(token.label, behind, 1, true) == nil,
+								"house " .. i .. ": " .. token.label .. " doesn't name the room behind its door"
+							)
+						end
+					end
+				end
+			end
+			local distinct = 0
+			for _ in used do
+				distinct += 1
+			end
+			check.equal(distinct, math.min(marked, #Marks.Ids), "house " .. i .. ": no two doors share a mark")
+		end
+	end)
+
+	-- A playtest found a key beside a bolted door, its real door in a wing not
+	-- yet open, and stood holding it at the wrong door.
+	test("lock first: a key is only ever found once its door can be seen", function()
+		for i, house in houses do
+			local plan = house.plan
+			local seamById = {}
+			for _, seam in house.layout.seams do
+				seamById[seam.id] = seam
+			end
+			local function doorRegion(seamId: string): number
+				local lock, seam = plan.locks[seamId], seamById[seamId]
+				return plan.roomRegion[lock.inside == seam.a and seam.b or seam.a]
+			end
+			-- The regions that must open before each one can.
+			local behind = { [0] = {} }
+			for _, r in plan.order do
+				local gate = plan.regions[r].gate
+				local d = doorRegion(gate)
+				local set = table.clone(behind[d])
+				set[d] = true
+				for _, need in plan.locks[gate].needs or {} do
+					for _, room in LockPlanner.producerRooms(plan, plan.tokens[need]) do
+						local t = plan.roomRegion[room]
+						set[t] = true
+						for x in behind[t] do
+							set[x] = true
+						end
+					end
+				end
+				behind[r] = set
+			end
+			for _, r in plan.order do
+				local gate = plan.regions[r].gate
+				local lock = plan.locks[gate]
+				if lock.kind == "key" or lock.kind == "double" then
+					local d = doorRegion(gate)
+					for _, need in lock.needs do
+						local t = plan.roomRegion[LockPlanner.tokenRoom(plan, plan.tokens[need])]
+						check.truthy(
+							t == d or behind[t][d] == true,
+							string.format("house %d: %s lies in region %d, its door seen from region %d", i, need, t, d)
+						)
+					end
+				end
+			end
+		end
+	end)
+
 	test("a gate kind switched off never turns up; the key is always there to fall back on", function()
 		local saved = cfg.Enabled
 		cfg.Enabled = { key = true }

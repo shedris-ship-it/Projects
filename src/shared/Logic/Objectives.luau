@@ -5,13 +5,17 @@
 -- facts: {
 --   served: the dinner is served (the run out)
 --   places, placesLeft: places laid at the table, and how many are empty
---   locked: the name of the room behind the last locked door someone tried
---     and couldn't open (nil once it's open); lockedTwo: it has two keyholes
+--   keys: the keys someone holds, by token: { { mark, place?, two? } }; `place`
+--     where its door is ("the Study") once someone has seen it
+--   doors: the locked doors someone has tried and nobody has opened, oldest
+--     first: { { mark?, kind, place } } (`place` the room it's seen from)
 --   stations: the puzzles and locked cases someone has been near, in the
 --     order they were first seen: { { kind, room, solved } }. The newest one
 --     not yet dealt with is mentioned.
 --   tidied: he put an heirloom back where it was kept (until it's found again)
 -- }
+
+local Marks = require(script.Parent.Parent.Data.Marks)
 
 local Objectives = {}
 
@@ -43,6 +47,44 @@ Objectives.Stations = {
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }
 
+-- What a locked door tried says, by its lock (docs/plans/level-design.md
+-- section 11: named by its mark and the room it's seen from, never the room
+-- behind it).
+local DOORS = {
+	key = "is locked.",
+	double = "is locked. It needs two keys.",
+	padlock = "has a padlock.",
+	power = "has no power.",
+}
+
+-- One sentence about keys and locks: a key someone holds whose door has
+-- been seen comes first (that's what to do next), then one whose door
+-- nobody has found, then the newest locked door tried.
+function Objectives.lockLine(facts): string?
+	local keys = facts.keys or {}
+	for i = #keys, 1, -1 do
+		local key = keys[i]
+		if key.place then
+			return "The "
+				.. key.mark
+				.. " key fits the door in "
+				.. key.place
+				.. "."
+				.. (key.two and " It needs two keys." or "")
+		end
+	end
+	if #keys > 0 then
+		return "Somewhere there's a door with " .. Marks.said(keys[#keys].mark) .. " on it."
+	end
+	local doors = facts.doors or {}
+	local door = doors[#doors]
+	if door then
+		local name = door.mark and ("The " .. door.mark .. " door") or "The door"
+		return name .. " in " .. door.place .. " " .. (DOORS[door.kind] or "is locked.")
+	end
+	return nil
+end
+
 function Objectives.line(facts): string
 	if facts.served then
 		return "The front door is open. Get out."
@@ -61,11 +103,9 @@ function Objectives.line(facts): string
 	else
 		table.insert(parts, (NUMBERS[left] or tostring(left)) .. " places at the table are still empty.")
 	end
-	if facts.locked then
-		table.insert(parts, "The " .. facts.locked .. " door is locked.")
-		if facts.lockedTwo then
-			table.insert(parts, "It needs two keys.")
-		end
+	local locks = Objectives.lockLine(facts)
+	if locks then
+		table.insert(parts, locks)
 	end
 	local stations = facts.stations or {}
 	for i = #stations, 1, -1 do

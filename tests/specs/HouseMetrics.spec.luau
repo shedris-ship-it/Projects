@@ -165,6 +165,45 @@ return function(test, check, Shared, require)
 		near(m.keyWalkMin, 40, 6, "the nearer key (room 10) to its door")
 	end)
 
+	-- docs/plans/level-design.md section 11 (L3.0): a key found while its door
+	-- is in a part of the house nobody can get to yet is held blind.
+	test("lock first: a key found before its door can be seen is held blind until that part opens", function()
+		local regions = {
+			[0] = { rooms = { 1, 2, 9, 10 } },
+			[1] = { rooms = { 3, 4, 5, 6 }, gate = "seam:2-3" },
+			[2] = { rooms = { 7, 8 }, gate = "seam:6-7" },
+		}
+		local plan = {
+			regions = regions,
+			roomRegion = regionsOf(regions),
+			order = { 1, 2 },
+			locks = {
+				["seam:2-3"] = { kind = "key", needs = { "key:1" }, region = 1, inside = 3 },
+				["seam:6-7"] = { kind = "key", needs = { "key:2" }, region = 2, inside = 7 },
+				["seam:8-9"] = { kind = "bolt", side = 8, region = 2 },
+			},
+			tokens = {
+				["key:1"] = { kind = "key", opens = "seam:2-3", producer = { kind = "container", room = 10 } },
+				["key:2"] = { kind = "key", opens = "seam:6-7", producer = { kind = "container", room = 9 } },
+				["heirloom:1"] = { kind = "heirloom", producer = { kind = "container", room = 8 } },
+			},
+			puzzles = {},
+			finale = { table = 2, heirlooms = { "heirloom:1" }, cut = {}, goal = 1 },
+		}
+		local m = measure(ring(), plan)
+		check.truthy(m.tableSet, "the walk sets the table")
+		check.equal(m.doorTokens, 2)
+		check.equal(m.blindTokens, 1, "the second key lies in region 0, its door in region 1")
+		near(m.lockFirst, 0.5, 1e-9, "half of them found once their door could be seen")
+		check.truthy(m.heldKeyBlind > 0, "held blind until region 1 opens")
+		-- Kept in region 1, beside where its door is seen from: nothing blind.
+		plan.tokens["key:2"].producer.room = 4
+		local after = measure(ring(), plan)
+		check.equal(after.blindTokens, 0)
+		check.equal(after.heldKeyBlind, 0)
+		check.equal(after.lockFirst, 1)
+	end)
+
 	test("score: inside every band costs nothing; outside costs weight per scale missed", function()
 		local targets = {
 			a = { band = { 1, 2 }, weight = 2 },

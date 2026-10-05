@@ -469,18 +469,26 @@ function Map:_renderJournal()
 		order += 1
 	else
 		for line in string.gmatch(ring, "[^\n]+") do
-			local token, label = string.match(line, "^([^=]+)=(.*)$")
+			-- token=label=where its door is (empty until someone has seen it).
+			local token, label, place = string.match(line, "^([^=]+)=([^=]*)=?(.*)$")
 			if token then
 				local row = Ui.new("Frame", {
-					Size = UDim2.new(1, 0, 0, 30),
+					Size = UDim2.new(1, 0, 0, 40),
 					BackgroundTransparency = 1,
 					LayoutOrder = order,
 					Parent = list,
 				})
 				order += 1
 				Ui.label(label, {
-					Size = UDim2.new(1, -150, 1, 0),
+					Size = UDim2.new(1, -150, 0, 22),
 					TextSize = 15,
+					Parent = row,
+				})
+				Ui.label((place and place ~= "") and ("Its door: in " .. place) or "Its door: not found yet", {
+					Position = UDim2.fromOffset(0, 22),
+					Size = UDim2.new(1, -150, 0, 16),
+					TextSize = 13,
+					TextColor3 = Ui.Theme.textDim,
 					Parent = row,
 				})
 				Ui.button("Leave it here", {

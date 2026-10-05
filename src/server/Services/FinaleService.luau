@@ -11,8 +11,10 @@
 --      BeginEscape): out, the long way round.
 --
 -- Also keeps the HUD's objective line (Logic/Objectives) from what the squad
--- has seen: the empty places, the last locked door someone tried, the
--- computer once someone has been near it.
+-- has seen: the empty places, the keys someone holds and where their doors
+-- are (by their marks), the locked doors someone has tried, the computer
+-- once someone has been near it. A door is always named by the room it's
+-- seen from, never the one behind it (docs/plans/level-design.md section 11).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -23,8 +25,10 @@ local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Config = require(Shared.Config)
 local Dinner = require(Shared.Logic.Dinner)
+local Marks = require(Shared.Data.Marks)
 local Objectives = require(Shared.Logic.Objectives)
 local Props = require(Shared.Data.Props)
+local RoomRects = require(Shared.Logic.RoomRects)
 local PropFactory = require(Shared.World.PropFactory)
 local Sfx = require(Shared.Lib.Sfx)
 
@@ -47,6 +51,9 @@ function FinaleService:Init(services)
 	self.plan = nil
 	self.places = {}
 	self.facts = {}
+	self.tried = {} -- seam ids of locked doors someone has tried, oldest first
+	self.spans = {} -- room id -> { floor, top }: the storeys it spans
+	self.line = nil
 end
 
 function FinaleService:Start()
@@ -56,21 +63,30 @@ function FinaleService:Start()
 		table.clear(self.places)
 		self.facts = {}
 		self.seenStations = {}
+		table.clear(self.tried)
+		table.clear(self.spans)
+		self.line = nil
 		ReplicatedStorage.RunState:SetAttribute(RS.Objective, nil)
 	end)
 	self.Locks.Tried:Connect(function(seamId, lock)
 		local entry = self.Locks.locks[seamId]
-		if self.plan and entry and lock.kind ~= "bolt" then
-			local inside = lock.inside or entry.seam.b
-			self.facts.locked = self.World:Room(inside).name
-			self.facts.lockedTwo = lock.kind == "double" or nil
-			self.facts.lockedSeam = seamId
+		if self.plan and entry and lock.needs then
+			-- The newest tried goes last.
+			local at = table.find(self.tried, seamId)
+			if at then
+				table.remove(self.tried, at)
+			end
+			table.insert(self.tried, seamId)
 			self:_publish()
 		end
 	end)
-	self.Locks.Unlocked:Connect(function(seamId)
-		if self.facts.lockedSeam == seamId then
-			self.facts.locked, self.facts.lockedSeam, self.facts.lockedTwo = nil, nil, nil
+	self.Locks.Unlocked:Connect(function()
+		if self.plan then
+			self:_publish()
+		end
+	end)
+	self.Locks.RingChanged:Connect(function()
+		if self.plan then
 			self:_publish()
 		end
 	end)
@@ -171,12 +187,18 @@ function FinaleService:_lookForStations()
 	self.seenStations = self.seenStations or {}
 	local positions = {}
 	for _, player in self.PlayerState:ActivePlayers() do
-		table.insert(positions, self.PlayerState:Position(player))
+		local position = self.PlayerState:Position(player)
+		if position then
+			table.insert(positions, { at = position, room = self.World:RoomAt(position) })
+		end
 	end
 	for _, station in self:_stations() do
 		if not self.seenStations[station.id] and not station.solved then
-			for _, position in positions do
-				if (position - station.position).Magnitude < 14 then
+			for _, seen in positions do
+				-- Near it and in its room: never through a floor or a wall into
+				-- a wing nobody can get to (a playtest's line named a safe in
+				-- the locked attic above).
+				if seen.room == station.room and (seen.at - station.position).Magnitude < 14 then
 					local entry = { kind = station.kind, room = self.World:Room(station.room).name, solved = false }
 					self.seenStations[station.id] = entry
 					table.insert(self.facts.stations, entry)
@@ -199,8 +221,98 @@ function FinaleService:_stationSolved(id: string)
 	end
 end
 
+-- Doors and keys --------------------------------------------------------------------
+
+local STOREY_WORDS = { [-1] = "in the cellar", [0] = "on the ground floor", [1] = "upstairs", [2] = "in the attic" }
+
+-- The room a door is seen from: a gate's outer side (the planner keeps the
+-- room behind it as `inside`).
+function FinaleService:_nearRoom(seamId: string): number?
+	local world = self.World.World
+	local seam = world and world.seams[seamId]
+	if not seam then
+		return nil
+	end
+	local entry = self.Locks.locks[seamId]
+	local inside = entry and entry.lock.inside
+	if inside then
+		return inside == seam.a and seam.b or seam.a
+	end
+	return seam.a
+end
+
+-- Where a door is, in words, from the side the squad knows: "the Study";
+-- in a stairwell, which storey ("the Back Stairs, on the ground floor").
+function FinaleService:_placeOf(seamId: string): string?
+	local near = self:_nearRoom(seamId)
+	if not near then
+		return nil
+	end
+	local phrase = self.Items:RoomPhrase(near)
+	local span = self.spans[near]
+	local seam = self.World.World.seams[seamId]
+	if span and span.top > span.floor and seam then
+		phrase ..= ", " .. (STOREY_WORDS[seam.floor or 0] or "")
+	end
+	return phrase
+end
+
+-- Where a door is, once someone has tried it or seen it up close
+-- (MapService); nil till then.
+function FinaleService:DoorPlace(seamId: string): string?
+	local map = self.services.MapService
+	local door = map and map.doors[seamId]
+	if not (door and door.known) and not table.find(self.tried, seamId) then
+		return nil
+	end
+	return self:_placeOf(seamId)
+end
+
+-- Someone has seen a locked door up close (MapService): the journal can say
+-- where a key's door is, and so can the line.
+function FinaleService:DoorKnown(_seamId: string)
+	if self.plan then
+		self.Locks:RefreshRings()
+		self:_publish()
+	end
+end
+
+-- The keys anyone holds and the locked doors tried, as Logic/Objectives
+-- wants them.
+function FinaleService:_lockFacts()
+	local doors = {}
+	for _, seamId in self.tried do
+		local entry = self.Locks.locks[seamId]
+		if entry and not entry.open then
+			local mark = entry.lock.mark and Marks.ById[entry.lock.mark]
+			table.insert(doors, { mark = mark and mark.name, kind = entry.lock.kind, place = self:_placeOf(seamId) })
+		end
+	end
+	local keys = {}
+	for _, held in self.Locks:HeldKeys() do
+		local info = self.plan.tokens[held.token]
+		local mark = info and info.mark and Marks.ById[info.mark]
+		if mark and info.kind == "key" then
+			local lock = info.opens and self.plan.locks[info.opens]
+			table.insert(keys, {
+				mark = mark.name,
+				place = info.opens and self:DoorPlace(info.opens),
+				two = lock and lock.kind == "double" or nil,
+			})
+		end
+	end
+	return doors, keys
+end
+
 function FinaleService:_publish()
-	ReplicatedStorage.RunState:SetAttribute(RS.Objective, Objectives.line(self.facts))
+	if self.plan then
+		self.facts.doors, self.facts.keys = self:_lockFacts()
+	end
+	local line = Objectives.line(self.facts)
+	if line ~= self.line then
+		self.line = line
+		ReplicatedStorage.RunState:SetAttribute(RS.Objective, line)
+	end
 end
 
 -- How far the squad got, for the end-of-run Dossier.
@@ -332,6 +444,10 @@ function FinaleService:Begin(plan)
 	self.served = false
 	table.clear(self.places)
 	local world = self.World.World
+	table.clear(self.spans)
+	for _, room in world.layout.rooms or {} do
+		self.spans[room.id] = { floor = room.floor or 0, top = RoomRects.topOf(room) }
+	end
 	local frame, size = self:_table(world)
 	self.tableFrame, self.tableSize = frame, size
 	local folder = Instance.new("Folder")

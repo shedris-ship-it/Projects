@@ -170,6 +170,34 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	local tokenIds = sortedKeys(plan.tokens)
 	local lockIds = sortedKeys(plan.locks)
 
+	-- Lock first (docs/plans/level-design.md section 11, L3.0): something that
+	-- opens a door, found while that door is still in a part of the house
+	-- nobody can get to, is held blind until that part opens (the squad
+	-- can't know what it's for). Found a room before its door in a part
+	-- that's open is fine: they'll walk past the door.
+	local walked = 0 -- studs so far, step by step
+	local blind = {} -- token id -> `walked` when it was found
+	local doorRegion = {} -- token id -> the region its door is seen from
+	local regionOpen = { [0] = true }
+	m.doorTokens, m.blindTokens, m.heldKeyBlind = 0, 0, 0
+	for _, id in tokenIds do
+		local token = plan.tokens[id]
+		local lock = token.opens and plan.locks[token.opens]
+		local seam = token.opens and seamById[token.opens]
+		if lock and seam then
+			doorRegion[id] = regionOf[lock.side or (lock.inside == seam.a and seam.b or seam.a)]
+		end
+	end
+	local function seeRegion(r: number)
+		regionOpen[r] = true
+		for id, since in blind do
+			if doorRegion[id] == r then
+				m.heldKeyBlind += walked - since
+				blind[id] = nil
+			end
+		end
+	end
+
 	local function collect()
 		for _, id in tokenIds do
 			if not had[id] then
@@ -180,6 +208,14 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 				end
 				if all then
 					had[id] = true
+					local r = doorRegion[id]
+					if r then
+						m.doorTokens += 1
+						if not regionOpen[r] then
+							m.blindTokens += 1
+							blind[id] = walked
+						end
+					end
 				end
 			end
 		end
@@ -210,6 +246,7 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		local studs = 0
 		for _, step in pathRooms(graph, dist, parent, target) do
 			studs += step.studs
+			walked = m.walk + studs
 			if before[step.room] then
 				m.revisitStuds += step.studs
 			end
@@ -279,6 +316,7 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		end
 		go(bestFrom, "open " .. best)
 		opened[best] = true
+		seeRegion(lock.region)
 		table.insert(gateKinds, lock.kind)
 		newest = math.max(newest, position[lock.region] or 0)
 		sweep(plan.regions[lock.region].rooms)
@@ -309,6 +347,11 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	m.finaleRun = out or math.huge
 	m.walk += out or 0
 	m.revisit = m.walk > 0 and m.revisitStuds / m.walk or 0
+	-- Anything still held blind was never matched to its door.
+	for _, since in blind do
+		m.heldKeyBlind += walked - since
+	end
+	m.lockFirst = m.doorTokens > 0 and 1 - m.blindTokens / m.doorTokens or nil
 
 	-- Where things lie ------------------------------------------------------------------------
 	local final = search(dining, all)

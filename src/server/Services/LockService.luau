@@ -13,6 +13,11 @@
 --
 -- Trying a locked door rattles it and says why; that's also how the squad
 -- learns where the locks are (the objective line reads `Seen`).
+--
+-- Every door that takes something found carries a mark on its plate, on
+-- both faces, and whatever opens it carries the same one (Data/Marks,
+-- docs/plans/level-design.md section 11): "the phone key" fits the door with
+-- a phone on it, and the squad can say so to each other.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,17 +26,21 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
 
 local PA = Constants.PlayerAttributes
+local M = Config.Marks
 
 local LockService = {
 	-- (seamId, lock, player?): a lock came open.
 	Unlocked = Signal.new(),
 	-- (seamId, lock, player): someone tried a locked door.
 	Tried = Signal.new(),
+	-- (player): what's on someone's key ring changed.
+	RingChanged = Signal.new(),
 	-- (region, player, rooms): the first step anyone takes into a part of
 	-- the house that was locked away (a set of its room ids). Progress: it
 	-- calms Drift and wakes a hunt (Stalker/Director).
@@ -139,9 +148,47 @@ function LockService:_clear()
 	table.clear(self.rings)
 end
 
+-- The door's mark, engraved on a brass disc above the lock, facing out of
+-- the door on `side`.
+local function markDisc(folder, face: CFrame, side: number, markId: string)
+	local mark = Marks.ById[markId]
+	if not mark then
+		return
+	end
+	local disc = Instance.new("Part")
+	disc.Name = "Mark"
+	disc.Anchored = true
+	disc.CanCollide = false
+	disc.CanTouch = false
+	disc.CanQuery = false
+	disc.CastShadow = false
+	disc.Material = Enum.Material.Metal
+	disc.Color = Color3.fromRGB(176, 146, 84)
+	disc.Size = Vector3.new(M.DiscSize, M.DiscSize, 0.05)
+	-- Its front (-Z) looks out of the door on this side.
+	disc.CFrame = face
+		* CFrame.new(0, M.DiscHeight, side * 0.05)
+		* (side > 0 and CFrame.Angles(0, math.pi, 0) or CFrame.identity)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.CanvasSize = Vector2.new(100, 100)
+	gui.LightInfluence = 1
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.Arial
+	label.TextColor3 = Color3.fromRGB(46, 34, 20)
+	label.Text = mark.glyph
+	label.Parent = gui
+	gui.Parent = disc
+	disc.Parent = folder
+end
+
 -- A small plate on both faces of a locked door: a keyhole for a key, a
 -- padlock on a hasp for a code, a bolt on the side it slides from, and for
 -- an electric lock a box with a lamp (red until the fuse box powers it).
+-- Above it, the door's mark.
 local function plate(door, lock)
 	local slab = door.slab
 	local brass = Color3.fromRGB(168, 138, 78)
@@ -190,6 +237,9 @@ local function plate(door, lock)
 			p.CFrame = face * CFrame.new(0, 0.6, side * 0.03)
 		end
 		p.Parent = folder
+		if lock.mark then
+			markDisc(folder, face, side, lock.mark)
+		end
 	end
 	-- Run content, though it lives in the door's model so it swings with it
 	-- (DoorService moves every part of the model): Gate A leaves it out.
@@ -309,17 +359,55 @@ end
 
 -- Keys ------------------------------------------------------------------------------
 
+-- A key as the squad says it: its mark and its name ("☎ phone key").
+function LockService:Display(token: string, label: string): string
+	local info = self.plan and self.plan.tokens[token]
+	local glyph = Marks.glyph(info and info.mark)
+	return glyph ~= "" and (glyph .. " " .. label) or label
+end
+
 function LockService:_publishRing(player: Player)
 	local names, entries = {}, {}
+	local finale = self.services.FinaleService
 	for token, label in self.rings[player] or {} do
-		table.insert(names, label)
-		table.insert(entries, token .. "=" .. label)
+		local shown = self:Display(token, label)
+		table.insert(names, shown)
+		-- With the token, for the journal's Drop buttons, and where its door
+		-- is once someone has seen it (UI/Map).
+		local info = self.plan and self.plan.tokens[token]
+		local place = finale and info and info.opens and finale:DoorPlace(info.opens)
+		table.insert(entries, token .. "=" .. shown .. "=" .. (place or ""))
 	end
 	table.sort(names)
 	table.sort(entries)
 	player:SetAttribute(PA.Keys, #names > 0 and table.concat(names, "\n") or nil)
-	-- With the tokens, for the journal's Drop buttons (UI/Map).
 	player:SetAttribute(PA.KeyRing, #entries > 0 and table.concat(entries, "\n") or nil)
+	self.RingChanged:Fire(player)
+end
+
+-- Everyone's ring again (a door was seen: the journal says where it is).
+function LockService:RefreshRings()
+	for player in self.rings do
+		if player.Parent then
+			self:_publishRing(player)
+		end
+	end
+end
+
+-- Every key the squad holds: { { token, label, holder } }, by token.
+function LockService:HeldKeys()
+	local held = {}
+	for player, ring in self.rings do
+		if player.Parent then
+			for token, label in ring do
+				table.insert(held, { token = token, label = label, holder = player })
+			end
+		end
+	end
+	table.sort(held, function(a, b)
+		return a.token < b.token
+	end)
+	return held
 end
 
 -- Take one key off your ring and leave it at your feet, for someone else.
@@ -366,6 +454,34 @@ local function notify(player: Player?, text: string, kind: string?)
 	end
 end
 
+-- "a star", "an umbrella", or nil for a door with no mark.
+local function aMark(lock): string?
+	local mark = lock.mark and Marks.ById[lock.mark]
+	return mark and Marks.said(mark.name) or nil
+end
+
+-- Why a key door won't open for this player: what's on its plate, and that
+-- the keys they carry don't fit (a playtest stood at the wrong door with
+-- the right key, told only "it needs a key").
+function LockService:_keyRefusal(player: Player, lock): string
+	local mark = aMark(lock)
+	local held = {}
+	for token, label in self.rings[player] or {} do
+		local info = self.plan and self.plan.tokens[token]
+		if info and info.kind == "key" then
+			table.insert(held, label)
+		end
+	end
+	table.sort(held)
+	local what = mark and (" This lock has " .. mark .. ".") or ""
+	if #held == 1 then
+		return "Your " .. held[1] .. " doesn't fit." .. what
+	elseif #held > 1 then
+		return "None of your keys fit." .. what
+	end
+	return mark and ("Locked. There's " .. mark .. " on the plate.") or "Locked. It needs a key."
+end
+
 function LockService:_rattle(door)
 	Sfx.play("DoorBang", door.position, 0.25, 1.6)
 	Sfx.play("DoorLatch", door.position, 0.4, 0.7)
@@ -399,7 +515,7 @@ function LockService:_try(door, player: Player?)
 			self:Unlock(door.lockId, player, "The bolt slides back.")
 		else
 			self:_rattle(door)
-			notify(player, "Bolted from the other side.")
+			notify(player, "Bolted from the other side. There must be another way round.")
 		end
 		return
 	elseif lock.kind == "key" then
@@ -411,7 +527,7 @@ function LockService:_try(door, player: Player?)
 			self:Unlock(door.lockId, player, "The " .. label .. " turns.")
 		else
 			self:_rattle(door)
-			notify(player, "Locked. It needs a key.")
+			notify(player, self:_keyRefusal(player, lock))
 		end
 		return
 	elseif lock.kind == "double" then
@@ -440,7 +556,12 @@ function LockService:_try(door, player: Player?)
 			notify(player, "One key turns. The other keyhole is still locked.")
 		else
 			self:_rattle(door)
-			notify(player, "Two keyholes. It needs two keys.")
+			local mark = aMark(lock)
+			notify(
+				player,
+				mark and ("Two keyholes, each with " .. mark .. ". It needs two keys.")
+					or "Two keyholes. It needs two keys."
+			)
 		end
 		return
 	elseif lock.kind == "padlock" then
@@ -449,10 +570,20 @@ function LockService:_try(door, player: Player?)
 			return
 		end
 		self:_rattle(door)
-		notify(player, "A padlock. It needs a code.")
+		local mark = aMark(lock)
+		notify(
+			player,
+			mark and ("A padlock with " .. mark .. " on it. It needs a code.") or "A padlock. It needs a code."
+		)
 	elseif lock.kind == "power" then
 		self:_rattle(door)
-		notify(player, "An electric lock. The lamp by it is dark: no power.")
+		local mark = aMark(lock)
+		notify(
+			player,
+			"An electric lock"
+				.. (mark and (" with " .. mark .. " on it") or "")
+				.. ". The lamp by it is dark: no power."
+		)
 	elseif lock.kind == "hidden" then
 		-- A servants' passage's door (docs/plans/level-design.md section 10.4):
 		-- a latch on the passage side; on the room side, finding it is pulling

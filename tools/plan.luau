@@ -152,7 +152,8 @@ if process.args[3] == "locks" then
 				end
 				from = "kept in " .. table.concat(rooms, " and ")
 			end
-			how = string.format("  <- %s %s (%s)", lock.kind, region.gate, from)
+			how =
+				string.format("  <- %s%s %s (%s)", lock.mark and (lock.mark .. " ") or "", lock.kind, region.gate, from)
 		end
 		local position = r == 0 and "open" or ("opens " .. (table.find(plan.order, r) or "?"))
 		print(string.format("  region %d (%s): rooms %s%s", r, position, table.concat(rooms, " "), how))
