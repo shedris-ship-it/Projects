@@ -5,11 +5,11 @@
 --
 -- Raycasts are budgeted per body tick (Config.Guest.RayBudgetPerTick).
 
-local Workspace = game:GetService("Workspace")
-
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local SightMath = require(Shared.Logic.SightMath)
+
+local Body = require(script.Parent.Body)
 
 local G = Config.Guest
 
@@ -113,9 +113,10 @@ function Sight:AnyoneSees(points: { Vector3 }, cone: number?): boolean
 	return #self:SeenBy(points, cone) > 0
 end
 
--- Points of his body if he stood at a floor position (head and chest).
+-- Points of his body if he stood at a spot (head and chest), on the storey
+-- the spot is on.
 local function bodyPoints(position: Vector3): { Vector3 }
-	local y = Config.Level.Origin.y
+	local y = Body.FloorBase(position.Y)
 	return { Vector3.new(position.X, y + 7.8, position.Z), Vector3.new(position.X, y + 5.6, position.Z) }
 end
 Sight.BodyPoints = bodyPoints
@@ -131,10 +132,6 @@ function Sight:StealthStep(goal: Vector3): (Vector3?, number)
 	if distance < 0.5 then
 		return nil, 0
 	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { self.body.model }
-	params.RespectCanCollide = true
 	local best, bestScore, bestExposure = nil, -math.huge, 0
 	local step = math.min(G.StealthStep, distance)
 	for i = 0, G.StealthSamples - 1 do
@@ -145,9 +142,12 @@ function Sight:StealthStep(goal: Vector3): (Vector3?, number)
 		local candidate = root.Position + direction * step
 		local progress = distance - (flat(goal) - flat(candidate)).Magnitude
 		if progress > -0.5 then
-			-- Walls and furniture in the way at waist height.
+			-- Walls, furniture and railings anywhere along his body, and floor
+			-- to stand on (Stalker/Clearance).
 			self.rays += 1
-			local blocked = Workspace:Raycast(root.Position, direction * (step + 0.8), params) ~= nil
+			local clearance = self.body.clearance
+			local blocked = not clearance:Clear(root.Position, root.Position + direction * (step + 0.8))
+				or not clearance:Grounded(candidate, self.body.built.groundOffset)
 			local exposure = 0
 			if not blocked then
 				exposure = #self:SeenBy(bodyPoints(candidate))

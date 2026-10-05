@@ -15,7 +15,9 @@ local Signal = require(Shared.Lib.Signal)
 local LevelBuilder = require(script.Parent.Parent.World.LevelBuilder)
 local MansionBuilder = require(script.Parent.Parent.World.MansionBuilder)
 local FloorPlan = require(Shared.Logic.FloorPlan)
+local NavGraph = require(Shared.Logic.NavGraph)
 local RoomRects = require(Shared.Logic.RoomRects)
+local Storeys = require(Shared.Logic.Storeys)
 
 local CELL = Config.Level.CellSize
 local PITCH = Config.Mansion.FloorPitch
@@ -89,6 +91,9 @@ function WorldService:Build(layout, rng)
 		table.insert(ids, room.id)
 	end
 	self.adjacency = Graph.adjacency(ids, layout.edges)
+	-- The graph The Guest and the Companion walk by (Logic/NavGraph).
+	self.nav = NavGraph.build(layout, NavGraph.options(Config))
+	self.World.nav = self.nav
 	self.Built:Fire(self.World)
 	self:BroadcastLayout()
 	return self.World
@@ -102,6 +107,7 @@ function WorldService:Clear()
 	if self.World then
 		self.World = nil
 		self.adjacency = nil
+		self.nav = nil
 		self.Cleared:Fire()
 	end
 end
@@ -190,6 +196,95 @@ function WorldService:RoomAt(position: Vector3): number?
 		return nil
 	end
 	return world.layout.cells[gx .. "," .. gz]
+end
+
+-- Walking the house (Logic/NavGraph, docs/plans/mansion-generation.md M3) ----
+
+local function toLayout(p: Vector3)
+	local o = Config.Level.Origin
+	return { x = p.X - o.x, y = p.Y - o.y, z = p.Z - o.z }
+end
+
+local function fromLayout(p): Vector3
+	local o = Config.Level.Origin
+	return Vector3.new(p.x + o.x, p.y + o.y, p.z + o.z)
+end
+WorldService.FromLayout = fromLayout
+
+-- The floor height of the storey a point is on. A floor spot or a body's
+-- root both work (anything below the upper floor's level is downstairs), so
+-- in the old house it is always the ground.
+function WorldService:FloorBase(y: number): number
+	local o = Config.Level.Origin.y
+	return o + floorAt(y - o) * PITCH
+end
+
+-- The way between two points (floor spots or roots): { steps = { { position,
+-- node, kind, room, seam, stair, door } }, cost }, or nil. Steps are empty
+-- when both are in the same room on the same level. opts as NavGraph.search
+-- (avoid, solid, extra); closed doors cost Config.Nav.DoorCost.
+function WorldService:Route(from: Vector3, to: Vector3, opts)
+	local nav, world = self.nav, self.World
+	if not nav or not world then
+		return nil
+	end
+	opts = table.clone(opts or {})
+	opts.doorCost = opts.doorCost
+		or function(seamId: string): number
+			local seam = world.seams[seamId]
+			return (seam and seam.door and not seam.door.open) and nav.options.doorCost or 0
+		end
+	local route = NavGraph.route(nav, toLayout(from), self:RoomAt(from), toLayout(to), self:RoomAt(to), opts)
+	if not route then
+		return nil
+	end
+	for _, step in route.steps do
+		local node = nav.nodes[step.node]
+		step.position = fromLayout(node)
+		step.kind = node.kind
+		step.room = node.room
+		local seam = step.seam and world.seams[step.seam]
+		step.door = seam and seam.door or nil
+	end
+	return route
+end
+
+-- Every graph node's walking distance from a point (for weighing options).
+function WorldService:NavDistances(from: Vector3, opts)
+	if not self.nav then
+		return nil
+	end
+	return NavGraph.search(self.nav, NavGraph.attach(self.nav, toLayout(from), self:RoomAt(from)), opts)
+end
+
+-- How far apart two points are for someone walking: on the flat on one
+-- storey, else by way of the nearest staircase.
+function WorldService:Separation(a: Vector3, b: Vector3): number
+	if not self.nav then
+		return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
+	end
+	return NavGraph.separation(self.nav, toLayout(a), toLayout(b))
+end
+
+local function place(self, p: Vector3)
+	local room = self:RoomAt(p)
+	local record = room and self.World and self.World.rooms[room]
+	local q = toLayout(p)
+	q.room = room
+	q.tall = record and record.tall or false
+	return q
+end
+
+-- Whether two people count as together within `radius` (owner, 2026-10-04:
+-- on different floors you're apart, unless you share the hall or a stairwell).
+function WorldService:Together(a: Vector3, b: Vector3, radius: number): boolean
+	return Storeys.together(place(self, a), place(self, b), radius, PITCH)
+end
+
+-- How far a noise made at `at` carries to a listener at `listener` (a floor
+-- muffles it, Config.Stalker.FloorNoiseScale).
+function WorldService:AudibleRadius(radius: number, at: Vector3, listener: Vector3): number
+	return Storeys.audibleRadius(radius, place(self, at), place(self, listener), PITCH, Config.Stalker.FloorNoiseScale)
 end
 
 function WorldService:Room(id: number)

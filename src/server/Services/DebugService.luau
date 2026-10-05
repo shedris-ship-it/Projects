@@ -15,6 +15,7 @@ local Anomalies = require(Shared.Data.Anomalies)
 local Tells = require(Shared.Data.Tells)
 local Build = require(Shared.Build)
 local Net = require(Shared.Net)
+local FloorPlan = require(Shared.Logic.FloorPlan)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 
 local DebugService = {}
@@ -40,7 +41,8 @@ local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off> · layout cells|mansion|default",
 	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
 	"lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
-	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · off",
+	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
+	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -166,6 +168,23 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "guest" then
 		reply(player, services.StalkerService:DebugGuest(player, args))
+	elseif command == "plan" then
+		local world = services.WorldService.World
+		if not world then
+			reply(player, "no house built")
+		else
+			print(FloorPlan.render(world.layout, world.layout.mode == "Mansion" and Config.Mansion or Config.Level))
+			reply(player, "plan of seed " .. tostring(world.layout.seed) .. " printed to Output")
+		end
+	elseif command == "where" then
+		reply(player, services.StalkerService:DebugWhere(player))
+	elseif command == "navtest" then
+		reply(
+			player,
+			services.StalkerService:NavTest(args, function(text: string)
+				reply(player, text)
+			end)
+		)
 	elseif command == "down" or command == "revive" then
 		local target = playerNamed(services, player, args[2])
 		if not target then

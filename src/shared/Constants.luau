@@ -18,6 +18,7 @@ Constants.Tags = {
 	Blood = "ConsensusBlood", -- a hidden stain the client reveals at its attribute BloodAt (Drift)
 	Window = "ConsensusWindow", -- a window or mirror pane The Guest can show in (attribute Kind)
 	Level = "ConsensusLevel",
+	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
 }
 
 Constants.Attributes = {

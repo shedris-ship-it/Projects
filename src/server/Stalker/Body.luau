@@ -16,6 +16,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
+local Storeys = require(Shared.Logic.Storeys)
 
 local G = Config.Guest
 local Poses = GuestPose.Poses
@@ -27,7 +28,18 @@ local function flat(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
--- built: StalkerModel.build's result; navigator: Stalker/Navigator.
+-- The floor height of the storey a point is on (a floor spot or a root).
+local function floorBase(y: number): number
+	local o = Config.Level.Origin.y
+	return o + Storeys.of(y - o, Config.Mansion.FloorPitch) * Config.Mansion.FloorPitch
+end
+Body.FloorBase = floorBase
+
+-- How far behind him (the way he's moving) a wall may come while he backs
+-- away, so his leaning body and arms never show through it.
+local POSED_CLEARANCE = 2.2
+
+-- built: StalkerModel.build's result; navigator: Stalker/Walker.
 function Body.new(built, navigator)
 	local root = built.root
 	local attachment = Instance.new("Attachment")
@@ -53,6 +65,10 @@ function Body.new(built, navigator)
 		align = align,
 		face = nil, -- { kind = "move" | "point" | "player", point, player }
 		special = nil, -- an active zoom or lunge
+		clearance = navigator.clearance, -- Stalker/Clearance
+		lastRoot = nil, -- for the phase check
+		phases = 0, -- times he was caught crossing a wall and put back
+		backBlockedAt = 0, -- last time a wall came within POSED_CLEARANCE behind him
 		pose = Poses.Idle,
 		lean = 0,
 		gaze = nil, -- the player he's looking at
@@ -120,13 +136,14 @@ end
 -- Put the body somewhere outright. Only for his arrival in the house and
 -- for the debug console: never in front of anyone.
 function Body:Place(position: Vector3, lookAt: Vector3?)
-	local base = Vector3.new(position.X, Config.Level.Origin.y + self.built.groundOffset, position.Z)
+	local base = Vector3.new(position.X, floorBase(position.Y) + self.built.groundOffset, position.Z)
 	local target = lookAt and Vector3.new(lookAt.X, base.Y, lookAt.Z) or (base + Vector3.new(0, 0, -1))
 	if (target - base).Magnitude < 0.1 then
 		target = base + Vector3.new(0, 0, -1)
 	end
 	self.special = nil
 	self.navigator:Stop()
+	self.lastRoot = nil
 	self.root.Anchored = true
 	self.model:PivotTo(CFrame.lookAt(base, target))
 	self:_unanchor()
@@ -136,6 +153,7 @@ end
 
 function Body:Park(cframe: CFrame)
 	self.special = nil
+	self.lastRoot = nil
 	self.navigator:Stop()
 	self.align.Enabled = false
 	self.root.Anchored = true
@@ -165,7 +183,7 @@ function Body:FacePlayer(player: Player)
 	self.face = { kind = "player", player = player }
 end
 
--- Walk a route on the room graph (Navigator) at a speed. Facing is
+-- Walk a route through the house (Stalker/Walker) at a speed. Facing is
 -- whatever was last set; FaceMovement for an ordinary walk.
 function Body:Go(destination: Vector3, speed: number, avoid)
 	if self.special then
@@ -191,14 +209,25 @@ function Body:Arrived(): boolean
 end
 
 -- Yanked out of sight: a short, very fast straight glide, still facing
--- you. Returns immediately; Busy() is true until it ends.
-function Body:Zoom(point: Vector3)
+-- you. Only as far as his body clears (Stalker/Clearance): never through a
+-- wall, a door frame or a railing. Returns immediately; Busy() is true until
+-- it ends. False if there was no room to move at all.
+function Body:Zoom(point: Vector3): boolean
+	local here = self.root.Position
+	local offset = self.built.groundOffset
+	local goal = Vector3.new(point.X, floorBase(point.Y) + offset, point.Z)
+	local reach = self.clearance:Reach(here, goal)
+	if (reach - here).Magnitude < 0.75 then
+		return false
+	end
+	local floorPoint = reach - Vector3.new(0, offset, 0)
 	self:_unanchor()
 	self.navigator:Stop()
-	self.special = { kind = "zoom", point = point, untilT = os.clock() + 0.9 }
+	self.special = { kind = "zoom", point = floorPoint, untilT = os.clock() + 0.9 }
 	self:SetPose(Poses.Zoom)
 	self.humanoid.WalkSpeed = G.ZoomSpeed
-	self.humanoid:MoveTo(point)
+	self.humanoid:MoveTo(floorPoint)
+	return true
 end
 
 -- The lunge: a wind-up, then a dash at the target. onLand(player) is
@@ -248,6 +277,9 @@ function Body:Update(now: number, playerPosition: (Player) -> Vector3?)
 					local direction = flat(target - here)
 					local reach = math.min(direction.Magnitude + 1.5, G.LungeRadius + 2)
 					local goal = here + (direction.Magnitude > 0.1 and direction.Unit or Vector3.zAxis) * reach
+					-- Never through a wall or a railing to get you.
+					goal = self.clearance:Reach(here, goal)
+					reach = (goal - here).Magnitude
 					self.special = {
 						kind = "dash",
 						player = special.player,
@@ -269,6 +301,7 @@ function Body:Update(now: number, playerPosition: (Player) -> Vector3?)
 	elseif not self.navigator:Arrived() then
 		self.navigator:Step(now)
 	end
+	self:_checkPhase(now)
 
 	-- Turn to face.
 	local face = self.face or { kind = "move" }
@@ -293,7 +326,49 @@ function Body:Update(now: number, playerPosition: (Player) -> Vector3?)
 		or (self.pose == Poses.Zoom and 0.5 or 2.2)
 end
 
--- Is a point on the floor free for his body (no furniture in the way)?
+-- Never through a wall: if he crossed one since the last tick (a fast glide,
+-- a physics shove), put him back where he was. Counted for F2 navtest and
+-- logged, since it means something upstream let him try.
+function Body:_checkPhase(now: number)
+	local root = self.root
+	if root.Anchored then
+		self.lastRoot = nil
+		return
+	end
+	local position = root.Position
+	local last = self.lastRoot
+	if last and (position - last).Magnitude < 30 then
+		local crossed = self.clearance:Crossed(last, position)
+		if crossed then
+			self.phases += 1
+			self.model:PivotTo(CFrame.new(last) * root.CFrame.Rotation)
+			root.AssemblyLinearVelocity = Vector3.zero
+			local telemetry = self.navigator.services.Telemetry
+			if telemetry then
+				telemetry:Log("GuestPhase", {
+					through = crossed.Name,
+					pose = self.pose,
+					studs = math.floor((position - last).Magnitude * 10) / 10,
+				})
+			end
+			position = last
+		end
+	end
+	self.lastRoot = position
+	-- Backing away: a wall coming up close behind him.
+	if self.pose == Poses.BackAway then
+		local velocity = flat(root.AssemblyLinearVelocity)
+		if velocity.Magnitude > 0.5 then
+			local ahead = position + velocity.Unit * POSED_CLEARANCE
+			if not self.clearance:Clear(position, ahead) then
+				self.backBlockedAt = now
+			end
+		end
+	end
+end
+
+-- Is a point on the floor free for his body (no furniture in the way), with
+-- floor under it (not the void over the hall)?
 function Body:Fits(position: Vector3, ignore: { Instance }?): boolean
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -303,7 +378,8 @@ function Body:Fits(position: Vector3, ignore: { Instance }?): boolean
 	end
 	params.FilterDescendantsInstances = list
 	params.RespectCanCollide = true
-	local centre = Vector3.new(position.X, Config.Level.Origin.y + 4.2, position.Z)
+	local base = floorBase(position.Y)
+	local centre = Vector3.new(position.X, base + 4.2, position.Z)
 	local parts = Workspace:GetPartBoundsInBox(CFrame.new(centre), Vector3.new(1.6, 7.6, 1.2), params)
 	-- Only what would really stop him: not doors (he opens them) or people.
 	local passes = {
@@ -317,7 +393,8 @@ function Body:Fits(position: Vector3, ignore: { Instance }?): boolean
 			return false
 		end
 	end
-	return true
+	local offset = self.built.groundOffset
+	return self.clearance:Grounded(Vector3.new(position.X, base + offset, position.Z), offset)
 end
 
 return Body

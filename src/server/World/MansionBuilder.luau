@@ -228,7 +228,7 @@ local function railing(model, roomCF: CFrame, a: Vector3, b: Vector3, height: nu
 		)
 	end
 	local mid = (a + b) / 2 + UP * (h + 0.5) / 2
-	PropFactory.part(
+	local collider = PropFactory.part(
 		model,
 		"Railing",
 		Vector3.new(0.3, h + 0.5, length),
@@ -237,6 +237,8 @@ local function railing(model, roomCF: CFrame, a: Vector3, b: Vector3, height: nu
 		PropFactory.material("SmoothPlastic"),
 		{ transparency = 1, query = false, castShadow = false }
 	)
+	-- Queries can't see it, so Stalker/Clearance finds it by tag.
+	tag(collider, Tags.Railing)
 end
 
 -- A wall sconce: a brass plate, an arm and a glowing shade, with a warm light

@@ -131,6 +131,9 @@ function DebugOverlay:Update(dt: number)
 				)
 			)
 			table.insert(lines, "director: " .. tostring(s.director))
+			if s.nav then
+				table.insert(lines, "walk: " .. s.nav)
+			end
 			table.insert(lines, "target: " .. tostring(s.target) .. " · tactic: " .. tostring(s.tactic))
 			table.insert(lines, "top: " .. table.concat(s.top or {}, " | "))
 			table.insert(lines, "memory: " .. table.concat(s.memories or {}, ", "))

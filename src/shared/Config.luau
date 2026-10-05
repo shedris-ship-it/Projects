@@ -215,7 +215,7 @@ Config.Nav = {
 	Clearance = 1.2, -- half the Guest's width plus a margin: routes keep this far from furniture
 	DoorCost = 12, -- studs a closed door is worth (opening it takes 1.5-3 s)
 	SeamFactor = 1.6, -- Phantom Architecture's twist: walking through a solid seam costs this much more
-	AttachRise = 3.5, -- a point joins graph nodes no further above or below it than this
+	AttachRise = 5, -- a point (a floor spot or a body's root) joins graph nodes no further above or below than this
 }
 
 -- Room lighting (docs/ART.md, "Lighting mood by room family"). Every room has
@@ -512,6 +512,7 @@ Config.Stalker = {
 	SearchLookSeconds = 2,
 	MemoryHeardConfidence = 0.6,
 	ProfileHalfLife = 120,
+	FloorNoiseScale = 0.5, -- owner, 2026-10-04: through a floor a noise carries half as far
 }
 
 -- The Guest's look and body language (docs/ART.md "The Guest"; owner

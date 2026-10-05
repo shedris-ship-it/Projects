@@ -2,7 +2,7 @@
 --   Director  (Stalker/Director)  pacing: target tier, hunts, scares
 --   Stalk     (Stalker/Stalk)     between hunts: peeks, creeping, the lunge
 --   Tactician (Stalker/Tactician) decisions during hunts, from the squad profile
---   Body      (Stalker/Body, Perception, Navigator, Sight)
+--   Body      (Stalker/Body, Perception, Walker, Clearance, Sight)
 --
 -- He is always somewhere in the house once he has arrived (three knocks at
 -- the front door when the quiet start ends). He never teleports, parks or
@@ -35,7 +35,8 @@ local StalkRules = require(Shared.Logic.StalkRules)
 local StalkerFolder = script.Parent.Parent:WaitForChild("Stalker")
 local StalkerModel = require(StalkerFolder.StalkerModel)
 local Body = require(StalkerFolder.Body)
-local Navigator = require(StalkerFolder.Navigator)
+local Walker = require(StalkerFolder.Walker)
+local NavTest = require(StalkerFolder.NavTest)
 local Perception = require(StalkerFolder.Perception)
 local Sight = require(StalkerFolder.Sight)
 local Stalk = require(StalkerFolder.Stalk)
@@ -126,7 +127,20 @@ function StalkerService:Begin(ctx)
 	self.twist = ctx.anomalyId
 	self.runStart = ctx.runStart
 	self.body = StalkerModel.build(archetype, self.services.WorldService.folder)
-	self.navigator = Navigator.new(self.services, self.body, self.rng:Fork("nav"))
+	local built = self.body
+	self.navigator = Walker.new(self.services, {
+		model = built.model,
+		humanoid = built.humanoid,
+		root = built.root,
+		groundOffset = built.groundOffset,
+		group = Constants.CollisionGroups.Stalker,
+		halfWidth = 0.9,
+		path = Walker.GuestPath,
+		opensDoors = "stalker",
+		usesSeams = function()
+			return self.services.WorldService.stalkerUsesSeams == true
+		end,
+	}, self.rng:Fork("nav"))
 	self.bodyCtl = Body.new(self.body, self.navigator)
 	self.perception = Perception.new(self.services, self.body, self.bodyCtl)
 	self.perception.hearingMultiplier = archetype.hearingMultiplier or 1
@@ -279,7 +293,37 @@ function StalkerService:DebugState()
 		target = hunting and (self.data.chasing and self.data.chasing.DisplayName or (last and last.target) or "-")
 			or (target and target.DisplayName or "-"),
 		director = self.director.lastDecision and self.director.lastDecision.reason or "-",
+		nav = self:_navLine(),
 	}
+end
+
+-- Where he is and where his walk is up to, for the overlay.
+function StalkerService:_navLine(): string
+	local worldService = self.services.WorldService
+	local position = self.bodyCtl.root.Position
+	local id = worldService:RoomAt(position)
+	local room = id and worldService:Room(id)
+	local walker = self.navigator
+	return string.format(
+		"%s storey %d · goal %d/%d · %d routes, %d re-plans, %d stuck, %d phases",
+		self.parked and "parked" or (room and room.name or "outside"),
+		worldService.FloorAt(position.Y - Config.Level.Origin.y),
+		math.min(walker.index, #walker.goals),
+		#walker.goals,
+		walker.stats.routes,
+		walker.stats.replans,
+		walker.stats.stuck,
+		self.bodyCtl.phases
+	)
+end
+
+-- F2 `navtest [fast]` and `where` (Stalker/NavTest).
+function StalkerService:NavTest(args: { string }, report: (string) -> ()): string
+	return NavTest.run(self, args, report)
+end
+
+function StalkerService:DebugWhere(player: Player): string
+	return NavTest.where(self, player)
 end
 
 -- Debug console: "guest here|walk|pose|form|smile|lean|off" puts him in front
