@@ -262,10 +262,15 @@ return function(test, check, Shared, require)
 	test("every stalk move has tiers, a description and a counter", function()
 		check.atLeast(#StalkMoves.List, 6, "at least six moves")
 		for _, move in StalkMoves.List do
-			check.truthy(#move.tiers > 0, move.id .. " tiers")
 			check.truthy(move.description ~= "", move.id .. " description")
 			check.truthy(move.counter ~= "", move.id .. " counter")
-			check.truthy(move.base > 0 and move.cooldown >= 0, move.id .. " numbers")
+			if move.errand then
+				-- Errands (R2c) are never picked by habit: no tiers, no weight.
+				check.equal(#move.tiers, 0, move.id .. " is never chosen by habit")
+			else
+				check.truthy(#move.tiers > 0, move.id .. " tiers")
+				check.truthy(move.base > 0 and move.cooldown >= 0, move.id .. " numbers")
+			end
 		end
 	end)
 end

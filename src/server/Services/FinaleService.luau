@@ -21,6 +21,8 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
+local Config = require(Shared.Config)
+local Dinner = require(Shared.Logic.Dinner)
 local Objectives = require(Shared.Logic.Objectives)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
@@ -67,6 +69,36 @@ function FinaleService:Start()
 	self.Locks.Unlocked:Connect(function(seamId)
 		if self.facts.lockedSeam == seamId then
 			self.facts.locked, self.facts.lockedSeam = nil, nil
+			self:_publish()
+		end
+	end)
+	-- He knows when someone takes one of his things: a chair scrapes at the
+	-- table, and an empty place's candle gutters.
+	self.Items.HeirloomTaken:Connect(function(_, _token)
+		if not self.plan or self.served or not self.head then
+			return
+		end
+		if self.facts.tidied then
+			self.facts.tidied = nil
+			self:_publish()
+		end
+		Sfx.play("CreakAlt", self.head + Vector3.new(0, 2, 0), 0.9, 0.45)
+		for _, place in self.places do
+			if not place.token then
+				place.flame.Transparency = 0.2
+				task.delay(0.7, function()
+					if not place.token and place.flame.Parent then
+						place.flame.Transparency = 1
+					end
+				end)
+				break
+			end
+		end
+	end)
+	-- He put one back where it was kept.
+	self.Items.Tidied:Connect(function()
+		if self.plan and not self.served then
+			self.facts.tidied = true
 			self:_publish()
 		end
 	end)
@@ -237,27 +269,49 @@ function FinaleService:Begin(plan)
 	local folder = Instance.new("Folder")
 	folder.Name = "Dinner"
 	folder.Parent = self.World.content
-	-- Places along both long sides, facing in; the head of the table is his.
+	-- Places along both long sides, facing in; the head of the table is his,
+	-- out of reach of anyone setting a place (Logic/Dinner).
 	local count = #plan.finale.heirlooms
 	local long = size.Z >= size.X
 	local length = long and size.Z or size.X
 	local across = long and size.X or size.Z
-	for i = 1, count do
-		local along = -length / 2 + length * i / (count + 1)
-		local side = i % 2 == 1 and 1 or -1
-		local offset = long and Vector3.new(side * (across / 2 - 1), size.Y, along)
-			or Vector3.new(along, size.Y, side * (across / 2 - 1))
+	local layout = Dinner.layout(count, length, across, Config.Guest.ContactRadius, Config.Scent.TableMargin)
+	-- Lay it out from whichever end has room for him to stand (or sit).
+	local flip = self:_seatBlocked(frame, long, layout.head) and not self:_seatBlocked(frame, long, -layout.head)
+	local sign = flip and -1 or 1
+	for i, place in layout.places do
+		local along = place.along * sign
+		local offset = long and Vector3.new(place.side, size.Y, along) or Vector3.new(along, size.Y, place.side)
 		local position = frame:PointToWorldSpace(offset)
 		local inward = frame:PointToWorldSpace(long and Vector3.new(0, size.Y, along) or Vector3.new(along, size.Y, 0))
 		-- The card stands at the far side of the plate, facing whoever sits here.
 		local at = CFrame.lookAt(position, Vector3.new(inward.X, position.Y, inward.Z)) * CFrame.Angles(0, math.pi, 0)
 		table.insert(self.places, self:_place(i, at, folder))
 	end
-	self.head =
-		frame:PointToWorldSpace(long and Vector3.new(0, 0, -length / 2 - 1.6) or Vector3.new(-length / 2 - 1.6, 0, 0))
+	local head = layout.head * sign
+	self.head = frame:PointToWorldSpace(long and Vector3.new(0, 0, head) or Vector3.new(head, 0, 0))
 	self:_frontExit(world)
 	self.facts = { places = count, placesLeft = count }
 	self:_publish()
+end
+
+-- Is there no room for him at the head of the table at `along` (a wall, a
+-- cabinet, out of the dining room)?
+function FinaleService:_seatBlocked(frame: CFrame, long: boolean, along: number): boolean
+	local point = frame:PointToWorldSpace(long and Vector3.new(0, 0, along) or Vector3.new(along, 0, 0))
+	if self.World:RoomAt(point + Vector3.new(0, 2, 0)) ~= self.World.World.layout.deliberation then
+		return true
+	end
+	local params = OverlapParams.new()
+	params.RespectCanCollide = true
+	local hits = Workspace:GetPartBoundsInBox(CFrame.new(point + Vector3.new(0, 3, 0)), Vector3.new(2, 4.5, 2), params)
+	for _, hit in hits do
+		local model = hit:FindFirstAncestorOfClass("Model")
+		if not (model and model:FindFirstChildOfClass("Humanoid")) then
+			return true
+		end
+	end
+	return false
 end
 
 -- The way out is the front door the squad came in by (the mansion); the old
@@ -331,6 +385,7 @@ function FinaleService:_set(place, player: Player)
 		end
 	end
 	model:PivotTo(place.at * CFrame.new(0, 0.1, 0))
+	self.Items:MarkSet(token)
 	place.token = token
 	place.label.Text = self.Items:Label(token)
 	place.flame.Transparency = 0

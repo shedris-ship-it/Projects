@@ -9,6 +9,7 @@
 --     and couldn't open (nil once it's open)
 --   computer: the name of the room with the home computer, once someone has
 --     been near it; computerSolved once it's cracked
+--   tidied: he put an heirloom back where it was kept (until it's found again)
 -- }
 
 local Objectives = {}
@@ -38,6 +39,9 @@ function Objectives.line(facts): string
 	end
 	if facts.computer and not facts.computerSolved then
 		table.insert(parts, "The computer in the " .. facts.computer .. " is still on.")
+	end
+	if facts.tidied then
+		table.insert(parts, "Something has been put back where it belongs.")
 	end
 	return table.concat(parts, " ")
 end

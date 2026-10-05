@@ -78,6 +78,25 @@ local StalkMoves = {
 		description = "Walks the far rooms, unseen and unheard.",
 		counter = "Listen for the creak and the breath behind you; he is closer than the quiet suggests.",
 	},
+	-- Errands (R2c): never picked by habit; StalkerService sets them.
+	{
+		id = "WaitAtTable",
+		errand = true,
+		tiers = {},
+		base = 0,
+		cooldown = 0,
+		description = "Waits at the head of the table for his dinner.",
+		counter = "Two of you hold his eyes while the third sets the place.",
+	},
+	{
+		id = "Tidy",
+		errand = true,
+		tiers = {},
+		base = 0,
+		cooldown = 0,
+		description = "Puts his things back where they were kept.",
+		counter = "Don't leave an heirloom lying about; carry it, or set it.",
+	},
 }
 
 local byId = {}

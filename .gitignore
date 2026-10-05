@@ -3,6 +3,8 @@
 *.rbxlx
 *.rbxm
 *.rbxmx
+*.rbxlx.lock
+*.rbxl.lock
 !assets/**/*.rbxm
 
 # Tooling

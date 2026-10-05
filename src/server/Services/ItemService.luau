@@ -9,6 +9,12 @@
 -- straight onto the taker's ring (Services/LockService); it falls where its
 -- holder goes down, is Lost or leaves. An heirloom is carried to the dining
 -- table (Services/FinaleService) and falls like anything else you carry.
+--
+-- The heirlooms are his (R2c, "the Guest wants his dinner"): this keeps each
+-- one's state (who holds it, since when it lies about, whether it's set) for
+-- his scent (Logic/Scent, StalkerService), and its home: where it was kept,
+-- so he can put it back (`Tidy`). Later producers (a safe, the music box)
+-- give their own homes with SetHome.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -23,6 +29,12 @@ local Items = require(script.Parent.Parent.World.Items)
 local ItemService = {
 	-- (player, token, kind): someone found something the escape needs.
 	Found = Signal.new(),
+	-- (player, token): someone picked an heirloom up (every time).
+	HeirloomTaken = Signal.new(),
+	-- (token): an heirloom left someone's hands.
+	HeirloomDropped = Signal.new(),
+	-- (token, label): he put one back where it was kept.
+	Tidied = Signal.new(),
 }
 
 function ItemService:Init(services)
@@ -36,6 +48,8 @@ function ItemService:Init(services)
 	self.bySpace = {} -- furniture space -> token kept there
 	self.heirloomKinds = {} -- token -> an entry of Items.Heirlooms
 	self.found = {} -- token -> true once someone has taken it
+	-- token -> { token, home, thing?, holder?, lastHolder?, droppedAt?, set }
+	self.heirlooms = {}
 end
 
 function ItemService:Start()
@@ -45,11 +59,22 @@ function ItemService:Start()
 	self.Hands.Grabbed:Connect(function(player, thing)
 		self:_grabbed(player, thing)
 	end)
+	self.Hands.Released:Connect(function(player, thing)
+		local token = thing.model:GetAttribute("Item")
+		local state = token and self.heirlooms[token]
+		if state and state.holder == player then
+			state.holder = nil
+			state.lastHolder = player
+			state.droppedAt = os.clock()
+			self.HeirloomDropped:Fire(token)
+		end
+	end)
 	self.World.Cleared:Connect(function()
 		self.plan = nil
 		table.clear(self.bySpace)
 		table.clear(self.heirloomKinds)
 		table.clear(self.found)
+		table.clear(self.heirlooms)
 	end)
 end
 
@@ -69,6 +94,7 @@ function ItemService:Begin(plan, rng)
 		if token.kind == "heirloom" then
 			heirlooms += 1
 			self.heirloomKinds[id] = kinds[(heirlooms - 1) % #kinds + 1]
+			self.heirlooms[id] = { token = id, set = false, home = { room = token.producer.room } }
 		end
 		if token.producer.kind == "container" then
 			local room = token.producer.room
@@ -81,12 +107,21 @@ function ItemService:Begin(plan, rng)
 			table.sort(spaces, function(a, b)
 				return a.id < b.id
 			end)
+			local state = self.heirlooms[id]
 			if #spaces > 0 then
-				self.bySpace[rng:Pick(spaces)] = id
+				local space = rng:Pick(spaces)
+				self.bySpace[space] = id
+				if state then
+					state.home.space = space
+				end
 			else
 				-- Nowhere to keep it: lying on the floor in that room.
 				local at = self.World:RandomPointIn(room, rng)
-				self:_make(id, CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+				local cf = CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+				if state then
+					state.home.cframe = cf
+				end
+				self:_make(id, cf)
 			end
 		end
 	end
@@ -117,7 +152,91 @@ function ItemService:_make(token: string, at: CFrame)
 		class = Physical.Dressing[model.Name].class,
 		label = self:Label(token),
 	})
+	local state = self.heirlooms[token]
+	if state then
+		-- His: clients play a faint music box from it while it's carried.
+		model:SetAttribute("Heirloom", true)
+		state.thing = thing
+	end
 	return model, thing
+end
+
+-- Each heirloom's state, for his scent (Logic/Scent): holder, hidden,
+-- droppedAt, lastHolder, position, set.
+function ItemService:Heirlooms()
+	local list = {}
+	local hiding = self.services.HidingService
+	for _, state in self.heirlooms do
+		local thing = state.thing
+		local model = thing and thing.model
+		local position = model and model.Parent and model:GetPivot().Position or nil
+		table.insert(list, {
+			token = state.token,
+			holder = state.holder,
+			hidden = state.holder ~= nil and hiding:IsHidden(state.holder),
+			droppedAt = state.droppedAt,
+			lastHolder = state.lastHolder,
+			position = position,
+			set = state.set,
+			thing = thing,
+		})
+	end
+	return list
+end
+
+-- Where an heirloom was kept: { room, space? (a drawer or cupboard), cframe?
+-- (on the floor), station? (a puzzle that held it) }.
+function ItemService:HomeOf(token: string)
+	local state = self.heirlooms[token]
+	return state and state.home
+end
+
+-- A producer that isn't a drawer (the safe, the music box) says where its
+-- heirloom lives.
+function ItemService:SetHome(token: string, home)
+	local state = self.heirlooms[token]
+	if state then
+		state.home = home
+	end
+end
+
+-- Laid at the table (Services/FinaleService): his for good.
+function ItemService:MarkSet(token: string)
+	local state = self.heirlooms[token]
+	if state then
+		state.set = true
+		state.holder = nil
+		state.thing = nil
+	end
+end
+
+-- He puts it back where it was kept (Stalker/Stalk's Tidy errand): out of
+-- the world, and kept there again, the drawer or cupboard shut on it.
+function ItemService:Tidy(token: string): boolean
+	local state = self.heirlooms[token]
+	local thing = state and state.thing
+	if not state or state.set or state.holder or not thing then
+		return false
+	end
+	local home = state.home
+	self.Hands:Forget(thing, true)
+	state.thing = nil
+	state.droppedAt = nil
+	if home.space then
+		local space = home.space
+		space.filled = false
+		self.bySpace[space] = token
+		for _, piece in space.pieces do
+			self.Furniture:SetOpen(piece, false)
+		end
+	elseif home.station and home.station.Restore then
+		home.station.Restore(token)
+	else
+		local at = home.cframe or CFrame.new(self.World:Room(home.room).center)
+		self:_make(token, at)
+	end
+	self.Tidied:Fire(token, self:Label(token))
+	return true
 end
 
 -- FurnitureService opening a space for the first time: what's kept here?
@@ -153,7 +272,20 @@ function ItemService:_grabbed(player: Player, thing)
 		Sfx.play("Knock", position, 0.15, 2.2)
 		notify(player, "You take the " .. info.label .. ".", "good")
 	elseif info.kind == "heirloom" then
-		notify(player, "The " .. self:Label(token) .. ". It belongs at the table.")
+		local state = self.heirlooms[token]
+		local first = state and state.everTaken ~= true
+		if state then
+			state.holder = player
+			state.droppedAt = nil
+			state.everTaken = true
+		end
+		if first then
+			notify(
+				player,
+				"The " .. self:Label(token) .. ". It belongs at the table. Somewhere, a chair scrapes: he knows."
+			)
+		end
+		self.HeirloomTaken:Fire(player, token)
 	end
 end
 

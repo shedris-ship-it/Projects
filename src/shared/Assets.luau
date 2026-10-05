@@ -53,6 +53,7 @@ Assets.Sounds = {
 	Heartbeat = "rbxassetid://9043365727", -- APM "HEARTBEAT 01 96BPM" (Horror Tools), loops
 	RadioStatic = "rbxassetid://8028069841", -- NoobMatthew3 "Radio Static Loop"
 	HuntSting = "rbxassetid://9113436052", -- PSE "Big Low-End Impacts 3": a resonant hit
+	MusicBox = "rbxassetid://9043210085", -- APM "Music Box 6" (Conroy): a carried heirloom, faintly (R2c)
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

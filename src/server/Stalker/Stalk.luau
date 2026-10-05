@@ -12,6 +12,17 @@
 --              squad's habits and each Witness's gaze habits
 --              (Logic/GazeHabits), at random among the best three
 --
+--   errands    what he wants for himself (R2c, "the Guest wants his
+--              dinner"; StalkerService sets them): wait at the head of the
+--              table once every heirloom still to set is in someone's hands
+--              (visible to everyone, frozen by two watchers, never yanked
+--              away or backing off), and put back an heirloom left lying
+--              about, unseen. An errand is re-asserted every tick, so a
+--              hunt or a back-away doesn't make him forget it.
+--
+-- He also visits his things: his roaming favours rooms where heirlooms lie
+-- that nobody has found yet, and he lingers there.
+--
 -- Rules and fairness gates are Logic/StalkRules. The body is Stalker/Body;
 -- what the squad can see is Stalker/Sight. Every decision is logged with its
 -- reasons for the debug overlay and the Dossier.
@@ -75,6 +86,9 @@ function Stalk.new(service)
 		lostSince = nil,
 		sensedPos = nil, -- where he believes the target is (nil = lost them)
 		sensedSeen = false, -- ... and he can see them right now
+		errand = nil, -- { id = "WaitAtTable" | "Tidy", ... } (StalkerService sets it)
+		hauntVisits = {}, -- room id -> times he lingered where an heirloom lies
+		tidied = 0, -- heirlooms he put back
 	}, Stalk)
 end
 
@@ -233,6 +247,10 @@ function Stalk:_pickTarget(now: number)
 			local score = nearest / 40
 				+ (habits and GazeHabits.blindBack(habits) or 0.5) * 0.8
 				+ self.rng:NextNumber(0, 0.3)
+			-- Whoever carries one of his things (Logic/Scent).
+			if self.service:IsCarrier(player) then
+				score += Config.Scent.TargetBonus
+			end
 			if score > bestScore then
 				best, bestScore = player, score
 			end
@@ -392,12 +410,15 @@ end
 
 -- Somewhere far from everyone, out of sight: for roaming the house. While a
 -- hunt is waking (Stalker/Director:Arm) he drifts towards where the squad
--- went: he heard them, and he's coming to meet them.
-function Stalk:_farPoint(): Vector3?
+-- went: he heard them, and he's coming to meet them. And he visits his
+-- things: rooms where heirlooms nobody has found yet are kept. Returns the
+-- point, and the room when it's one of those.
+function Stalk:_farPoint(): (Vector3?, number?)
 	local worldService = self.services.WorldService
 	local director = self.service.director
 	local armed = director and director.armedRooms
-	local best, bestScore = nil, -math.huge
+	local haunts = self.service:HauntRooms()
+	local best, bestScore, bestHaunt = nil, -math.huge, nil
 	for _, id in worldService:RoomIds() do
 		local point = worldService:RandomPointIn(id, self.rng)
 		local d = self.service:_minPlayerDistance(point)
@@ -406,12 +427,15 @@ function Stalk:_farPoint(): Vector3?
 			if armed and armed[id] then
 				score += Config.Pacing.ProwlBonus
 			end
+			if haunts[id] then
+				score += Config.Scent.HauntBonus
+			end
 			if score > bestScore then
-				best, bestScore = point, score
+				best, bestScore, bestHaunt = point, score, haunts[id] and id or nil
 			end
 		end
 	end
-	return best
+	return best, bestHaunt
 end
 
 -- Sneaking: a way someone is looking at costs him more (Config.Nav.SeenCost),
@@ -465,20 +489,137 @@ end
 
 MOVES.DistantRoam = {
 	start = function(self, move)
-		move.goal = self:_farPoint()
+		move.goal, move.haunt = self:_farPoint()
 		return move.goal ~= nil
 	end,
 	update = function(self, move, now)
 		if not move.pausing then
 			if relocate(self, move, now) then
-				-- Stand in the corner facing the wall for a while.
-				move.pausing = now + self.rng:NextNumber(3, 7)
+				-- Stand in the corner facing the wall for a while; longer where
+				-- one of his things is kept.
+				local linger = move.haunt and Config.Scent.HauntLinger or { 3, 7 }
+				move.pausing = now + self.rng:NextNumber(linger[1], linger[2])
+				if move.haunt then
+					self.hauntVisits[move.haunt] = (self.hauntVisits[move.haunt] or 0) + 1
+				end
 				self.body:Hold()
 				self.body:SetPose(Poses.Idle)
 			end
 			return false
 		end
 		return now >= move.pausing
+	end,
+}
+
+-- Errands (R2c) ----------------------------------------------------------------------
+
+-- He goes to the head of the table and waits there for his dinner.
+MOVES.WaitAtTable = {
+	start = function(self, move)
+		local errand = self.errand
+		if not errand or not errand.at then
+			return false
+		end
+		move.goal = errand.at
+		return true
+	end,
+	update = function(self, move, now, ctx)
+		local errand = self.errand
+		if not errand or errand.id ~= "WaitAtTable" then
+			return true
+		end
+		local reach = Config.Scent.ErrandReach
+		if move.seated and planar(self.body.root.Position, errand.at) > reach then
+			-- Something moved him off his place (a stun, a retreat): back to it.
+			move.seated, move.walking, move.started = false, false, now
+			errand.arrived = false
+		end
+		if not move.seated then
+			if relocate(self, move, now) then
+				if planar(self.body.root.Position, errand.at) > reach then
+					-- He can't get there: let it be for a while.
+					self.service:ErrandGaveUp(errand.id)
+					self.errand = nil
+					return true
+				end
+				move.seated = true
+				errand.arrived = true
+				self.body:Hold()
+				self.body:SetPose(Poses.Idle)
+				if errand.look then
+					self.body:FacePoint(errand.look)
+				end
+			end
+			return false
+		end
+		-- Seated: he watches whoever watches him, and waits.
+		self.body:Hold()
+		self.body:SetPose(Poses.Idle)
+		if ctx.nearestWatcher and typeof(ctx.nearestWatcher) == "Instance" then
+			self.body:FacePlayer(ctx.nearestWatcher)
+			self.body:SetGaze(ctx.nearestWatcher)
+		end
+		return false
+	end,
+	stop = function(self)
+		if self.errand and self.errand.id == "WaitAtTable" then
+			self.errand.arrived = false
+		end
+	end,
+}
+
+-- He walks, unseen, to an heirloom left lying about and puts it back where
+-- it was kept: only when nobody sees him or it, and nobody is near.
+MOVES.Tidy = {
+	start = function(self, move)
+		local errand = self.errand
+		if not errand or not errand.position then
+			return false
+		end
+		local spot = errand.position
+		local floor = Vector3.new(spot.X, self.services.WorldService:FloorBase(spot.Y), spot.Z)
+		local goal = nil
+		for i = 0, 8 do
+			local angle = i / 8 * math.pi * 2
+			local point = i == 0 and floor or floor + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 2.5
+			if self.body:Fits(point) then
+				goal = point
+				break
+			end
+		end
+		move.goal = goal
+		return goal ~= nil
+	end,
+	update = function(self, move, now)
+		local errand = self.errand
+		if not errand or errand.id ~= "Tidy" then
+			return true
+		end
+		if not move.there then
+			if relocate(self, move, now) then
+				if planar(self.body.root.Position, move.goal) > Config.Scent.ErrandReach then
+					self.service:ErrandGaveUp(errand.id)
+					self.errand = nil
+					return true
+				end
+				move.there = true
+			end
+			return false
+		end
+		self.body:Hold()
+		-- Only unseen: him, and the thing itself.
+		local service = self.service
+		local seenHim = self.sight:AnyoneSees(self.body:ExposedPoints(), 130)
+		local seenIt = self.sight:AnyoneSees({ errand.position }, 130)
+		local near = service:_minPlayerDistance(errand.position) < Config.Scent.TidyClear
+		if not seenHim and not seenIt and not near then
+			if self.services.ItemService:Tidy(errand.token) then
+				self.tidied += 1
+			end
+			self.errand = nil
+			return true
+		end
+		return false
 	end,
 }
 
@@ -1295,6 +1436,8 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 
 	local moveId = self.move and self.move.id
 	local busy = moveId == "Yank" or moveId == "Lunge" or moveId == "BackAway" or moveId == "Withdraw"
+	-- Waiting at the table he holds his place: no yank, no backing off.
+	local seated = self.errand ~= nil and self.errand.id == "WaitAtTable" and self.errand.arrived == true
 
 	-- Reactions --------------------------------------------------------------------
 	if not busy then
@@ -1306,12 +1449,30 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 			self.sensedPos, self.sensedSeen = self:Known(victim)
 			ctx.contact, ctx.distance = true, victimDistance
 			self:_begin("Lunge", ctx)
-		elseif StalkRules.flees(tier, self.seenFor, G) and not self:Hidden(now) then
+		elseif not seated and StalkRules.flees(tier, self.seenFor, G) and not self:Hidden(now) then
 			self:_begin("Yank", ctx)
-		elseif StalkRules.backsOff(tier, self.watchedFor, nearestDistance, G) then
+		elseif not seated and StalkRules.backsOff(tier, self.watchedFor, nearestDistance, G) then
 			self:_begin("BackAway", ctx)
 		elseif self:_lungeCheck(now, ctx) then
 			self:_begin("Lunge", ctx)
+		end
+	end
+	-- An errand comes first, and comes back after anything that cut it short.
+	local errand = self.errand
+	busy = self.move ~= nil
+		and (
+			self.move.id == "Yank"
+			or self.move.id == "Lunge"
+			or self.move.id == "BackAway"
+			or self.move.id == "Withdraw"
+		)
+	if errand and not busy and (not self.move or self.move.id ~= errand.id) then
+		if self.move and MOVES[self.move.id].stop then
+			MOVES[self.move.id].stop(self, self.move)
+		end
+		self.move = nil
+		if not self:_begin(errand.id, ctx) then
+			self.errand = nil
 		end
 	end
 	self:_tells(now, ctx)
@@ -1444,6 +1605,30 @@ function Stalk:Summary()
 		return a.count > b.count
 	end)
 	return list
+end
+
+-- For the Dossier: what he did for himself (R2c).
+function Stalk:ErrandLines(): { string }
+	local lines = {}
+	local best, visits = nil, 1
+	for room, count in self.hauntVisits do
+		if count > visits then
+			best, visits = room, count
+		end
+	end
+	local worldService = self.services.WorldService
+	local room = best and worldService.World and worldService:Room(best)
+	if room then
+		table.insert(lines, "It kept going back to the " .. string.lower(room.name) .. ". Something of his was there.")
+	end
+	if self.tidied > 0 then
+		table.insert(
+			lines,
+			self.tidied == 1 and "It tidied up after you: an heirloom you left lying went back where it was kept."
+				or string.format("It tidied up after you %d times.", self.tidied)
+		)
+	end
+	return lines
 end
 
 -- Debug console: what he believes about his target (rooms, most likely first).

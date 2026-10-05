@@ -47,6 +47,7 @@ local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default",
 	"start · end · skip (to Investigation) · resolve (serve the dinner)",
 	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room>",
+	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
@@ -398,6 +399,71 @@ function DebugService:Run(player: Player, text: string)
 			character:PivotTo(CFrame.new(spot + Vector3.new(0, 3, 0)))
 			reply(player, "in " .. tostring(room.name) .. " (room " .. id .. ")")
 		end
+	elseif command == "scent" or command == "table" or command == "tidy" then
+		-- The Guest and his heirlooms (R2c).
+		local stalker = services.StalkerService
+		local items = services.ItemService
+		if not stalker.stalk then
+			reply(player, "no run")
+			return
+		end
+		if command == "table" then
+			-- Wait at the table now, whoever holds what.
+			local finale = services.FinaleService
+			stalker.stalk.errand = {
+				id = "WaitAtTable",
+				started = os.clock(),
+				at = finale.head,
+				look = finale.tableFrame.Position,
+				forced = true,
+			}
+			stalker.director:Disarm()
+			reply(player, "he goes to wait at the head of the table")
+			return
+		elseif command == "tidy" then
+			-- Pretend the heirlooms lying about were left long ago.
+			local count = 0
+			for _, state in items.heirlooms do
+				if state.thing and not state.holder and not state.set then
+					state.droppedAt = os.clock() - Config.Scent.TidySeconds - 1
+					count += 1
+				end
+			end
+			stalker.tidyCooldownUntil = 0
+			reply(player, count .. " heirloom(s) left lying long enough for him to tidy")
+			return
+		end
+		local lines = {}
+		for _, h in items:Heirlooms() do
+			table.insert(
+				lines,
+				string.format(
+					"%s %s%s%s",
+					h.token,
+					h.set and "set" or h.holder and ("held by " .. h.holder.DisplayName) or "lying",
+					h.hidden and " (hiding)" or "",
+					h.droppedAt and string.format(", dropped %ds ago", os.clock() - h.droppedAt) or ""
+				)
+			)
+		end
+		local errand = stalker.stalk.errand
+		local spot = errand and (errand.at or errand.position)
+		local from = spot and stalker.stalk.body.root.Position
+		table.insert(
+			lines,
+			"errand: "
+				.. (errand and errand.id or "none")
+				.. (errand and errand.arrived and " (arrived)" or "")
+				.. (
+					from
+						and string.format(
+							", %.1f studs from its spot",
+							(Vector3.new(spot.X, from.Y, spot.Z) - from).Magnitude
+						)
+					or ""
+				)
+		)
+		reply(player, table.concat(lines, "\n"))
 	elseif command == "act" then
 		-- The run's arc (Logic/Acts) and any hunt progress has woken.
 		local director = services.StalkerService.director

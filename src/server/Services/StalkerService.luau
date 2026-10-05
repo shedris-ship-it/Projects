@@ -30,6 +30,7 @@ local Sfx = require(Shared.Lib.Sfx)
 local Archetypes = require(Shared.Data.Archetypes)
 local GuestPose = require(Shared.Logic.GuestPose)
 local Net = require(Shared.Net)
+local Scent = require(Shared.Logic.Scent)
 local StalkRules = require(Shared.Logic.StalkRules)
 local Throw = require(Shared.Logic.Throw)
 
@@ -192,6 +193,11 @@ function StalkerService:Begin(ctx)
 	self.data = {}
 	self.huntCount = 0
 	self.heirloomArmed = false
+	self.heirlooms = {}
+	self.haunts = {}
+	self.nextScent = 0
+	self.tableCooldownUntil = 0
+	self.tidyCooldownUntil = 0
 	self.lungeLast = {}
 	self.squadLungeLast = nil
 	self.recentDowns = {}
@@ -331,6 +337,126 @@ function StalkerService:StartFinalHunt()
 	self:_beginTelegraph(5, "final")
 end
 
+-- His things (R2c, "the Guest wants his dinner") -----------------------------------
+
+-- Is this player carrying one of his heirlooms (Logic/Scent)?
+function StalkerService:IsCarrier(player: Player): boolean
+	return Scent.carrying(self.heirlooms or {}, player)
+end
+
+-- Rooms where heirlooms nobody has found yet are kept: he visits them.
+function StalkerService:HauntRooms(): { [number]: boolean }
+	return self.haunts or {}
+end
+
+-- For the Dossier.
+function StalkerService:ErrandLines(): { string }
+	return self.stalk and self.stalk:ErrandLines() or {}
+end
+
+-- Once a second: what he knows of his heirlooms, and what he wants to do
+-- about them.
+function StalkerService:_heirlooms(now: number)
+	local items = self.services.ItemService
+	if not items or not self.stalk then
+		return
+	end
+	local heirlooms = items:Heirlooms()
+	self.heirlooms = heirlooms
+	local haunts = {}
+	for _, h in heirlooms do
+		local home = not items.found[h.token] and items:HomeOf(h.token)
+		if home and home.room then
+			haunts[home.room] = true
+		end
+	end
+	self.haunts = haunts
+	local worldService = self.services.WorldService
+	-- The scent: the carrier's room, every few seconds.
+	if now >= self.nextScent then
+		self.nextScent = now + Config.Scent.Interval
+		for _, sensed in Scent.targets(heirlooms, now, Config.Scent) do
+			local player = sensed.player
+			local at = sensed.position or self.services.PlayerStateService:Position(player)
+			local room = at and worldService:RoomAt(at)
+			local record = room and worldService:Room(room)
+			if record and player.Parent then
+				self.perception:_remember(player, record.center, Config.Scent.Confidence, false)
+			end
+		end
+	end
+	self:_errands(now, heirlooms)
+end
+
+-- Stalk couldn't reach an errand's spot: not again for a while.
+function StalkerService:ErrandGaveUp(id: string)
+	local now = os.clock()
+	if id == "WaitAtTable" then
+		self.tableCooldownUntil = now + Config.Scent.TableWaitCooldown
+	elseif id == "Tidy" then
+		self.tidyCooldownUntil = now + Config.Scent.TidyCooldown
+	end
+end
+
+-- Waiting at the head of the table, in his place.
+function StalkerService:_seatedAtTable(): boolean
+	local errand = self.stalk and self.stalk.errand
+	return errand ~= nil and errand.id == "WaitAtTable" and errand.arrived == true
+end
+
+-- The heirloom he meant to put back was picked up or moved.
+function StalkerService:_tidyMoved(errand, heirlooms): boolean
+	for _, h in heirlooms do
+		if h.token == errand.token then
+			return h.holder ~= nil or h.set or not h.position or (h.position - errand.position).Magnitude > 3
+		end
+	end
+	return true
+end
+
+function StalkerService:_errands(now: number, heirlooms)
+	local stalk = self.stalk
+	local errand = stalk.errand
+	local cfg = Config.Scent
+	local finale = self.services.FinaleService
+	-- Every heirloom still to set is in someone's hands: he goes to the head
+	-- of the table and waits for his dinner.
+	local wantTable = not self.final
+		and finale
+		and finale.head ~= nil
+		and not finale.served
+		and now >= self.tableCooldownUntil
+		and Scent.allInHand(heirlooms)
+	if errand and errand.id == "WaitAtTable" then
+		-- (F2 `table` forces one: it lasts until the time runs out.)
+		if (not wantTable and not errand.forced) or now - errand.started > cfg.TableWaitMax then
+			stalk.errand = nil
+			self.tableCooldownUntil = now + cfg.TableWaitCooldown
+		end
+	elseif wantTable then
+		stalk.errand = { id = "WaitAtTable", started = now, at = finale.head, look = finale.tableFrame.Position }
+		-- He's waiting for dinner, not hunting for it.
+		self.director:Disarm()
+	end
+	-- An heirloom left lying about: he puts it back where it was kept.
+	errand = stalk.errand
+	if
+		errand
+		and errand.id == "Tidy"
+		and (now - errand.started > cfg.TidyGiveUp or self:_tidyMoved(errand, heirlooms))
+	then
+		stalk.errand = nil
+		self.tidyCooldownUntil = now + cfg.TidyCooldown
+	elseif not errand and now >= self.tidyCooldownUntil and not self.final then
+		for _, h in heirlooms do
+			if h.position and Scent.wantsTidy(h, now, self:_minPlayerDistance(h.position), cfg) then
+				stalk.errand = { id = "Tidy", started = now, token = h.token, position = h.position }
+				break
+			end
+		end
+	end
+end
+
 -- Progress was made and a hunt is waking (Stalker/Director:Arm returned the
 -- seconds until it's due): somewhere near him a door slams, the house's way
 -- of saying it heard. Out of everyone's sight, and only once he's in.
@@ -361,7 +487,11 @@ function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?)
 	if not self.active or not self.bodyCtl then
 		return
 	end
-	self.bodyCtl:Place(position, lookAt)
+	-- Already waiting there (Stalk's WaitAtTable errand): he just stays.
+	local here = self.bodyCtl.root.Position
+	if (Vector3.new(here.X, 0, here.Z) - Vector3.new(position.X, 0, position.Z)).Magnitude > 2 or self.parked then
+		self.bodyCtl:Place(position, lookAt)
+	end
 	self.parked = false
 	self.arrived = true
 end
@@ -574,6 +704,10 @@ function StalkerService:_wantVisible(player: Player, now: number): boolean
 	if self.stalk:Withdrawn(now) or (self.tier <= 1 and self.stalk:Hidden(now)) then
 		return false
 	end
+	-- Waiting at the head of the table, he's there for everyone.
+	if self:_seatedAtTable() then
+		return true
+	end
 	return StalkRules.visibleTo(self.tier, player == self.stalk:Target())
 end
 
@@ -685,6 +819,7 @@ function StalkerService:_direct()
 	if self.resolved or self.debugHold then
 		return
 	end
+	self:_heirlooms(now)
 	local decision = self.director:Evaluate(runTime)
 	if self.tierOverride then
 		decision.tier = math.min(self.tierOverride, 3)
@@ -845,8 +980,14 @@ function StalkerService:_update(dt: number)
 		self.services.SquadProfileService:RecordGaze(dt * #playerWatchers)
 	end
 
-	-- Two Witnesses holding the stare together drive him off.
-	if #watchers >= 2 and self.mode ~= Modes.Retreating and self.mode ~= Modes.Departing then
+	-- Two Witnesses holding the stare together drive him off; not from his
+	-- place at the table, where he only waits (they still freeze him).
+	if
+		#watchers >= 2
+		and self.mode ~= Modes.Retreating
+		and self.mode ~= Modes.Departing
+		and not self:_seatedAtTable()
+	then
 		self.coStare += dt
 		if self.coStare >= Config.Witness.CoStareSeconds then
 			self.coStare = 0

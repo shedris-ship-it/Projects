@@ -468,6 +468,25 @@ Config.Pacing = {
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
+-- The Guest wants his dinner (Logic/Scent, Logic/Dinner; docs/plans/
+-- gameplay-rework.md, R2c): the heirlooms are his.
+Config.Scent = {
+	Interval = 5, -- seconds between the times he senses which room a carried heirloom is in
+	Confidence = 0.55, -- how sure that is (a sighting is 1, a noise 0.6)
+	Linger = 8, -- seconds after a drop he still knows where it is
+	TargetBonus = 0.8, -- added to a carrier's score as his target (Stalk:_pickTarget)
+	HauntBonus = 20, -- how much he favours rooms holding heirlooms nobody has found yet
+	HauntLinger = { 6, 10 }, -- seconds he lingers there
+	TableWaitMax = 120, -- he waits at the table at most this long
+	TableWaitCooldown = 60, -- and not again for this long after
+	TableMargin = 2, -- every place is at least ContactRadius + this from his seat (Logic/Dinner)
+	TidySeconds = 150, -- an heirloom left lying anywhere but its place this long, he puts back
+	TidyClear = 20, -- only with nobody this close to it
+	TidyGiveUp = 25, -- seconds he tries to reach it unseen before letting it be for a while
+	TidyCooldown = 60,
+	ErrandReach = 4, -- an errand's spot counts as reached within this many studs
+}
+
 -- Each Witness's own unsettling moments (Logic/Atmosphere): the Drift each
 -- kind waits for.
 Config.Atmosphere = {

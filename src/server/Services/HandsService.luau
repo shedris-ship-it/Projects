@@ -57,6 +57,8 @@ local HandsService = {
 	Grabbed = Signal.new(),
 	-- (thing, thrower): a throw just left someone's hands.
 	Thrown = Signal.new(),
+	-- (player, thing): it left someone's hands (dropped, thrown, or taken).
+	Released = Signal.new(),
 	-- (thing, from, to): a thrown thing moved this step (the stun's hit test).
 	Moved = Signal.new(),
 }
@@ -414,6 +416,7 @@ function HandsService:Release(player: Player)
 	thing.stillSince = nil
 	thing.lastSpeed = nil
 	thing.lastPos = thing.root and thing.root.Position
+	self.Released:Fire(player, thing)
 	return thing
 end
 
@@ -680,6 +683,7 @@ function HandsService:_checkHeld(player: Player, thing, now: number)
 		thing.stillSince = nil
 		thing.lastSpeed = nil
 		thing.lastPos = root.Position
+		self.Released:Fire(player, thing)
 		return
 	end
 	if (position - head.Position).Magnitude > H.CarryDrop then

@@ -360,10 +360,11 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	table.sort(tactics, function(a, b)
 		return a.count > b.count
 	end)
+	local stalkLines = services.StalkerService:ErrandLines()
 	services.StalkerService:Stop()
 	self:_setPhase(Phases.Debrief, Config.Run.DebriefSeconds)
 
-	local dossier = services.SquadProfileService:Dossier({ tactics = tactics })
+	local dossier = services.SquadProfileService:Dossier({ tactics = tactics, stalkLines = stalkLines })
 	local duration = os.clock() - run.started
 	local summary = {
 		won = won,

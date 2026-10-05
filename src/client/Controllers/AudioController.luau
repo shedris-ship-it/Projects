@@ -3,6 +3,7 @@
 -- hunt heartbeat, silence as a weapon, positional one-shots for phantom
 -- sounds, and subtitles for key cues.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -63,6 +64,7 @@ end
 function AudioController:Start()
 	group("SFX")
 	group("Ambient")
+	self:_heirlooms()
 	group("UI")
 	self:_applyVolumes(self.state.settings)
 	self.state.SettingsChanged:Connect(function(settings)
@@ -402,6 +404,48 @@ function AudioController:Loop(key: string, position: Vector3, volume: number)
 	sound.Parent = attachment
 	sound:Play()
 	return attachment
+end
+
+-- A carried heirloom plays a faint music box (R2c, "the Guest wants his
+-- dinner"): everyone hears who has one, and that he will be coming.
+function AudioController:_heirlooms()
+	local tinkles = {}
+	local function watch(model: Instance)
+		if not model:IsA("Model") then
+			return
+		end
+		local function update()
+			local held = model.Parent ~= nil
+				and model:GetAttribute("Heirloom") == true
+				and model:GetAttribute("HeldBy") ~= nil
+			local sound = tinkles[model]
+			if held and not sound then
+				local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+				sound = part and newSound("MusicBox", 0.16, 1, "SFX", 4)
+				if sound then
+					sound.Looped = true
+					sound.RollOffMaxDistance = 45
+					sound.Parent = part
+					sound:Play()
+					tinkles[model] = sound
+					if model:GetAttribute("HeldBy") == player.UserId then
+						self:Caption("[a music box, faintly, from what you carry]")
+					end
+				end
+			elseif not held and sound then
+				sound:Destroy()
+				tinkles[model] = nil
+			end
+		end
+		model:GetAttributeChangedSignal("HeldBy"):Connect(update)
+		model:GetAttributeChangedSignal("Heirloom"):Connect(update)
+		model.AncestryChanged:Connect(update)
+		update()
+	end
+	for _, model in CollectionService:GetTagged(Constants.Tags.Grabbable) do
+		watch(model)
+	end
+	CollectionService:GetInstanceAddedSignal(Constants.Tags.Grabbable):Connect(watch)
 end
 
 -- Subtitles for key audio cues (accessibility, doc section 8).
