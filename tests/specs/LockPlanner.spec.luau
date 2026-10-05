@@ -123,7 +123,25 @@ return function(test, check, Shared, require)
 				rooms[room] = true
 				regions[plan.roomRegion[room]] = true
 			end
-			local spread, want = 0, math.min(#plan.finale.heirlooms, #plan.order + 1)
+			-- A mansion region of nothing but corridors keeps no heirloom
+			-- (docs/plans/level-design.md section 4).
+			local byId = {}
+			for _, room in house.layout.rooms do
+				byId[room.id] = room
+			end
+			local keepable = 0
+			for r = 0, #plan.order do
+				for _, id in plan.regions[r].rooms do
+					local room = byId[id]
+					local template = house.templates[room.template]
+					local corridor = room.corridor or room.kind == "stair" or template.family == "corridor"
+					if id ~= plan.finale.table and not (house.mansion and corridor) then
+						keepable += 1
+						break
+					end
+				end
+			end
+			local spread, want = 0, math.min(#plan.finale.heirlooms, keepable)
 			for _ in regions do
 				spread += 1
 			end

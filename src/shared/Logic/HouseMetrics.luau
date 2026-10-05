@@ -17,6 +17,7 @@ local Graph = require(script.Parent.Graph)
 local LockPlanner = require(script.Parent.LockPlanner)
 local MansionHouse = require(script.Parent.MansionHouse)
 local NavGraph = require(script.Parent.NavGraph)
+local RoomPurpose = require(script.Parent.RoomPurpose)
 local RoomRects = require(script.Parent.RoomRects)
 
 local HouseMetrics = {}
@@ -107,8 +108,8 @@ end
 --   nav       NavGraph.options(Config)
 --   config    the house's config (Config.Mansion or Config.Level)
 --   shortcut  studs a bolt must save to count as a shortcut
---   purpose   function(roomId) -> boolean, whether a room has a reason to go
---             in (Logic/RoomPurpose); rooms without one are counted
+--   purposes  every room's reasons (Logic/RoomPurpose.of): rooms without one
+--             and regions short of their kit are counted
 function HouseMetrics.measure(layout, plan, templatesById, opts)
 	local mansion = layout.mode == "Mansion"
 	local config = opts.config
@@ -313,9 +314,11 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	local final = search(dining, all)
 	local carries, floors, regions = {}, {}, {}
 	m.corridorHeirlooms, m.corridorTokens = 0, 0
+	-- Lying in a corridor: kept in no furniture (a puzzle there, like the
+	-- dumbwaiter's hatch, is a set piece of its own).
 	for _, id in tokenIds do
 		local token = plan.tokens[id]
-		local room = LockPlanner.tokenRoom(plan, token)
+		local room = token.producer.kind == "container" and LockPlanner.tokenRoom(plan, token) or nil
 		if room and isCorridor(room) then
 			m.corridorTokens += 1
 			if token.kind == "heirloom" then
@@ -450,14 +453,17 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		end
 	end
 
-	-- Rooms with no reason to go in (Logic/RoomPurpose).
-	if opts.purpose then
+	-- Rooms with no reason to go in, and regions short of a hiding spot, a
+	-- lure, or a landmark or Lantern (Logic/RoomPurpose).
+	if opts.purposes then
 		m.purposeless = 0
 		for _, room in layout.rooms do
-			if not opts.purpose(room.id) then
+			local entry = opts.purposes[room.id]
+			if entry and not RoomPurpose.hasReason(entry) then
 				m.purposeless += 1
 			end
 		end
+		m.kitGaps = RoomPurpose.kitGaps(opts.purposes, plan)
 	end
 	return m
 end

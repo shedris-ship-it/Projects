@@ -36,6 +36,7 @@
 local Dumbwaiter = require(script.Parent.Dumbwaiter)
 local Graph = require(script.Parent.Graph)
 local MansionHouse = require(script.Parent.MansionHouse)
+local Interactables = require(script.Parent.Parent.Data.Interactables)
 local Props = require(script.Parent.Parent.Data.Props)
 
 local LockPlanner = {}
@@ -53,13 +54,21 @@ LockPlanner.Containers = {
 }
 
 -- What a room's template offers: hiding spots, places to keep things, a desk
--- for the computer.
+-- for the computer, and whether it has a landmark or a fixture to lure him
+-- with (a reason to go in by itself; Logic/RoomPurpose).
 function LockPlanner.offers(template, mansion: boolean)
 	local hides, containers, desk, piano = 0, 0, false, false
+	local landmark, lure = false, false
 	for _, prop in template and template.props or {} do
 		local kind = Props.Kinds[prop.kind]
 		if kind and kind.hide then
 			hides += 1
+		end
+		if kind and kind.landmark then
+			landmark = true
+		end
+		if Interactables[prop.kind] then
+			lure = true
 		end
 		if LockPlanner.Containers[prop.kind] then
 			containers += 1
@@ -73,7 +82,7 @@ function LockPlanner.offers(template, mansion: boolean)
 	if mansion and template and template.mansion and template.mansion.hides then
 		hides += template.mansion.hides
 	end
-	return { hides = hides, containers = containers, desk = desk, piano = piano }
+	return { hides = hides, containers = containers, desk = desk, piano = piano, landmark = landmark, lure = lure }
 end
 
 local function sortedKeys(t): { any }
@@ -116,6 +125,26 @@ local function context(layout, templatesById, config)
 		offers[id] = LockPlanner.offers(templatesById[byId[id].template], mansion)
 	end
 	local adj = Graph.adjacency(ids, edges)
+	-- In the mansion, rooms with no reason of their own to go in (no landmark,
+	-- lure or Lantern, not the hall or the dining room) and the corridors:
+	-- what's kept goes to the first and never an heirloom to the second
+	-- (docs/plans/level-design.md section 4). The old house keeps its plans.
+	local bare, corridor = {}, {}
+	if mansion then
+		for _, id in ids do
+			local room = byId[id]
+			local template = templatesById[room.template]
+			corridor[id] = room.corridor == true
+				or room.kind == "stair"
+				or (template ~= nil and template.family == "corridor")
+			bare[id] = not corridor[id]
+				and not offers[id].landmark
+				and not offers[id].lure
+				and not room.lantern
+				and id ~= layout.start
+				and id ~= layout.deliberation
+		end
+	end
 	-- The house's loops through the hall or the dining room, with their length.
 	local loops = {}
 	for _, cycle in Graph.fundamentalCycles(adj, ids, edges) do
@@ -139,6 +168,9 @@ local function context(layout, templatesById, config)
 		adj = adj,
 		loops = loops,
 		offers = offers,
+		bare = bare,
+		corridor = corridor,
+		kept = {}, -- rooms something is kept in so far (an attempt's)
 		start = layout.start,
 		dining = layout.deliberation,
 		-- Where the run ends: the front door is on the hall in the mansion; the
@@ -460,12 +492,25 @@ local function roomName(ctx, id: number): string
 end
 
 -- A room in `region` to keep something in, favouring rooms with furniture to
--- keep it in, never the dining room.
-local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boolean }?)
+-- keep it in, never the dining room. In the mansion, a room with no reason
+-- of its own to go in comes first (what's kept there becomes its reason),
+-- one already keeping something comes last, and an heirloom is never kept
+-- in a corridor (a key may hang on a rack there).
+local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boolean }?, heirloom: boolean?)
 	local candidates = {}
 	for _, id in rooms do
-		if id ~= ctx.dining and not (avoid and avoid[id]) then
-			table.insert(candidates, { id = id, weight = 0.3 + ctx.offers[id].containers })
+		if id ~= ctx.dining and not (avoid and avoid[id]) and not (heirloom and ctx.corridor[id]) then
+			local weight = 0.3 + ctx.offers[id].containers
+			if ctx.bare[id] then
+				weight *= 2.5
+			end
+			if ctx.corridor[id] then
+				weight *= 0.3
+			end
+			if ctx.mansion and ctx.kept[id] then
+				weight *= 0.4
+			end
+			table.insert(candidates, { id = id, weight = weight })
 		end
 	end
 	if #candidates == 0 then
@@ -479,6 +524,7 @@ local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boole
 end
 
 local function attempt(ctx, rng, cfg, k: number)
+	ctx.kept = {}
 	local start = growStart(ctx, rng, cfg)
 	local roomRegion, count = growRegions(ctx, rng, start, k)
 	local regions = {}
@@ -617,6 +663,9 @@ local function attempt(ctx, rng, cfg, k: number)
 			else
 				producer = { kind = "container", room = keepingRoom(ctx, rng, nearRooms) }
 			end
+			for _, room in LockPlanner.producerRooms(plan, { producer = producer }) do
+				ctx.kept[room] = true
+			end
 			plan.tokens[token] = {
 				kind = kind.token,
 				opens = gate.id,
@@ -649,9 +698,22 @@ local function attempt(ctx, rng, cfg, k: number)
 	end
 	local heirlooms, used = {}, {}
 	for i = 1, wanted do
+		-- In the mansion, only regions with a room fit to keep one (not the
+		-- dining room, not a corridor, not keeping another heirloom).
+		local function keepable(entry): boolean
+			if not ctx.mansion then
+				return true
+			end
+			for _, id in regions[entry.region].rooms do
+				if id ~= ctx.dining and not ctx.corridor[id] and not used[id] then
+					return true
+				end
+			end
+			return false
+		end
 		local choices = {}
 		for _, entry in pool do
-			if not entry.taken then
+			if not entry.taken and keepable(entry) then
 				table.insert(choices, entry)
 			end
 		end
@@ -659,14 +721,19 @@ local function attempt(ctx, rng, cfg, k: number)
 			-- Fewer regions than heirlooms: share them, a different room each time.
 			for _, entry in pool do
 				entry.taken = false
+				if keepable(entry) then
+					table.insert(choices, entry)
+				end
 			end
-			choices = pool
+			if #choices == 0 then
+				choices = pool
+			end
 		end
 		local entry = rng:WeightedPick(choices, function(e)
 			return e.weight
 		end)
 		entry.taken = true
-		local room = keepingRoom(ctx, rng, regions[entry.region].rooms, used)
+		local room = keepingRoom(ctx, rng, regions[entry.region].rooms, used, true)
 		-- What keeps it: a drawer there, or a puzzle switched on that has
 		-- somewhere in its region to stand (one of each puzzle a house).
 		local producer = { kind = "container", room = room }
@@ -747,6 +814,7 @@ local function attempt(ctx, rng, cfg, k: number)
 			end
 		end
 		used[room] = true
+		ctx.kept[room] = true
 		local id = "heirloom:" .. i
 		plan.tokens[id] = { kind = "heirloom", label = "Heirloom " .. i, producer = producer }
 		table.insert(heirlooms, id)

@@ -743,7 +743,8 @@ Config.LevelDesign = {
 		keyWalkMin = { band = { 40, math.huge }, weight = 1, scale = 20 }, -- a key is never right by its door
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
-		purposeless = { band = { 0, 0 }, weight = 2 },
+		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)
+		kitGaps = { band = { 0, 0 }, weight = 1 }, -- regions short of a hiding spot, a lure, a landmark or Lantern
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
 		walk = {
 			band = { 900, 2200 },

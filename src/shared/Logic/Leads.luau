@@ -29,9 +29,18 @@ local Leads = {}
 
 -- What each room offers a lead: tops to stand a box or case on, and whether
 -- a note can name it so it's the only room it could mean (Logic/NoteText).
-function Leads.rooms(layout, templatesById): { [number]: { tops: number, family: string?, nameable: boolean } }
+-- In the mansion, `bare` marks a room with no reason of its own to go in (no
+-- landmark, lure or Lantern, not the hall, the table or a corridor): a note
+-- left there gives it one (docs/plans/level-design.md section 4).
+function Leads.rooms(
+	layout,
+	templatesById
+): {
+	[number]: { tops: number, family: string?, nameable: boolean, bare: boolean?, corridor: boolean? },
+}
 	local rooms = {}
 	local named = NoteText.rooms(layout, templatesById)
+	local mansion = layout.mode == "Mansion"
 	for _, room in layout.rooms do
 		local template = templatesById[room.template]
 		local tops = 0
@@ -42,7 +51,18 @@ function Leads.rooms(layout, templatesById): { [number]: { tops: number, family:
 			end
 		end
 		local _, nameable = NoteText.roomPhrase(named, room.id)
-		rooms[room.id] = { tops = tops, family = template and template.family, nameable = nameable }
+		local info = { tops = tops, family = template and template.family, nameable = nameable }
+		if mansion then
+			local offers = LockPlanner.offers(template, true)
+			info.corridor = room.corridor == true or room.kind == "stair" or info.family == "corridor"
+			info.bare = not info.corridor
+				and not offers.landmark
+				and not offers.lure
+				and not room.lantern
+				and room.id ~= layout.start
+				and room.id ~= layout.deliberation
+		end
+		rooms[room.id] = info
 	end
 	return rooms
 end
@@ -79,6 +99,14 @@ function Leads.plan(plan, rooms, rng, cfg)
 	table.sort(ids)
 	local dining = plan.finale and plan.finale.table
 
+	-- Rooms the plan already keeps something in have their reason.
+	local keeping = {}
+	for _, token in plan.tokens do
+		for _, room in LockPlanner.producerRooms(plan, token) do
+			keeping[room] = true
+		end
+	end
+
 	local out = { tokens = {}, decoys = {} }
 	local used = {} -- lead kind -> times given, so one kind doesn't take every token
 	local boxRooms, caseRooms, noteRooms = {}, {}, {}
@@ -110,6 +138,14 @@ function Leads.plan(plan, rooms, rng, cfg)
 				local weight = regionOf(other) < regionOf(room) and 2 or 1
 				weight /= 1 + (noteRooms[other] or 0)
 				if other == dining then
+					weight *= 0.5
+				end
+				-- A note gives a room with no reason of its own one; one in a
+				-- corridor gives nothing.
+				local info = rooms[other]
+				if info.bare and not keeping[other] and not noteRooms[other] then
+					weight *= 2.5
+				elseif info.corridor then
 					weight *= 0.5
 				end
 				table.insert(noteCandidates, { room = other, weight = weight })

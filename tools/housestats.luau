@@ -17,9 +17,11 @@ local Rooms = Harness.require(Shared.Data.Rooms)
 local Rng = Harness.require(Shared.Lib.Rng)
 local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
 local HouseSize = Harness.require(Shared.Logic.HouseSize)
+local Leads = Harness.require(Shared.Logic.Leads)
 local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
 local MansionGen = Harness.require(Shared.Logic.MansionGen)
 local NavGraph = Harness.require(Shared.Logic.NavGraph)
+local RoomPurpose = Harness.require(Shared.Logic.RoomPurpose)
 
 local count = tonumber(process.args[1]) or 50
 local squad = tonumber(process.args[2]) or 4
@@ -34,10 +36,12 @@ local started = os.clock()
 for seed = 1, count do
 	local layout = MansionGen.generate(seed, Rooms.Mansion, config)
 	local plan = LockPlanner.plan(layout, Rooms.MansionById, Rng.new(seed):Fork("progression"), progression, config)
+	local leads = Leads.plan(plan, Leads.rooms(layout, Rooms.MansionById), Rng.new(seed):Fork("leads"), Config.Leads)
 	local m = HouseMetrics.measure(layout, plan, Rooms.MansionById, {
 		nav = nav,
 		config = config,
 		shortcut = design.ShortcutStuds,
+		purposes = RoomPurpose.of(layout, plan, Rooms.MansionById, leads),
 	})
 	for key, value in m do
 		if type(value) == "number" then

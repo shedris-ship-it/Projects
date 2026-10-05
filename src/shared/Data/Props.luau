@@ -11,6 +11,8 @@
 --           prop (a piano's top ends at its keyboard); default is the full depth
 -- reach:    how far the prop's foliage or fittings may stand out from its centre,
 --           when that is less than the footprint (a plant must fit a corridor strip)
+-- landmark: a piece you'd name to meet by ("at the clock"), which gives its room a
+--           reason to go in (Logic/RoomPurpose, docs/plans/level-design.md section 4)
 
 local Props = {
 	Bed = { size = { 7, 3, 10 }, hide = "bed", capacity = 1, noise = 6, color = { 108, 88, 118 }, material = "Fabric" },
@@ -85,7 +87,7 @@ local Props = {
 		material = "Marble",
 	},
 
-	DiningTable = { size = { 6, 3.4, 12 }, color = { 90, 60, 40 }, material = "Wood" },
+	DiningTable = { size = { 6, 3.4, 12 }, landmark = true, color = { 90, 60, 40 }, material = "Wood" },
 	Sofa = { size = { 9, 3.5, 4 }, color = { 70, 82, 96 }, material = "Fabric" },
 	Armchair = { size = { 4, 4, 4 }, color = { 110, 70, 60 }, material = "Fabric" },
 	Counter = { size = { 12, 3.6, 3 }, top = true, color = { 180, 176, 166 }, material = "Granite" },
@@ -98,12 +100,13 @@ local Props = {
 	Washer = { size = { 3.5, 4, 3.5 }, color = { 220, 220, 216 }, material = "SmoothPlastic" },
 	Boxes = { size = { 4, 4, 4 }, color = { 150, 120, 84 }, material = "Cardboard" },
 	Workbench = { size = { 10, 3.6, 3.5 }, top = true, color = { 110, 86, 60 }, material = "WoodPlanks" },
-	Car = { size = { 7, 5, 14 }, color = { 60, 72, 66 }, material = "Metal" },
+	Car = { size = { 7, 5, 14 }, landmark = true, color = { 60, 72, 66 }, material = "Metal" },
 	-- The body is d - 1 deep, set back half a stud, so its top is z -1.5 to 0.5.
 	Piano = {
 		size = { 7, 5, 3 },
 		top = true,
 		topSpan = { -1.5, 0.5 },
+		landmark = true,
 		color = { 24, 22, 22 },
 		material = "SmoothPlastic",
 	},
@@ -111,7 +114,7 @@ local Props = {
 	-- Chest-high to a player (eye 4.5), so you can see into its top drawer.
 	Dresser = { size = { 6, 3.6, 2.5 }, top = true, color = { 112, 82, 58 }, material = "Wood" },
 	Plant = { size = { 2, 5, 2 }, reach = 1, color = { 54, 80, 50 }, material = "Grass" },
-	GrandfatherClock = { size = { 2.5, 8, 2 }, color = { 70, 44, 30 }, material = "Wood" },
+	GrandfatherClock = { size = { 2.5, 8, 2 }, landmark = true, color = { 70, 44, 30 }, material = "Wood" },
 	CoatRack = { size = { 2, 7, 2 }, color = { 60, 44, 34 }, material = "Wood" },
 	Bench = { size = { 8, 2.5, 2.5 }, top = true, color = { 96, 74, 54 }, material = "Wood" },
 	WaterHeater = { size = { 3, 7, 3 }, color = { 190, 190, 184 }, material = "Metal" },

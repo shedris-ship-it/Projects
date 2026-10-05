@@ -154,11 +154,21 @@ if process.args[3] == "locks" then
 	)
 	-- How it measures as a level (Logic/HouseMetrics, docs/plans/level-design.md).
 	local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
+	local Leads = Harness.require(Shared.Logic.Leads)
 	local NavGraph = Harness.require(Shared.Logic.NavGraph)
+	local RoomPurpose = Harness.require(Shared.Logic.RoomPurpose)
+	-- The leads with the fork RunOrchestrator gives them.
+	local leads = Leads.plan(plan, Leads.rooms(layout, templates), Rng.new(seed):Fork("leads"), Config.Leads)
+	local purposes = RoomPurpose.of(layout, plan, templates, leads)
+	print("Every room's reasons (docs/plans/level-design.md section 4):")
+	for _, room in layout.rooms do
+		print(string.format("  %-22s %s", named(room.id), RoomPurpose.describe(purposes[room.id])))
+	end
 	local m = HouseMetrics.measure(layout, plan, templates, {
 		nav = NavGraph.options(Config),
 		config = config,
 		shortcut = Config.LevelDesign.ShortcutStuds,
+		purposes = purposes,
 	})
 	local score, card = HouseMetrics.score(m, Config.LevelDesign.Targets, squad)
 	print(string.format("Level score %.1f (lower is better; squad %d's bands)", score, squad))
