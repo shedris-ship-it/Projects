@@ -111,11 +111,12 @@ local function wallBand(model, base: Vector3, dir: Vector3, length: number, heig
 	local panels = {}
 	local from = -length / 2
 	for _, opening in sorted do
-		local a, b = opening.offset - DOOR_W / 2, opening.offset + DOOR_W / 2
+		local width = opening.width or DOOR_W
+		local a, b = opening.offset - width / 2, opening.offset + width / 2
 		piece("Wall", (from + a) / 2, a - from, 0, height)
-		piece("Lintel", opening.offset, DOOR_W, DOOR_H, height - DOOR_H)
+		piece("Lintel", opening.offset, width, DOOR_H, height - DOOR_H)
 		if opening.seam then
-			panels[opening.seam.id] = piece("SeamPanel", opening.offset, DOOR_W, 0, DOOR_H)
+			panels[opening.seam.id] = piece("SeamPanel", opening.offset, width, 0, DOOR_H)
 		end
 		from = b
 	end
@@ -584,8 +585,10 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		roomsById[room.id] = room
 	end
 	for _, seam in seams do
-		addOpening(roomsById[seam.a], seam.floor, seam.dir, seam.along, { seam = seam })
-		addOpening(roomsById[seam.b], seam.floor, OPPOSITE[seam.dir], seam.along, { seam = seam })
+		-- An archway is wider than a door (section 10.7).
+		local width = seam.arch and M.Arches.Width or nil
+		addOpening(roomsById[seam.a], seam.floor, seam.dir, seam.along, { seam = seam, width = width })
+		addOpening(roomsById[seam.b], seam.floor, OPPOSITE[seam.dir], seam.along, { seam = seam, width = width })
 	end
 	local exitDoor, front = layout.exitDoor, layout.frontDoor
 	if exitDoor then
@@ -991,6 +994,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			normal = normal,
 			floor = seam.floor,
 			hidden = seam.hidden,
+			arch = seam.arch,
+			width = seam.arch and M.Arches.Width or nil,
 		}
 		LevelBuilder.markSeamPanels(panels, seam)
 		table.insert(roomA.seamList, record)
@@ -1050,7 +1055,10 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 					surface = roomA.wallSurface,
 				}
 			end
-			LevelBuilder.seamDoor(world, seam, record, roomA, midpoint, normal, ajarRng, hidden)
+			-- A gate into a wing has glass in it (section 10.7).
+			local lock = layout.progression and layout.progression.locks[seam.id]
+			local glazed = lock ~= nil and Config.Trim.GlassDoor.Kinds[lock.kind] == true
+			LevelBuilder.seamDoor(world, seam, record, roomA, midpoint, normal, ajarRng, hidden, glazed)
 		end
 	end
 

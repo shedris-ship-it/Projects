@@ -309,9 +309,10 @@ end
 
 -- The casing around a doorway on one wall face: two jambs and a head.
 -- `face` is the wall face's centre at floor level, LookVector into the room.
-local function casing(parent, face: CFrame, tagPart: (BasePart?) -> ())
+local function casing(parent, face: CFrame, tagPart: (BasePart?) -> (), width: number?)
 	local color, material = paint()
 	local w, d = T.CasingWidth, T.CasingDepth
+	local DOOR_W = width or DOOR_W
 	local function piece(name, x, y, sizeX, sizeY)
 		local p = PropFactory.part(
 			parent,
@@ -356,6 +357,8 @@ end
 -- a 40x40 cell's whole wall by default); `through` is the unit vector from
 -- room A to room B.
 function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
+	-- (An archway is wider than a door: docs/plans/level-design.md 10.7.)
+	local width = seam.width or DOOR_W
 	local function tagger(role: string)
 		return function(p: BasePart?)
 			if not p then
@@ -402,11 +405,11 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 		end
 		-- (No casing round a hidden door on its room's side.)
 		if not f.hidden then
-			casing(f.parent, f.face, asDoor)
+			casing(f.parent, f.face, asDoor, width)
 		end
 		-- The wall surface: whole while it's a wall, around the opening while
 		-- it's a doorway.
-		local half = DOOR_W / 2
+		local half = width / 2
 		local s0, s1 = f.span and f.span[1] or -INNER, f.span and f.span[2] or INNER
 		asWall(skin(f.parent, f.face, s0, s1, 0, HEIGHT, f.surface))
 		asDoor(skin(f.parent, f.face, s0, -half, 0, HEIGHT, f.surface))
@@ -418,7 +421,7 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 	local frame = CFrame.lookAt(midpoint, midpoint + through)
 	local depth = 2 * WALL
 	local l = T.LiningDepth
-	for _, x in { -(DOOR_W / 2 - l / 2), DOOR_W / 2 - l / 2 } do
+	for _, x in { -(width / 2 - l / 2), width / 2 - l / 2 } do
 		asDoor(
 			PropFactory.part(
 				faces[1].parent,
@@ -435,7 +438,7 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 		PropFactory.part(
 			faces[1].parent,
 			"Lining",
-			Vector3.new(DOOR_W, l, depth),
+			Vector3.new(width, l, depth),
 			frame * CFrame.new(0, DOOR_H - l / 2, 0),
 			paintColor,
 			paintMaterial,

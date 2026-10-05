@@ -302,6 +302,25 @@ Config.Mansion = {
 		LandNoise = 24, -- landing in the basket, heard this far
 		DropNoise = 12, -- something dropped down it
 	},
+	-- Archways (docs/plans/level-design.md section 10.7): pairs of rooms that
+	-- open into each other through a wide arch instead of a door, inside one
+	-- wing. Width matches the furniture's doorway lanes (half-width 4).
+	Arches = {
+		Width = 8,
+		Chance = 0.85,
+		Most = 2,
+		Pairs = {
+			["living_room+den"] = true,
+			["living_room+music_room"] = true,
+			["living_room+sunroom"] = true,
+			["living_room+dining_room"] = true,
+			["den+study"] = true,
+			["music_room+sunroom"] = true,
+			["kitchen+pantry"] = true,
+			["kids_bedroom+playroom"] = true,
+			["master_bedroom+nursery"] = true,
+		},
+	},
 	-- Servants' passages (docs/plans/level-design.md section 10.4): a narrow
 	-- way behind the walls of a wing, between two of its rooms by hidden
 	-- doors, where it saves this much walking.
@@ -463,6 +482,16 @@ Config.Window = {
 -- the light and make a box read as a room; door and window casings are
 -- painted lighter than any wall, so exits read even in a dark room (rule 4).
 Config.Trim = {
+	-- A gate into a wing has glass in its upper half (docs/plans/
+	-- level-design.md section 10.7): you see into the wing before you can get
+	-- in. Mansion doors only.
+	GlassDoor = {
+		Kinds = { key = true, double = true, padlock = true, power = true },
+		Sill = 4.4, -- solid this high (it still stops anyone walking through)
+		Stile = 0.7,
+		Rail = 0.5,
+		Transparency = 0.55,
+	},
 	Wood = { 74, 51, 36 }, -- dark walnut (palette): baseboards, crown, door slabs
 	Paint = { 196, 188, 168 }, -- casings and window frames, lighter than every wall
 	Knob = { 150, 128, 84 }, -- tarnished brass, kept off the reserved brass (palette)

@@ -143,8 +143,9 @@ local function renderFloor(layout, rects, floor: number, bounds, lattice: number
 		end
 	end
 
-	-- Doors on this floor: an open doorway is a gap, a door slab "D", a solid
-	-- seam ":" (where a phantom doorway can appear), a hidden door "H".
+	-- Doors on this floor: an open doorway is a gap, a door slab "D", an
+	-- archway "=", a solid seam ":" (where a phantom doorway can appear), a
+	-- hidden door "H".
 	local function mark(dir: string, line: number, along: number, char: string)
 		if dir == "N" or dir == "S" then
 			local r, c = row(line), col(along)
@@ -160,6 +161,8 @@ local function renderFloor(layout, rects, floor: number, bounds, lattice: number
 			local char = ":"
 			if seam.hidden then
 				char = "H"
+			elseif seam.arch then
+				char = "="
 			elseif seam.connected then
 				char = seam.door and "D" or " "
 			end
@@ -227,7 +230,7 @@ function FloorPlan.render(layout, config): string
 	end
 	table.insert(
 		out,
-		"Legend: D door, gap open doorway, : solid seam, H hidden door, F front door, X exit; S start, E exit, T table, L lantern"
+		"Legend: D door, gap open doorway, = archway, : solid seam, H hidden door, F front door, X exit; S start, E exit, T table, L lantern"
 	)
 	for _, rect in rects do
 		local room = rect.room

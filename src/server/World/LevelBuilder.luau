@@ -899,9 +899,9 @@ end
 
 -- `hidden` (a servants' passage's door): { kind = "bookcase" | "panel",
 -- surface = the room's wall }; its room is seam.a, on the slab's +Z side.
-function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, normal: Vector3, ajarRng, hidden)
+function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, normal: Vector3, ajarRng, hidden, glazed)
 	local doorId = "door:" .. seam.a .. "-" .. seam.b
-	local closed = CFrame.lookAt(
+	local full = CFrame.lookAt(
 		midpoint + Vector3.new(0, DOOR_H / 2 - 0.05, 0),
 		midpoint + Vector3.new(0, DOOR_H / 2 - 0.05, 0) + normal
 	)
@@ -910,23 +910,34 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 	-- Dark panelled wood (docs/ART.md, Materials): four raised panels on
 	-- each face catch the light, with the knob on the lock rail.
 	local doorColor = PropFactory.rgb(Config.Trim.Wood)
+	local height = DOOR_H - 0.2
+	-- A glazed door (`glazed`: a gate into a wing, docs/plans/level-design.md
+	-- section 10.7) is solid only up to its sill; the glass above lets you see
+	-- into the wing before you can get in, and lets sight through too (it
+	-- doesn't collide, and rays only meet what does).
+	local G = Config.Trim.GlassDoor
+	local closed = full
+	if glazed then
+		closed = full * CFrame.new(0, -height / 2 + G.Sill / 2, 0)
+	end
 	local slab = PropFactory.part(
 		doorModel,
 		"Slab",
-		Vector3.new(DOOR_W - 0.2, DOOR_H - 0.2, 0.35),
+		Vector3.new(DOOR_W - 0.2, glazed and G.Sill or height, 0.35),
 		closed,
 		doorColor,
 		PropFactory.material("Wood")
 	)
-	-- (A hidden door is panelled on its passage side only.)
+	-- (A hidden door is panelled on its passage side only; a glazed one
+	-- below its glass only.)
 	for _, z in hidden and { -0.2 } or { -0.2, 0.2 } do
 		for _, x in { -1.25, 1.25 } do
-			for _, panel in { { y = 1.55, h = 3.6 }, { y = -2.2, h = 2.4 } } do
+			for _, panel in glazed and { { y = -2.2, h = 2.4 } } or { { y = 1.55, h = 3.6 }, { y = -2.2, h = 2.4 } } do
 				PropFactory.part(
 					doorModel,
 					"Panel",
 					Vector3.new(2, panel.h, 0.06),
-					closed * CFrame.new(x, panel.y, z),
+					full * CFrame.new(x, panel.y, z),
 					PropFactory.shade(doorColor, 1.18),
 					PropFactory.material("Wood"),
 					{ collide = false, query = false, castShadow = false }
@@ -934,8 +945,52 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 			end
 		end
 	end
+	if glazed then
+		local sill = -height / 2 + G.Sill
+		local top = height / 2 - G.Rail
+		local glassH = top - sill
+		local quiet = { collide = false, query = false, castShadow = false }
+		for _, sx in { -1, 1 } do
+			PropFactory.part(
+				doorModel,
+				"Stile",
+				Vector3.new(G.Stile, glassH, 0.35),
+				full * CFrame.new(sx * (DOOR_W / 2 - 0.1 - G.Stile / 2), sill + glassH / 2, 0),
+				doorColor,
+				PropFactory.material("Wood"),
+				quiet
+			)
+		end
+		PropFactory.part(
+			doorModel,
+			"Rail",
+			Vector3.new(DOOR_W - 0.2, G.Rail, 0.35),
+			full * CFrame.new(0, height / 2 - G.Rail / 2, 0),
+			doorColor,
+			PropFactory.material("Wood"),
+			quiet
+		)
+		PropFactory.part(
+			doorModel,
+			"Muntin",
+			Vector3.new(0.14, glassH, 0.2),
+			full * CFrame.new(0, sill + glassH / 2, 0),
+			doorColor,
+			PropFactory.material("Wood"),
+			quiet
+		)
+		PropFactory.part(
+			doorModel,
+			"Glass",
+			Vector3.new(DOOR_W - 0.2 - 2 * G.Stile, glassH, 0.06),
+			full * CFrame.new(0, sill + glassH / 2, 0),
+			Color3.fromRGB(150, 165, 160),
+			PropFactory.material("Glass"),
+			{ collide = false, query = false, castShadow = false, transparency = G.Transparency, reflectance = 0.15 }
+		)
+	end
 	-- Hinge on the slab's +X edge, knob on the -X edge.
-	local hinge = (closed * CFrame.new(DOOR_W / 2 - 0.1, 0, 0)).Position
+	local hinge = (full * CFrame.new(DOOR_W / 2 - 0.1, 0, 0)).Position
 	local knobOffset = -(DOOR_W / 2 - 0.7)
 	if hidden then
 		-- A plain latch on the passage side; the room side is disguised.
@@ -943,18 +998,18 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 			doorModel,
 			"Latch",
 			Vector3.new(0.9, 0.2, 0.2),
-			closed * CFrame.new(knobOffset + 0.3, -0.3, -0.25),
+			full * CFrame.new(knobOffset + 0.3, -0.3, -0.25),
 			PropFactory.rgb(Config.Trim.Knob),
 			PropFactory.material("Metal"),
 			{ collide = false }
 		)
-		disguise(doorModel, closed, hidden)
+		disguise(doorModel, full, hidden)
 	else
 		PropFactory.part(
 			doorModel,
 			"Knob",
 			Vector3.new(0.3, 0.3, 0.7),
-			closed * CFrame.new(knobOffset, -0.5, 0),
+			full * CFrame.new(knobOffset, -0.5, 0),
 			PropFactory.rgb(Config.Trim.Knob),
 			PropFactory.material("Metal"),
 			{ collide = false }
@@ -998,7 +1053,7 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 	world.doors[doorId] = door
 	record.door = door
 	if hidden then
-		scuffs(roomA.model, hinge, closed)
+		scuffs(roomA.model, hinge, full)
 	end
 end
 

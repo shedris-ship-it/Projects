@@ -1421,6 +1421,30 @@ function Builder:_doors(seams)
 			seam.connected = edgeSet[MansionHouse.pairKey(seam.a, seam.b)] == true
 			seam.door = seam.connected and doorRng:Chance(config.DoorChance) or false
 		end
+		-- Archways (docs/plans/level-design.md section 10.7): two rooms of a
+		-- wing that belong together (the living room and the den, the kitchen
+		-- and the pantry) opened into one by a wide arch, no door. Only inside
+		-- a wing, so never where a lock or a bolt goes.
+		local arches = config.Arches
+		if wings and arches then
+			local archRng = self.rng:Fork("arches")
+			local made = 0
+			for _, seam in seams do
+				local a, b = house.byId[seam.a], house.byId[seam.b]
+				local pair = arches.Pairs[a.template .. "+" .. b.template]
+					or arches.Pairs[b.template .. "+" .. a.template]
+				if
+					made < arches.Most
+					and seam.connected
+					and pair
+					and wings.roomRegion[seam.a] == wings.roomRegion[seam.b]
+					and archRng:Chance(arches.Chance)
+				then
+					seam.arch, seam.door = true, false
+					made += 1
+				end
+			end
+		end
 		return extra
 	end
 

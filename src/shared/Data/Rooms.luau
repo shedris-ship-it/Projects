@@ -1105,11 +1105,18 @@ local MansionExtras = {
 		wainscot = true,
 		reverb = "CarpettedHallway",
 		light = { brightness = 0.9, range = 22 },
-		props = {},
+		-- Two walk-in closets, one on each long wall and staggered, so the
+		-- way narrows to about 12 and a hallway has somewhere to hide
+		-- (docs/plans/level-design.md section 10.7). They were promised as
+		-- `hides` since M1 and counted, but never built.
+		props = {
+			{ id = "closet1", kind = "Closet", x = -17.5, z = -9, ry = 90 },
+			{ id = "closet2", kind = "Closet", x = 17.5, z = 9, ry = 270 },
+		},
 		decor = {},
 		wallSlots = {},
 		floorSlots = {},
-		mansion = { role = "corridor", floors = { 0 }, zone = "public", hides = 1 },
+		mansion = { role = "corridor", floors = { 0 }, zone = "public" },
 	},
 	{
 		id = "service_corridor",
@@ -1120,11 +1127,18 @@ local MansionExtras = {
 		wall = { material = "OldPlaster", color = { 160, 156, 130 } },
 		reverb = "Hallway",
 		light = { brightness = 0.85, range = 22 },
-		props = {},
+		-- Two walk-in closets, one on each long wall and staggered, so the
+		-- way narrows to about 12 and a hallway has somewhere to hide
+		-- (docs/plans/level-design.md section 10.7). They were promised as
+		-- `hides` since M1 and counted, but never built.
+		props = {
+			{ id = "closet1", kind = "Closet", x = -17.5, z = -9, ry = 90 },
+			{ id = "closet2", kind = "Closet", x = 17.5, z = 9, ry = 270 },
+		},
 		decor = {},
 		wallSlots = {},
 		floorSlots = {},
-		mansion = { role = "corridor", floors = { 0 }, zone = "service", hides = 1 },
+		mansion = { role = "corridor", floors = { 0 }, zone = "service" },
 	},
 	{
 		id = "upper_corridor",
@@ -1135,11 +1149,18 @@ local MansionExtras = {
 		wall = { material = "Wallpaper", color = { 140, 118, 110 } },
 		reverb = "CarpettedHallway",
 		light = { brightness = 0.85, range = 22 },
-		props = {},
+		-- Two walk-in closets, one on each long wall and staggered, so the
+		-- way narrows to about 12 and a hallway has somewhere to hide
+		-- (docs/plans/level-design.md section 10.7). They were promised as
+		-- `hides` since M1 and counted, but never built.
+		props = {
+			{ id = "closet1", kind = "Closet", x = -17.5, z = -9, ry = 90 },
+			{ id = "closet2", kind = "Closet", x = 17.5, z = 9, ry = 270 },
+		},
 		decor = {},
 		wallSlots = {},
 		floorSlots = {},
-		mansion = { role = "corridor", floors = { 1 }, zone = "private", hides = 1 },
+		mansion = { role = "corridor", floors = { 1 }, zone = "private" },
 	},
 }
 
