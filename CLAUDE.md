@@ -57,7 +57,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (218 as of 2026-10-04; about 35 s)
+lune run tests/run        # unit tests (239 as of 2026-10-05; about 35 s)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -87,6 +87,10 @@ All must pass. When MCP is available, also start a play session and check the co
   - Fake walls are visual only and never collidable.
   - Divergences must never trap a player.
   - Room centres and the four doorway lanes stay clear, because the walkers' graph (`Logic/NavGraph`, `Stalker/Walker`) relies on it; `Logic/RoomFit` also keeps solid furniture out of a room's middle.
+- **Passage and physics (the rework):**
+  - Every route and walking distance asks `WorldService:SeamCost(seam, who)` (nil = blocked). Locks, barricades and door/wall flips go there, not into the Guest's modules; call `WorldService:MarkPassageChanged` when one changes.
+  - Physical things stay anchored until someone grabs them (`Services/HandsService`) and are anchored again once still. Carried and thrown things (collision groups Held and Prop) never touch players or The Guest; hits on him are worked out on the server.
+  - Doors move by angle (`Logic/Articulation`); `door.open` means walkable.
 - **Determinism:**
   - Generation, evidence and stalker decisions use the seeded `Lib/Rng`, forked per subsystem.
   - `math.random` is only for cosmetic client timing.
@@ -123,7 +127,8 @@ The agreed plan, in order:
    - The owner found the clue-hunting loop a chore and wants a P.T.-style experience: a house where nearly everything can be touched, physical props you carry and throw (a hit stuns the Guest briefly) with a 4th "hands" slot, walk-in closets, heavy beds you push together to barricade doors, Resident Evil progression (locks, keys, backtracking, shortcuts) made procedural, puzzles that are fun minigames on their own, and house changes that change play or unsettle.
    - Decided: escape with a finale (**set the table**: heirlooms laid at the dining table for the Guest), out through the front door; keys per player; divergence as atmosphere only; Amnesia-style hands; Drift kept and retuned; the four first puzzles (home computer, breaker panel, safe by ear, music box); the torch clips to your shirt in any slot but 1.
    - Order: **R1a** hands core → **R2a** the escape slice behind `Config.Run.Loop` (F2 `loop escape`), then a squad playtest → **R1b** world physics → **R2b** the other puzzles, escape as the default, then the old loop retires → R3 the living house → R4 variety, then M4 merged with interactive props.
-   - Done: R0, the design document (2026-10-04).
+   - Done: R0, the design document (2026-10-04). R1a (builds `2026-10-04.11` to `.17`), except R1a.5: the passage model, four slots and the clip light, door angles and dragging, carrying and throwing, the stun, lures (details in the rework doc, "R1a as built"; TC-51 to TC-58 wait on the owner).
+   - Next: R1a.5 (drawers and cabinet doors) once the owner OKs re-baselining Gate A, then R2a (the escape slice).
    - Retired by the rework: the old item "three more anomalies (Redaction, Dead Air, Mimic)" and "two anomalies on Hard".
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):

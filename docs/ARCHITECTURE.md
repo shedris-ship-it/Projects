@@ -27,7 +27,8 @@ How the code implements the design doc. The design reasons themselves live in [`
 | CaseBoardService | Confirmed, debunked and claimed tells, suspects (`Logic/CaseBoard`), the physical corkboard |
 | VerdictService | The Deliberation Table and vote rules (`Logic/Verdict`) |
 | HidingService | Hiding spots, capacity, peek camera, hold breath and gasps, stalker inspections |
-| DoorService | Opening, closing and bracing doors; stalker door delays; knocks |
+| DoorService | Doors by angle (`Logic/Articulation`: 0 shut, latching, locking, passable at 55°), stepped on the server and written with `BulkMoveTo`; `door.open` means walkable. Opening, closing, dragging by hand (held shut it braces; he forces it out of your hands), bracing by prompt; a swing into The Guest stops dead; stalker door delays (shorter when ajar); knocks |
+| HandsService | Your bare hands (docs/plans/gameplay-rework.md section 4): validates door drags (reach, line of sight); registers small things (`Data/Physical`), wakes them on the first grab (welded, unanchored, owned by the holder), checks held things every frame (put back and dropped if they jump or cross a wall), throws from the server's own hand point, lands them with a sound and a lure noise, re-anchors them once still. `Thrown`/`Moved` signals feed the stun |
 | ToolService | Each player's four slots (`Logic/Inventory`: 1 the torch, 2 and 3 found tools, 4 bare hands; anything but the torch clips it to your shirt, `PA.TorchClipped`), the tools lying in the house (`Logic/ToolPlacement`, `World/ToolPickups`), pickups and drops, and what the Witness Camera, Lantern (and shrines), Radio and Plumb Line do. `PA.Tool` is the tool in your hands now; `Slot1..4` and `ActiveSlot` are what you carry |
 | NoiseService | Noise events the stalker hears |
 | SquadProfileService | Habit counters with decay (`Logic/SquadProfile`), each Witness's gaze habits (`Logic/GazeHabits`), and the end-of-run Dossier |
@@ -47,7 +48,8 @@ How the code implements the design doc. The design reasons themselves live in [`
 | PerceptionController | Applies and reverts perception rules: seam flips, phantom props, variant props, phantom sounds, unobserved shifts, ghost trails, hidden teammates, hidden writing, portrait eyes. Also scares, ritual flickers, key labels |
 | GuestController | Everything about how The Guest looks and sounds here: procedural animation of every joint from `Logic/GuestPose`, his face and fingers (`Lib/GuestFace`), eye-shine, his visibility, footsteps from his real feet, the warnings, the jumpscare |
 | WitnessController | Aiming, hold-to-Witness, 12 Hz view reports, ping and callout sending, world markers |
-| ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden), the camera flashlight, plumb-line beams |
+| ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden), the camera flashlight (the full beam in slot 1, the clip light from your chest otherwise), plumb-line beams |
+| HandsController | Your hands: hold the left button (RT) on a door to drag it (the view holds still; your hand moves with the mouse; the door follows; your copy moves at once) or on a small thing to carry it (local AlignPosition and AlignOrientation once the server hands it over; the wheel sets the distance; right button or LT throws). F2 `drag` |
 | AudioController | Sound groups with volume settings, room reverb, Drift layers, ducking, positional one-shots, captions |
 | EffectsController | Drift-driven colour, vignette and atmosphere; bloom, grain and depth of field; dust in each room's light; light flicker and dimming near The Guest; hunt tint; photo flash; low-end mode |
 | UIController | Every screen in `UI/` |
@@ -99,6 +101,10 @@ Every client → server remote goes through `Net.onServer`, which applies a per-
 | SetDifficulty, CastVote | C→S | `string` | 0.2–0.3 s; whitelisted values |
 | SelectSlot | C→S | `number` | 0.08 s, burst 8; only 1 to 4, only while active and not hiding |
 | DropItem | C→S | none | 0.4 s; puts the tool in your hands on the floor in front of you |
+| Drag | C→S unreliable | `string` (door id), `number` (angle) | 1/40 s, burst 45; can act, the door within 11 studs of the head, a clear line; not while he's forcing it |
+| Grab | C→S | `string` (thing id) | 0.15 s, burst 6; can act, within reach, a clear line, nobody else holding it |
+| Release | C→S | none | 0.1 s |
+| Throw | C→S | `Vector3` (aim) | 0.3 s; only what you hold; the aim must be about unit length |
 | LeaveHiding, RequestSync | C→S | none | 0.3 s / 2 s |
 | RitualAction | C→S | `table?` | 0.2 s; only during Resolution |
 | SaveSettings | C→S | `table` | 1 s; keys whitelisted, numbers range-checked |
@@ -120,6 +126,7 @@ Every client → server remote goes through `Net.onServer`, which applies a per-
 
 - The level is an estimated 1,500–3,000 parts for 10–16 rooms (bookshelves are the biggest share). Check the real count with the `perf` debug command. It is built unparented and parented once. Streaming is off: levels are small, and the doc calls for avoiding streaming complexity.
 - Stalker body updates run at 15 Hz, the Tactician at about 1.5 Hz, the Director at 1 Hz, and Witness, Focus and player-state upkeep at 4–10 Hz.
-- Navigation needs no navmesh. Templates keep room centres and doorway lanes clear, so the route centre → doorway → centre is always walkable. A stuck detector nudges the stalker when nobody is looking.
+- Navigation: the house graph (`Logic/NavGraph`) and Roblox's navmesh (`Stalker/Walker`); see "A run, end to end". Every route asks the passage model (`WorldService:SeamCost(seam, who)`) who may pass each doorway; nil means blocked, and the walker stands still rather than walk at a wall.
+- Physical things stay anchored until someone grabs them, so the house builds the same every time and nothing settles at load; once still after a drop or throw they're anchored again. Collision groups keep them honest: Prop (resting or thrown) and Held (carried) never touch players or The Guest; Heavy (pushable furniture, R1b) does. Doors move only while they swing.
 - One shadow-casting key light per room. Low-end mode turns off shadows from small clutter, depth of field and bloom.
 - Measure with the debug overlay (FPS, memory, instances, server heartbeat) and with the MicroProfiler on a real phone.

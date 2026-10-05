@@ -1,6 +1,6 @@
 # The gameplay rework: a hands-on haunted mansion
 
-Status (2026-10-04): **planned, R0 (this document) done.** This replaces the core loop of [`DesignDoc.md`](../DesignDoc.md) sections 1–4 and 6: no more evidence, Case Board, verdict or rituals. The Guest (section 5), Drift, the mansion generator ([`mansion-generation.md`](mansion-generation.md)) and the art direction ([`ART.md`](../ART.md)) stay. The work runs in four halves, **R1a → R2a → R1b → R2b** (section 9), so the new loop is playable about halfway through, with R3 (the living house) and R4 (variety) after it.
+Status (2026-10-05): **R0 done; R1a done except R1a.5 (drawers and cabinet doors), which waits on the owner's OK to re-baseline Gate A** (see "R1a as built" in section 9). This replaces the core loop of [`DesignDoc.md`](../DesignDoc.md) sections 1–4 and 6: no more evidence, Case Board, verdict or rituals. The Guest (section 5), Drift, the mansion generator ([`mansion-generation.md`](mansion-generation.md)) and the art direction ([`ART.md`](../ART.md)) stay. The work runs in four halves, **R1a → R2a → R1b → R2b** (section 9), so the new loop is playable about halfway through, with R3 (the living house) and R4 (variety) after it.
 
 ## 1. Why
 
@@ -323,6 +323,17 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 
 **R2b: puzzles, retune, retirements**
 1. Breaker. 2. Safe. 3. Music box and piano. 4. Notes and the note reader. 5. The map (`MapService`, doorways in the layout snapshot, the Map tab with locks, bolts, items and key drops). 6. The Drift and Director retune, `survivedHunts`, the Dossier's progress section. 7. **Escape becomes the default.** 8. Retire Verdict and the Case Board. 9. Retire anomalies, evidence, rituals, the Camera and Plumb Line, the Phantom twist; `PerceptionPlanner` becomes atmosphere only. 10. Retire Witness windows, anchoring and Focus (section 11). 11. Docs.
+
+### R1a as built (2026-10-04/05, builds `2026-10-04.11` to `.17`)
+- **R1a.1 passage model:** `WorldService:SeamCost(seam, who)` for `player`, `guest`, `guestHunt` and `guestRetreat`; `NavGraph.search` treats a nil door cost as blocked (spec); `Route{who}`, `NavDistances{who}`; `MarkPassageChanged` and `passageVersion`; `Walker:Unreachable()` (he stands rather than walk at a wall, re-routes when a seam on his way changes, looks again once a second); hunt inspections only from where he stands; the Prop, Held and Heavy collision groups; F2 `block`. Studio: navtest fast on seeds 61, 1800820264 and 7: 0 failed, 0 phases; a blocked doorway gives NO WAY.
+- **R1a.2 four slots:** `Logic/Inventory` (spec), the clip light (`Config.Hands.ClipLight`, `PA.TorchClipped`), hotbar, HUD. Bare hands draw nothing on screen (two primitive hands read as bricks). Fixed: Radio static that never stopped.
+- **R1a.3 door angles:** `Logic/Articulation` (spec), DoorService stepping and `BulkMoveTo`, ajar doors quicker for him, F2 `door`.
+- **R1a.4 drag:** `Controllers/HandsController`, `Services/HandsService`, the `Drag` remote. The view is held by re-aiming the camera right after the camera updates (it reads the mouse through `UserInputService`, so sinking input can't stop it). Holding a door shut braces it; he forces it out of your hands; a swing into him stops dead. F2 `drag` (Studio's input tool can't move a locked mouse).
+- **R1a.6 carry and throw:** `Data/Physical`, `Logic/Throw` (spec), `Grab`/`Release`/`Throw`. Registered at build (queries on, still anchored: Gate A hashes `CanCollide`, not `CanQuery`), woken on the first grab, checked every frame (put back on a jump or a wall crossing: tested), re-anchored once still. Fixed: focus-marker rows swallowed clicks under the locked cursor (now only buttons on touch).
+- **R1a.7 stun:** the hit test on each step's path, `StalkerService:Stun`, the Stagger pose, `StalkRules` "stunned" (spec), F2 `stun`, `throwat`. Studio: 1.8 s, then 0.9 s for a repeat.
+- **R1a.8 lures:** Perception keeps sourceless impact and lure noises; the Investigate move and tactic; wariness after repeats; F2 `lure`. Not done: things clattering as he passes.
+- **Not checked yet:** the feel of dragging with a real mouse; holding a door against him in a hunt; a door stopping against him; two clients watching a carried thing (TC-51 to TC-58).
+- **R1a.5 (drawers, wardrobe and cabinet doors as sub-models, containers):** adds parts to furniture, so the old house's Gate A part hash changes. Waiting on the owner's OK to re-baseline it.
 
 ## 10. Later: the living house (R3) and variety (R4)
 **R3.**
