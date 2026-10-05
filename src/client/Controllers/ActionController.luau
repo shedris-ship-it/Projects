@@ -208,14 +208,17 @@ function ActionController:Start()
 		self:_updateHiddenCamera()
 	end)
 	-- The wheel flips between slots, but only while the mouse is captured for
-	-- looking (a menu that frees the mouse keeps its own scrolling).
+	-- looking (a menu that frees the mouse keeps its own scrolling), and not
+	-- while you carry something (it brings that nearer or further instead).
 	UserInputService.InputChanged:Connect(function(input, processed)
+		local hands = self.controllers.HandsController
 		if
 			input.UserInputType == Enum.UserInputType.MouseWheel
 			and not processed
 			and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
 			and self.state:IsActive()
 			and not self.state:IsHidden()
+			and not (hands and hands:IsCarrying())
 		then
 			self:_cycleSlot(input.Position.Z > 0 and -1 or 1)
 		end

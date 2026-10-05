@@ -142,6 +142,10 @@ function FocusMarkers:_row(parent: Instance, order: number, key: string?, action
 		LayoutOrder = order,
 		AutoButtonColor = false,
 		BackgroundTransparency = 1,
+		-- Only a button on touch. With a mouse the cursor is locked to the
+		-- middle of the screen, and a marker hanging there would swallow the
+		-- click meant for your hands (Controllers/HandsController).
+		Interactable = inputKind() == "touch",
 		Text = "",
 		AutomaticSize = Enum.AutomaticSize.X,
 		Size = UDim2.fromOffset(0, 18),
@@ -257,6 +261,17 @@ function FocusMarkers:_build(marker)
 			function() end
 		)
 	end
+	if marker.grab and inputKind() ~= "touch" then
+		order += 1
+		self:_row(
+			actions,
+			order,
+			inputKind() == "gamepad" and "RT" or "Hold click",
+			"Pick up",
+			function() end,
+			function() end
+		)
+	end
 	for _, prompt in marker.prompts do
 		order += 1
 		self:_row(actions, order, keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode), prompt.ActionText, function()
@@ -339,7 +354,7 @@ function FocusMarkers:Update(dt: number)
 	local function want(object: Instance)
 		local entry = wanted[object]
 		if not entry then
-			entry = { prompts = {}, witnessable = false, drag = false, name = nil, target = 0 }
+			entry = { prompts = {}, witnessable = false, drag = false, grab = false, name = nil, target = 0 }
 			wanted[object] = entry
 		end
 		return entry
@@ -371,6 +386,15 @@ function FocusMarkers:Update(dt: number)
 		end
 	end
 
+	-- A small thing your hands could pick up (Controllers/HandsController).
+	local thing = (inRun and active and hands) and hands:AimedThing() or nil
+	if thing then
+		local entry = want(thing)
+		entry.grab = true
+		entry.name = entry.name or thing:GetAttribute("Label")
+		entry.target = 1
+	end
+
 	-- Witnessing: the object you're looking at, when close, or the one you're
 	-- holding Q on at any range.
 	local aim = (inRun and active) and (self.witness:HoldAim() or self.witness.aim) or nil
@@ -384,7 +408,10 @@ function FocusMarkers:Update(dt: number)
 	-- Build, update and retire markers.
 	for object, entry in wanted do
 		local marker = self.markers[object]
-		local signature = (entry.witnessable and "W" or "") .. (entry.drag and "D" or "") .. inputKind()
+		local signature = (entry.witnessable and "W" or "")
+			.. (entry.drag and "D" or "")
+			.. (entry.grab and "G" or "")
+			.. inputKind()
 		for _, prompt in entry.prompts do
 			signature ..= "|" .. prompt.ActionText
 		end
@@ -398,6 +425,7 @@ function FocusMarkers:Update(dt: number)
 			marker.prompts = entry.prompts
 			marker.witnessable = entry.witnessable
 			marker.drag = entry.drag
+			marker.grab = entry.grab
 			marker.name = entry.name
 			self:_build(marker)
 		end

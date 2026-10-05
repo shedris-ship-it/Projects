@@ -658,6 +658,15 @@ Config.Hands = {
 	DragNoiseSpeed = 160, -- degrees a second: swing faster than this and the door creaks loud enough to hear
 	DragNoiseRadius = 14,
 	GuestRadius = 1.1, -- a door swung into The Guest stops this far from his middle
+	-- Carrying and throwing small things (sections 4.3 and 4.4; Data/Physical).
+	CarryDistance = { 2.2, 3.2, 5 }, -- nearest, where it starts, furthest: studs in front of your eye (wheel)
+	CarryDrop = 6.5, -- further than this from your head, it slips out of your hands
+	CarryMaxSpeed = 80, -- faster than this while held is not something a hand did: put back
+	RestSeconds = 1.5, -- lying still this long after you let go, it's put back to sleep (anchored)
+	RestMaxSeconds = 8, -- and asleep after this however it's lying
+	FlightSeconds = 2.5, -- a throw is watched this long for a hit and a landing
+	ImpactSpeed = 10, -- slowing hard from at least this fast is a landing: a sound and a noise
+	FallLimit = 60, -- below the floor by this much, it goes back where it was found
 }
 
 Config.Difficulty = {

@@ -19,6 +19,7 @@ Constants.Tags = {
 	Window = "ConsensusWindow", -- a window or mirror pane The Guest can show in (attribute Kind)
 	Level = "ConsensusLevel",
 	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
+	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)
 }
 
 Constants.Attributes = {

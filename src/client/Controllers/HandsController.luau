@@ -11,6 +11,13 @@
 -- This only says where your hand wants the door, and moves your own copy at
 -- once so it feels like your hand, not a round trip (Config.Hands.PredictDrag).
 -- Grabbing anything puts your hands in your hands: slot 4, torch clipped on.
+--
+-- Small things (Data/Physical: a mug, the telephone, a chair) are carried
+-- instead (section 4.3): hold the button on one and it floats at arm's length
+-- in front of you while you look and walk about; the wheel brings it nearer or
+-- further, the right button (LT) throws it, letting go drops it. Once the
+-- server hands it over, this client moves it with two constraints of its own;
+-- the server watches that it stays near you and never passes through a wall.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -25,6 +32,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Inventory = require(Shared.Logic.Inventory)
 local Net = require(Shared.Net)
+local Physical = require(Shared.Data.Physical)
 
 local H = Config.Hands
 local D = Config.Doors
@@ -38,6 +46,8 @@ function HandsController:Init(controllers)
 	self.controllers = controllers
 	self.state = controllers.StateController
 	self.drag = nil
+	self.carry = nil -- { id, model, class, distance, askedAt, owned, attachment, align, orient, turn }
+	self.aimedThing = nil -- the small thing you're looking at within reach
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
 	self.sentAt = 0
@@ -53,15 +63,29 @@ function HandsController:Start()
 			if self.drag then
 				self:_finish()
 				return Enum.ContextActionResult.Sink
+			elseif self.carry then
+				self:_drop(true)
+				return Enum.ContextActionResult.Sink
 			end
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+	ContextActionService:BindActionAtPriority("ConsensusThrow", function(_, inputState)
+		if inputState == Enum.UserInputState.Begin and self.carry and self.carry.owned then
+			self:_throw()
+			return Enum.ContextActionResult.Sink
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
 	-- The camera reads the mouse itself (UserInputService), so this only
 	-- listens; the view is held still in _update.
 	UserInputService.InputChanged:Connect(function(input)
 		if self.drag and input.UserInputType == Enum.UserInputType.MouseMovement then
 			self.mouseDelta += Vector2.new(input.Delta.X, input.Delta.Y)
+		elseif self.carry and input.UserInputType == Enum.UserInputType.MouseWheel then
+			-- The wheel brings what you carry nearer or further (instead of slots).
+			local range = H.CarryDistance
+			self.carry.distance = math.clamp(self.carry.distance + input.Position.Z * 0.4, range[1], range[3])
 		end
 	end)
 	-- Right after the camera, before the view model hangs things on it.
@@ -78,15 +102,28 @@ local function flat(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
--- The door you're looking at within reach: its slab and the point you'd take
--- hold of, or nil.
-function HandsController:_aimedDoor(): (BasePart?, Vector3?)
+-- What's in front of your eye within reach.
+function HandsController:_aim(): RaycastResult?
 	local camera = Workspace.CurrentCamera
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { player.Character, camera }
-	local origin = camera.CFrame.Position
-	local hit = Workspace:Raycast(origin, camera.CFrame.LookVector * H.Reach, params)
+	return Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * H.Reach, params)
+end
+
+-- The small thing you're looking at within reach (its model), or nil.
+function HandsController:_thingOf(hit: RaycastResult?): Model?
+	local model = hit and hit.Instance:FindFirstAncestorWhichIsA("Model")
+	while model and not model:GetAttribute("Grab") do
+		model = model:FindFirstAncestorWhichIsA("Model")
+	end
+	return model
+end
+
+-- The door you're looking at within reach: its slab and the point you'd take
+-- hold of, or nil.
+function HandsController:_aimedDoor(): (BasePart?, Vector3?)
+	local hit = self:_aim()
 	if not hit then
 		return nil, nil
 	end
@@ -109,12 +146,12 @@ function HandsController:_active(): boolean
 end
 
 function HandsController:_begin(): boolean
-	if not self:_active() or self.drag then
+	if not self:_active() or self.drag or self.carry then
 		return false
 	end
 	local slab, point = self:_aimedDoor()
 	if not slab or not point then
-		return false
+		return self:_pickUp()
 	end
 	local hinge: Vector3 = slab:GetAttribute("Hinge")
 	local shut: CFrame = slab:GetAttribute("Shut")
@@ -192,6 +229,11 @@ function HandsController:_pose(drag, degrees: number)
 end
 
 function HandsController:_update(dt: number)
+	if self.carry then
+		self:_carryStep()
+	end
+	local looking = not self.drag and not self.carry and self:_active()
+	self.aimedThing = looking and self:_thingOf(self:_aim()) or nil
 	local drag = self.drag
 	if not drag then
 		return
@@ -249,9 +291,125 @@ function HandsController:_update(dt: number)
 	end
 end
 
--- Holding a door right now (the hotbar and markers can say so).
+-- Carrying ---------------------------------------------------------------------
+
+-- Ask for the small thing you're looking at. The server says yes by marking
+-- it HeldBy you and handing you its physics (_carryStep).
+function HandsController:_pickUp(): boolean
+	local model = self:_thingOf(self:_aim())
+	if not model then
+		return false
+	end
+	self.carry = {
+		id = model:GetAttribute("Grab"),
+		model = model,
+		class = Physical.Classes[model:GetAttribute("Class")] or Physical.Classes.medium,
+		distance = H.CarryDistance[2],
+		askedAt = os.clock(),
+		owned = false,
+	}
+	Net.get("Grab"):FireServer(self.carry.id)
+	return true
+end
+
+function HandsController:_cleanCarry()
+	local carry = self.carry
+	self.carry = nil
+	if carry then
+		for _, key in { "align", "orient", "attachment" } do
+			if carry[key] then
+				carry[key]:Destroy()
+			end
+		end
+	end
+	return carry
+end
+
+-- Let go: it falls where it is.
+function HandsController:_drop(tell: boolean)
+	if self:_cleanCarry() and tell then
+		Net.get("Release"):FireServer()
+	end
+end
+
+function HandsController:_throw()
+	self:_cleanCarry()
+	Net.get("Throw"):FireServer(Workspace.CurrentCamera.CFrame.LookVector)
+end
+
+-- Keep what you carry floating in front of you, turning as you turn.
+function HandsController:_carryStep()
+	local carry = self.carry
+	local model = carry.model
+	local mine = model.Parent ~= nil and model:GetAttribute("HeldBy") == player.UserId
+	if not mine then
+		-- Refused, or taken from you (dropped by the server, you went down).
+		if carry.owned or os.clock() - carry.askedAt > 1 then
+			self:_cleanCarry()
+		end
+		return
+	end
+	if not self:_active() then
+		self:_drop(true)
+		return
+	end
+	local root = model.PrimaryPart
+	if not root then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	local look = camera.CFrame.LookVector
+	local yaw = math.atan2(-look.X, -look.Z)
+	if not carry.owned then
+		carry.owned = true
+		local attachment = Instance.new("Attachment")
+		attachment.Name = "HandGrip"
+		attachment.Parent = root
+		local align = Instance.new("AlignPosition")
+		align.Mode = Enum.PositionAlignmentMode.OneAttachment
+		align.Attachment0 = attachment
+		align.MaxForce = root.AssemblyMass * Workspace.Gravity * 8 + 1000
+		align.MaxVelocity = 60
+		align.Responsiveness = carry.class.follow
+		align.Position = root.Position
+		align.Parent = root
+		local orient = Instance.new("AlignOrientation")
+		orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+		orient.Attachment0 = attachment
+		orient.MaxTorque = root.AssemblyMass * 4000 + 2000
+		orient.Responsiveness = carry.class.follow * 0.6
+		orient.CFrame = root.CFrame.Rotation
+		orient.Parent = root
+		carry.attachment, carry.align, carry.orient = attachment, align, orient
+		-- Keep the way it was lying, relative to where you face.
+		carry.turn = CFrame.Angles(0, -yaw, 0) * root.CFrame.Rotation
+	end
+	-- In front of your eye, but never pushed into a wall or a shelf.
+	local eye = camera.CFrame.Position
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { player.Character, camera, model }
+	local distance = carry.distance
+	local hit = Workspace:Raycast(eye, look * (distance + 0.5), params)
+	if hit then
+		distance = math.max(0.8, hit.Distance - 0.7)
+	end
+	carry.align.Position = eye + look * distance - Vector3.new(0, 0.35, 0)
+	carry.orient.CFrame = CFrame.Angles(0, yaw, 0) * carry.turn
+end
+
+-- Holding a door or carrying something right now.
 function HandsController:IsHolding(): boolean
-	return self.drag ~= nil
+	return self.drag ~= nil or self.carry ~= nil
+end
+
+function HandsController:IsCarrying(): boolean
+	return self.carry ~= nil
+end
+
+-- The small thing you're looking at within reach (FocusMarkers marks it).
+function HandsController:AimedThing(): Model?
+	return self.aimedThing
 end
 
 -- F2 `drag <right> <away>` (Studio's input tool can't move a locked mouse):

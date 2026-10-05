@@ -299,6 +299,8 @@ function Hud:Update()
 	local detail = ""
 	if torchHeld then
 		detail = player:GetAttribute(PA.Flashlight) and "F: switch off" or "F: switch on"
+	elseif handsFree and self.ctx.controllers.HandsController and self.ctx.controllers.HandsController:IsCarrying() then
+		detail = "Right click: throw · wheel: distance"
 	elseif handsFree then
 		-- The torch rides clipped to your shirt while your hands are free.
 		detail = player:GetAttribute(PA.Flashlight) and "F: clip light off" or "F: clip light on"

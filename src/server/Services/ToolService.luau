@@ -220,8 +220,12 @@ function ToolService:SelectSlot(player: Player, slot)
 		return
 	end
 	-- The light stays as it was: changing slots only moves the torch between
-	-- your hand and your shirt (_publish).
+	-- your hand and your shirt (_publish). Whatever your bare hands carried
+	-- is put down when they take something else.
 	if Inventory.select(inv, slot) then
+		if slot ~= Inventory.HANDS_SLOT then
+			self.services.HandsService:Release(player)
+		end
 		self:_publish(player)
 	end
 end
