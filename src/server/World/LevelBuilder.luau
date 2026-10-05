@@ -809,6 +809,7 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 		slab = slab,
 		closedCFrame = closed,
 		hinge = hinge,
+		restAngle = ajar and Config.Trim.AjarAngle or 0, -- where it was built (DoorService swings it from here)
 		open = false,
 		bracedUntil = 0,
 		lastBraced = -math.huge,

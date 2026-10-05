@@ -507,6 +507,7 @@ Config.Stalker = {
 	RetreatTierSeconds = 90, -- (doc)
 	NoHuntAfterReviveSeconds = 20, -- (doc)
 	DoorOpenSeconds = { 1.5, 3 }, -- (doc)
+	AjarDoorSeconds = { 0.4, 0.9 }, -- a door left ajar only needs a push
 	BracedDoorSeconds = 5,
 	InspectSeconds = 1.8,
 	HearingMultiplier = 1,
@@ -625,6 +626,16 @@ Config.Tools = {
 	CameraMaxSteps = 3, -- the Camera is within this many rooms of where you start, so a solo player finds it
 	PickupRange = 9, -- studs; the server re-checks it on every pickup
 	PickupScale = 0.8, -- a tool lying on a table is this size next to the one in your hand
+}
+
+-- Doors swing by angle on the server (Logic/Articulation; docs/plans/
+-- gameplay-rework.md section 4.5). 0 is shut.
+Config.Doors = {
+	OpenAngle = 100, -- fully open, against the wall
+	PassAngle = 55, -- open this far or more and you (and he) can walk through
+	LatchAngle = 3, -- swung back within this of shut, it snaps shut and latches
+	SwingRate = 285, -- degrees a second: a full swing in about a third of a second
+	SlamRate = 520,
 }
 
 -- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch

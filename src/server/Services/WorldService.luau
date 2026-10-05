@@ -253,7 +253,7 @@ end
 --   "guestRetreat"  distances while he backs away: how far, not how slow,
 --                   so a shut door costs nothing
 -- Today the only thing on a seam is a door: a shut one costs
--- Config.Nav.DoorCost (opening it takes 1.5-3 s).
+-- Config.Nav.DoorCost (opening it takes 1.5-3 s), one left ajar half that.
 function WorldService:SeamCost(seamId: string, who: string?): number?
 	local world = self.World
 	local seam = world and world.seams[seamId]
@@ -265,7 +265,8 @@ function WorldService:SeamCost(seamId: string, who: string?): number?
 	end
 	local door = seam.door
 	if door and not door.open and who ~= "guestRetreat" then
-		return Config.Nav.DoorCost
+		local ajar = door.state and not door.state.latched
+		return ajar and Config.Nav.DoorCost / 2 or Config.Nav.DoorCost
 	end
 	return 0
 end

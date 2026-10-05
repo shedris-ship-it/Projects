@@ -43,7 +43,7 @@ local HELP = table.concat({
 	"lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
-	"block <room> <room> (shut that doorway to everyone) · block off",
+	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -179,6 +179,15 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "where" then
 		reply(player, services.StalkerService:DebugWhere(player))
+	elseif command == "door" then
+		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)
+		local angle = tonumber(args[4])
+		if not door or not angle then
+			reply(player, "usage: door <room> <room> <angle>; no door between those rooms")
+		else
+			local ok = services.DoorService:SetAngle(door, angle)
+			reply(player, string.format("%s to %d degrees%s", door.id, angle, ok and "" or " (locked: it rattles)"))
+		end
 	elseif command == "block" then
 		local world = services.WorldService
 		local a, b = tonumber(args[2]), tonumber(args[3])
