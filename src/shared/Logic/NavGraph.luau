@@ -116,6 +116,7 @@ function NavGraph.build(layout, options)
 			rotation = mansion and room.rotation or 0,
 			tall = TallRooms.kindOf(room),
 			storey = mansion and (room.floor or 0) or 0, -- its lowest
+			top = mansion and RoomRects.topOf(room) or 0,
 			nodes = {},
 			approaches = {},
 		}
@@ -202,7 +203,7 @@ end
 function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 	local rect = room.rect
 	local inner = RoomRects.innerOf(rect, room.rotation, options.wall)
-	local shape = TallRooms.walk(room.tall, inner, options.pitch)
+	local shape = TallRooms.walk(room.tall, inner, options.pitch, room.top - room.storey + 1)
 	local base = room.storey * options.pitch
 	local ids = {}
 	for i, p in shape.nodes do
@@ -281,15 +282,24 @@ function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 			end
 		end
 	end
-	local chain = {}
-	for i, index in shape.climb do
-		chain[i] = ids[index]
+	-- One climb a storey: from its foot to the storey above.
+	for k, climb in shape.climbs do
+		local chain = {}
+		for i, index in climb do
+			chain[i] = ids[index]
+		end
+		local length = 0
+		for i = 2, #chain do
+			length += distance(graph.nodes[chain[i - 1]], graph.nodes[chain[i]])
+		end
+		table.insert(graph.climbs, {
+			room = room.id,
+			low = chain[1],
+			high = chain[#chain],
+			length = length,
+			from = room.storey + k - 1,
+		})
 	end
-	local length = 0
-	for i = 2, #chain do
-		length += distance(graph.nodes[chain[i - 1]], graph.nodes[chain[i]])
-	end
-	table.insert(graph.climbs, { room = room.id, low = chain[1], high = chain[#chain], length = length })
 end
 
 -- Searching ----------------------------------------------------------------------
@@ -501,16 +511,31 @@ function NavGraph.separation(graph, a, b): number
 	end
 	if sa > sb then
 		a, b = b, a
+		sa, sb = sb, sa
 	end
-	local best = math.huge
-	for _, climb in graph.climbs do
-		local low, high = graph.nodes[climb.low], graph.nodes[climb.high]
-		best = math.min(best, flatDistance(a, low) + climb.length + flatDistance(high, b))
+	-- Storey by storey: from where you are to the foot of a climb, up it,
+	-- and on from its top (the best climb over all of them when one storey
+	-- apart; one by one, nearest each time, when more).
+	local here, total = a, 0
+	for storey = sa, sb - 1 do
+		local best, bestHigh = math.huge, nil
+		local last = storey == sb - 1
+		for _, climb in graph.climbs do
+			if climb.from == storey then
+				local low, high = graph.nodes[climb.low], graph.nodes[climb.high]
+				local cost = flatDistance(here, low) + climb.length + (last and flatDistance(high, b) or 0)
+				if cost < best then
+					best, bestHigh = cost, high
+				end
+			end
+		end
+		if bestHigh == nil then
+			return distance(a, b)
+		end
+		total += best
+		here = bestHigh
 	end
-	if best == math.huge then
-		return distance(a, b)
-	end
-	return best
+	return total
 end
 
 return NavGraph

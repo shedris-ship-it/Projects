@@ -51,7 +51,7 @@ end
 
 -- Where you can stand on a storey (not on a stair, not over the void):
 --   hall:  downstairs anywhere but the staircase; upstairs only the gallery
---   stair: the entry under the upper landing, and the upper landing itself
+--   stair: each storey's entry landing over the south end
 function TallRooms.standable(kind: string, inner, pitch: number, storey: number, lx: number, lz: number): boolean
 	if math.abs(lx) > inner.x or math.abs(lz) > inner.z then
 		return false
@@ -73,12 +73,15 @@ end
 -- The room's walk shape for Logic/NavGraph:
 --   nodes:  { x, y, z, region } (region "ground", "gallery", "landing" or "upper")
 --   links:  { a, b, stair? } between node indices; a stair link climbs a flight
---   attach: per storey, more links { a, b } (walkable too) that a doorway on
---           that storey joins, at the nearest point along one of them
---   climb:  the nodes at the bottom and top of the way up, in order
+--   attach: per storey (0 its lowest), more links { a, b } (walkable too)
+--           that a doorway on that storey joins, at the nearest point along
+--           one of them
+--   climbs: per storey up from the lowest, the nodes from the bottom of that
+--           way up to its top, in order
 -- Every point keeps clear of the staircase, the railings and of furniture
--- standing in the wall band (Config.Level.BandDepth).
-function TallRooms.walk(kind: string, inner, pitch: number)
+-- standing in the wall band (Config.Level.BandDepth). Heights are from the
+-- room's lowest storey; a stairwell climbs `storeys` storeys (2 unless set).
+function TallRooms.walk(kind: string, inner, pitch: number, storeys: number?)
 	local nodes, links = {}, {}
 	local function node(x: number, y: number, z: number, region: string): number
 		table.insert(nodes, { x = x, y = y, z = z, region = region })
@@ -131,31 +134,44 @@ function TallRooms.walk(kind: string, inner, pitch: number)
 					{ northE, southE },
 				},
 			},
-			climb = { front, top },
+			climbs = { { front, top } },
 		}
 	end
+	-- A stairwell: one dog-leg a storey, stacked (the back stairs may run
+	-- from the cellar to the attic; docs/plans/level-design.md section 10.2).
+	-- Each storey's entry is the landing over the south end; its flight one
+	-- climbs the west half to a half landing, flight two comes back up the
+	-- east half to the next storey's entry.
 	local s = TallRooms.stairwell(inner, pitch)
 	local entryZ = (s.upperZ + inner.z) / 2
 	local landingMid = (s.landingZ - inner.z) / 2
+	local count = storeys or 2
 	local entry = node(0, 0, entryZ, "ground")
 	local foot = node(-s.flightX, 0, entryZ, "ground")
 	local entryE = node(s.flightX, 0, entryZ, "ground")
-	local landingW = node(-s.flightX, s.half, landingMid, "landing")
-	local landingE = node(s.flightX, s.half, landingMid, "landing")
-	local topE = node(s.flightX, pitch, entryZ, "upper")
-	local upper = node(0, pitch, entryZ, "upper")
-	local upperW = node(-s.flightX, pitch, entryZ, "upper")
-	link(foot, landingW, true)
-	link(landingW, landingE)
-	link(landingE, topE, true)
+	local attach = { [0] = { { entry, foot }, { entry, entryE } } }
+	local climbs = {}
+	for k = 0, count - 2 do
+		local y = k * pitch
+		local landingW = node(-s.flightX, y + s.half, landingMid, "landing")
+		local landingE = node(s.flightX, y + s.half, landingMid, "landing")
+		-- The next storey's entry: where flight two arrives, its middle, and
+		-- the foot of the flight up from it.
+		local topE = node(s.flightX, y + pitch, entryZ, "upper")
+		local upper = node(0, y + pitch, entryZ, "upper")
+		local upperW = node(-s.flightX, y + pitch, entryZ, "upper")
+		link(foot, landingW, true)
+		link(landingW, landingE)
+		link(landingE, topE, true)
+		attach[k + 1] = { { upper, topE }, { upper, upperW } }
+		table.insert(climbs, { foot, landingW, landingE, topE })
+		foot = upperW
+	end
 	return {
 		nodes = nodes,
 		links = links,
-		attach = {
-			[0] = { { entry, foot }, { entry, entryE } },
-			[1] = { { upper, topE }, { upper, upperW } },
-		},
-		climb = { foot, landingW, landingE, topE },
+		attach = attach,
+		climbs = climbs,
 	}
 end
 

@@ -3,6 +3,13 @@ return function(test, check, Shared, require)
 	local Rooms = require(Shared.Data.Rooms)
 	local Props = require(Shared.Data.Props)
 
+	-- The old templates and the mansion's own general rooms (the cellar's),
+	-- which are authored and fitted the same way.
+	local templates = table.clone(Rooms.List)
+	for _, template in Rooms.MansionRooms do
+		table.insert(templates, template)
+	end
+
 	local half = Config.Level.CellSize / 2 - Config.Level.WallThickness
 	local lane = Config.Level.LaneHalfWidth
 	local inner = half - Config.Level.BandDepth + 0.5 -- 12 for a 40-stud room
@@ -81,7 +88,7 @@ return function(test, check, Shared, require)
 	end
 
 	test("every prop kind used by a template exists", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			for _, prop in template.props do
 				check.truthy(Props.Kinds[prop.kind], template.id .. " uses unknown prop " .. prop.kind)
 			end
@@ -92,7 +99,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("collidable furniture stays in the wall band and out of the doorway lanes", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			for _, prop in template.props do
 				local kind = Props.Kinds[prop.kind]
 				if kind.collide ~= false then
@@ -121,7 +128,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("furniture doesn't overlap other furniture or the shrine", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			local rects = {}
 			for _, prop in template.props do
 				if Props.Kinds[prop.kind].collide ~= false then
@@ -144,7 +151,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("shrine spots are in the band too", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			local rect = footprint("Shrine", template.shrine.x, template.shrine.z, 0)
 			local ok = false
 			for _, band in zonesFor(template) do
@@ -158,7 +165,7 @@ return function(test, check, Shared, require)
 
 	test("wall slots and decor avoid doorways", function()
 		local clearance = Config.Level.DoorWidth / 2 + 2.5
-		for _, template in Rooms.List do
+		for _, template in templates do
 			for _, slot in template.wallSlots do
 				if slot.face then
 					check.truthy(onClosetFace(template, slot, 2.5), template.id .. " wall slot is not on a closet face")
@@ -197,7 +204,7 @@ return function(test, check, Shared, require)
 	-- hid the tell, and a curtain stood in front of a window with its sill inside
 	-- the folds.
 	test("wall decor keeps clear of the wall slots on its wall", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			for _, decor in template.decor do
 				if not decor.face then
 					local width = Props.WallDecor[decor.kind].size[1]
@@ -222,7 +229,7 @@ return function(test, check, Shared, require)
 
 	test("wall decor doesn't hang inside furniture", function()
 		local depth = 0.6 -- how far a window sill or frame stands out from the wall
-		for _, template in Rooms.List do
+		for _, template in templates do
 			for _, decor in template.decor do
 				if not decor.face then
 					local size = Props.WallDecor[decor.kind].size
@@ -261,7 +268,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("corridors keep the lanes clear and their floor slots inside the corridor", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			if template.corridor then
 				local h = template.corridor.halfWidth
 				check.truthy(h > lane, template.id .. " corridor is narrower than the doorway lanes")
@@ -283,7 +290,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("every template has a lighting family with a ceiling colour", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			local family = Config.Lighting.Families[template.family or ""]
 			check.truthy(family, template.id .. " has unknown lighting family " .. tostring(template.family))
 			if family then
@@ -304,11 +311,12 @@ return function(test, check, Shared, require)
 			Concrete = true,
 			Carpet = true,
 			Plastic = true,
+			Brick = true,
 		}
 		local function known(name)
 			return Materials.ByName[name] ~= nil or builtIn[name] == true
 		end
-		for _, template in Rooms.List do
+		for _, template in templates do
 			check.truthy(known(template.wall.material), template.id .. " wall " .. template.wall.material)
 			check.truthy(known(template.floor.material), template.id .. " floor " .. template.floor.material)
 		end
@@ -322,7 +330,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("every template has at least 3 floor slots and 3 wall slots", function()
-		for _, template in Rooms.List do
+		for _, template in templates do
 			check.atLeast(#template.floorSlots, 3, template.id .. " floor slots")
 			check.atLeast(#template.wallSlots, 3, template.id .. " wall slots")
 		end

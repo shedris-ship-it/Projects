@@ -57,9 +57,16 @@ local function pools(templates)
 	return p
 end
 
+-- The first template on the list that stands on `floor` in `zone` (not one
+-- that only reaches down to the cellar or up to the attic, like the cellar
+-- stair).
 local function withZone(list, floor: number, zone: string)
 	for _, template in list or {} do
-		if table.find(template.mansion.floors, floor) and MansionHouse.templateZone(template, floor) == zone then
+		if
+			table.find(template.mansion.floors, floor)
+			and MansionHouse.templateZone(template, floor) == zone
+			and not template.mansion.reach
+		then
 			return template
 		end
 	end
@@ -67,14 +74,19 @@ local function withZone(list, floor: number, zone: string)
 end
 
 -- A room record for a template at a position. Corridors pass their size. A
--- tall room stands on every storey its template lists, from the lowest.
-local function newRoom(template, floor: number, rotation: number, x: number, z: number, w: number, d: number)
+-- tall room stands on every storey its template lists, from the lowest, or
+-- on `span` ({ low, top }: the back stairs carried down to the cellar or up
+-- to the attic).
+local function newRoom(template, floor: number, rotation: number, x: number, z: number, w: number, d: number, span)
 	local m = template.mansion
 	local low, top = floor, floor
 	if m.tall then
 		low, top = math.huge, -math.huge
 		for _, f in m.floors do
 			low, top = math.min(low, f), math.max(top, f)
+		end
+		if span then
+			low, top = span[1], span[2]
 		end
 	end
 	local room = {
@@ -276,9 +288,9 @@ function Builder:_place(spec)
 	return room, c
 end
 
-local function maker(template, floor: number)
+local function maker(template, floor: number, span)
 	return function(x, z, w, d, rotation)
-		return newRoom(template, floor, rotation, x, z, w, d)
+		return newRoom(template, floor, rotation, x, z, w, d, span)
 	end
 end
 
@@ -401,13 +413,17 @@ function Builder:_spine(): boolean
 	if not service then
 		return false, "no room for the service corridor"
 	end
+	-- The back stairs: the servants' stair, carried down to the cellar and
+	-- up to the attic when the house has them (docs/plans/level-design.md
+	-- section 10.2).
 	local backTemplate = withZone(p.roles.stair, 0, "service")
+	local storeys = self.storeys or {}
 	local backStairs = self:_place({
 		rng = rng,
 		floor = 0,
 		parents = { service },
 		footprints = footprints(backTemplate),
-		make = maker(backTemplate, 0),
+		make = maker(backTemplate, 0, { storeys.cellar and -1 or 0, storeys.attic and 2 or 1 }),
 		score = function(c)
 			return away(c, 0.05)
 		end,
@@ -590,16 +606,163 @@ function Builder:_spine(): boolean
 	return true
 end
 
--- The upper floor's pieces: which rooms its own doorways already join.
-function Builder:_upperComponents()
+-- Which storeys beyond the two main ones this house has, and how many rooms
+-- each: { cellar = n?, attic = n? } (Config.Mansion.Storeys; docs/plans/
+-- level-design.md section 10.3).
+function Builder:_storeys()
+	local cfg = self.config.Storeys
+	local out = {}
+	if not cfg then
+		return out
+	end
+	local rng = self.rng:Fork("storeys")
+	local cellar = rng:Chance(cfg.Cellar.Chance)
+	local attic = rng:Chance(cfg.Attic.Chance)
+	if cfg.OnlyOne and cellar and attic then
+		-- One of the two, by their chances.
+		local pick = rng:NextNumber() * (cfg.Cellar.Chance + cfg.Attic.Chance)
+		cellar, attic = pick < cfg.Cellar.Chance, pick >= cfg.Cellar.Chance
+	end
+	if cellar then
+		out.cellar = rng:NextInteger(cfg.Cellar.Rooms[1], cfg.Cellar.Rooms[2])
+	end
+	if attic then
+		out.attic = rng:NextInteger(cfg.Attic.Rooms[1], cfg.Attic.Rooms[2])
+	end
+	return out
+end
+
+-- The cellar stair: from a cellar room up to a door off the kitchen side
+-- (the kitchen, the pantry, the service passage, the laundry) right above
+-- it, as far from the back stairs as it can be, so the cellar between them
+-- makes a loop. Its door upstairs is one the house can't do without.
+function Builder:_cellarStair(salt: string)
+	local house = self.house
+	local template = nil
+	for _, t in self.p.roles.stair or {} do
+		if t.mansion.reach == "cellar" then
+			template = t
+		end
+	end
+	if not template then
+		return nil
+	end
+	local parents, back = {}, nil
+	for _, room in house.rooms do
+		if (room.floor or 0) == -1 and not room.tall then
+			table.insert(parents, room)
+		elseif room.kind == "stair" and (room.floor or 0) < 0 then
+			back = room
+		end
+	end
+	local function upstairs(c)
+		for _, entry in c.seams do
+			local other = entry.other
+			if
+				entry.seam.floor == 0
+				and not other.tall
+				and MansionHouse.zonesMayJoin(MansionHouse.zoneOf(c.rect, 0), MansionHouse.zoneOf(other, 0))
+			then
+				return entry
+			end
+		end
+		return nil
+	end
+	local pull = self.config.Storeys.Cellar.StairPull
+	local stair, c = self:_place({
+		rng = self.rng:Fork("cellar stair" .. salt),
+		floor = -1,
+		parents = parents,
+		footprints = footprints(template),
+		make = maker(template, -1),
+		filter = function(c)
+			return upstairs(c) ~= nil
+		end,
+		score = function(c)
+			if not back then
+				return 0
+			end
+			local bx, bz = RoomRects.center(back)
+			return distance(c.rect, bx, bz) * pull
+		end,
+	})
+	if stair then
+		local above = upstairs(c).other
+		table.insert(self.stairJoins, { stair.id, above.id })
+	end
+	return stair
+end
+
+-- Whether every room on a storey could be joined by doorways on it (the
+-- doors pass adds what's missing between zones that may share one).
+function Builder:_joinable(floor: number): boolean
+	local house = self.house
+	local ids, edges = {}, {}
+	for _, room in house.rooms do
+		if MansionHouse.onFloor(room, floor) then
+			table.insert(ids, room.id)
+		end
+	end
+	for _, room in house.rooms do
+		if MansionHouse.onFloor(room, floor) then
+			for _, entry in house:SeamsOf(room) do
+				local seam, other = entry.seam, entry.other
+				if
+					seam.floor == floor
+					and other.id > room.id
+					and MansionHouse.zonesMayJoin(MansionHouse.zoneOf(room, floor), MansionHouse.zoneOf(other, floor))
+				then
+					table.insert(edges, { room.id, other.id })
+				end
+			end
+		end
+	end
+	return #ids > 0 and Graph.isConnected(Graph.adjacency(ids, edges), ids)
+end
+
+-- The rooms of the cellar or the attic, grown from the back stairs' foot,
+-- and the second stair that makes them a loop: a few packings tried, the
+-- first whose second stair fits (and whose rooms join into one piece) kept.
+-- A packing that fails is taken back room by room.
+function Builder:_storeyRooms(floor: number, quota: number)
+	local house = self.house
+	local tries = self.config.Storeys.Tries
+	for try = 1, tries do
+		local salt = try > 1 and (" try " .. try) or ""
+		local rooms, edges, counts = #house.rooms, #self.edges, table.clone(self.counts)
+		local joins = #self.stairJoins
+		-- The last try is ready to have no second stair: then two rooms at
+		-- most, so the storey is no deeper a dead end than the contract allows.
+		local want = try == tries and math.min(quota, self.config.MaxDeadEndChain) or quota
+		self:_roomsOn(floor, want, salt)
+		local second = floor < 0 and self:_cellarStair(salt) or nil
+		if (second and self:_joinable(floor)) or try == tries then
+			return
+		end
+		while #self.stairJoins > joins do
+			table.remove(self.stairJoins)
+		end
+		while #self.edges > edges do
+			local edge = table.remove(self.edges)
+			self.edgeFloor[MansionHouse.pairKey(edge[1], edge[2])] = nil
+		end
+		while #house.rooms > rooms do
+			house:RemoveLast()
+		end
+		self.counts = counts
+	end
+end
+
+-- A storey's pieces: which rooms its own doorways already join.
+function Builder:_components(floor: number)
 	local ids, upperEdges = {}, {}
 	for _, room in self.house.rooms do
-		if MansionHouse.onFloor(room, 1) then
+		if MansionHouse.onFloor(room, floor) then
 			table.insert(ids, room.id)
 		end
 	end
 	for _, edge in self.edges do
-		if self.edgeFloor[MansionHouse.pairKey(edge[1], edge[2])] == 1 then
+		if self.edgeFloor[MansionHouse.pairKey(edge[1], edge[2])] == floor then
 			table.insert(upperEdges, edge)
 		end
 	end
@@ -615,6 +778,11 @@ function Builder:_upperComponents()
 		end
 	end
 	return component, count
+end
+
+-- The upper floor's pieces.
+function Builder:_upperComponents()
+	return self:_components(1)
 end
 
 -- Upstairs, the gallery and the back stairs' corridor must meet, so the two
@@ -724,10 +892,10 @@ function Builder:_bridge(): boolean
 end
 
 -- Step 5: general rooms on one floor.
-function Builder:_roomsOn(floor: number, quota: number)
+function Builder:_roomsOn(floor: number, quota: number, salt: string?)
 	local house, config, p = self.house, self.config, self.p
-	local rng = self.rng:Fork("rooms" .. floor)
-	local flipRng = self.rng:Fork("rotation" .. floor)
+	local rng = self.rng:Fork("rooms" .. floor .. (salt or ""))
+	local flipRng = self.rng:Fork("rotation" .. floor .. (salt or ""))
 	local placement = config.Placement
 	local failed = {}
 	local placed = 0
@@ -766,14 +934,16 @@ function Builder:_roomsOn(floor: number, quota: number)
 			end)
 		end
 		local near = template.mansion.near or {}
+		-- In the cellar and the attic the rooms grow from the stairs' feet.
+		local fromStairs = floor < 0 or floor > 1
 		local parents = {}
 		for _, room in house.rooms do
-			if MansionHouse.onFloor(room, floor) and room.kind ~= "stair" then
+			if MansionHouse.onFloor(room, floor) and (room.kind ~= "stair" or fromStairs) then
 				table.insert(parents, room)
 			end
 		end
 		local cx, cz = centre(house.rooms, floor)
-		local components = floor == 1 and self:_upperComponents() or nil
+		local components = floor ~= 0 and self:_components(floor) or nil
 		-- How far apart two rooms are by doorways now: a new room touching
 		-- both closes a loop that long plus two.
 		local ids = {}
@@ -857,7 +1027,33 @@ function Builder:_roomsOn(floor: number, quota: number)
 						pieces += 1
 					end
 					if pieces >= 2 then
-						s += placement.Bridge
+						s += fromStairs and placement.Bridge * 3 or placement.Bridge
+					end
+				end
+				if floor < 0 then
+					-- The cellar lies under the service wing, where its stair can
+					-- come up into the kitchen side.
+					local cx0, cz0 = RoomRects.center(c.rect)
+					local above = house.index[0]:At(cx0, cz0)
+					local zone = above and MansionHouse.zoneOf(house.byId[above], 0)
+					if zone == "kitchen" or zone == "service" then
+						s += placement.Under
+					end
+				end
+				if fromStairs and components then
+					-- Under the house or under the roof, grow towards the other
+					-- stair's foot, so the storey joins up into a loop.
+					local own = components[c.parent.id]
+					local nearest = math.huge
+					for _, other in house.rooms do
+						local piece = components[other.id]
+						if piece and piece ~= own then
+							local ox, oz = RoomRects.center(other)
+							nearest = math.min(nearest, distance(c.rect, ox, oz))
+						end
+					end
+					if nearest < math.huge then
+						return s - placement.Toward * nearest
 					end
 				end
 				return s - placement.Spread * distance(c.rect, cx, cz)
@@ -931,8 +1127,9 @@ function Builder:_doors(seams)
 		self.edgeFloor[MansionHouse.pairKey(pair[1], pair[2])] = floor
 	end
 
-	-- A second stairwell always opens upstairs too (its loop through the hall
-	-- may be short in studs; it only has to keep the table on the path).
+	-- A second stairwell always opens upstairs too, and the cellar stair at
+	-- the top (their loops may be short in studs; they only have to keep the
+	-- table on the path).
 	for _, pair in self.stairJoins do
 		local seam = seamByPair[MansionHouse.pairKey(pair[1], pair[2])]
 		local trial = table.clone(self.edges)
@@ -942,34 +1139,36 @@ function Builder:_doors(seams)
 			and not edgeSet[MansionHouse.pairKey(pair[1], pair[2])]
 			and tableOnPath(ids, trial, start, exit, deliberation, config.MinExitRooms)
 		then
-			add({ seam.a, seam.b }, 1)
+			add({ seam.a, seam.b }, seam.floor)
 		end
 	end
 
 	-- Join the upper floor into one piece through the shortest-route doors
-	-- that keep the contract.
-	while true do
-		local component, count = self:_upperComponents()
-		if count <= 1 then
-			break
-		end
-		local options = {}
-		for _, seam in seams do
-			if
-				seam.floor == 1
-				and not edgeSet[MansionHouse.pairKey(seam.a, seam.b)]
-				and component[seam.a] ~= component[seam.b]
-				and mayJoin(seam)
-				and accept({ seam.a, seam.b }, self.edges)
-			then
-				table.insert(options, seam)
+	-- that keep the contract, then the cellar and the attic.
+	for _, floor in { 1, -1, 2 } do
+		while true do
+			local component, count = self:_components(floor)
+			if count <= 1 then
+				break
 			end
+			local options = {}
+			for _, seam in seams do
+				if
+					seam.floor == floor
+					and not edgeSet[MansionHouse.pairKey(seam.a, seam.b)]
+					and component[seam.a] ~= component[seam.b]
+					and mayJoin(seam)
+					and accept({ seam.a, seam.b }, self.edges)
+				then
+					table.insert(options, seam)
+				end
+			end
+			if #options == 0 then
+				break
+			end
+			local pick = rng:Pick(options)
+			add({ pick.a, pick.b }, floor)
 		end
-		if #options == 0 then
-			break
-		end
-		local pick = rng:Pick(options)
-		add({ pick.a, pick.b }, 1)
 	end
 
 	-- Extra loops: pairs that make sense together are likelier; with wings,
@@ -1054,22 +1253,37 @@ function Builder:_doors(seams)
 			end,
 			walk = MansionHouse.walker(house.rooms, seams, config),
 		}
-		local tree = Wings.tree(ids, base, start)
+		-- The cellar and the attic are a wing each of their own, never part of
+		-- the house open from the start (owner, 2026-10-05).
+		local groups = MansionHouse.storeyGroups(house.rooms, self.p.byId)
+		local tree = Wings.tree(ids, base, start, groups)
+		local forced = Wings.groupRoots(tree, groups)
 		self.wingLog = {}
 		local layoutLike =
 			{ mode = "Mansion", rooms = house.rooms, seams = seams, start = start, deliberation = deliberation }
-		local k = config.Regions or LockPlanner.regionCount(#ids, wcfg.Stage)
+		-- The cellar and the attic are wings on top of the house's own (owner,
+		-- 2026-10-05: "additions to the existing wings").
+		local k = (config.Regions or LockPlanner.regionCount(#ids, wcfg.Stage)) + #forced
 		-- Region 0's loop: the first few that could be closed.
 		for _, edge in base do
 			wctx.edgeSet[MansionHouse.pairKey(edge[1], edge[2])] = true
 		end
-		local cores = Wings.coreLoops(wctx)
-		for want = k, 1, -1 do
+		local cores = {}
+		for _, core in Wings.coreLoops(wctx) do
+			local below = false
+			for _, id in core.rooms do
+				below = below or groups[id] ~= nil
+			end
+			if not below then
+				table.insert(cores, core)
+			end
+		end
+		for want = k, math.max(1, #forced), -1 do
 			local tries = {}
 			-- (With no loop to build on, region 0 is tried as it falls.)
 			for c = 1, math.max(1, math.min(wcfg.Cores, #cores)) do
 				local core = cores[c]
-				local partitions = Wings.partitions(wctx, tree, want, core and core.rooms)
+				local partitions = Wings.partitions(wctx, tree, want, core and core.rooms, forced)
 				for t = 1, math.min(wcfg.Tries, #partitions) do
 					table.insert(tries, { core = core, partition = partitions[t] })
 				end
@@ -1101,6 +1315,7 @@ function Builder:_doors(seams)
 					LockPlanner.checkShape(layoutLike, Wings.skeleton(wings, seams), self.p.byId, wcfg.Stage, config)
 				if #problems == 0 then
 					self.wings = wings
+					wings.storeys = #forced
 					return extra
 				end
 				-- Why each partition was turned down (tools/plan, tools/mansionstats).
@@ -1156,16 +1371,31 @@ function MansionGen.attempt(rng, templates, config)
 			config.Squad
 		)
 	end
+	-- The cellar and the attic, when the house has them: their rooms are
+	-- kept back from the main floors' share.
+	-- The cellar and the attic, when the house has them. Their rooms come on
+	-- top of the room band, which counts the main floors (so a small house
+	-- still has its bedrooms).
+	builder.storeys = builder:_storeys()
 	local built, why = builder:_spine()
 	if not built then
 		return nil, why
 	end
-	local remaining = math.max(0, target - #builder.house.rooms)
+	if builder.storeys.cellar then
+		-- Under the service wing, from the back stairs' foot, then the
+		-- cellar stair up to the kitchen side (docs/plans/level-design.md
+		-- section 10.2).
+		builder:_storeyRooms(-1, builder.storeys.cellar)
+	end
+	local function main(): number
+		return MansionHouse.mainRooms(builder.house.rooms, builder.p.byId)
+	end
+	local remaining = math.max(0, target - main())
 	local upper = math.floor(remaining * config.UpperShare + 0.5)
 	builder:_roomsOn(0, remaining - upper)
 	-- Without a corridor, the upper rooms may still join the two sides.
 	builder:_bridge()
-	builder:_roomsOn(1, math.max(0, target - #builder.house.rooms))
+	builder:_roomsOn(1, math.max(0, target - main()))
 	local house = builder.house
 	local seams = house:AllSeams()
 	local extra = builder:_doors(seams)

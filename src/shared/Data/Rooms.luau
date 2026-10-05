@@ -616,10 +616,12 @@ local Rooms = {
 
 -- The mansion (docs/plans/mansion-generation.md). Which of the templates
 -- above it uses and how; the old generator never reads these blocks.
---   floors    floors the room can be on (0 ground, 1 upper)
---   zone      hall, public, dining, kitchen, service, private or bath; or one per
---             floor ({ [0] = ..., [1] = ... }). Doors only join zones that
---             make sense together (MansionHouse.ZoneDoors).
+--   floors    floors the room can be on (-1 cellar, 0 ground, 1 upper, 2 attic)
+--   zone      hall, public, dining, kitchen, service, private, bath or
+--             cellar; or one per floor ({ [0] = ..., [1] = ... }). Doors
+--             only join zones that make sense together (MansionHouse.ZoneDoors).
+--   reach     a stair that only reaches the cellar or the attic (not one of
+--             the main stairs)
 --   size      { w, d } in studs, w along the template's x
 --   role      start, exit, deliberation, kitchen, stair or corridor; general
 --             rooms have none
@@ -664,6 +666,142 @@ local MansionUse = {
 	nursery = { floors = { 1 }, zone = "private", size = { 20, 20 }, weight = 1, near = { "master_bedroom" } },
 	playroom = { floors = { 1 }, zone = "private", size = { 30, 20 }, weight = 1 },
 	sewing_room = { floors = { 1 }, zone = "private", size = { 30, 20 }, weight = 1 },
+}
+
+-- The cellar (docs/plans/level-design.md section 10.2): mansion-only rooms
+-- under the ground floor, reached by the cellar stair off the kitchen side
+-- and by the back stairs carried down. Stone and whitewash, bare bulbs and
+-- joists overhead, no windows. Their furniture is authored for a 40x40 room
+-- and fitted to theirs (Logic/RoomFit), like the old templates.
+local CellarRooms = {
+	{
+		id = "boiler_room",
+		name = "Boiler Room",
+		mood = "tight",
+		family = "utility",
+		fixture = "bulb",
+		joists = true,
+		floor = { material = "StainedConcrete", color = { 98, 96, 92 } },
+		wall = { material = "Brick", color = { 150, 138, 120 } },
+		ceiling = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1.1, range = 26, color = { 232, 194, 126 } },
+		props = {
+			{ id = "boiler", kind = "Boiler", x = -11, z = -16.5 },
+			{ id = "heater", kind = "WaterHeater", x = -17.5, z = -8 },
+			{ id = "shelf", kind = "Shelf", x = 18.5, z = 10, ry = 270 },
+			{ id = "locker", kind = "Locker", x = 10, z = 17.5, ry = 180 },
+			{ id = "boxes", kind = "Boxes", x = 15, z = -16 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = 10 }, { side = "E", along = -10 }, { side = "S", along = -10 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = 16, z = 16 },
+		mansion = { floors = { -1 }, zone = "cellar", size = { 30, 30 }, weight = 3 },
+	},
+	{
+		id = "wine_cellar",
+		name = "Wine Cellar",
+		mood = "tight",
+		family = "utility",
+		fixture = "bulb",
+		joists = true,
+		floor = { material = "Slate", color = { 82, 78, 74 } },
+		wall = { material = "Brick", color = { 128, 104, 88 } },
+		ceiling = { material = "WoodPlanks", color = { 78, 60, 46 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
+		props = {
+			{ id = "rack1", kind = "WineRack", x = -11, z = -18.5 },
+			{ id = "rack2", kind = "WineRack", x = 11, z = -18.5 },
+			{ id = "rack3", kind = "WineRack", x = -18.5, z = 10, ry = 90 },
+			{ id = "rack4", kind = "WineRack", x = 18.5, z = 10, ry = 270 },
+			{ id = "cabinet", kind = "Cabinet", x = -11, z = 17.5, ry = 180 },
+			{ id = "crate", kind = "Chest", x = 11, z = 17.5, ry = 180 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = -10 }, { side = "E", along = -10 }, { side = "S", along = -16 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = -8, z = -8 } },
+		shrine = { x = 16, z = 16 },
+		mansion = { floors = { -1 }, zone = "cellar", size = { 20, 30 }, weight = 2 },
+	},
+	{
+		id = "storeroom",
+		name = "Storeroom",
+		mood = "tight",
+		family = "utility",
+		fixture = "bulb",
+		joists = true,
+		floor = { material = "StainedConcrete", color = { 108, 104, 98 } },
+		wall = { material = "OldPlaster", color = { 168, 164, 150 } },
+		ceiling = { material = "WoodPlanks", color = { 88, 70, 54 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1.05, range = 26, color = { 232, 194, 126 } },
+		props = {
+			{ id = "shelf1", kind = "Shelf", x = -12, z = -18.5 },
+			{ id = "shelf2", kind = "Shelf", x = 12, z = -18.5 },
+			{ id = "wardrobe", kind = "Wardrobe", x = -18, z = 10, ry = 90 },
+			{ id = "boxes1", kind = "Boxes", x = 15, z = 16 },
+			{ id = "boxes2", kind = "Boxes", x = -10, z = 16 },
+			{ id = "trunk", kind = "Chest", x = 18, z = -8, ry = 270 },
+			{ id = "form", kind = "Mannequin", x = 17.5, z = 10 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = -10 }, { side = "E", along = 16 }, { side = "S", along = -16 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = -16, z = -10 },
+		mansion = { floors = { -1 }, zone = "cellar", size = { 30, 20 }, weight = 2 },
+	},
+	{
+		id = "workshop",
+		name = "Workshop",
+		mood = "tight",
+		family = "utility",
+		fixture = "bulb",
+		joists = true,
+		floor = { material = "StainedConcrete", color = { 100, 98, 94 } },
+		wall = { material = "Brick", color = { 140, 132, 118 } },
+		ceiling = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1.15, range = 26, color = { 232, 194, 126 } },
+		props = {
+			{ id = "bench", kind = "Workbench", x = -10, z = -17.75 },
+			{ id = "shelf", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
+			{ id = "locker1", kind = "Locker", x = 10, z = 17.5, ry = 180 },
+			{ id = "locker2", kind = "Locker", x = 14, z = 17.5, ry = 180 },
+			{ id = "boxes", kind = "Boxes", x = -16, z = 16 },
+			{ id = "trunk", kind = "Chest", x = -18, z = 9, ry = 90 },
+		},
+		decor = {},
+		wallSlots = { { side = "E", along = 10 }, { side = "W", along = -10 }, { side = "N", along = 12 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = 16, z = -16 },
+		mansion = { floors = { -1 }, zone = "cellar", size = { 30, 20 }, weight = 2 },
+	},
+	{
+		id = "cold_store",
+		name = "Cold Store",
+		mood = "tight",
+		family = "utility",
+		joists = true,
+		floor = { material = "StainedConcrete", color = { 116, 118, 116 } },
+		wall = { material = "OldPlaster", color = { 176, 180, 176 } },
+		ceiling = { material = "WoodPlanks", color = { 88, 70, 54 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1, range = 24 },
+		props = {
+			{ id = "shelf1", kind = "Shelf", x = -12, z = -18.5 },
+			{ id = "shelf2", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
+			{ id = "cabinet", kind = "Cabinet", x = -18, z = 10, ry = 90 },
+			{ id = "freezer", kind = "Chest", x = 11, z = 17.5, ry = 180 },
+			{ id = "boxes", kind = "Boxes", x = -10, z = 16 },
+		},
+		decor = {},
+		wallSlots = { { side = "N", along = 12 }, { side = "S", along = -16 }, { side = "E", along = 10 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = 16, z = 16 },
+		mansion = { floors = { -1 }, zone = "cellar", size = { 20, 20 }, weight = 1 },
+	},
 }
 
 -- Rooms only the mansion has. Their furniture is a placeholder until the
@@ -728,12 +866,48 @@ local MansionExtras = {
 			role = "stair",
 			authored = true,
 			tall = true,
+			-- (The generator carries it down to the cellar and up to the attic
+			-- when the house has them.)
 			floors = { 0, 1 },
-			zone = { [0] = "service", [1] = "private" },
+			zone = { [-1] = "cellar", [0] = "service", [1] = "private", [2] = "attic" },
 			size = { 20, 30 },
-			sockets = { [0] = { S = true }, [1] = { S = true } },
+			sockets = {
+				[-1] = { S = true },
+				[0] = { S = true },
+				[1] = { S = true },
+				[2] = { S = true },
+			},
 		},
 	},
+	{
+		id = "cellar_stair",
+		name = "Cellar Stairs",
+		mood = "tight",
+		family = "corridor",
+		fixture = "bulb",
+		-- A dog-leg down from a door off the kitchen side to the cellar; its
+		-- doorway on both storeys is in the south wall.
+		floor = { material = "OakFloor", color = { 82, 62, 46 } },
+		wall = { material = "Brick", color = { 146, 136, 118 } },
+		reverb = "StoneRoom",
+		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		shrine = { x = 0, z = 10 },
+		mansion = {
+			role = "stair",
+			reach = "cellar",
+			authored = true,
+			tall = true,
+			floors = { -1, 0 },
+			zone = { [-1] = "cellar", [0] = "service" },
+			size = { 20, 30 },
+			sockets = { [-1] = { S = true }, [0] = { S = true } },
+		},
+	},
+
 	{
 		id = "stairwell",
 		name = "Stairwell",
@@ -820,12 +994,14 @@ for _, template in Rooms do
 		mansionById[template.id] = template
 	end
 end
-for _, template in MansionExtras do
-	template.roles = {}
-	template.weight = 0
-	template.max = 1
-	table.insert(mansion, template)
-	mansionById[template.id] = template
+for _, list in { MansionExtras, CellarRooms } do
+	for _, template in list do
+		template.roles = {}
+		template.weight = 0
+		template.max = 1
+		table.insert(mansion, template)
+		mansionById[template.id] = template
+	end
 end
 
 return {
@@ -835,4 +1011,7 @@ return {
 	Mansion = mansion,
 	MansionById = mansionById,
 	MansionExtras = MansionExtras,
+	-- The mansion's own general rooms (the cellar's), furnished like the old
+	-- templates and checked by the same rules (Rooms.spec).
+	MansionRooms = CellarRooms,
 }

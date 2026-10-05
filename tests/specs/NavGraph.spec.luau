@@ -44,6 +44,13 @@ return function(test, check, Shared, require)
 			for _, room in layout.rooms do
 				local copy = table.clone(room)
 				copy.floor = (room.floor or 0) - 1
+				copy.top = room.top and room.top - 1
+				if room.zones then
+					copy.zones = {}
+					for f, zone in room.zones do
+						copy.zones[f - 1] = zone
+					end
+				end
 				table.insert(lowered.rooms, copy)
 			end
 			for _, seam in layout.seams do
@@ -59,7 +66,7 @@ return function(test, check, Shared, require)
 				check.near(other.x, node.x, 1e-6)
 				check.equal(other.kind, node.kind)
 			end
-			check.equal(b.low, -1)
+			check.equal(b.low, a.low - 1)
 			check.equal(NavGraph.storeyOf(b, -pitch + 3), -1)
 		end
 	end)

@@ -278,9 +278,15 @@ function LayoutValidator.validate(layout, templates, config)
 	local roomCount = #ids
 	local metrics = { rooms = roomCount, edges = #layout.edges }
 
-	if roomCount < config.RoomCount[1] or roomCount > config.RoomCount[2] then
+	-- A mansion's band counts its main floors: the cellar's and the attic's
+	-- rooms come on top (docs/plans/level-design.md section 10.3).
+	local counted = roomCount
+	if layout.mode == "Mansion" then
+		counted = MansionHouse.mainRooms(layout.rooms, templatesById)
+	end
+	if counted < config.RoomCount[1] or counted > config.RoomCount[2] then
 		if not layout.fallback then
-			fail(("room count %d outside %d-%d"):format(roomCount, config.RoomCount[1], config.RoomCount[2]))
+			fail(("room count %d outside %d-%d"):format(counted, config.RoomCount[1], config.RoomCount[2]))
 		end
 	end
 

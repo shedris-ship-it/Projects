@@ -123,31 +123,46 @@ local function wallBand(model, base: Vector3, dir: Vector3, length: number, heig
 	return panels
 end
 
--- A flight of stairs in a room's frame: an invisible wedge to walk on and
+-- A flight of stairs in a room's frame: an invisible ramp to walk on and
 -- solid-looking steps that don't collide. `from` and `to` are the bottom and
 -- top of its centre line (floor points, room frame), `width` across it;
--- `base` is the height its steps stand on (they are solid down to it).
-local function flight(model, roomCF: CFrame, from: Vector3, to: Vector3, width: number, base: number, surface, runner)
+-- `base` is the height its steps stand on (they are solid down to it, and
+-- the ramp is a wedge). With no `base` the flight hangs over another one (a
+-- stacked stairwell): the ramp is a sloped slab and the steps have a thin
+-- soffit, so there is headroom underneath.
+local function flight(model, roomCF: CFrame, from: Vector3, to: Vector3, width: number, base: number?, surface, runner)
 	local run = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
 	local length = run.Magnitude
 	local rise = to.Y - from.Y
 	local dirLocal = run.Unit
 	local mid = (from + to) / 2
-	-- The ramp: a wedge's high end is its +Z face.
-	local wedgeCF = roomCF
-		* CFrame.lookAt(
-			Vector3.new(mid.X, from.Y + rise / 2, mid.Z),
-			Vector3.new(mid.X, from.Y + rise / 2, mid.Z) - dirLocal
-		)
-	local wedge = Instance.new("WedgePart")
-	wedge.Name = "StairRamp"
-	wedge.Anchored = true
-	wedge.Size = Vector3.new(width, rise, length)
-	wedge.CFrame = wedgeCF
-	wedge.Transparency = 1
-	wedge.CastShadow = false
-	wedge.Parent = model
-	if from.Y > base + 0.01 then
+	local ramp
+	if base then
+		-- The ramp: a wedge's high end is its +Z face.
+		local wedgeCF = roomCF
+			* CFrame.lookAt(
+				Vector3.new(mid.X, from.Y + rise / 2, mid.Z),
+				Vector3.new(mid.X, from.Y + rise / 2, mid.Z) - dirLocal
+			)
+		ramp = Instance.new("WedgePart")
+		ramp.Size = Vector3.new(width, rise, length)
+		ramp.CFrame = wedgeCF
+	else
+		-- A slab one stud thick whose top runs from `from` to `to`.
+		local slope = to - from
+		local forward = slope.Unit
+		local right = forward:Cross(UP).Unit
+		local up = right:Cross(forward)
+		ramp = Instance.new("Part")
+		ramp.Size = Vector3.new(width, 1, slope.Magnitude)
+		ramp.CFrame = roomCF * CFrame.fromMatrix(mid - up * 0.5, right, up, -forward)
+	end
+	ramp.Name = "StairRamp"
+	ramp.Anchored = true
+	ramp.Transparency = 1
+	ramp.CastShadow = false
+	ramp.Parent = model
+	if base and from.Y > base + 0.01 then
 		-- What the flight stands on, up to its bottom step.
 		local support = from.Y - base
 		PropFactory.part(
@@ -168,16 +183,17 @@ local function flight(model, roomCF: CFrame, from: Vector3, to: Vector3, width: 
 	local tread = length / steps
 	for i = 1, steps do
 		local top = from.Y + rise * i / steps
+		local bottom = base or (top - rise / steps - 0.6)
 		local centre = from + dirLocal * (tread * (i - 0.5))
 		local frame = roomCF
 			* CFrame.lookAt(
-				Vector3.new(centre.X, base + (top - base) / 2, centre.Z),
-				Vector3.new(centre.X, base + (top - base) / 2, centre.Z) + dirLocal
+				Vector3.new(centre.X, bottom + (top - bottom) / 2, centre.Z),
+				Vector3.new(centre.X, bottom + (top - bottom) / 2, centre.Z) + dirLocal
 			)
 		PropFactory.part(
 			model,
 			"Step",
-			Vector3.new(width, top - base, tread),
+			Vector3.new(width, top - bottom, tread),
 			frame,
 			surface.color,
 			surface.material,
@@ -199,7 +215,7 @@ local function flight(model, roomCF: CFrame, from: Vector3, to: Vector3, width: 
 			)
 		end
 	end
-	return wedge
+	return ramp
 end
 
 -- A railing between two points in a room's frame (at the floor it stands
@@ -409,55 +425,68 @@ local function buildGrandHall(model, roomCF: CFrame, roomId: number, inner, floo
 end
 
 -- A dog-leg stairwell (frame 20x30: x across, the doorway in the south wall
--- at z +15 on both floors). Flight one climbs the west half to a landing at
--- the north end; flight two comes back up the east half to the upper landing
--- over the entrance.
-local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surface, floorSurface)
+-- at z +15 on every storey), one dog-leg a storey, stacked (the back stairs
+-- may run from the cellar to the attic; docs/plans/level-design.md section
+-- 10.2). On each storey flight one climbs the west half to a half landing
+-- at the north end, and flight two comes back up the east half to the next
+-- storey's landing over the entrance. `storeys` is how many it stands on.
+local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surface, floorSurface, storeys: number)
 	local shape = TallRooms.stairwell(inner, PITCH)
 	local half = shape.half
 	local landingZ = shape.landingZ -- the half landing's edge
 	local upperZ = shape.upperZ -- the upper landing's edge
-	-- Half landing: solid up to its floor.
-	PropFactory.part(
-		model,
-		"Landing",
-		Vector3.new(2 * inner.x, half, landingZ + inner.z),
-		roomCF * CFrame.new(0, half / 2, (-inner.z + landingZ) / 2),
-		floorSurface.color,
-		floorSurface.material,
-		{ variant = floorSurface.variant }
-	)
-	-- Upper landing over the entrance.
-	PropFactory.part(
-		model,
-		"Landing",
-		Vector3.new(2 * inner.x, 1, inner.z - upperZ),
-		roomCF * CFrame.new(0, PITCH - 0.5, (upperZ + inner.z) / 2),
-		floorSurface.color,
-		floorSurface.material,
-		{ variant = floorSurface.variant }
-	)
+	local lights = {}
 	local w = shape.width
-	flight(
-		model,
-		roomCF,
-		Vector3.new(-shape.flightX, 0, upperZ),
-		Vector3.new(-shape.flightX, half, landingZ),
-		w,
-		0,
-		floorSurface
-	)
-	flight(
-		model,
-		roomCF,
-		Vector3.new(shape.flightX, half, landingZ),
-		Vector3.new(shape.flightX, PITCH, upperZ),
-		w,
-		0,
-		floorSurface
-	)
+	for k = 0, storeys - 2 do
+		local y = k * PITCH
+		-- The half landing: solid down to the floor on the lowest storey, a
+		-- slab over the one below on the others.
+		local depth = k == 0 and half or 1
+		PropFactory.part(
+			model,
+			"Landing",
+			Vector3.new(2 * inner.x, depth, landingZ + inner.z),
+			roomCF * CFrame.new(0, y + half - depth / 2, (-inner.z + landingZ) / 2),
+			floorSurface.color,
+			floorSurface.material,
+			{ variant = floorSurface.variant }
+		)
+		-- The next storey's landing over the entrance.
+		PropFactory.part(
+			model,
+			"Landing",
+			Vector3.new(2 * inner.x, 1, inner.z - upperZ),
+			roomCF * CFrame.new(0, y + PITCH - 0.5, (upperZ + inner.z) / 2),
+			floorSurface.color,
+			floorSurface.material,
+			{ variant = floorSurface.variant }
+		)
+		-- Above the lowest storey a flight is a sloped slab, so there is
+		-- headroom on the one under it.
+		local base = k == 0 and 0 or nil
+		flight(
+			model,
+			roomCF,
+			Vector3.new(-shape.flightX, y, upperZ),
+			Vector3.new(-shape.flightX, y + half, landingZ),
+			w,
+			base,
+			floorSurface
+		)
+		flight(
+			model,
+			roomCF,
+			Vector3.new(shape.flightX, y + half, landingZ),
+			Vector3.new(shape.flightX, y + PITCH, upperZ),
+			w,
+			base,
+			floorSurface
+		)
+		-- A sconce over each half landing, where the light from above is weakest.
+		table.insert(lights, sconce(model, roomCF, roomId, Vector3.new(0, y + half, -inner.z), Vector3.new(0, 0, 1)))
+	end
 	-- The wall between the flights, high enough to lean on from the top one.
-	local spineHeight = PITCH + RAIL + 0.5
+	local spineHeight = (storeys - 1) * PITCH + RAIL + 0.5
 	PropFactory.part(
 		model,
 		"Wall",
@@ -467,10 +496,10 @@ local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surf
 		surface.material,
 		{ variant = surface.variant }
 	)
-	-- Railing on the upper landing's edge over the first flight.
-	railing(model, roomCF, Vector3.new(-inner.x, PITCH, upperZ), Vector3.new(-0.5, PITCH, upperZ))
-	-- A sconce over the half landing, where the light from above is weakest.
-	return { sconce(model, roomCF, roomId, Vector3.new(0, half, -inner.z), Vector3.new(0, 0, 1)) }
+	-- Railing on the top landing's edge over the last flight one.
+	local top = (storeys - 1) * PITCH
+	railing(model, roomCF, Vector3.new(-inner.x, top, upperZ), Vector3.new(-0.5, top, upperZ))
+	return lights
 end
 
 -- The locked front door: the squad came in through it, and it shut.
@@ -612,15 +641,45 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			{ variant = floorSurface.variant }
 		)
 		local ceilingY = floorY + (top - room.floor) * PITCH + HEIGHT
+		-- The cellar's ceiling is the boards of the floor over it.
+		local own = template.ceiling
+		local roofMaterial, roofVariant = ceilingMaterial, ceilingVariant
+		local roofColor = PropFactory.rgb(ceiling.color):Lerp(wallColor, ceiling.wallTint)
+		if own then
+			roofMaterial, roofVariant = PropFactory.surface(own.material)
+			roofColor = PropFactory.rgb(own.color)
+		end
 		PropFactory.part(
 			model,
 			"Ceiling",
 			Vector3.new(room.w, 0.5, room.d),
 			CFrame.new(Vector3.new(center.X, ceilingY + 0.25, center.Z)),
-			PropFactory.rgb(ceiling.color):Lerp(wallColor, ceiling.wallTint),
-			ceilingMaterial,
-			{ variant = ceilingVariant }
+			roofColor,
+			roofMaterial,
+			{ variant = roofVariant }
 		)
+		if template.joists then
+			-- Joists across the short way, every few studs, under the boards.
+			local acrossX = room.w <= room.d
+			local long = acrossX and room.d or room.w
+			local span = (acrossX and room.w or room.d) - 2 * WALL
+			local beam = Config.Mansion.Joists
+			local count = math.floor((long - 2 * WALL) / beam.every)
+			for i = 1, count do
+				local offset = -long / 2 + WALL + (i - 0.5) * (long - 2 * WALL) / count
+				local at = Vector3.new(center.X, ceilingY - beam.depth / 2, center.Z)
+					+ (acrossX and Vector3.new(0, 0, offset) or Vector3.new(offset, 0, 0))
+				PropFactory.part(
+					model,
+					"Joist",
+					acrossX and Vector3.new(span, beam.depth, beam.width) or Vector3.new(beam.width, beam.depth, span),
+					CFrame.new(at),
+					roofColor:Lerp(Color3.new(), 0.25),
+					roofMaterial,
+					{ variant = roofVariant, collide = false, castShadow = true, query = false }
+				)
+			end
+		end
 
 		-- Walls, one band per storey. The top band stops inside the slab over
 		-- it (or just over its own ceiling); a tall room's lower bands meet the
@@ -681,7 +740,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				return offsets
 			end)
 		elseif room.kind == "stair" then
-			tallLights = buildStairwell(model, roomCF, room.id, inner, wallSurface, floorSurface)
+			tallLights = buildStairwell(model, roomCF, room.id, inner, wallSurface, floorSurface, #storeys)
 		end
 
 		-- A clear spot to walk to: in front of the hall's staircase, at the foot
@@ -769,7 +828,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		-- A wall position faces outside if the wall there touches no other room
 		-- on this storey (windows look out, tells that need a window too).
 		local function facesOutside(slot): boolean
-			if slot.side == nil then
+			if slot.side == nil or baseFloor < 0 then
+				-- (Under the ground there is no outside to face.)
 				return false
 			end
 			local side = LevelGraph.worldSide(slot.side, room.rotation)
@@ -814,7 +874,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			for k = 1, math.floor((long / 2 - 8) / 22) do
 				for _, sign in { -1, 1 } do
 					local point = center + axis * sign * 22 * k
-					local diffuser = LevelBuilder.ceilingFixture(model, point, template.family)
+					local diffuser = LevelBuilder.ceilingFixture(model, point, template.fixture or template.family)
 					local light = LevelBuilder.lightFor("ceiling", diffuser, template)
 					diffuser:SetAttribute(Attr.RoomId, room.id)
 					diffuser:SetAttribute(Attr.Lit, true)

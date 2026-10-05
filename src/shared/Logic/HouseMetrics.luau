@@ -458,6 +458,62 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		end
 	end
 
+	-- The cellar and the attic: each a wing of its own, behind a lock
+	-- (owner, 2026-10-05). Counts each that isn't: in the house open from the
+	-- start, split, or sharing its region with rooms of the main floors.
+	m.storeyWings, m.storeys = 0, 0
+	if mansion then
+		local groups = MansionHouse.storeyGroups(layout.rooms, templatesById)
+		local regionOfGroup, broken = {}, {}
+		for id, name in groups do
+			local r = regionOf[id]
+			if r == nil or r == 0 or (regionOfGroup[name] ~= nil and regionOfGroup[name] ~= r) then
+				broken[name] = true
+			end
+			regionOfGroup[name] = regionOfGroup[name] or r
+		end
+		for _, room in layout.rooms do
+			local r = regionOf[room.id]
+			if groups[room.id] == nil then
+				for name, gr in regionOfGroup do
+					if gr == r then
+						broken[name] = true
+					end
+				end
+			end
+		end
+		for _ in broken do
+			m.storeyWings += 1
+		end
+		-- And each holds something the run needs: a key or a token, a puzzle,
+		-- an heirloom (not a walk for nothing).
+		local needed = {}
+		for _, token in plan.tokens do
+			for _, room in LockPlanner.producerRooms(plan, token) do
+				needed[room] = true
+			end
+		end
+		for _, puzzle in plan.puzzles do
+			needed[puzzle.room] = true
+			for _, room in puzzle.rooms or {} do
+				needed[room] = true
+			end
+		end
+		local busy = {}
+		for id, name in groups do
+			if needed[id] then
+				busy[name] = true
+			end
+		end
+		m.storeyIdle = 0
+		for name in regionOfGroup do
+			m.storeys += 1
+			if not busy[name] then
+				m.storeyIdle += 1
+			end
+		end
+	end
+
 	-- Rooms with no reason to go in, and regions short of a hiding spot, a
 	-- lure, or a landmark or Lantern (Logic/RoomPurpose).
 	if opts.purposes then
@@ -483,6 +539,11 @@ function HouseMetrics.score(m, targets, squad: number?)
 	for _, name in sortedKeys(targets) do
 		local target = targets[name]
 		local band = (squad and target.bySquad and target.bySquad[squad]) or target.band
+		if band and target.perStorey and m.storeys then
+			-- A cellar or an attic is a wing more to walk.
+			local extra = target.perStorey * m.storeys
+			band = { band[1] + extra, band[2] + extra }
+		end
 		local value = m[name]
 		if value ~= nil and band then
 			local miss = 0

@@ -170,6 +170,11 @@ local function context(layout, templatesById, config)
 		offers = offers,
 		bare = bare,
 		corridor = corridor,
+		-- The cellar's and the attic's rooms: wings of their own that hold
+		-- something the run needs (owner, 2026-10-05: they should "tie into
+		-- the gameplay loop"; docs/plans/level-design.md section 10).
+		storey = mansion and MansionHouse.storeyGroups(layout.rooms, templatesById) or {},
+		storeyKeep = config and config.Storeys and config.Storeys.Keep or 1,
 		walker = mansion and config and MansionHouse.walker(layout.rooms, layout.seams, config) or nil,
 		deckBoost = config and config.Programme and config.Programme.DeckBoost or 1,
 		kept = {}, -- rooms something is kept in so far (an attempt's)
@@ -534,6 +539,9 @@ local function keepingRoom(
 			if ctx.mansion and ctx.kept[id] then
 				weight *= 0.4
 			end
+			if ctx.storey[id] then
+				weight *= ctx.storeyKeep
+			end
 			if walk and band then
 				local studs = walk[id] or math.huge
 				if studs < band[1] then
@@ -555,6 +563,19 @@ local function keepingRoom(
 	return rng:WeightedPick(candidates, function(c)
 		return c.weight
 	end).id
+end
+
+-- A puzzle station's room among those that suit it: one in the cellar or the
+-- attic when there is one (the fuse box downstairs: go down to bring the
+-- power back), else any.
+local function stationRoom(ctx, rng, rooms: { number }): number
+	local storey = {}
+	for _, id in rooms do
+		if ctx.storey[id] then
+			table.insert(storey, id)
+		end
+	end
+	return rng:Pick(#storey > 0 and storey or rooms)
 end
 
 -- One plan. Its regions are grown here, or, for a mansion planned as wings
@@ -768,8 +789,11 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			local producer
 			if kind.puzzle then
 				local puzzleId = kind.puzzle .. ":1"
-				plan.puzzles[puzzleId] =
-					{ kind = kind.puzzle, room = rng:Pick(choice.rooms), seed = rng:NextInteger(1, 2 ^ 30) }
+				plan.puzzles[puzzleId] = {
+					kind = kind.puzzle,
+					room = stationRoom(ctx, rng, choice.rooms),
+					seed = rng:NextInteger(1, 2 ^ 30),
+				}
 				plan.stats.puzzles += 1
 				usedPuzzles[kind.puzzle] = true
 				producer = { kind = "puzzle", id = puzzleId }
@@ -809,8 +833,15 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 	-- The heirlooms: in different regions, later ones first, never two in a room.
 	local wanted = rng:NextInteger(cfg.FinaleItems[1], cfg.FinaleItems[2])
 	local pool = {}
+	local storeyHeirloom = ctx.config and ctx.config.Storeys and ctx.config.Storeys.Heirloom or 1
 	for r = 0, count do
-		table.insert(pool, { region = r, weight = 1 + (position[r] or 0) * 1.5 })
+		local weight = 1 + (position[r] or 0) * 1.5
+		-- The family's old things are kept down in the cellar and up in the
+		-- attic.
+		if regions[r].rooms[1] and ctx.storey[regions[r].rooms[1]] then
+			weight *= storeyHeirloom
+		end
+		table.insert(pool, { region = r, weight = weight })
 	end
 	local heirlooms, used = {}, {}
 	for i = 1, wanted do
@@ -1223,6 +1254,11 @@ function LockPlanner.plan(layout, templatesById, rng, cfg, config, extra: number
 	-- those draws pass (or the wings be more than this plan wants), the
 	-- regions are grown here as for any other house.
 	local wings = layout.wings
+	-- The cellar's and the attic's wings come on top of the house's own (a
+	-- house with no locks at all stays open).
+	if target > 0 then
+		target += wings and wings.storeys or 0
+	end
 	if wings and #wings.order > 0 and #wings.order <= target then
 		for i = 1, cfg.Attempts do
 			tries += 1

@@ -4,6 +4,7 @@
 return function(test, check, Shared, require)
 	local Config = require(Shared.Config)
 	local Rooms = require(Shared.Data.Rooms)
+	local MansionHouse = require(Shared.Logic.MansionHouse)
 	local Rng = require(Shared.Lib.Rng)
 	local FloorPlan = require(Shared.Logic.FloorPlan)
 	local HouseSize = require(Shared.Logic.HouseSize)
@@ -28,7 +29,8 @@ return function(test, check, Shared, require)
 			for seed = 1, 12 do
 				local layout = MansionGen.generate(seed * 101 + squad, Rooms.Mansion, mansion)
 				if not layout.fallback then
-					local n = #layout.rooms
+					-- (The band counts the main floors; the cellar's rooms come on top.)
+					local n = MansionHouse.mainRooms(layout.rooms, Rooms.MansionById)
 					check.truthy(
 						n >= size.rooms[1] and n <= size.rooms[2],
 						("squad %d seed %d: %d rooms"):format(squad, seed, n)

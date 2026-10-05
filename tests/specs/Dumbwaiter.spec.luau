@@ -198,15 +198,18 @@ return function(test, check, Shared, require)
 		check.truthy(taken > 0, "some walls are taken by furniture")
 	end)
 
-	test("seed 3 for four: the garage's wall under the nursery is taken (seen in Studio)", function()
-		-- Build 2026-10-05.29 planned a dumbwaiter here and the build found no
-		-- room for it. (If the generator changes, pin another such pair.)
+	test("seed 3 for four: the garage's wall under the guest room is taken", function()
+		-- Build 2026-10-05.29 planned a dumbwaiter between the garage and the
+		-- nursery over it here, and the build found no room for it (seen in
+		-- Studio). Since the cellar (L2.2) the room over the garage is the
+		-- guest room, with the same wall taken. (If the generator changes,
+		-- pin another such pair.)
 		local mansion = HouseSize.config(Config.Mansion, Config.Progression, 4)
 		local layout = MansionGen.generate(3, Rooms.Mansion, mansion)
 		local byId = roomsById(layout)
 		local ground, upper = byId[6], byId[22]
 		check.equal(ground and ground.template, "garage", "room 6")
-		check.equal(upper and upper.template, "nursery", "room 22")
+		check.equal(upper and upper.template, "guest_room", "room 22")
 		check.truthy(#Dumbwaiter.spots(layout, ground, upper, cfg) > 0, "the shared wall has spots")
 		check.equal(#Dumbwaiter.spots(layout, ground, upper, cfg, templates), 0, "none clear of the furniture")
 		for _, pair in Dumbwaiter.pairs(layout, cfg, templates) do

@@ -118,6 +118,10 @@ local Props = {
 	CoatRack = { size = { 2, 7, 2 }, color = { 60, 44, 34 }, material = "Wood" },
 	Bench = { size = { 8, 2.5, 2.5 }, top = true, color = { 96, 74, 54 }, material = "Wood" },
 	WaterHeater = { size = { 3, 7, 3 }, color = { 190, 190, 184 }, material = "Metal" },
+	-- The cellar's (docs/plans/level-design.md section 10.2): the boiler, a
+	-- landmark you can call out ("by the boiler"), and racks of bottles.
+	Boiler = { size = { 6, 8, 5 }, landmark = true, color = { 74, 70, 64 }, material = "Metal" },
+	WineRack = { size = { 6, 8, 2 }, color = { 92, 66, 46 }, material = "Wood" },
 	-- No `top`: its lid opens (World/PropFactory), and nothing should float.
 	Chest = { size = { 5, 3, 3 }, color = { 86, 58, 38 }, material = "Wood" },
 	Mannequin = { size = { 2, 6.5, 2 }, color = { 214, 200, 180 }, material = "SmoothPlastic" },

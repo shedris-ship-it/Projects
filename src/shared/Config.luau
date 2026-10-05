@@ -225,6 +225,24 @@ Config.Mansion = {
 		DrawBonus = 2, -- a room with a landmark or a lure comes up this much more
 		DeckBoost = 10, -- the lock planner's weight for a kind in the deck
 	},
+	-- The cellar and the attic (docs/plans/level-design.md sections 10.2 and
+	-- 10.3): which a house has and how many rooms each, counted in its room
+	-- band. A squad's own goes over this (BySquad[n].mansion.Storeys).
+	Storeys = {
+		Cellar = {
+			Chance = 1,
+			Rooms = { 2, 3 },
+			StairPull = 0.1, -- the cellar stair's placement score per stud from the back stairs (a longer loop)
+		},
+		Attic = { Chance = 0, Rooms = { 2, 3 } },
+		OnlyOne = false, -- one of the two at most, by their chances
+		-- They hold what the run needs (owner, 2026-10-05: "tie into the
+		-- gameplay loop"): the lock planner's weight for keeping a key there,
+		-- and for an heirloom's region being one of them.
+		Keep = 3,
+		Heirloom = 4,
+		Tries = 8, -- packings of its rooms tried until they join its stairs into one piece
+	},
 	LoopLength = { 4, 8 }, -- (doc)
 	MinLoops = 2, -- (doc)
 	MaxDeadEndChain = 2, -- (doc)
@@ -238,6 +256,8 @@ Config.Mansion = {
 	-- Wall sconces in the double-height rooms, whose one ceiling light can't
 	-- reach the gallery or a stairwell's landings.
 	Sconce = { range = 18, brightness = 1.1, height = 6.2 },
+	-- Joists under a cellar's ceiling (templates with `joists`).
+	Joists = { every = 4, width = 0.6, depth = 0.7 },
 	Placement = {
 		Top = 6, -- weighted pick among this many best candidates
 		Contact = 1, -- per extra neighbour a door could join
@@ -246,7 +266,9 @@ Config.Mansion = {
 		Near = 3, -- per neighbour the template wants to be near
 		Corridor = 1.5, -- joined to a corridor or the hall rather than through another room
 		Chain = 2, -- per room the parent already is from a corridor (dead-end chains)
-		Bridge = 6, -- upstairs: touches both the gallery's side and the back stairs' side
+		Bridge = 6, -- upstairs: touches both the gallery's side and the back stairs' side (more in the cellar and attic)
+		Toward = 0.15, -- cellar and attic: per stud from the other stair's foot, until they join
+		Under = 3, -- a cellar room under the kitchen side (its stair comes up there)
 		Spread = 0.03, -- per stud from the house's middle (keeps it compact)
 		Jitter = 1,
 	},
@@ -788,10 +810,15 @@ Config.LevelDesign = {
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)
 		kitGaps = { band = { 0, 0 }, weight = 1 }, -- regions short of a hiding spot, a lure, a landmark or Lantern
+		-- The cellar and the attic each a wing of its own behind a lock (owner,
+		-- 2026-10-05): one that isn't costs more than anything else.
+		storeyWings = { band = { 0, 0 }, weight = 20 },
+		storeyIdle = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic wing holding nothing the run needs
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
 		walk = {
 			band = { 900, 2200 },
 			bySquad = { { 700, 1600 }, { 800, 1900 }, { 900, 2200 }, { 1000, 2400 } },
+			perStorey = 250, -- more for each wing in the cellar or the attic
 			weight = 1,
 			scale = 200,
 		},

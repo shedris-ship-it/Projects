@@ -34,6 +34,9 @@ local ZONE_DOORS = {
 	service = { kitchen = true, service = true },
 	private = { hall = true, private = true, bath = true },
 	bath = { public = true, private = true },
+	-- Under the house: only the cellar's own rooms and the feet of its
+	-- stairs (docs/plans/level-design.md section 10.2).
+	cellar = { cellar = true },
 }
 
 function MansionHouse.zonesMayJoin(a: string?, b: string?): boolean
@@ -89,6 +92,37 @@ end
 function MansionHouse.localSide(dir: string, rotation: number): string
 	local index = table.find(DIR_ORDER, dir) :: number
 	return DIR_ORDER[(index - 1 + rotation) % 4 + 1]
+end
+
+-- The rooms that belong to the cellar or the attic: those standing only
+-- under the ground or under the roof, and the stairs that reach only there.
+-- { [room id] = "cellar" | "attic" }. Each is a wing of its own (owner,
+-- 2026-10-05: "so they can be more important for progression").
+function MansionHouse.storeyGroups(rooms, templatesById)
+	local groups = {}
+	for _, room in rooms do
+		local template = templatesById[room.template]
+		local reach = template and template.mansion and template.mansion.reach
+		local floor = room.floor or 0
+		if reach then
+			groups[room.id] = reach
+		elseif not room.tall and floor < 0 then
+			groups[room.id] = "cellar"
+		elseif not room.tall and floor > 1 then
+			groups[room.id] = "attic"
+		end
+	end
+	return groups
+end
+
+-- How many rooms stand on the main floors: everything but the cellar's and
+-- the attic's (the room band counts these).
+function MansionHouse.mainRooms(rooms, templatesById): number
+	local below = 0
+	for _ in MansionHouse.storeyGroups(rooms, templatesById) do
+		below += 1
+	end
+	return #rooms - below
 end
 
 -- A room's doorways in its own frame, as Logic/RoomFit takes them: its seams,

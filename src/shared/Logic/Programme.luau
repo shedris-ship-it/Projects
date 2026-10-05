@@ -45,13 +45,13 @@ function Programme.draws(template): boolean
 	return offers.landmark or offers.lure
 end
 
--- The room list for each floor: { [0] = { template ids }, [1] = { ... } },
--- needed rooms first, then a weighted order (template weight, more for rooms
--- with a draw), never more of a template than its `max`, or on one floor than
--- its `perFloor`.
+-- The room list for each storey: { [0] = { template ids }, [1] = { ... },
+-- [-1] = the cellar's, [2] = the attic's }, needed rooms first, then a
+-- weighted order (template weight, more for rooms with a draw), never more of
+-- a template than its `max`, or on one floor than its `perFloor`.
 function Programme.rooms(rng, general, deck, cfg)
-	local floors = { [0] = {}, [1] = {} }
-	local counts, perFloor = {}, { [0] = {}, [1] = {} }
+	local floors = { [-1] = {}, [0] = {}, [1] = {}, [2] = {} }
+	local counts, perFloor = {}, { [-1] = {}, [0] = {}, [1] = {}, [2] = {} }
 	local function fits(template, floor: number): boolean
 		local m = template.mansion
 		return table.find(m.floors, floor) ~= nil
@@ -84,8 +84,9 @@ function Programme.rooms(rng, general, deck, cfg)
 			end
 		end
 	end
-	-- The rest, in a weighted order per floor (long enough for any quota).
-	for floor = 0, 1 do
+	-- The rest, in a weighted order per floor (long enough for any quota):
+	-- the main floors first, then the cellar and the attic.
+	for _, floor in { 0, 1, -1, 2 } do
 		while true do
 			local options = {}
 			for _, template in general do

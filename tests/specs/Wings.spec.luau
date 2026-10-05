@@ -5,6 +5,7 @@
 return function(test, check, Shared, require)
 	local Config = require(Shared.Config)
 	local Rooms = require(Shared.Data.Rooms)
+	local MansionHouse = require(Shared.Logic.MansionHouse)
 	local Rng = require(Shared.Lib.Rng)
 	local Graph = require(Shared.Logic.Graph)
 	local HouseSize = require(Shared.Logic.HouseSize)
@@ -66,54 +67,98 @@ return function(test, check, Shared, require)
 		check.truthy(kept / math.max(1, planned) >= 0.9, ("%d of %d wings kept by the planner"):format(kept, planned))
 	end)
 
-	test("every wing is 3-7 rooms, holds together, and opens by its gate from somewhere open before it", function()
+	test("the cellar is a wing of its own, on top of the squad's, never open from the start", function()
+		-- Owner, 2026-10-05: "put the cellar and the attic in separate wings
+		-- and not the starting wing", "additions to the existing wings".
+		local own, total = 0, 0
 		for _, house in houses do
 			local wings = house.layout.wings
-			if wings then
-				local where = ("squad %d seed %d"):format(house.squad, house.seed)
-				local position = { [0] = 0 }
-				for i, r in wings.order do
-					position[r] = i
+			local groups = MansionHouse.storeyGroups(house.layout.rooms, Rooms.MansionById)
+			if wings and next(groups) then
+				total += 1
+				local region = nil
+				local alone = true
+				for id in groups do
+					local r = wings.roomRegion[id]
+					alone = alone and r ~= 0 and (region == nil or region == r)
+					region = region or r
 				end
-				local edges = {}
-				for _, seam in house.layout.seams do
-					if seam.connected then
-						table.insert(edges, { seam.a, seam.b })
-					end
+				for _, id in wings.regions[region].rooms do
+					alone = alone and groups[id] ~= nil
 				end
-				for _, r in wings.order do
-					local rooms = wings.regions[r].rooms
-					check.truthy(#rooms >= cfg.MinWing and #rooms <= cfg.MaxWing, where .. ": wing of " .. #rooms)
-					check.truthy(Graph.isConnected(Graph.adjacency(rooms, edges), rooms), where .. ": wing in pieces")
-					local gate
-					for _, seam in house.layout.seams do
-						if seam.id == wings.gates[r] then
-							gate = seam
-						end
-					end
-					check.truthy(gate and gate.connected, where .. ": the gate is a doorway")
-					local ra, rb = wings.roomRegion[gate.a], wings.roomRegion[gate.b]
-					local outer = ra == r and rb or ra
-					check.truthy(position[outer] < position[r], where .. ": gate from a region opened before")
-					local key = wings.keyRegion[r]
-					check.truthy(key == nil or position[key] < position[r], where .. ": key kept before its door")
+				if alone then
+					own += 1
 				end
-				-- Region 0 holds the hall and the table.
-				check.equal(wings.roomRegion[house.layout.start], 0)
-				check.equal(wings.roomRegion[house.layout.deliberation], 0)
-				check.equal(
-					#LockPlanner.checkShape(
-						house.layout,
-						Wings.skeleton(wings, house.layout.seams),
-						Rooms.MansionById,
-						house.progression,
-						house.mansion
-					),
-					0
+				check.equal(wings.storeys, 1, "one storey wing")
+				check.truthy(
+					#wings.order <= house.mansion.Regions + 1,
+					("squad %d seed %d: %d wings"):format(house.squad, house.seed, #wings.order)
 				)
 			end
 		end
+		check.truthy(total > 0, "houses with a cellar planned as wings")
+		check.equal(own, total, "every cellar is a wing of its own")
 	end)
+
+	test(
+		"every wing is 3-7 rooms (the cellar and attic any), holds together, and opens by its gate from somewhere open before it",
+		function()
+			for _, house in houses do
+				local wings = house.layout.wings
+				if wings then
+					local where = ("squad %d seed %d"):format(house.squad, house.seed)
+					local position = { [0] = 0 }
+					for i, r in wings.order do
+						position[r] = i
+					end
+					local edges = {}
+					for _, seam in house.layout.seams do
+						if seam.connected then
+							table.insert(edges, { seam.a, seam.b })
+						end
+					end
+					local groups = MansionHouse.storeyGroups(house.layout.rooms, Rooms.MansionById)
+					for _, r in wings.order do
+						local rooms = wings.regions[r].rooms
+						local storey = groups[rooms[1]] ~= nil
+						check.truthy(
+							storey or (#rooms >= cfg.MinWing and #rooms <= cfg.MaxWing),
+							where .. ": wing of " .. #rooms
+						)
+						check.truthy(
+							Graph.isConnected(Graph.adjacency(rooms, edges), rooms),
+							where .. ": wing in pieces"
+						)
+						local gate
+						for _, seam in house.layout.seams do
+							if seam.id == wings.gates[r] then
+								gate = seam
+							end
+						end
+						check.truthy(gate and gate.connected, where .. ": the gate is a doorway")
+						local ra, rb = wings.roomRegion[gate.a], wings.roomRegion[gate.b]
+						local outer = ra == r and rb or ra
+						check.truthy(position[outer] < position[r], where .. ": gate from a region opened before")
+						local key = wings.keyRegion[r]
+						check.truthy(key == nil or position[key] < position[r], where .. ": key kept before its door")
+					end
+					-- Region 0 holds the hall and the table.
+					check.equal(wings.roomRegion[house.layout.start], 0)
+					check.equal(wings.roomRegion[house.layout.deliberation], 0)
+					check.equal(
+						#LockPlanner.checkShape(
+							house.layout,
+							Wings.skeleton(wings, house.layout.seams),
+							Rooms.MansionById,
+							house.progression,
+							house.mansion
+						),
+						0
+					)
+				end
+			end
+		end
+	)
 
 	test("each beat is what it says", function()
 		local backtracks, shortcuts, parallels = 0, 0, 0

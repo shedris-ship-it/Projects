@@ -9,7 +9,9 @@
 --              regions are branches of
 --              the tree of doors that joined every room, cut where a wing
 --              naturally starts (a corridor's mouth, a stairwell, the kitchen
---              door, a change of floor), 3-7 rooms each
+--              door, a change of floor), 3-7 rooms each; the cellar and the
+--              attic are always a wing each of their own (owner, 2026-10-05:
+--              "so they can be more important for progression")
 --   the order  a region opens after the one its door is in; for a squad of
 --              three or four, two wings off the same region open one after
 --              the other with both keys kept before them (split up)
@@ -32,19 +34,35 @@ local pairKey = MansionHouse.pairKey
 
 -- The tree of doors the house was joined by, from the hall: parent and
 -- children, breadth-first order, subtree sizes and entry/exit times (for
--- "is this room under that one").
-function Wings.tree(ids: { number }, edges, root: number)
+-- "is this room under that one"). `groups` ({ [room id] = name }) are
+-- rooms that must hang together as one branch with nothing else below them
+-- (the cellar, the attic): entered once, by the first door reached, and
+-- never the way on to a room outside them.
+function Wings.tree(ids: { number }, edges, root: number, groups: { [number]: string }?)
 	local adj = Graph.adjacency(ids, edges)
+	groups = groups or {}
 	local parent, children, order = {}, {}, { root }
 	local seen = { [root] = true }
+	local entered = {}
 	local head = 1
 	while head <= #order do
 		local node = order[head]
 		head += 1
 		children[node] = {}
+		local mine = groups[node]
 		for _, nextNode in adj[node] do
-			if not seen[nextNode] then
+			local theirs = groups[nextNode]
+			local allowed
+			if mine then
+				allowed = theirs == mine
+			else
+				allowed = theirs == nil or not entered[theirs]
+			end
+			if allowed and not seen[nextNode] then
 				seen[nextNode] = true
+				if theirs and theirs ~= mine then
+					entered[theirs] = true
+				end
 				parent[nextNode] = node
 				table.insert(children[node], nextNode)
 				table.insert(order, nextNode)
@@ -208,13 +226,44 @@ function Wings.coreLoops(ctx)
 	return closable
 end
 
+-- The rooms where each group (Wings.tree) hangs from the rest: the wings
+-- every partition must cut, in tree order.
+function Wings.groupRoots(tree, groups: { [number]: string }?): { number }
+	local roots = {}
+	for _, id in tree.order do
+		local name = groups and groups[id]
+		if name and tree.parent[id] and groups[tree.parent[id]] ~= name then
+			table.insert(roots, id)
+		end
+	end
+	return roots
+end
+
 -- Every way to cut `k` wings from the tree, keeping the rooms in `keep` (the
 -- core loop) in region 0, scored: wings of MinWing-MaxWing
 -- rooms (a hard rule), region 0's share near its band, wings of even size,
 -- natural boundaries. Best first, with a little jitter so seeds differ.
-function Wings.partitions(ctx, tree, k: number, keep: { number }?)
+-- Each of `forced` (Wings.groupRoots: the cellar, the attic) is always a
+-- wing of its own, whatever its size, and nothing inside it is cut.
+function Wings.partitions(ctx, tree, k: number, keep: { number }?, forced: { number }?)
 	local cfg = ctx.cfg
 	local n = #tree.order
+	forced = forced or {}
+	if #forced > k then
+		return {}
+	end
+	local inForced = {}
+	for _, root in forced do
+		inForced[root] = true
+	end
+	local function insideForced(c: number): boolean
+		for _, root in forced do
+			if Wings.isAncestor(tree, root, c) then
+				return true
+			end
+		end
+		return false
+	end
 	local candidates = {}
 	for _, c in tree.order do
 		local keeps = false
@@ -226,6 +275,7 @@ function Wings.partitions(ctx, tree, k: number, keep: { number }?)
 			and not keeps
 			and not Wings.isAncestor(tree, c, ctx.dining)
 			and tree.size[c] >= cfg.MinWing
+			and not insideForced(c)
 		then
 			table.insert(candidates, c)
 		end
@@ -236,8 +286,20 @@ function Wings.partitions(ctx, tree, k: number, keep: { number }?)
 	local lo, hi = cfg.R0Share[1], cfg.R0Share[2]
 	local ideal = n * (1 - (lo + hi) / 2) / math.max(1, k)
 	local results = {}
+	local chosen = {}
 	local combo = {}
 	local function evaluate()
+		-- The forced wings with the chosen ones, in tree order.
+		table.clear(combo)
+		for _, c in chosen do
+			table.insert(combo, c)
+		end
+		for _, c in forced do
+			table.insert(combo, c)
+		end
+		table.sort(combo, function(a, b)
+			return tree.tin[a] < tree.tin[b]
+		end)
 		-- Each wing is its branch less the wings cut further down it.
 		local sizes, stack = {}, {}
 		for i, c in combo do
@@ -255,7 +317,7 @@ function Wings.partitions(ctx, tree, k: number, keep: { number }?)
 			inWings += sizes[i]
 		end
 		for i = 1, #combo do
-			if sizes[i] < cfg.MinWing or sizes[i] > cfg.MaxWing then
+			if not inForced[combo[i]] and (sizes[i] < cfg.MinWing or sizes[i] > cfg.MaxWing) then
 				return
 			end
 		end
@@ -265,7 +327,9 @@ function Wings.partitions(ctx, tree, k: number, keep: { number }?)
 			score += Wings.natural(ctx, tree.parent[c], c)
 		end
 		for i = 1, #combo do
-			score -= math.abs(sizes[i] - ideal) * 0.5
+			if not inForced[combo[i]] then
+				score -= math.abs(sizes[i] - ideal) * 0.5
+			end
 		end
 		if share < lo then
 			score -= (lo - share) * 80
@@ -280,12 +344,12 @@ function Wings.partitions(ctx, tree, k: number, keep: { number }?)
 			return
 		end
 		for i = from, #candidates - left + 1 do
-			table.insert(combo, candidates[i])
+			table.insert(chosen, candidates[i])
 			choose(i + 1, left - 1)
-			table.remove(combo)
+			table.remove(chosen)
 		end
 	end
-	choose(1, k)
+	choose(1, k - #forced)
 	for _, result in results do
 		result.score += ctx.rng:NextNumber()
 	end

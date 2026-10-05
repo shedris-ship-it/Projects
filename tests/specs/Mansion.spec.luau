@@ -109,6 +109,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test("a grand hall at the front, two floors, and room counts in range", function()
+		-- (The band counts the main floors; the cellar's rooms come on top.)
 		for seed, layout in layouts do
 			local hall = layout.rooms[layout.start]
 			check.equal(hall.template, "grand_hall", "seed " .. seed .. " starts in the grand hall")
@@ -120,7 +121,7 @@ return function(test, check, Shared, require)
 				if room.floor == 1 and not room.tall then
 					upper += 1
 				end
-				if room.kind == "stair" then
+				if room.kind == "stair" and room.template ~= "cellar_stair" then
 					stairs += 1
 				end
 			end
@@ -130,9 +131,10 @@ return function(test, check, Shared, require)
 				"seed " .. seed .. " has " .. stairs .. " stairwells"
 			)
 			if not layout.fallback then
+				local main = MansionHouse.mainRooms(layout.rooms, Rooms.MansionById)
 				check.truthy(
-					#layout.rooms >= config.RoomCount[1] and #layout.rooms <= config.RoomCount[2],
-					"seed " .. seed .. " has " .. #layout.rooms .. " rooms"
+					main >= config.RoomCount[1] and main <= config.RoomCount[2],
+					"seed " .. seed .. " has " .. main .. " rooms on the main floors"
 				)
 			end
 		end
@@ -168,7 +170,7 @@ return function(test, check, Shared, require)
 		end
 	end)
 
-	test("every stairwell opens on both floors, and a loop runs through one", function()
+	test("every stairwell opens on every floor it climbs through, and a loop runs through one", function()
 		for seed, layout in layouts do
 			local adj = Graph.adjacency(idsOf(layout), layout.edges)
 			local vertical = false
@@ -180,7 +182,12 @@ return function(test, check, Shared, require)
 							opens[seam.floor] = true
 						end
 					end
-					check.truthy(opens[0] and opens[1], "seed " .. seed .. " stairwell opens on both floors")
+					for _, floor in MansionHouse.floorsOf(room) do
+						check.truthy(
+							opens[floor],
+							("seed %d stairwell %d opens on floor %d"):format(seed, room.id, floor)
+						)
+					end
 					for _, other in adj[room.id] do
 						if Graph.cycleThroughEdge(adj, room.id, other) then
 							vertical = true
@@ -222,6 +229,80 @@ return function(test, check, Shared, require)
 				end
 			end
 		end
+	end)
+
+	test("the cellar: under the ground floor, one piece, down the back stairs and the cellar stair", function()
+		-- docs/plans/level-design.md section 10.2.
+		local withCellar, twoWays = 0, 0
+		for seed, layout in layouts do
+			if not layout.fallback then
+				local cellar, stairsDown = {}, {}
+				for _, room in layout.rooms do
+					if (room.floor or 0) < 0 then
+						if room.tall then
+							table.insert(stairsDown, room)
+						else
+							table.insert(cellar, room)
+						end
+						check.truthy(
+							room.floor == -1,
+							("seed %d room %d: the cellar is one storey"):format(seed, room.id)
+						)
+					end
+				end
+				if #cellar > 0 then
+					withCellar += 1
+					local ids = {}
+					for _, room in cellar do
+						check.equal(room.zone, "cellar", ("seed %d room %d"):format(seed, room.id))
+						table.insert(ids, room.id)
+					end
+					for _, stair in stairsDown do
+						table.insert(ids, stair.id)
+					end
+					local edges = {}
+					for _, seam in layout.seams do
+						if seam.connected and seam.floor == -1 then
+							table.insert(edges, { seam.a, seam.b })
+						end
+					end
+					check.truthy(
+						Graph.isConnected(Graph.adjacency(ids, edges), ids),
+						("seed %d: the cellar is one piece"):format(seed)
+					)
+					-- The back stairs come down; often the cellar stair too, up into
+					-- the kitchen side (a loop through the cellar).
+					local back, down = false, false
+					for _, stair in stairsDown do
+						if stair.template == "back_stairs" then
+							back = true
+						elseif stair.template == "cellar_stair" then
+							down = true
+							for _, seam in layout.seams do
+								if
+									seam.connected
+									and seam.floor == 0
+									and (seam.a == stair.id or seam.b == stair.id)
+								then
+									local other = layout.rooms[seam.a == stair.id and seam.b or seam.a]
+									local zone = MansionHouse.zoneOf(other, 0)
+									check.truthy(
+										zone == "kitchen" or zone == "service",
+										("seed %d: the cellar stair comes up in the %s"):format(seed, zone)
+									)
+								end
+							end
+						end
+					end
+					check.truthy(back, ("seed %d: the back stairs reach the cellar"):format(seed))
+					if down then
+						twoWays += 1
+					end
+				end
+			end
+		end
+		check.truthy(withCellar >= SEEDS * 0.9, ("%d of %d houses have a cellar"):format(withCellar, SEEDS))
+		check.truthy(twoWays >= withCellar * 0.6, ("%d of %d cellars have two ways in"):format(twoWays, withCellar))
 	end)
 
 	test("the plan printer draws both floors", function()

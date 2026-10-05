@@ -201,8 +201,9 @@ local function lightFor(kind: string, parentPart: BasePart, template)
 end
 
 -- The ceiling light of a room without a lamp of its own (docs/ART.md,
--- Hero props): a flush fluorescent fixture in utility rooms, a hanging drum
--- pendant everywhere else. The pendant's shade stops at 8.6 studs so The
+-- Hero props): a flush fluorescent fixture in utility rooms, a bare bulb
+-- where the template asks for one (`fixture = "bulb"`: the cellar), a
+-- hanging drum pendant everywhere else. The pendant's shade stops at 8.6 studs so The
 -- Guest (8.4) passes under it. Returns the glowing diffuser that carries the
 -- room's key light.
 local function ceilingFixture(parent, center: Vector3, family: string?): BasePart
@@ -214,7 +215,47 @@ local function ceilingFixture(parent, center: Vector3, family: string?): BasePar
 	end
 	local quiet = { collide = false, castShadow = false, query = false }
 	local diffuser
-	if family == "utility" then
+	if family == "bulb" then
+		-- A bare bulb on its flex, with a pull-chain (the cellar's).
+		PropFactory.part(
+			fixture,
+			"Cord",
+			Vector3.new(0.05, 1.2, 0.05),
+			CFrame.new(center + Vector3.new(0, HEIGHT - 0.6, 0)),
+			Color3.fromRGB(30, 28, 26),
+			PropFactory.material("Fabric"),
+			quiet
+		)
+		PropFactory.part(
+			fixture,
+			"Holder",
+			Vector3.new(0.3, 0.35, 0.3),
+			CFrame.new(center + Vector3.new(0, HEIGHT - 1.3, 0)),
+			Color3.fromRGB(150, 128, 84),
+			PropFactory.material("Metal"),
+			quiet
+		)
+		PropFactory.part(
+			fixture,
+			"Chain",
+			Vector3.new(0.04, 1.6, 0.04),
+			CFrame.new(center + Vector3.new(0.18, HEIGHT - 2.2, 0)),
+			Color3.fromRGB(170, 150, 110),
+			PropFactory.material("Metal"),
+			quiet
+		)
+		diffuser = glow(
+			PropFactory.part(
+				fixture,
+				"CeilingLamp",
+				Vector3.new(0.55, 0.55, 0.55),
+				CFrame.new(center + Vector3.new(0, HEIGHT - 1.7, 0)),
+				Color3.fromRGB(255, 226, 170),
+				PropFactory.material("Neon"),
+				{ collide = false, castShadow = false, query = false, shape = Enum.PartType.Ball }
+			)
+		)
+	elseif family == "utility" then
 		PropFactory.part(
 			fixture,
 			"Housing",
@@ -486,7 +527,7 @@ function LevelBuilder.furnish(world, ctx)
 
 	-- Key light: one motivated source per room (doc section 8).
 	if not keyLightPart then
-		keyLightPart = ceilingFixture(model, ctx.fixtureAt or center, template.family)
+		keyLightPart = ceilingFixture(model, ctx.fixtureAt or center, template.fixture or template.family)
 		keyLightKind = "ceiling"
 	end
 	local light = keyLightPart:FindFirstChildWhichIsA("Light")

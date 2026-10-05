@@ -1879,6 +1879,119 @@ function builders.Rug(model, cf, size, color, material)
 	end
 end
 
+-- The cellar's boiler (docs/plans/level-design.md section 10.2): a squat
+-- iron drum on a plinth, its firebox glowing through the grille, a flue to
+-- the ceiling and a pipe away along the wall. A landmark.
+function builders.Boiler(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	local plinth = 0.6
+	part(model, "Plinth", Vector3.new(w, plinth, d), cf * CFrame.new(0, plinth / 2, 0), shade(color, 0.7), material)
+	local drum = math.min(w, d) - 0.4
+	local body = h - plinth - 1.4
+	part(
+		model,
+		"Drum",
+		Vector3.new(body, drum, drum),
+		cf * CFrame.new(0, plinth + body / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		color,
+		material,
+		{ shape = CYL }
+	)
+	part(
+		model,
+		"Cap",
+		Vector3.new(0.5, drum * 0.8, drum * 0.8),
+		cf * CFrame.new(0, plinth + body + 0.25, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		shade(color, 0.8),
+		material,
+		{ shape = CYL }
+	)
+	-- The flue, up through the ceiling.
+	part(
+		model,
+		"Flue",
+		Vector3.new(4, 1, 1),
+		cf * CFrame.new(0, plinth + body + 2.2, -0.4) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(60, 58, 54),
+		PropFactory.material("Metal"),
+		{ shape = CYL, collide = false }
+	)
+	-- The firebox door, with the fire showing through its grille.
+	local front = d / 2 - (d - drum) / 2
+	part(
+		model,
+		"Firebox",
+		Vector3.new(2.2, 1.8, 0.3),
+		cf * CFrame.new(0, plinth + 1.4, front + 0.05),
+		shade(color, 0.6),
+		PropFactory.material("Metal"),
+		{ collide = false }
+	)
+	for i = -2, 2 do
+		part(
+			model,
+			"Glow",
+			Vector3.new(0.18, 0.9, 0.05),
+			cf * CFrame.new(i * 0.36, plinth + 1.4, front + 0.22),
+			Color3.fromRGB(255, 118, 40),
+			PropFactory.material("Neon"),
+			{ collide = false, castShadow = false }
+		)
+	end
+	-- The pressure gauge and a pipe off to the side along the wall.
+	trim(
+		model,
+		"Gauge",
+		Vector3.new(0.2, 0.9, 0.9),
+		cf * CFrame.new(-0.9, plinth + body - 0.9, front + 0.1) * ALONG_Z,
+		Color3.fromRGB(214, 206, 180),
+		CYL
+	)
+	part(
+		model,
+		"Pipe",
+		Vector3.new(w, 0.5, 0.5),
+		cf * CFrame.new(0, h - 0.6, -d / 2 + 0.4),
+		Color3.fromRGB(116, 92, 70),
+		PropFactory.material("Metal"),
+		{ shape = CYL, collide = false, castShadow = false }
+	)
+end
+
+-- A wine rack: a wooden case of shelves, bottles lying in rows with their
+-- necks out.
+function builders.WineRack(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	part(model, "Back", Vector3.new(w, h, 0.2), cf * CFrame.new(0, h / 2, -d / 2 + 0.1), shade(color, 0.8), material)
+	for _, sx in { -1, 1 } do
+		part(model, "Side", Vector3.new(0.3, h, d), cf * CFrame.new(sx * (w / 2 - 0.15), h / 2, 0), color, material)
+	end
+	local rows = 5
+	local rng = Rng.new(Rng.hash(tostring(cf.Position)))
+	for i = 0, rows do
+		local y = 0.2 + i * (h - 0.4) / rows
+		part(model, "Board", Vector3.new(w - 0.6, 0.2, d), cf * CFrame.new(0, y, 0), color, material)
+		if i < rows then
+			local per = 5
+			for j = 1, per do
+				if rng:NextNumber() < 0.8 then
+					local x = -w / 2 + 0.3 + (j - 0.5) * (w - 0.6) / per
+					local green = Color3.fromRGB(28 + rng:NextInteger(0, 20), 44 + rng:NextInteger(0, 24), 30)
+					part(
+						model,
+						"Bottle",
+						Vector3.new(d - 0.5, 0.7, 0.7),
+						cf * CFrame.new(x, y + 0.45, 0.05) * ALONG_Z,
+						green,
+						PropFactory.material("Glass"),
+						{ shape = CYL, collide = false, castShadow = false, reflectance = 0.1 }
+					)
+				end
+			end
+		end
+	end
+end
+
 function builders.Default(model, cf, size, color, material)
 	part(model, "Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, material)
 end

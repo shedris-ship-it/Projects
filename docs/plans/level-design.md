@@ -185,6 +185,17 @@ Squad 1: 15–18 rooms, 2 regions in 26 of 30 houses, region 0 a median 0.47, sc
 
 The owner asked to go on to L2 before the playtest ("continue with L2"). L2 is the builder phase: new kinds of space, then new kinds of plan. Each step below is its own commit, checked by the specs, `tools/housestats` and Studio (`navtest` over every new piece, screenshots), and leaves the old house alone (Gate A).
 
+### 10.0 The owner's notes on the cellar and the attic (2026-10-05, during L2.2)
+- "Put the cellar and the attic in separate wings and not the starting wing, so they can be more important for progression."
+- "Don't mean replacing existing wings with the attic and cellar, they should be additions to the existing wings, obviously the cellar entrance would be a first floor thing that goes down and the attic would be on second floor and go up, they should also tie into the gameplay loop somehow that makes the game better instead of annoying."
+
+How the house keeps to them:
+- **A wing each, on top.** The cellar and the attic are each a locked wing of their own (`Logic/Wings`: the tree enters each as one branch, and every partition must cut it; it can be any size). They come on top of the squad's wings: four players get 3 wings plus the cellar plus the attic, one player gets 2 plus one of them. Never open from the start. `HouseMetrics.storeyWings` counts any that isn't (weight 20 in the search).
+- **Ground floor down, upper floor up.** The cellar stair comes up into the kitchen side of the ground floor, the attic stair into the upper floor; the back stairs (the servants' stair) reach both.
+- **Part of the loop, not a detour.** Each holds something the run needs: the lock planner leans keys (×3, `Storeys.Keep`) and heirlooms (×4, `Storeys.Heirloom`: the family's old things) towards them, and puts the fuse box in the cellar when it can (go down to bring the power back); `HouseMetrics.storeyIdle` counts one holding nothing (weight 6).
+- **Not annoying.** Small (2–3 rooms), lit by bare bulbs, one storey deep; two ways in where they fit, so they're a loop to run round, and the other way in is a bolt you open from inside (a shortcut home); a key for one is kept a short walk away like any other.
+- **The main floors keep their rooms.** The squad's room band counts the main floors; the cellar's and the attic's rooms come on top (a solo house with a cellar is 18–22 rooms in all).
+
 ### 10.1 Storeys from the cellar to the attic (L2.1)
 The code learns floors −1 (cellar) to 2 (attic). Nothing about the houses changes in this step: 240 mansions (four squad sizes) and 20 old houses keep their fingerprints, plans and walking graphs exactly.
 - A room's `floor` is its lowest storey. A double-height room (`tall`) spans `floor` to `top` (one storey up unless it says otherwise), with a zone per storey.
@@ -203,7 +214,7 @@ The code learns floors −1 (cellar) to 2 (attic). Nothing about the houses chan
 - **Rooms** (2–3): the box room (trunks: a home for heirlooms), the servants' bedroom, the water-tank room, a stretch of attic passage. Rafters under a pitched roof, bare boards, a round gable window.
 - **Zone** `attic`. Its boards creak: footsteps carry further up there (`Logic/VoiceNoise`'s footstep noise, by room).
 
-**Who gets which** (`Config.Mansion.BySquad`): one or two players get one of them by chance (2–3 rooms); three or four get both (2–4 rooms each). They count in the squad's room band, so the main floors give up the rooms; the cellar and attic are wings the main floors couldn't make in a small house (L1's region-0 share problem).
+**Who gets which** (`Config.Mansion.BySquad`): one or two players get one of them by chance (2–3 rooms); three or four get both (2–3 rooms each). Each is a wing of its own on top of the squad's (section 10.0), and its rooms come on top of the room band.
 
 ### 10.4 Servants' passages and hidden doors (L2.4)
 - **Passages:** narrow ways (a 10-stud strip, about 6 to walk) behind the walls of a wing, opening into its rooms by hidden doors: a bookcase in the library or study, a panel in the dining room, a jib door in a bedroom.
@@ -240,3 +251,11 @@ Narrow corridors (10–14 to walk) lined with closets to hide in; L-shaped rooms
 | L2.6 | House types | `housestats` per type; screenshots from above |
 | L2.7 | Corridors, archways, glass | Screenshots; `clip`; `navtest` |
 | — | The fallback re-frozen; the squad playtest | |
+
+### 10.10 L2.2 as built (build `2026-10-05.33`)
+- **Storeys:** `Config.Mansion.Storeys` (which a house has, rooms each, the planner's leanings; L2.3 sets the split between the cellar and the attic by squad: until then every house has a cellar).
+- **Generation** (`Logic/MansionGen`): the back stairs carried down (a stairwell spans any storeys: stacked dog-legs, `Logic/TallRooms`, the builder's upper flights hang as sloped slabs with 10 studs of headroom); the cellar's rooms packed from their foot under the service wing (`Placement.Under`); then the cellar stair from a cellar room up into a kitchen-side room right above it, as far from the back stairs as it fits. A few packings are tried (`Storeys.Tries`), the first with both stairs kept; the last try keeps the cellar to two rooms, so it's never a deep dead end.
+- **Rooms** (`Data/Rooms` `CellarRooms`, checked by the same template rules as the old rooms): the boiler room (the boiler, a landmark), the wine cellar (racks), the storeroom, the workshop (a tool's bench), the cold store; the cellar stair. New props: `Boiler` (fixed, a glowing firebox), `WineRack` (pushed). Bare bulbs (`fixture = "bulb"`), joists (`joists`, `Config.Mansion.Joists`), boarded ceilings, no windows.
+- **Measured:** the generator passes first time as often as without a cellar (solo 52% vs 50%, four 72% vs 70%, single attempts); about three cellars in four have both stairs. Over 30 searched houses each: the cellar is a wing of its own in every house (`storeyWings` 0) and holds something the run needs in every house (`storeyIdle` 0); region 0's share fell (four: median 0.38, was 0.43; solo 0.40, was 0.47); four players get 4 wings.
+- **Studio** (one client): seed 7 for four (25 rooms, 4 wings, the cellar behind the back stairs with a bolted shortcut up the cellar stair): built in 0.11 s, the search 1.5 s, clean console; `navtest fast` 29 legs, 0 failed, 0 stuck, 0 phases (every storey of the three-storey back stairs, the cellar stair, every cellar room); the stairs' ramps and landings meet exactly; Gate A unchanged (2134 / 1322547804). The cellar's bulbs were raised after the first look (it was too dark to read the room).
+- **Not checked:** the cellar by eye beyond two screenshots (the boiler room wasn't in that house), two clients, how it plays.

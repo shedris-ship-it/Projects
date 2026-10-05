@@ -21,19 +21,28 @@ local function flat(v: Vector3): Vector3
 end
 
 -- One spot per room and storey: an ordinary room's middle; for the hall and
--- a stairwell, the point of each storey's walk shape nearest the middle.
+-- a stairwell, the point of each storey's walk shape nearest the middle (a
+-- stairwell may climb from the cellar to the attic).
 local function spotsOf(worldService)
 	local nav, world = worldService.nav, worldService.World
 	local spots = {}
 	for _, id in NavGraph.roomIds(nav) do
 		local room = nav.rooms[id]
 		local cx, cz = room.rect.x + room.rect.w / 2, room.rect.z + room.rect.d / 2
-		local regions = room.tall and { "ground", room.tall == "hall" and "gallery" or "upper" } or { "room" }
-		for _, region in regions do
+		local storeys = {}
+		for storey = room.storey, room.tall and room.top or room.storey do
+			table.insert(storeys, storey)
+		end
+		for _, storey in storeys do
+			local region = not room.tall and "room"
+				or storey == room.storey and "ground"
+				or room.tall == "hall" and "gallery"
+				or "upper"
 			local best, bestDistance = nil, math.huge
 			for _, nodeId in room.nodes do
 				local node = nav.nodes[nodeId]
-				local wanted = room.tall and (node.kind == "tall" and node.region == region)
+				local wanted = room.tall
+						and (node.kind == "tall" and node.region == region and NavGraph.storeyOf(nav, node.y) == storey)
 					or (not room.tall and node.kind == "centre")
 				local d = math.abs(node.x - cx) + math.abs(node.z - cz)
 				if wanted and d < bestDistance then
@@ -48,7 +57,7 @@ local function spotsOf(worldService)
 						"%s #%d%s",
 						record and record.name or "room",
 						id,
-						room.tall and (" " .. region) or ""
+						room.tall and (" " .. region .. (#storeys > 2 and (" " .. storey) or "")) or ""
 					),
 					position = worldService.FromLayout(best),
 				})
