@@ -111,4 +111,26 @@ function Util.distanceBand(distance: number): string
 	return "far off"
 end
 
+-- How far a model reaches up and down in the world: the lowest and highest
+-- points of its parts' own boxes, turned however each part is turned.
+-- (Model:GetBoundingBox turns its box with the model's pivot, so a model
+-- whose pivot lies on its side, like a lamp built round a turned cylinder,
+-- measures wrongly.)
+function Util.verticalSpan(model: Instance): (number, number)
+	local low, high = math.huge, -math.huge
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local cf, size = d.CFrame, d.Size
+			local half = (
+				math.abs(cf.RightVector.Y) * size.X
+				+ math.abs(cf.UpVector.Y) * size.Y
+				+ math.abs(cf.LookVector.Y) * size.Z
+			) / 2
+			low = math.min(low, cf.Position.Y - half)
+			high = math.max(high, cf.Position.Y + half)
+		end
+	end
+	return low, high
+end
+
 return Util

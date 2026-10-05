@@ -14,12 +14,18 @@
 -- once so it feels like your hand, not a round trip (Config.Hands.PredictDrag).
 -- Grabbing anything puts your hands in your hands: slot 4, torch clipped on.
 --
--- Small things (Data/Physical: a mug, the telephone, a chair) are carried
--- instead (section 4.3): hold the button on one and it floats at arm's length
--- in front of you while you look and walk about; the wheel brings it nearer or
--- further, the right button (LT) throws it, letting go drops it. Once the
--- server hands it over, this client moves it with two constraints of its own;
--- the server watches that it stays near you and never passes through a wall.
+-- Small things (Data/Physical: a mug, the telephone, a chair, a lamp) are
+-- carried instead (section 4.3): hold the button on one and it floats at
+-- arm's length in front of you while you look and walk about; the wheel
+-- brings it nearer or further, the right button (LT) throws it, letting go
+-- drops it. Once the server hands it over, this client moves it with two
+-- constraints of its own; the server watches that it stays near you and
+-- never passes through a wall.
+--
+-- Everything else that isn't built in is pushed (section 4.6): hold the
+-- button on a bed or a wardrobe and walk, and this says which way you're
+-- walking (Services/PushService works out how far it goes for how many push
+-- it, and how heavy it is).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -36,8 +42,10 @@ local Inventory = require(Shared.Logic.Inventory)
 local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
+local Util = require(Shared.Lib.Util)
 
 local H = Config.Hands
+local P = Config.Push
 local PA = Constants.PlayerAttributes
 
 local player = Players.LocalPlayer
@@ -49,6 +57,8 @@ function HandsController:Init(controllers)
 	self.state = controllers.StateController
 	self.drag = nil
 	self.carry = nil -- { id, model, class, distance, askedAt, owned, attachment, align, orient, turn }
+	self.push = nil -- { id, model, sentAt } while you lean on a piece of furniture
+	self.aimedPush = nil -- the furniture you could push, where you look
 	self.aimedThing = nil -- the small thing you're looking at within reach
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
@@ -67,6 +77,9 @@ function HandsController:Start()
 				return Enum.ContextActionResult.Sink
 			elseif self.carry then
 				self:_drop(true)
+				return Enum.ContextActionResult.Sink
+			elseif self.push then
+				self.push = nil
 				return Enum.ContextActionResult.Sink
 			end
 		end
@@ -197,7 +210,7 @@ function HandsController:_begin(): boolean
 	local primary = hit and self:_pieceOf(hit.Instance)
 	local joint = primary and Joint.read(primary)
 	if not hit or not primary or not joint then
-		return false
+		return self:_lean(hit)
 	end
 	local point = hit.Position
 	local model = primary.Parent :: Model
@@ -292,12 +305,72 @@ function HandsController:_target(drag, hand: Vector3): number
 	return Articulation.alongTarget(drag.state, drag.startValue, math.deg(away / drag.radius))
 end
 
+-- Pushing --------------------------------------------------------------------------
+
+-- The piece of furniture this belongs to, if it can be pushed.
+function HandsController:_pushableOf(instance: Instance): Model?
+	local model = instance:FindFirstAncestorWhichIsA("Model")
+	while model do
+		if model:GetAttribute("Grab") then
+			return nil
+		end
+		if model:GetAttribute("Push") and model:GetAttribute(Constants.Attributes.CId) then
+			return model
+		end
+		model = model:FindFirstAncestorWhichIsA("Model")
+	end
+	return nil
+end
+
+-- Lean on the furniture you're looking at, close enough to push.
+function HandsController:_lean(hit: RaycastResult?): boolean
+	local model = hit and hit.Distance <= P.Reach + 1.5 and self:_pushableOf(hit.Instance)
+	if not model then
+		return false
+	end
+	self.push = { id = model:GetAttribute(Constants.Attributes.CId), model = model, sentAt = 0 }
+	if (player:GetAttribute(PA.ActiveSlot) or 1) ~= Inventory.HANDS_SLOT then
+		Net.get("SelectSlot"):FireServer(Inventory.HANDS_SLOT)
+	end
+	return true
+end
+
+-- While you lean on it, say which way you walk.
+function HandsController:_pushStep()
+	local push = self.push
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not self:_active() or not push.model.Parent or not humanoid or not root then
+		self.push = nil
+		return
+	end
+	local box, size = push.model:GetBoundingBox()
+	if (box.Position - root.Position).Magnitude > P.Reach + size.Magnitude / 2 + 2 then
+		self.push = nil
+		return
+	end
+	local walking = Vector3.new(humanoid.MoveDirection.X, 0, humanoid.MoveDirection.Z)
+	local now = os.clock()
+	if walking.Magnitude > 0.1 and now - push.sentAt >= 1 / P.SendHz then
+		push.sentAt = now
+		Net.get("Push"):FireServer(push.id, walking.Unit)
+	end
+end
+
 function HandsController:_update(dt: number)
 	if self.carry then
 		self:_carryStep()
 	end
-	local looking = not self.drag and not self.carry and self:_active()
-	self.aimedThing = looking and self:_thingOf(self:_aim()) or nil
+	if self.push then
+		self:_pushStep()
+	end
+	local looking = not self.drag and not self.carry and not self.push and self:_active()
+	local hit = looking and self:_aim() or nil
+	self.aimedThing = looking and self:_thingOf(hit) or nil
+	self.aimedPush = (looking and not self.aimedThing and hit and hit.Distance <= P.Reach + 1.5)
+			and self:_pushableOf(hit.Instance)
+		or nil
 	local drag = self.drag
 	if not drag then
 		return
@@ -421,9 +494,15 @@ function HandsController:_carryStep()
 	local yaw = math.atan2(-look.X, -look.Z)
 	if not carry.owned then
 		carry.owned = true
+		-- Held by its middle, so a tall thing (a lamp, a mannequin) is held
+		-- like one rather than by whichever part is biggest.
+		local low, high = Util.verticalSpan(model)
+		local middle = model:GetBoundingBox().Position
+		carry.half = (high - low) / 2
 		local attachment = Instance.new("Attachment")
 		attachment.Name = "HandGrip"
 		attachment.Parent = root
+		attachment.Position = root.CFrame:PointToObjectSpace(Vector3.new(middle.X, (low + high) / 2, middle.Z))
 		local align = Instance.new("AlignPosition")
 		align.Mode = Enum.PositionAlignmentMode.OneAttachment
 		align.Attachment0 = attachment
@@ -453,13 +532,30 @@ function HandsController:_carryStep()
 	if hit then
 		distance = math.max(0.8, hit.Distance - 0.7)
 	end
-	carry.align.Position = eye + look * distance - Vector3.new(0, 0.35, 0)
+	local hold = eye + look * distance - Vector3.new(0, 0.35, 0)
+	-- Something big (a lamp, a plant) is held off to one side, so you can see past it.
+	if carry.class == Physical.Classes.bulky then
+		hold += camera.CFrame.RightVector * H.BulkySide
+	end
+	-- Never pushed into the floor: its bottom stays a little above your feet.
+	local body = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if body and humanoid then
+		local feet = body.Position.Y - body.Size.Y / 2 - humanoid.HipHeight
+		hold = Vector3.new(hold.X, math.max(hold.Y, feet + carry.half + 0.3), hold.Z)
+	end
+	carry.align.Position = hold
 	carry.orient.CFrame = CFrame.Angles(0, yaw, 0) * carry.turn
 end
 
--- Holding a door or carrying something right now.
+-- Holding a door, carrying something or pushing right now.
 function HandsController:IsHolding(): boolean
-	return self.drag ~= nil or self.carry ~= nil
+	return self.drag ~= nil or self.carry ~= nil or self.push ~= nil
+end
+
+-- The furniture you could push where you look, or are pushing (FocusMarkers).
+function HandsController:AimedPushable(): Model?
+	return self.push and self.push.model or self.aimedPush
 end
 
 function HandsController:IsCarrying(): boolean

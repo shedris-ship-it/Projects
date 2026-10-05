@@ -272,6 +272,17 @@ function FocusMarkers:_build(marker)
 			function() end
 		)
 	end
+	if marker.push and inputKind() ~= "touch" then
+		order += 1
+		self:_row(
+			actions,
+			order,
+			inputKind() == "gamepad" and "RT" or "Hold click",
+			"Push",
+			function() end,
+			function() end
+		)
+	end
 	for _, prompt in marker.prompts do
 		order += 1
 		self:_row(actions, order, keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode), prompt.ActionText, function()
@@ -354,7 +365,8 @@ function FocusMarkers:Update(dt: number)
 	local function want(object: Instance)
 		local entry = wanted[object]
 		if not entry then
-			entry = { prompts = {}, witnessable = false, drag = false, grab = false, name = nil, target = 0 }
+			entry =
+				{ prompts = {}, witnessable = false, drag = false, grab = false, push = false, name = nil, target = 0 }
 			wanted[object] = entry
 		end
 		return entry
@@ -395,6 +407,15 @@ function FocusMarkers:Update(dt: number)
 		entry.target = 1
 	end
 
+	-- Furniture you could push, or are pushing (Controllers/HandsController).
+	local pushable = (inRun and active and hands) and hands:AimedPushable() or nil
+	if pushable then
+		local entry = want(pushable)
+		entry.push = true
+		entry.name = entry.name or pushable:GetAttribute("PushLabel")
+		entry.target = 1
+	end
+
 	-- Witnessing: the object you're looking at, when close, or the one you're
 	-- holding Q on at any range.
 	local aim = (inRun and active) and (self.witness:HoldAim() or self.witness.aim) or nil
@@ -411,6 +432,7 @@ function FocusMarkers:Update(dt: number)
 		local signature = (entry.witnessable and "W" or "")
 			.. (entry.drag and "D" or "")
 			.. (entry.grab and "G" or "")
+			.. (entry.push and "P" or "")
 			.. inputKind()
 		for _, prompt in entry.prompts do
 			signature ..= "|" .. prompt.ActionText
@@ -426,6 +448,7 @@ function FocusMarkers:Update(dt: number)
 			marker.witnessable = entry.witnessable
 			marker.drag = entry.drag
 			marker.grab = entry.grab
+			marker.push = entry.push
 			marker.name = entry.name
 			self:_build(marker)
 		end

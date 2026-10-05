@@ -47,6 +47,7 @@ local HELP = table.concat({
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
+	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -230,6 +231,17 @@ function DebugService:Run(player: Player, text: string)
 			services.NoiseService:Emit(spot, tonumber(args[2]) or 40, nil, "lure")
 			reply(player, string.format("a noise at (%.0f, %.0f, %.0f)", spot.X, spot.Y, spot.Z))
 		end
+	elseif command == "push" then
+		reply(
+			player,
+			services.PushService:DebugPush(
+				player,
+				tonumber(args[2]) or 0,
+				tonumber(args[3]) or 0,
+				math.clamp(math.floor(tonumber(args[4]) or 1), 1, 6),
+				math.clamp(tonumber(args[5]) or 1.5, 0.1, 10)
+			)
+		)
 	elseif command == "furniture" then
 		local open = args[2] ~= "shut"
 		local here = args[3] ~= "all" and services.PlayerStateService:Position(player) or nil

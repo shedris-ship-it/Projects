@@ -375,7 +375,10 @@ function LevelBuilder.furnish(world, ctx)
 			local propId = "prop:" .. room.id .. ":" .. prop.id
 			propModel:SetAttribute(Attr.CId, propId)
 			record.props[prop.id] = { model = propModel, cframe = cf, kind = prop.kind, id = propId }
-			table.insert(world.props, { id = propId, model = propModel, roomId = room.id, kind = prop.kind })
+			table.insert(
+				world.props,
+				{ id = propId, model = propModel, roomId = room.id, kind = prop.kind, frame = cf }
+			)
 			local kind = Props.Kinds[prop.kind]
 			if prop.key and lightPart then
 				keyLightPart, keyLightKind = lightPart, kind.light

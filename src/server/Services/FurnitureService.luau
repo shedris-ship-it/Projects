@@ -317,6 +317,7 @@ function FurnitureService:_fill(space)
 	local thing = self.Hands:AddThing(model, Physical.Dressing[model.Name] or { class = "light", label = model.Name })
 	if thing then
 		table.insert(space.contents, thing)
+		thing.inside = space
 		if rides then
 			thing.rides = rides
 			thing.rideOffset = rides.primary.CFrame:ToObjectSpace(model:GetPivot())
@@ -358,6 +359,50 @@ function FurnitureService:Toggle(piece, player: Player?)
 		slide and 1.1 or 1.3
 	)
 	self.Noise:Emit(piece.primary.Position, 6, player, "furniture")
+end
+
+-- The furniture these pieces belong to was pushed by `step` (Services/
+-- PushService has already moved every part of it): their joints, the spot
+-- inside and whatever still lies in there go with it.
+function FurnitureService:Shift(model: Instance, step: Vector3)
+	for _, piece in self.pieces do
+		if piece.prop.model == model then
+			local joint = piece.joint
+			joint.shut += step
+			joint.hinge += step
+			piece.primary:SetAttribute("Shut", joint.shut)
+			piece.primary:SetAttribute("Hinge", joint.hinge)
+		end
+	end
+	for _, space in self.spaces do
+		if space.prop.model == model then
+			if typeof(space.spot) == "CFrame" then
+				space.spot += step
+			end
+			for _, thing in space.contents do
+				if thing.inside == space and thing.state == "rest" and thing.model.Parent then
+					thing.model:PivotTo(thing.model:GetPivot() + step)
+				end
+			end
+		end
+	end
+end
+
+-- Pushed somewhere new and come to rest: how far each of its drawers and
+-- doors can open is measured again (a wall or a bed may be in the way now).
+function FurnitureService:Settle(model: Instance)
+	for _, piece in self.pieces do
+		if piece.prop.model == model then
+			local max = self:_clearance(piece.joint, piece.primary, model)
+			piece.state.max = max
+			piece.primary:SetAttribute("Max", max)
+			piece.prompt.Enabled = max > 0
+			if piece.state.target > max then
+				Articulation.setTarget(piece.state, max)
+				self.moving[piece] = true
+			end
+		end
+	end
 end
 
 -- Every door on a piece of furniture (a hiding spot's wardrobe).

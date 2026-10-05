@@ -176,7 +176,7 @@ function HandsService:_register(world)
 	-- The house's own furniture by kind (not a clue built like a chair).
 	for _, prop in world.props or {} do
 		local info = Physical.Furniture[prop.kind]
-		if info and prop.model.Parent then
+		if info and info.class and prop.model.Parent then
 			self:AddThing(prop.model, info)
 		end
 	end
@@ -230,7 +230,9 @@ end
 
 function HandsService:_wake(thing)
 	self:_prepare(thing)
-	thing.rides = nil -- out of its drawer for good (FurnitureService)
+	-- Out of its drawer or cupboard for good (FurnitureService).
+	thing.rides = nil
+	thing.inside = nil
 	for _, p in thing.parts do
 		p.Anchored = false
 	end

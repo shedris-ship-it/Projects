@@ -664,6 +664,22 @@ Config.Furniture = {
 	ClearStep = 8, -- degrees per step (a tenth of a stud for drawers) when finding how far it opens before it would hit something
 }
 
+-- Pushing furniture (docs/plans/gameplay-rework.md section 4.6; Logic/Push,
+-- Services/PushService). Weights are in Data/Physical, counted in people.
+Config.Push = {
+	CreepBelow = 0.6, -- with less strength than this share of its weight it only creeps
+	CreepSpeed = 0.25, -- studs a second
+	MaxSpeed = 2.2,
+	Reach = 4.5, -- studs from your middle to it
+	Window = 0.3, -- seconds a push counts after it's sent
+	SendHz = 10,
+	ScrapeNoise = 7, -- noise radius per unit of weight while it moves
+	ScrapeEvery = 0.8, -- seconds between scrape noises
+	CompanionRange = 10, -- solo, the Companion helps push when this close to it
+	KeepClear = 1.6, -- never pushed within this of a point The Guest walks by (a room's middle, a doorway)
+	DoorClear = 0.5, -- or into a door's swing
+}
+
 -- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch
 -- clipped to your shirt while you hold anything but it.
 Config.Hands = {
@@ -687,6 +703,7 @@ Config.Hands = {
 	-- Carrying and throwing small things (sections 4.3 and 4.4; Data/Physical).
 	CarryDistance = { 2.2, 3.2, 5 }, -- nearest, where it starts, furthest: studs in front of your eye (wheel)
 	CarryDrop = 6.5, -- further than this from your head, it slips out of your hands
+	BulkySide = 1.1, -- studs to the right a big carried thing (a lamp, a plant) is held, to see past it
 	CarryMaxSpeed = 80, -- faster than this while held is not something a hand did: put back
 	RestSeconds = 1.5, -- lying still this long after you let go, it's put back to sleep (anchored)
 	RestMaxSeconds = 8, -- and asleep after this however it's lying
