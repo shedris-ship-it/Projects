@@ -183,6 +183,9 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "solve" then
 		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
+	elseif command == "puzzle" then
+		-- Stand at a puzzle's station (the first of `kind`, or any) and open it.
+		reply(player, services.PuzzleService:DebugVisit(player, args[2]))
 	elseif command == "items" then
 		local plan = services.LockService.plan
 		if not plan then

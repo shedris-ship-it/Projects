@@ -271,4 +271,31 @@ function Terminal.solved(state): boolean
 	return state.solved == true
 end
 
+-- What its operator's screen may show of the state (never the answer).
+function Terminal.public(state, now: number)
+	return {
+		tries = state.tries,
+		removed = state.removed,
+		used = state.used,
+		log = state.log,
+		lockedFor = math.max(0, state.lockedUntil - now),
+		solved = state.solved,
+	}
+end
+
+-- A click from the screen, as an input for `step` (nil if it isn't one).
+function Terminal.parse(action: string, word: string?, a: number?, _b: number?, now: number)
+	if action == "word" and type(word) == "string" and #word <= 12 then
+		return { kind = "word", word = word, now = now }
+	elseif action == "bracket" and type(a) == "number" then
+		return { kind = "bracket", index = a, now = now }
+	end
+	return nil
+end
+
+-- F2 `solve`: as if the right word were clicked.
+function Terminal.solve(spec, state, now: number)
+	return Terminal.step(spec, state, { kind = "word", word = spec.answer, now = now })
+end
+
 return Terminal

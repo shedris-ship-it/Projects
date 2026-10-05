@@ -68,4 +68,22 @@ function Padlock.solved(state): boolean
 	return state.solved == true
 end
 
+function Padlock.public(state, _now: number)
+	return { digits = state.digits, solved = state.solved }
+end
+
+function Padlock.parse(action: string, _word: string?, a: number?, b: number?, _now: number)
+	if action == "turn" and type(a) == "number" and type(b) == "number" then
+		return { kind = "turn", wheel = a, delta = b }
+	elseif action == "pull" then
+		return { kind = "pull" }
+	end
+	return nil
+end
+
+function Padlock.solve(spec, state, _now: number)
+	state.digits = table.clone(spec.answer)
+	return Padlock.step(spec, state, { kind = "pull" })
+end
+
 return Padlock

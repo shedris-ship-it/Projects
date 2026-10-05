@@ -1115,6 +1115,11 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
 	Net.get("HuntState")
 		:FireAllClients({ state = "telegraph", duration = duration, final = self.final, reason = self.forceReason })
 	self.forceReason = nil
+	-- Nobody stays bent over a puzzle while he comes (R2c).
+	local puzzles = self.services.PuzzleService
+	if puzzles then
+		puzzles:CloseAll("Something's coming. You look up.", duration)
+	end
 	self:_publish()
 end
 
