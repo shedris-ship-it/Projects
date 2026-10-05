@@ -644,6 +644,20 @@ Config.Hands = {
 	-- Weak and short: enough to see what you're doing, not to search a room
 	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.
 	ClipLight = { Range = 16, Angle = 70, Brightness = 0.8, Height = 1.2 },
+	-- Dragging doors with the mouse (section 4.5): hold the button on a door
+	-- and your hand moves with the mouse; the door turns to follow it.
+	Reach = 8, -- studs from your eye to what you can take hold of
+	DragReach = 11, -- the server lets go beyond this from the door's middle
+	DragSensitivity = 0.018, -- studs your hand moves per pixel of mouse
+	DragStickSpeed = 7, -- studs a second at full right stick
+	DragStretch = 2.5, -- your hand never gets further than this ahead of a door that won't follow
+	DragSendHz = 30,
+	PredictDrag = true, -- the dragging client moves its own copy at once (off: wait for the server)
+	HoldSeconds = 0.35, -- a door counts as held this long after your last drag message
+	ForcedSeconds = 1.2, -- once he forces a door you're holding, it's out of your hands this long
+	DragNoiseSpeed = 160, -- degrees a second: swing faster than this and the door creaks loud enough to hear
+	DragNoiseRadius = 14,
+	GuestRadius = 1.1, -- a door swung into The Guest stops this far from his middle
 }
 
 Config.Difficulty = {

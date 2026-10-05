@@ -19,6 +19,7 @@ local DEFINITIONS = {
 	LeaveHiding = "RemoteEvent",
 	SelectSlot = "RemoteEvent", -- (slot 1 to 4): put that slot in your hands
 	DropItem = "RemoteEvent", -- put the tool in your hands down
+	Drag = "UnreliableRemoteEvent", -- (id, value): your hands on a door, 30 times a second (Services/HandsService)
 	SetReady = "RemoteEvent",
 	SetDifficulty = "RemoteEvent",
 	CastVote = "RemoteEvent",

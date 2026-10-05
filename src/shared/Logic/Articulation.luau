@@ -82,6 +82,47 @@ function Articulation.step(state, dt: number, rate: number?): { string }
 	return events
 end
 
+-- Hinges seen from above -------------------------------------------------------
+-- Vectors are flat { x, z } offsets from the hinge. Angles turn the way
+-- CFrame.Angles(0, a, 0) does (from +X towards -Z), in degrees.
+
+-- The signed angle from one flat vector to another, in degrees (-180..180).
+function Articulation.flatAngle(from, to): number
+	local cross = from.z * to.x - from.x * to.z
+	local dot = from.x * to.x + from.z * to.z
+	return math.deg(math.atan2(cross, dot))
+end
+
+-- The Amnesia mapping: the angle the hinge must turn to so the point you
+-- grabbed (`grab`: where it sits when the door is shut) lies towards your
+-- hand (`hand`, where your hand is now), clamped to the door's range.
+-- Push or pull, from either side, falls out of the geometry.
+function Articulation.hingeTarget(state, grab, hand): number
+	return math.clamp(Articulation.flatAngle(grab, hand), state.min, state.max)
+end
+
+-- A body standing in the swing: the swing from `from` to `to` (degrees) of a
+-- slab `length` long stops just short of a body of `radius` at flat offset
+-- `body` from the hinge (`shut`: the slab's direction when shut). Returns the
+-- angle to stop at, or nil if the swing is clear.
+function Articulation.sweepStop(shut, body, length: number, radius: number, from: number, to: number): number?
+	local distance = math.sqrt(body.x * body.x + body.z * body.z)
+	if distance > length + radius or distance < 1e-6 then
+		return nil
+	end
+	local at = Articulation.flatAngle(shut, body)
+	local half = math.deg(math.asin(math.min(1, radius / distance)))
+	local low, high = math.min(from, to), math.max(from, to)
+	if at + half < low or at - half > high then
+		return nil
+	end
+	-- Stop at the near edge of the body, never behind where it started.
+	if to > from then
+		return math.max(from, at - half)
+	end
+	return math.min(from, at + half)
+end
+
 -- Lock or unlock. Locking only takes when it is shut and latched.
 function Articulation.setLocked(state, locked: boolean): boolean
 	if locked and not state.latched then

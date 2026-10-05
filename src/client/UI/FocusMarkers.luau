@@ -244,6 +244,19 @@ function FocusMarkers:_build(marker)
 		Parent = holder,
 	}, { Ui.list(12, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center) })
 	local order = 0
+	-- Your hands can take hold of it (Controllers/HandsController). Not on
+	-- touch, where the prompt opens and shuts it instead.
+	if marker.drag and inputKind() ~= "touch" then
+		order += 1
+		self:_row(
+			actions,
+			order,
+			inputKind() == "gamepad" and "RT" or "Hold click",
+			"Drag",
+			function() end,
+			function() end
+		)
+	end
 	for _, prompt in marker.prompts do
 		order += 1
 		self:_row(actions, order, keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode), prompt.ActionText, function()
@@ -326,7 +339,7 @@ function FocusMarkers:Update(dt: number)
 	local function want(object: Instance)
 		local entry = wanted[object]
 		if not entry then
-			entry = { prompts = {}, witnessable = false, name = nil, target = 0 }
+			entry = { prompts = {}, witnessable = false, drag = false, name = nil, target = 0 }
 			wanted[object] = entry
 		end
 		return entry
@@ -342,11 +355,13 @@ function FocusMarkers:Update(dt: number)
 		return math.clamp((look:Dot(offset.Unit) - F.GazeNone) / (F.GazeFull - F.GazeNone), 0, 1)
 	end
 
+	local hands = self.ctx.controllers.HandsController
 	for prompt in self.shown do
 		if prompt.Parent and prompt.Enabled then
 			local object = objectOf(prompt.Parent)
 			local entry = want(object)
 			table.insert(entry.prompts, prompt)
+			entry.drag = entry.drag or (inRun and hands ~= nil and hands:CanDrag(prompt.Parent))
 			entry.name = entry.name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
 			local position = prompt.Parent:IsA("Attachment") and prompt.Parent.WorldPosition
 				or (prompt.Parent :: BasePart).Position
@@ -369,7 +384,7 @@ function FocusMarkers:Update(dt: number)
 	-- Build, update and retire markers.
 	for object, entry in wanted do
 		local marker = self.markers[object]
-		local signature = (entry.witnessable and "W" or "") .. inputKind()
+		local signature = (entry.witnessable and "W" or "") .. (entry.drag and "D" or "") .. inputKind()
 		for _, prompt in entry.prompts do
 			signature ..= "|" .. prompt.ActionText
 		end
@@ -382,6 +397,7 @@ function FocusMarkers:Update(dt: number)
 			marker.signature = signature
 			marker.prompts = entry.prompts
 			marker.witnessable = entry.witnessable
+			marker.drag = entry.drag
 			marker.name = entry.name
 			self:_build(marker)
 		end

@@ -94,6 +94,40 @@ return function(test, check, Shared, require)
 		check.truthy(not d.locked, "not locked")
 	end)
 
+	-- A flat offset turned the way CFrame.Angles(0, a, 0) turns it.
+	local function turned(v, degrees: number)
+		local a = math.rad(degrees)
+		return { x = v.x * math.cos(a) + v.z * math.sin(a), z = -v.x * math.sin(a) + v.z * math.cos(a) }
+	end
+
+	test("flat angles turn the way CFrame.Angles does", function()
+		check.near(Articulation.flatAngle({ x = 1, z = 0 }, { x = 0, z = -1 }), 90, 1e-9, "a quarter turn")
+		local shut = { x = -3, z = 0 }
+		for _, degrees in { -60, 0, 25, 90, 150 } do
+			check.near(Articulation.flatAngle(shut, turned(shut, degrees)), degrees, 1e-6, "turned " .. degrees)
+		end
+	end)
+
+	test("dragging: the door turns to follow your hand, within its range", function()
+		local d = door()
+		local grab = { x = -3, z = 0 } -- the point you took hold of, with the door shut
+		check.near(Articulation.hingeTarget(d, grab, turned({ x = -4, z = 0 }, 45)), 45, 1e-6, "follows the hand")
+		check.equal(Articulation.hingeTarget(d, grab, turned(grab, -30)), 0, "can't go past shut")
+		check.equal(Articulation.hingeTarget(d, grab, turned(grab, 140)), 100, "or past fully open")
+	end)
+
+	test("a body in the swing stops the door just short of it", function()
+		local shut = { x = -6, z = 0 }
+		local body = turned({ x = -3, z = 0 }, 60)
+		local stop = Articulation.sweepStop(shut, body, 6, 1, 0, 100)
+		check.near(stop, 60 - math.deg(math.asin(1 / 3)), 1e-6, "at the near edge")
+		check.equal(Articulation.sweepStop(shut, body, 6, 1, 0, 30), nil, "a short swing misses")
+		check.equal(Articulation.sweepStop(shut, turned({ x = -10, z = 0 }, 60), 6, 1, 0, 100), nil, "out of reach")
+		check.equal(Articulation.sweepStop(shut, turned({ x = -3, z = 0 }, -40), 6, 1, 0, 100), nil, "behind the door")
+		local closing = Articulation.sweepStop(shut, body, 6, 1, 100, 0)
+		check.near(closing, 60 + math.deg(math.asin(1 / 3)), 1e-6, "swinging shut, it stops on the other side")
+	end)
+
 	test("a faster rate can be given for one step (a slam)", function()
 		local d = door(100)
 		Articulation.setTarget(d, 0)

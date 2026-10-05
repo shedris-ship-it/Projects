@@ -52,6 +52,14 @@ function DebugOverlay.new(ctx)
 		if enter and self.input.Text ~= "" then
 			-- "steps" is answered here: it tests this client's audio, not the server.
 			local footsteps = ctx.controllers.FootstepController
+			-- "drag <right> <away>" moves your hand on the door you're looking at
+			-- (Controllers/HandsController), here on this client.
+			local words = string.split(string.lower(self.input.Text), " ")
+			local hands = ctx.controllers.HandsController
+			if words[1] == "drag" and hands then
+				ctx.ui:Toast(hands:DebugDrag(tonumber(words[2]) or 0, tonumber(words[3]) or 0), "debug")
+				return
+			end
 			if string.lower(self.input.Text) == "steps" and footsteps then
 				footsteps:Diagnose(function(summary)
 					ctx.ui:Toast(summary, "debug")

@@ -44,6 +44,7 @@ local HELP = table.concat({
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
+	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
