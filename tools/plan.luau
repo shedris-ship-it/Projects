@@ -206,6 +206,26 @@ if process.args[3] == "locks" then
 			.. "; out by "
 			.. named(plan.finale.goal)
 	)
+	-- Who lived here (Logic/Family, docs/plans/level-design.md section 11).
+	local family = layout.family
+	if family then
+		print("The " .. family.surname .. "s:")
+		for _, member in family.members do
+			local rooms = {}
+			for _, id in member.rooms do
+				table.insert(rooms, tostring(id))
+			end
+			print(
+				string.format(
+					"  %-12s %-10s %-9s rooms %s",
+					member.sign,
+					member.id,
+					member.mark or "-",
+					#rooms > 0 and table.concat(rooms, " ") or "-"
+				)
+			)
+		end
+	end
 	-- How it measures as a level (Logic/HouseMetrics, docs/plans/level-design.md).
 	local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
 	local Leads = Harness.require(Shared.Logic.Leads)

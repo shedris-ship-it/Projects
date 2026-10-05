@@ -11,9 +11,24 @@ return function(test, check, Shared, require)
 
 	test("every template fills in with nothing left over, and stays mild", function()
 		local banned = { "blood", "kill", "dead", "murder", "corpse", "suicide" }
-		for kind, list in Notes do
+		local fields = {
+			item = "pocket watch",
+			thing = "pocket watch",
+			whose = "Dad's",
+			sign = "Mom",
+			place = "the chest",
+			room = "the Den",
+		}
+		local lists = { key = Notes.key, heirloom = Notes.heirloom }
+		-- The family's own voices too (Data/Family, docs/plans/level-design.md 11).
+		for voice, kinds in Notes.voices do
+			for kind, list in kinds do
+				lists[voice .. " " .. kind] = list
+			end
+		end
+		for kind, list in lists do
 			for _, template in list do
-				local text = NoteText.write(template, { item = "pocket watch", place = "the chest", room = "the Den" })
+				local text = NoteText.write(template, fields)
 				check.truthy(not string.find(text, "{", 1, true), kind .. ": " .. text)
 				check.truthy(string.find(text, "pocket watch", 1, true) or string.find(text, "Pocket watch", 1, true))
 				check.truthy(string.find(text, "the chest", 1, true) ~= nil, "says where")

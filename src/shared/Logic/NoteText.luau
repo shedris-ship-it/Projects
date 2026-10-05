@@ -179,8 +179,10 @@ end
 
 -- A template for a token kind ("key" or "heirloom"), not one already used
 -- this run while any are left. `used` is the run's set of used templates.
-function NoteText.pick(rng, kind: string, used: { [string]: boolean }): string
-	local list = Notes[kind] or Notes.key
+-- `voice`: written by one of the family (Data/Notes voices, Data/Family).
+function NoteText.pick(rng, kind: string, used: { [string]: boolean }, voice: string?): string
+	local voiced = voice and Notes.voices[voice]
+	local list = (voiced and voiced[kind]) or Notes[kind] or Notes.key
 	local fresh = {}
 	for _, template in list do
 		if not used[template] then

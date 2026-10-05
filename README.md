@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (382 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
+> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (389 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
 
 ---
 

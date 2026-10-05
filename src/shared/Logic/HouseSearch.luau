@@ -7,6 +7,7 @@
 -- squad size and the difficulty, so F2 `seed` and `squad` bring a house back.
 -- Pure; `yield` (task.wait on the server) runs between candidates.
 
+local Family = require(script.Parent.Family)
 local HouseMetrics = require(script.Parent.HouseMetrics)
 local Leads = require(script.Parent.Leads)
 local LockPlanner = require(script.Parent.LockPlanner)
@@ -94,6 +95,13 @@ function HouseSearch.run(seed: number, opts, yield: (() -> ())?)
 		end
 	end
 	best.scores = scores
+	-- The family who lived here (docs/plans/level-design.md section 11, L3.1),
+	-- for the house that's played: who, whose rooms, and the charms on the
+	-- doors.
+	local family = Family.make(Rng.new(best.layout.houseSeed or seed):Fork("family"), best.layout)
+	Family.markDoors(family, best.plan, LockPlanner.label)
+	best.layout.family = family
+	best.family = family
 	return best
 end
 

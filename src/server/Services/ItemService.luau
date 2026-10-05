@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Family = require(Shared.Logic.Family)
 local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
@@ -115,6 +116,7 @@ function ItemService:Start()
 		table.clear(self.decoys)
 		self.folder = nil
 		self.noteCount = 0
+		self.family = nil
 	end)
 end
 
@@ -132,6 +134,9 @@ function ItemService:Begin(plan, rng, leads)
 	local place = rng:Fork("leadplace")
 	local world = self.World.World
 	self.named = NoteText.rooms(world.layout, world.layout.mode == "Mansion" and Rooms.MansionById or Rooms.ById)
+	-- Who lived here (Logic/Family, made with the house): whose each heirloom
+	-- was, and who wrote each note.
+	self.family = world.layout.family
 	local usedTemplates = {}
 	local kinds = rng:Shuffle(table.clone(Items.Heirlooms))
 	local heirlooms = 0
@@ -216,7 +221,10 @@ end
 function ItemService:Label(token: string): string
 	local info = self.plan and self.plan.tokens[token]
 	if info and info.kind == "heirloom" then
-		return self.heirloomKinds[token].label
+		local kind = self.heirloomKinds[token]
+		-- Whose it was: "Grandma's christening cup".
+		local owner = self.family and Family.heirloomOwner(self.family, kind.id)
+		return owner and (Family.possessive(owner) .. " " .. string.lower(kind.label)) or kind.label
 	end
 	return info and info.label or token
 end
@@ -629,11 +637,34 @@ end
 -- pinned to a wall, else on the floor.
 function ItemService:_placeNote(token: string, noteRoom: number, room: number, space, rng, used): boolean
 	local info = self.plan.tokens[token]
-	local item = info.kind == "heirloom" and string.lower(self:Label(token)) or info.label
 	local where = space and NoteText.place(space.prop.kind, space.group) or "plain sight"
-	local template = NoteText.pick(rng, info.kind, used)
-	local text = NoteText.write(template, { item = item, place = where, room = NoteText.roomPhrase(self.named, room) })
-	self:AddNote(noteRoom, text, rng, token)
+	local fields = { place = where, room = NoteText.roomPhrase(self.named, room) }
+	local template
+	local family = self.family
+	if family and #family.members > 0 then
+		-- Written by one of the family (docs/plans/level-design.md section 11,
+		-- L3.1), most often whoever it belonged to: a key is its charm's
+		-- owner's, an heirloom whoever had it.
+		local owner, thing
+		if info.kind == "heirloom" then
+			local kind = self.heirloomKinds[token]
+			owner, thing = Family.heirloomOwner(family, kind.id), string.lower(kind.label)
+		else
+			local id = info.mark and family.markOwner[info.mark]
+			-- (A double lock's key reads as just its mark in a note.)
+			owner, thing = id and family.byId[id], (string.gsub(info.label, " %(one of %d+%)$", ""))
+		end
+		local writer = Family.writer(rng, family, owner)
+		fields.thing = thing
+		fields.whose = (owner == nil and "the") or (owner == writer and "my") or Family.possessive(owner)
+		fields.item = fields.whose .. " " .. thing
+		fields.sign = writer.sign
+		template = NoteText.pick(rng, info.kind, used, writer.voice)
+	else
+		fields.item = info.kind == "heirloom" and string.lower(self:Label(token)) or info.label
+		template = NoteText.pick(rng, info.kind, used)
+	end
+	self:AddNote(noteRoom, NoteText.write(template, fields), rng, token)
 	return true
 end
 

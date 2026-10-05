@@ -445,3 +445,25 @@ The owner's solo retest follows L3.0, and the squad playtest follows L3.3 (Gate 
   - The six nudges didn't reproduce. They came while he closed in on the owner hiding in a corridor closet; watch for `GuestNudge` near closets.
   - Two clients.
   - The owner's retest (TC-100 to TC-102).
+
+### 11.6 L3.1 as built (build `2026-10-05.40`)
+- **Who lives here** (`Data/Family`, `Logic/Family.make`, from the chosen house's own fork):
+  - Mom and Dad;
+  - a daughter, and a son too when there are two children's rooms (or by chance);
+  - Grandma when there's a sewing room or a guest room;
+  - the housekeeper (Mrs. Novak, ...) when there's a kitchen.
+
+  Each has a first name (1988-ish), a way to sign ("Dad", "Heather", "Mrs. Novak") and a voice.
+- **Whose rooms:** of those a room could belong to (a study is Dad's, a sewing room Grandma's, the kitchen and the servants' room the housekeeper's), whoever has fewest so far, so two children get a bedroom each.
+- **Their charms and the doors:** each member's charm is a mark: Dad ☎, Mom ✿, the daughter ♥, the son ☀, Grandma ✂, the housekeeper ☂, or a fallback if one is taken. After the search picks the house, `Family.markDoors` gives each door into a region the charm of whoever owns most of the rooms behind it (unless an earlier door has it; then another owner's, then a mark nobody carries), and relabels what opens it (`LockPlanner.label`).
+  - In the first playtest's house: the umbrella door leads into the housekeeper's kitchen wing, the heart padlock into Jennifer's playroom wing, and the scissors key opens Grandma's attic.
+  - Only marks and labels change, so the plans, metrics and search are as before.
+- **Heirlooms are someone's:** "Dad's pocket watch", "Mom's locket", "Laura's porcelain doll", "Grandma's christening cup" (`Family.heirloomOwner`; the label everywhere, `ItemService:Label`).
+- **Notes in their own voices** (`Data/Notes` `voices`: dad, mom, child, grandma, housekeeper; three key and three heirloom templates each):
+  - written most often by whoever the thing belonged to (`Family.writer`);
+  - {whose} reads "my", "Dad's" or "the"; signed with their name.
+  - For example: "My locket goes at his place on Sunday. It's in plain sight in the Living Room. - Mom"; "Laura's heart key is kept in ... The family are not to borrow it. - Mrs. Novak".
+  - The old house keeps its old notes.
+- **`tools/plan`** prints the family: who, their charm and their rooms.
+- **Studio** (one client, seed 5 for four, the Whitcombes): clean console; F2 `leads` shows the notes in their voices; `give heirloom:1` gives "Mom's locket".
+- **Not yet:** photos, children's drawings as leads, place cards with names, the family's story across the notes (L3.6).

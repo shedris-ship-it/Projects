@@ -310,6 +310,15 @@ for _, gate in LockPlanner.Gates do
 	LockPlanner.GateById[gate.id] = gate
 end
 
+-- What opens a `kindId` gate, named by its door's mark ("phone key", "The
+-- code for the note padlock"); `count` for a lock wanting several (the
+-- double lock's keys).
+function LockPlanner.label(kindId: string, markName: string, count: number?): string
+	local kind = LockPlanner.GateById[kindId]
+	local text = (kind and kind.label) and kind.label(markName) or (markName .. " key")
+	return count and (text .. " (one of " .. count .. ")") or text
+end
+
 -- The rooms a token's producer needs open: a container's room, a puzzle's
 -- room, or every room of a producer that spans several.
 function LockPlanner.producerRooms(plan, token): { number }
@@ -811,7 +820,7 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 					kind = kind.token,
 					opens = gate.id,
 					mark = mark,
-					label = kind.label(markName) .. " (one of " .. kind.count .. ")",
+					label = LockPlanner.label(kind.id, markName, kind.count),
 					producer = { kind = "container", room = room },
 				}
 				table.insert(needs, token)
@@ -850,7 +859,7 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 				kind = kind.token,
 				opens = gate.id,
 				mark = mark,
-				label = kind.label(markName),
+				label = LockPlanner.label(kind.id, markName),
 				producer = producer,
 			}
 			needs = { token }
