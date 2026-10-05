@@ -783,6 +783,27 @@ Config.Dumbwaiter = {
 }
 Config.Progression.Dumbwaiter = Config.Dumbwaiter -- the planner looks for stacked rooms with these
 
+-- Barricades (gameplay rework 4.7; Logic/Barricade, Services/PushService).
+Config.Barricade = {
+	LaneDepth = 5, -- studs into the room from the wall that count as the doorway's lane
+	Cover = 0.4, -- a heavy piece covering this share of the lane's width bars it
+	MinWeight = 1, -- in people: lighter pieces don't bar anything
+	ShoveSeconds = { 3, 6 }, -- he bangs this long before he shoves it clear (light to heavy)
+	HuntScale = 0.8, -- quicker when hunting
+	ShoveMax = 8, -- (doc) never longer
+	ShoveTime = 0.4, -- seconds the heave takes
+	Reach = 3.5, -- he starts on it this close to the piece (or at the doorway)
+	BangEvery = 1.1,
+	BangNoise = 22,
+	SqueezeSeconds = 1.5, -- (doc) a player squeezing past
+	SqueezeReach = 8,
+	SqueezeNoise = 14,
+	-- What getting through costs, in studs of walking (WorldService:SeamCost).
+	PlayerCost = 20,
+	GuestCost = 60,
+	GuestHuntCost = 25,
+}
+
 -- The map (Services/MapService, UI/Map): what counts as seen.
 Config.Map = {
 	ScanSeconds = 0.5, -- how often who's where and what they look at is checked

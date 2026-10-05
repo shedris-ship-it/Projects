@@ -14,10 +14,23 @@
 -- Doorways are straight walks (approach, doorway, approach), so a closed
 -- door never spoils a plan and still costs time to open. The old house
 -- works the same way on its graph of rooms.
+--
+-- A barricade across a doorway ahead (Services/PushService): The Guest stops
+-- at it, bangs, and shoves it clear within a few seconds (never more than
+-- Config.Barricade.ShoveMax); if nothing will let it move, he slips past
+-- once nobody can see. The Companion squeezes past, like a player.
 
 local PathfindingService = game:GetService("PathfindingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Barricade = require(Shared.Logic.Barricade)
+local Config = require(Shared.Config)
+local Sfx = require(Shared.Lib.Sfx)
 
 local Clearance = require(script.Parent.Clearance)
+
+local B = Config.Barricade
 
 local Walker = {}
 Walker.__index = Walker
@@ -67,6 +80,7 @@ function Walker.new(services, agent, rng)
 		token = 0,
 		pendingDoor = nil,
 		waitingUntil = 0,
+		pendingBarricade = nil, -- { seam, untilT, door }
 		progressAt = 0,
 		bestDistance = math.huge,
 		stage = 0, -- the stuck ladder's rung
@@ -114,6 +128,7 @@ local function goalsOf(route, target: Vector3)
 				kind = "leg",
 				position = step.position,
 				door = nextStep.door,
+				seam = nextStep.seam,
 				fallback = fallback,
 			})
 			fallback = {}
@@ -183,6 +198,7 @@ function Walker:SetDestination(target: Vector3, opts)
 		self.goals = {}
 		self.index = 1
 		self.pendingDoor = nil
+		self.pendingBarricade = nil
 		if self.leg and self.leg.connection then
 			self.leg.connection:Disconnect()
 		end
@@ -196,6 +212,7 @@ function Walker:SetDestination(target: Vector3, opts)
 	self.goals = goalsOf(route, target)
 	self.index = 1
 	self.pendingDoor = nil
+	self.pendingBarricade = nil
 	self.waitingUntil = 0
 	self.leg = nil
 	self:_resetProgress(now)
@@ -277,6 +294,7 @@ function Walker:Stop()
 	self.destination = nil
 	self.unreachable = false
 	self.pendingDoor = nil
+	self.pendingBarricade = nil
 	if self.leg and self.leg.connection then
 		self.leg.connection:Disconnect()
 	end
@@ -350,7 +368,9 @@ function Walker:Describe(): string
 				))
 			or "no leg",
 		self.stage,
-		(self.pendingDoor and " · at a door" or "") .. (self.unreachable and " · no way there" or ""),
+		(self.pendingDoor and " · at a door" or "")
+			.. (self.pendingBarricade and " · at a barricade" or "")
+			.. (self.unreachable and " · no way there" or ""),
 		feet.X,
 		feet.Y,
 		feet.Z,
@@ -366,7 +386,10 @@ function Walker:_advanceGoal(now: number)
 	local door = goal and goal.door
 	if door and not door.open and self.goals[self.index + 1] then
 		self.pendingDoor = door
-		if self.agent.opensDoors == "stalker" then
+		if door.state and door.state.target >= Config.Doors.PassAngle then
+			-- Already swinging open (after a barricade): a moment.
+			self.waitingUntil = now + 0.4
+		elseif self.agent.opensDoors == "stalker" then
 			self.waitingUntil = now + self.Doors:StalkerDelay(door, self.rng)
 		else
 			self.waitingUntil = now + 0.6
@@ -375,6 +398,116 @@ function Walker:_advanceGoal(now: number)
 	self.index += 1
 	self:_resetProgress(now)
 	self:_startGoal()
+end
+
+-- Barricades ------------------------------------------------------------------------
+
+-- At the barricade across the doorway ahead: he starts on it (or the
+-- Companion starts squeezing past).
+function Walker:_beginBarricade(goal, entries, now: number)
+	local who = self.agent.who
+	if type(who) == "function" then
+		who = who()
+	end
+	local seconds = B.SqueezeSeconds
+	if self.agent.opensDoors == "stalker" then
+		local weight = 0
+		for _, entry in entries do
+			weight = math.max(weight, entry.piece.weight)
+		end
+		seconds = Barricade.shoveSeconds(weight, who == "guestHunt", B)
+		-- A shut door in the way: he opens it, as far as the piece lets it.
+		local door = goal.door
+		if door and not door.open and not door.locked then
+			self.Doors:SetOpen(door, true)
+		end
+	end
+	self.pendingBarricade = { seam = goal.seam, untilT = now + seconds, door = goal.door }
+	self.humanoid:MoveTo(self.root.Position)
+	self:_pause(now)
+end
+
+-- Past it: through the doorway, then on from there.
+function Walker:_slipPast(seamId: string): boolean
+	local push = self.services.PushService
+	local seam = self.World.World and self.World.World.seams[seamId]
+	local spot = push and seam and push:SqueezeSpot(seam, self:Feet())
+	if not spot then
+		return false
+	end
+	self.agent.model:PivotTo(CFrame.new(spot + Vector3.new(0, self.agent.groundOffset, 0)) * self.root.CFrame.Rotation)
+	self.stats.slips = (self.stats.slips or 0) + 1
+	return true
+end
+
+-- Waiting at a barricade. Returns true while still at it.
+function Walker:_atBarricade(now: number): boolean
+	local pending = self.pendingBarricade
+	local entries = self.World:Barricades(pending.seam)
+	local goal = self.goals[self.index]
+	if not entries then
+		-- Cleared (pushed away, or he shoved it): on through.
+		self.pendingBarricade = nil
+		local door = pending.door
+		if door and not door.open and not door.locked then
+			self.Doors:SetOpen(door, true)
+		end
+		if goal and goal.kind == "leg" then
+			self:_planLeg(goal)
+		end
+		return false
+	end
+	self.humanoid:MoveTo(self.root.Position)
+	self:_pause(now)
+	if now < pending.untilT then
+		if self.agent.opensDoors == "stalker" and now - (self.lastBang or 0) > B.BangEvery then
+			self.lastBang = now
+			local _, entry = next(entries)
+			local at = entry.piece.prop.frame.Position + Vector3.new(0, 3, 0)
+			Sfx.play("DoorBang", at, 0.9, 0.75)
+			local noise = self.services.NoiseService
+			if noise then
+				noise:Emit(at, B.BangNoise, nil, "slam")
+			end
+		end
+		return true
+	end
+	if self.agent.opensDoors == "stalker" then
+		local push = self.services.PushService
+		local seam = self.World.World.seams[pending.seam]
+		local moved = true
+		for _, entry in entries do
+			moved = push:Shove(entry.piece, seam, self:Feet()) and moved
+		end
+		if moved then
+			self.stats.shoves = (self.stats.shoves or 0) + 1
+			pending.untilT = now + B.ShoveTime + 0.2 -- the heave, then on
+			-- A door the piece held part-open swings the rest of the way.
+			local door = pending.door
+			if door then
+				task.delay(B.ShoveTime + 0.05, function()
+					if not door.open and not door.locked then
+						self.Doors:SetOpen(door, true)
+					end
+				end)
+			end
+			return true
+		end
+		-- Nothing lets it move: past it once nobody can see, else bang on.
+		if self.canTeleport and self.canTeleport() and self:_slipPast(pending.seam) then
+			self.pendingBarricade = nil
+			self:_reroute()
+			return false
+		end
+		pending.untilT = now + 1
+		return true
+	end
+	-- The Companion squeezes past.
+	self.pendingBarricade = nil
+	if self:_slipPast(pending.seam) then
+		self:_reroute()
+	end
+	return false
 end
 
 -- Route again from wherever he is to the same destination.
@@ -431,7 +564,35 @@ function Walker:Step(now: number): boolean
 		end
 	end
 
+	-- A barricade across the doorway ahead.
+	if self.pendingBarricade then
+		if self:_atBarricade(now) then
+			return true
+		end
+		goal = self.goals[self.index]
+		if not goal then
+			return false
+		end
+	end
 	local feet = self:Feet()
+	if goal.kind == "leg" and goal.seam then
+		local entries = self.World:Barricades(goal.seam)
+		if entries then
+			-- At the doorway, or right up against what bars his own side.
+			local near = (flat(goal.position) - flat(feet)).Magnitude <= ARRIVE + 1
+			local push = self.services.PushService
+			local seam = self.World.World.seams[goal.seam]
+			local mine = (feet - seam.floorPosition):Dot(flat(seam.normal).Unit) >= 0 and 1 or -1
+			for _, entry in entries do
+				near = near or (entry.side == mine and push and push:Gap(entry.piece, feet) <= B.Reach)
+			end
+			if near then
+				self:_beginBarricade(goal, entries, now)
+				return true
+			end
+		end
+	end
+
 	local point = goal.position
 	local radius = ARRIVE
 	local leg = self.leg

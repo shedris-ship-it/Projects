@@ -253,8 +253,10 @@ end
 --   "guestHunt"     The Guest hunting
 --   "guestRetreat"  distances while he backs away: how far, not how slow,
 --                   so a shut door costs nothing
--- Today the only thing on a seam is a door: a shut one costs
--- Config.Nav.DoorCost (opening it takes 1.5-3 s), one left ajar half that.
+-- A shut door costs Config.Nav.DoorCost (opening it takes 1.5-3 s), one left
+-- ajar half that. A barricade (Services/PushService) costs what getting past
+-- it does: a squeeze for players, a shove for him (quicker hunting), and he
+-- can't back away through one.
 function WorldService:SeamCost(seamId: string, who: string?): number?
 	local world = self.World
 	local seam = world and world.seams[seamId]
@@ -273,11 +275,26 @@ function WorldService:SeamCost(seamId: string, who: string?): number?
 	if seam.blocks and next(seam.blocks) then
 		return nil
 	end
+	local cost = 0
 	if door and not door.open and who ~= "guestRetreat" then
 		local ajar = door.state and not door.state.latched
-		return ajar and Config.Nav.DoorCost / 2 or Config.Nav.DoorCost
+		cost = ajar and Config.Nav.DoorCost / 2 or Config.Nav.DoorCost
 	end
-	return 0
+	if seam.barricades and next(seam.barricades) then
+		local B = Config.Barricade
+		if who == "guestRetreat" then
+			return nil
+		end
+		cost += (who == "player" and B.PlayerCost) or (who == "guestHunt" and B.GuestHuntCost) or B.GuestCost
+	end
+	return cost
+end
+
+-- What bars a doorway ({ [piece id] = { piece, side } }), or nil.
+function WorldService:Barricades(seamId: string)
+	local seam = self.World and self.World.seams[seamId]
+	local list = seam and seam.barricades
+	return (list and next(list)) and list or nil
 end
 
 -- Shut a doorway to everyone for a reason of its own (`cause`: a crank door

@@ -183,6 +183,8 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "solve" then
 		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
+	elseif command == "barricade" then
+		reply(player, services.PushService:DebugBarricade(player, args[2]))
 	elseif command == "crank" then
 		-- The crank doors; `crank up` rolls up and latches the nearest.
 		local cranks = services.CrankService
@@ -574,11 +576,17 @@ function DebugService:Run(player: Player, text: string)
 			end
 		end)
 	elseif command == "goto" then
-		-- Step into a room (its middle, or a free spot near it), for testing.
+		-- Step into a room (its middle, or a free spot near it), for testing;
+		-- or `goto <x> <y> <z>` to a spot (feet).
 		local id = tonumber(args[2])
 		local room = id and services.WorldService:Room(id)
 		local character = player.Character
-		if not room or not character then
+		local x, y, z = tonumber(args[2]), tonumber(args[3]), tonumber(args[4])
+		if character and x and y and z then
+			services.PlayerStateService:MarkTeleport(player)
+			character:PivotTo(CFrame.new(x, y + 3, z))
+			reply(player, string.format("at (%.0f, %.0f, %.0f)", x, y, z))
+		elseif not room or not character then
 			reply(player, "usage: goto <room id> (F2 plan lists them)")
 		else
 			local spot = services.WorldService:RandomPointIn(id, Random.new())
