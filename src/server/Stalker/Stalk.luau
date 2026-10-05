@@ -390,15 +390,22 @@ function Stalk:_escapePoint(from: Vector3): Vector3
 	return best or from
 end
 
--- Somewhere far from everyone, out of sight: for roaming the house.
+-- Somewhere far from everyone, out of sight: for roaming the house. While a
+-- hunt is waking (Stalker/Director:Arm) he drifts towards where the squad
+-- went: he heard them, and he's coming to meet them.
 function Stalk:_farPoint(): Vector3?
 	local worldService = self.services.WorldService
+	local director = self.service.director
+	local armed = director and director.armedRooms
 	local best, bestScore = nil, -math.huge
 	for _, id in worldService:RoomIds() do
 		local point = worldService:RandomPointIn(id, self.rng)
 		local d = self.service:_minPlayerDistance(point)
 		if d >= 30 and self.body:Fits(point) then
 			local score = -math.abs(d - 45) + self.rng:NextNumber(0, 15)
+			if armed and armed[id] then
+				score += Config.Pacing.ProwlBonus
+			end
 			if score > bestScore then
 				best, bestScore = point, score
 			end

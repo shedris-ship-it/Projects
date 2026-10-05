@@ -16,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -31,6 +32,10 @@ local LockService = {
 	Unlocked = Signal.new(),
 	-- (seamId, lock, player): someone tried a locked door.
 	Tried = Signal.new(),
+	-- (region, player, rooms): the first step anyone takes into a part of
+	-- the house that was locked away (a set of its room ids). Progress: it
+	-- calms Drift and wakes a hunt (Stalker/Director).
+	RegionEntered = Signal.new(),
 }
 
 function LockService:Init(services)
@@ -44,6 +49,8 @@ function LockService:Init(services)
 	self.rings = {} -- player -> { [token id] = label }
 	self.seen = {} -- seam id -> true once someone has tried it
 	self.reach = {} -- room id -> true while the squad can get there
+	self.entered = {} -- region -> true once someone has walked in
+	self.quiet = false -- every lock opened at once (the dinner, F2): entering no longer counts
 end
 
 function LockService:Start()
@@ -69,6 +76,40 @@ function LockService:Start()
 		end
 		self.rings[player] = nil
 	end)
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed >= 0.5 then
+			elapsed = 0
+			self:_checkRegions()
+		end
+	end)
+end
+
+-- Has anyone just stepped into a part of the house that was locked away?
+function LockService:_checkRegions()
+	local plan = self.plan
+	if not plan or self.quiet then
+		return
+	end
+	local finale = self.services.FinaleService
+	if finale and finale.served then
+		return
+	end
+	for _, player in self.PlayerState:ActivePlayers() do
+		local position = self.PlayerState:Position(player)
+		local room = position and self.World:RoomAt(position)
+		local region = room and plan.roomRegion[room]
+		if region and region ~= 0 and not self.entered[region] then
+			self.entered[region] = true
+			local rooms = {}
+			for _, id in plan.regions[region].rooms do
+				rooms[id] = true
+			end
+			self.services.DriftService:Apply("RegionEntered")
+			self.RegionEntered:Fire(region, player, rooms)
+		end
+	end
 end
 
 function LockService:Active(): boolean
@@ -80,6 +121,8 @@ function LockService:_clear()
 	table.clear(self.locks)
 	table.clear(self.seen)
 	table.clear(self.reach)
+	table.clear(self.entered)
+	self.quiet = false
 	for player in self.rings do
 		if player.Parent then
 			player:SetAttribute(PA.Keys, nil)
@@ -336,6 +379,7 @@ end
 
 -- Every lock in the house (the dinner springs them all).
 function LockService:UnlockAll(except: { [string]: boolean }?)
+	self.quiet = true
 	for seamId, entry in self.locks do
 		if not entry.open and not (except and except[seamId]) then
 			self:Unlock(seamId, nil, nil)

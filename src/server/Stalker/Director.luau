@@ -1,9 +1,17 @@
--- The Director (doc section 5): reads Drift, time since the last hunt and
--- squad stress, sets the stalker's target tier and schedules hunts, and
--- plays the scare deck between them so the run has peaks and valleys.
+-- The Director (doc section 5): reads Drift, the run's act, time since the
+-- last hunt and squad stress, sets the stalker's target tier and schedules
+-- hunts, and plays the scare deck between them so the run has peaks and
+-- valleys.
+--
+-- Progress wakes hunts (docs/plans/gameplay-rework.md, R2c "pacing"): a newly
+-- entered part of the house, a new act or the first heirloom found arms one
+-- (Arm), and it comes a minute or two later (Config.Pacing.ArmDelay),
+-- wherever the squad has got to. So a good squad meets him at the moments
+-- that matter, not only a squad that stalls into high Drift.
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Acts = require(Shared.Logic.Acts)
 local DirectorModel = require(Shared.Logic.DirectorModel)
 local ScareDeck = require(Shared.Logic.ScareDeck)
 
@@ -28,12 +36,19 @@ function Director.new(services, rng, difficulty)
 	return setmetatable({
 		services = services,
 		rng = rng,
+		-- Its own fork, so waking a hunt never shifts the scare deck's draws.
+		armRng = rng:Fork("arm"),
 		difficulty = difficulty,
 		deck = ScareDeck.new(CARDS, rng:Fork("deck"), 75),
 		nextScare = os.clock() + 25,
 		lastHuntEnded = nil,
 		retreatUntil = nil,
 		forced = false,
+		armedAt = nil,
+		armedRooms = nil,
+		armedReason = nil,
+		act = 1,
+		lanternHeld = false,
 		lastDecision = nil,
 	}, Director)
 end
@@ -42,10 +57,86 @@ function Director:ForceHunt()
 	self.forced = true
 end
 
+-- Progress woke a hunt: it comes ArmDelay from now. `rooms` (a set) is where
+-- the squad went, for him to head towards meanwhile. One at a time: arming
+-- again keeps whichever is sooner. Returns the seconds until it's due.
+function Director:Arm(reason: string, rooms: { [number]: boolean }?): number?
+	if self.disarmed then
+		return nil
+	end
+	local now = os.clock()
+	local delay = self.armRng:NextNumber(Config.Pacing.ArmDelay[1], Config.Pacing.ArmDelay[2])
+	if self.armedAt == nil or now + delay < self.armedAt then
+		self.armedAt = now + delay
+		self.armedReason = reason
+		self.armedRooms = rooms
+	end
+	return self.armedAt - now
+end
+
+-- F2 `arm`: wake one now, due in `seconds`.
+function Director:ArmIn(seconds: number)
+	self.disarmed = false
+	self.armedAt = os.clock() + seconds
+	self.armedReason = "debug"
+	self.armedRooms = nil
+end
+
+-- No more woken hunts (the dinner; while he waits at the table).
+function Director:Disarm(forGood: boolean?)
+	self.armedAt, self.armedRooms, self.armedReason = nil, nil, nil
+	if forGood then
+		self.disarmed = true
+	end
+end
+
+-- A hunt has begun: whatever woke it is spent.
+function Director:HuntBegan()
+	self.forced = false
+	self.armedAt, self.armedRooms, self.armedReason = nil, nil, nil
+	self.lanternHeld = false
+end
+
 function Director:HuntEnded(now: number)
 	self.lastHuntEnded = now
 	self.retreatUntil = now + Config.Stalker.RetreatTierSeconds
 	self.forced = false
+end
+
+-- How far the squad has got, from the services that know (Logic/Acts facts).
+function Director:Facts()
+	local services = self.services
+	local facts = { gates = 0, gatesOpened = 0, heirlooms = 0, heirloomsFound = 0, places = 0, placesSet = 0 }
+	local locks = services.LockService
+	for _, entry in locks and locks.locks or {} do
+		local kind = entry.lock.kind
+		if kind ~= "bolt" and kind ~= "seal" then
+			facts.gates += 1
+			if entry.open then
+				facts.gatesOpened += 1
+			end
+		end
+	end
+	local plan = locks and locks.plan
+	if plan then
+		facts.heirlooms = #plan.finale.heirlooms
+		for _, token in plan.finale.heirlooms do
+			if services.ItemService.found[token] then
+				facts.heirloomsFound += 1
+			end
+		end
+	end
+	local finale = services.FinaleService
+	if finale then
+		facts.places = #finale.places
+		for _, place in finale.places do
+			if place.token then
+				facts.placesSet += 1
+			end
+		end
+		facts.served = finale.served == true
+	end
+	return facts
 end
 
 -- One pacing decision. runTime is seconds since Arrival began.
@@ -60,10 +151,27 @@ function Director:Evaluate(runTime: number)
 			squadInLantern = false
 		end
 	end
+	-- A new act wakes a hunt.
+	local act = Acts.of(self:Facts(), Config.Pacing)
+	if act > self.act then
+		self.act = act
+		if act < 4 then
+			self.services.StalkerService:HeardProgress(self:Arm("act " .. act))
+		end
+	end
+	-- A woken hunt held off by a Lantern room waits a little more once the
+	-- squad leaves it, so stepping out isn't stepping into a hunt.
+	if self.lanternHeld and not squadInLantern and self.armedAt then
+		local release = Config.Pacing.LanternRelease
+		self.armedAt = math.max(self.armedAt, now + self.armRng:NextNumber(release[1], release[2]))
+		self.lanternHeld = false
+	end
 	local decision = DirectorModel.evaluate({
 		now = now,
 		runTime = runTime,
 		drift = services.DriftService:Value(),
+		act = self.act,
+		armedAt = self.armedAt,
 		lastHuntEnded = self.lastHuntEnded,
 		retreatUntil = self.retreatUntil,
 		lastRevive = services.PlayerStateService.lastRevive,
@@ -72,11 +180,16 @@ function Director:Evaluate(runTime: number)
 		forced = self.forced,
 		difficulty = self.difficulty,
 	}, Config)
-	self.lastDecision = decision
-	if decision.huntDue then
-		self.forced = false
+	if squadInLantern and self.armedAt and now >= self.armedAt then
+		self.lanternHeld = true
 	end
+	self.lastDecision = decision
 	return decision
+end
+
+-- How long the next hunt lasts (longer at higher Drift).
+function Director:HuntDuration(): number
+	return DirectorModel.huntDuration(self.services.DriftService:Value(), self.rng:NextNumber(-1, 1), Config)
 end
 
 -- Draw a scare if one is due. Returns the card or nil.

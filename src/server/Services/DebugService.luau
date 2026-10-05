@@ -15,6 +15,7 @@ local Constants = require(Shared.Constants)
 local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 local FloorPlan = require(Shared.Logic.FloorPlan)
+local Acts = require(Shared.Logic.Acts)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 local PartDump = require(script.Parent.Parent.World.PartDump)
 
@@ -45,6 +46,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default",
 	"start · end · skip (to Investigation) · resolve (serve the dinner)",
+	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room>",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
@@ -373,6 +375,51 @@ function DebugService:Run(player: Player, text: string)
 				)
 			end
 		end)
+	elseif command == "goto" then
+		-- Step into a room (its middle, or a free spot near it), for testing.
+		local id = tonumber(args[2])
+		local room = id and services.WorldService:Room(id)
+		local character = player.Character
+		if not room or not character then
+			reply(player, "usage: goto <room id> (F2 plan lists them)")
+		else
+			local spot = services.WorldService:RandomPointIn(id, Random.new())
+			services.PlayerStateService:MarkTeleport(player)
+			character:PivotTo(CFrame.new(spot + Vector3.new(0, 3, 0)))
+			reply(player, "in " .. tostring(room.name) .. " (room " .. id .. ")")
+		end
+	elseif command == "act" then
+		-- The run's arc (Logic/Acts) and any hunt progress has woken.
+		local director = services.StalkerService.director
+		if not director then
+			reply(player, "no run")
+		else
+			local facts = director:Facts()
+			local due = director.armedAt and (director.armedAt - os.clock())
+			reply(
+				player,
+				string.format(
+					"act %d · progress %.0f%% (gates %d/%d, heirlooms found %d/%d, places %d/%d) · %s",
+					director.act,
+					Acts.progress(facts) * 100,
+					facts.gatesOpened,
+					facts.gates,
+					facts.heirloomsFound,
+					facts.heirlooms,
+					facts.placesSet,
+					facts.places,
+					due and string.format("hunt woken (%s), due in %.0fs", tostring(director.armedReason), due)
+						or "no hunt woken"
+				)
+			)
+		end
+	elseif command == "arm" then
+		local director = services.StalkerService.director
+		if director then
+			local seconds = tonumber(args[2]) or 10
+			director:ArmIn(seconds)
+			reply(player, string.format("a hunt is woken, due in %ds (still waits out the usual rules)", seconds))
+		end
 	elseif command == "gatea" then
 		-- Gate A: the builder's parts, hashed (World/PartDump). Run it before
 		-- opening anything: an opened drawer moves parts.

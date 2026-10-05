@@ -36,7 +36,7 @@ function DriftService:Start()
 		end
 		accumulator += dt
 		if accumulator >= 1 then
-			self.model:Tick(accumulator, self.PlayerState:IsolatedCount())
+			self.model:Tick(accumulator, self.PlayerState:IsolatedCount(), self:Stalled())
 			accumulator = 0
 			self:_publish()
 		end
@@ -48,7 +48,14 @@ function DriftService:Begin(difficulty)
 	self.running = true
 	self.lastState = nil
 	self.collapsed = false
+	self.lastProgress = os.clock()
 	self:_publish()
+end
+
+-- No progress for a while (Config.Drift.StallGraceSeconds): the house grows
+-- restless (DriftModel:Tick).
+function DriftService:Stalled(): boolean
+	return self.lastProgress ~= nil and os.clock() - self.lastProgress >= Config.Drift.StallGraceSeconds
 end
 
 function DriftService:Stop()
@@ -68,6 +75,9 @@ function DriftService:Apply(eventName: string): number
 		return 0
 	end
 	local applied = self.model:Apply(eventName, os.clock())
+	if Config.Drift.ProgressEvents[eventName] then
+		self.lastProgress = os.clock()
+	end
 	self:_publish()
 	return applied
 end

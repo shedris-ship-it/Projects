@@ -23,12 +23,16 @@ function DriftModel:_add(source: string, delta: number): number
 end
 
 -- Advance time. isolatedCount = players who have been >25 studs from every
--- teammate for 20+ seconds.
-function DriftModel:Tick(dt: number, isolatedCount: number?): number
+-- teammate for 20+ seconds; stalled = no progress for StallGraceSeconds (the
+-- house grows restless until something gives).
+function DriftModel:Tick(dt: number, isolatedCount: number?, stalled: boolean?): number
 	local perMinute = self.config.BaselinePerMinute * self.multiplier
 	local applied = self:_add("Baseline", perMinute * dt / 60)
 	if isolatedCount and isolatedCount > 0 then
 		applied += self:_add("Isolation", self.config.IsolationPerMinute * isolatedCount * dt / 60)
+	end
+	if stalled and self.config.StallPerMinute then
+		applied += self:_add("Stalling", self.config.StallPerMinute * self.multiplier * dt / 60)
 	end
 	return applied
 end

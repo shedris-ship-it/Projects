@@ -1,10 +1,19 @@
 -- The Director's pacing rules (doc section 5, "Three layers" and
--- "Escalation tiers"). Pure: given the state of the run it answers which
--- tier the stalker should be at and whether a hunt should start now.
+-- "Escalation tiers"; docs/plans/gameplay-rework.md, R2c "pacing"). Pure:
+-- given the state of the run it answers which tier the stalker should be at
+-- and whether a hunt should start now.
+--
+-- Two things start hunts. Progress arms one (Stalker/Director:Arm, from a
+-- newly entered region, a new act or the first heirloom found): it comes a
+-- minute or two later, wherever the squad has got to. And Drift, which only
+-- measures stalling, starts them on an interval once it reaches Breaking, so
+-- a squad that stalls is hunted more and more. The act raises the tier too
+-- (Logic/Acts.heat), so a good squad still meets more of him as the night
+-- goes on.
 
 local DirectorModel = {}
 
--- Tier from Drift alone (doc section 2 table).
+-- Tier from Drift (doc section 2 table), plus the act's heat.
 function DirectorModel.tierForDrift(drift: number): number
 	-- Tier 1 starts a couple of minutes in (after the 90-second calm), so the
 	-- first "figure at the end of the hall" lands early in Arrival.
@@ -18,17 +27,28 @@ function DirectorModel.tierForDrift(drift: number): number
 	return 3
 end
 
+-- How long a hunt lasts: longer the higher Drift is (full length at
+-- Pacing.HuntDriftFull), within Stalker.HuntDuration. `jitter` is -1..1.
+function DirectorModel.huntDuration(drift: number, jitter: number, config): number
+	local range = config.Stalker.HuntDuration
+	local t = math.clamp(drift / config.Pacing.HuntDriftFull, 0, 1)
+	local seconds = range[1] + (range[2] - range[1]) * t + jitter * config.Pacing.HuntJitter
+	return math.clamp(seconds, range[1], range[2])
+end
+
 -- input = {
---   runTime, drift, now,
+--   runTime, drift, now, act (1-4, default 1),
 --   lastHuntEnded (time or nil), retreatUntil (time or nil),
+--   armedAt (time or nil): a hunt progress has woken, due at that time,
 --   lastRevive (time or nil), squadInLantern (bool),
---   stationary (0..1), forced (bool, e.g. wrong verdict),
+--   stationary (0..1), forced (bool, e.g. the debug console),
 --   difficulty = Config.Difficulty entry,
 -- }
 -- returns { tier, huntDue, reason }
 function DirectorModel.evaluate(input, config)
-	local runConfig, stalker = config.Run, config.Stalker
-	local tier = DirectorModel.tierForDrift(input.drift)
+	local runConfig, stalker, pacing = config.Run, config.Stalker, config.Pacing
+	local heat = pacing.ActHeat[input.act or 1] or 0
+	local tier = DirectorModel.tierForDrift(input.drift + heat)
 	if input.runTime < runConfig.StalkerDormantSeconds then
 		tier = 0
 	end
@@ -56,11 +76,19 @@ function DirectorModel.evaluate(input, config)
 	if input.forced then
 		return { tier = tier, huntDue = true, reason = "forced" }
 	end
-	if input.drift < 60 then
-		return { tier = tier, huntDue = false, reason = "drift below Breaking" }
-	end
 	if input.retreatUntil and input.now < input.retreatUntil then
 		return { tier = tier, huntDue = false, reason = "retreating" }
+	end
+	-- Progress woke him: the hunt comes when it's due, never hard on the heels
+	-- of the last one.
+	if input.armedAt and input.now >= input.armedAt then
+		if input.lastHuntEnded == nil or input.now - input.lastHuntEnded >= pacing.MinHuntGap then
+			return { tier = tier, huntDue = true, reason = "armed" }
+		end
+		return { tier = tier, huntDue = false, reason = "armed, waiting out the gap" }
+	end
+	if input.drift < 60 then
+		return { tier = tier, huntDue = false, reason = "drift below Breaking" }
 	end
 
 	local interval = input.drift >= 80 and stalker.HuntIntervalCollapsing or stalker.HuntIntervalBreaking

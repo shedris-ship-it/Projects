@@ -32,6 +32,12 @@ Config.Drift = {
 	IsolationDistance = 25, -- (doc)
 	IsolationGraceSeconds = 20, -- (doc)
 	IsolationPerMinute = 1, -- (doc) per isolated player
+	-- Stalling (R2c): this long with no progress and the house grows restless,
+	-- rising this much faster a minute until something gives.
+	StallGraceSeconds = 240,
+	StallPerMinute = 2,
+	-- The events that count as progress (and end a stall).
+	ProgressEvents = { LockOpened = true, PuzzleSolved = true, ItemFound = true, RegionEntered = true },
 	Events = {
 		PlayerDowned = 10, -- (doc)
 		HuntSurvived = -10, -- (doc)
@@ -41,6 +47,7 @@ Config.Drift = {
 		PuzzleSolved = -8, -- (rework)
 		ItemFound = -2, -- (rework)
 		PuzzleFailed = 3, -- (rework)
+		RegionEntered = -4, -- (rework) the first step into a newly opened part of the house
 	},
 	-- Times a minute an event counts at most (DriftModel:Apply).
 	Caps = {
@@ -444,6 +451,21 @@ Config.PostFX = {
 	-- Flashlight drag: the beam's aim trails the camera slightly on quick turns.
 	-- Higher follows faster. The camera itself never moves (doc section 4).
 	FlashlightFollow = 12,
+}
+
+-- The run's arc (Logic/Acts, Logic/DirectorModel; docs/plans/
+-- gameplay-rework.md, R2c "pacing"): progress, not Drift, says which act the
+-- run is in, and progress wakes hunts.
+Config.Pacing = {
+	Act2At = 0.15, -- of everything there is to do (Acts.progress)
+	Act3At = 0.6,
+	ActHeat = { 0, 25, 40, 40 }, -- added to Drift when picking his tier, by act: later acts bring him closer
+	ArmDelay = { 60, 120 }, -- seconds from the progress that wakes a hunt to the hunt
+	MinHuntGap = 180, -- a woken hunt waits at least this long after the last one ended
+	LanternRelease = { 5, 15 }, -- leaving a Lantern room, a woken hunt waits this much more
+	HuntDriftFull = 80, -- hunts last their longest from this Drift (Config.Stalker.HuntDuration)
+	HuntJitter = 8, -- seconds either way
+	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
 -- Each Witness's own unsettling moments (Logic/Atmosphere): the Drift each

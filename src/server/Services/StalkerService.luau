@@ -92,6 +92,20 @@ function StalkerService:Start()
 	services.HandsService.Moved:Connect(function(thing, from: Vector3, to: Vector3)
 		self:_thrownMoved(thing, from, to)
 	end)
+	-- Progress wakes a hunt (docs/plans/gameplay-rework.md, R2c "pacing"):
+	-- the first step into a newly opened part of the house, and the first
+	-- heirloom found. (A new act arms one too: Stalker/Director.)
+	services.LockService.RegionEntered:Connect(function(region: number, _player, rooms)
+		if self.active and self.director then
+			self:HeardProgress(self.director:Arm("region " .. region, rooms))
+		end
+	end)
+	services.ItemService.Found:Connect(function(_player, _token, kind: string)
+		if self.active and self.director and kind == "heirloom" and not self.heirloomArmed then
+			self.heirloomArmed = true
+			self:HeardProgress(self.director:Arm("heirloom"))
+		end
+	end)
 
 	local bodyAccumulator, directorAccumulator = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
@@ -177,6 +191,7 @@ function StalkerService:Begin(ctx)
 	self.knockedAt = nil
 	self.data = {}
 	self.huntCount = 0
+	self.heirloomArmed = false
 	self.lungeLast = {}
 	self.squadLungeLast = nil
 	self.recentDowns = {}
@@ -307,7 +322,32 @@ function StalkerService:StartFinalHunt()
 		return
 	end
 	self.final = true
-	self:_beginTelegraph(5)
+	self.director:Disarm(true)
+	self:_beginTelegraph(5, "final")
+end
+
+-- Progress was made and a hunt is waking (Stalker/Director:Arm returned the
+-- seconds until it's due): somewhere near him a door slams, the house's way
+-- of saying it heard. Out of everyone's sight, and only once he's in.
+function StalkerService:HeardProgress(dueIn: number?)
+	if not dueIn or not self.active or not self.arrived or self.parked or not self.bodyCtl then
+		return
+	end
+	local services = self.services
+	services.Telemetry:Log("HuntArmed", { dueIn = math.floor(dueIn), reason = self.director.armedReason })
+	local here = self.bodyCtl.root.Position
+	local best, bestDistance = nil, 30
+	for _, door in services.WorldService.World.doors do
+		local d = (door.position - here).Magnitude
+		if door.open and not door.locked and d < bestDistance and not self:_spotSeen(door.position) then
+			best, bestDistance = door, d
+		end
+	end
+	if best then
+		services.DoorService:SetOpen(best, false, nil, true)
+	else
+		Sfx.play("Thud", here + Vector3.new(0, 4, 0), 1, 0.6)
+	end
 end
 
 -- The dinner (Services/FinaleService): he's simply there, at the head of the
@@ -660,7 +700,7 @@ function StalkerService:_direct()
 	end
 	self.tier = decision.tier
 	if decision.huntDue and self.arrived then
-		self:_beginTelegraph()
+		self:_beginTelegraph(nil, decision.reason)
 		return
 	end
 	local desired = TIER_MODES[self.tier] or Modes.Dormant
@@ -910,8 +950,14 @@ end
 
 -- Tier 4 --------------------------------------------------------------------------
 
-function StalkerService:_beginTelegraph(seconds: number?)
+function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
 	local duration = seconds or self.rng:NextNumber(S.TelegraphSeconds[1], S.TelegraphSeconds[2])
+	self.director:HuntBegan()
+	self.services.Telemetry:Log("HuntStarted", {
+		reason = reason or self.forceReason or "?",
+		drift = math.floor(self.services.DriftService:Value()),
+		act = self.director.act,
+	})
 	-- The final hunt can't wait for the knock: he's simply there. And behind a
 	-- locked door from them (the escape), he's moved, unseen, to their side.
 	if not self.arrived or not self:_squadCanReach(self.bodyCtl.root.Position) then
@@ -967,7 +1013,7 @@ function StalkerService:_updateTelegraph(now: number)
 	if now >= self.data.telegraphUntil and (ready or now >= self.data.telegraphUntil + G.HuntStartMaxWait) then
 		self.mode = Modes.Hunting
 		self.huntCount += 1
-		local duration = self.rng:NextNumber(S.HuntDuration[1], S.HuntDuration[2])
+		local duration = self.director:HuntDuration()
 		self.data = {
 			started = now,
 			endsAt = now + duration,
