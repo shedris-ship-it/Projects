@@ -61,6 +61,15 @@ local StalkMoves = {
 		counter = "Change your route; stay quiet and out of sight.",
 	},
 	{
+		id = "Investigate",
+		tiers = { 1, 2, 3 },
+		base = 1.4,
+		signal = nil,
+		cooldown = 5,
+		description = "Goes to look at a noise nobody made: a thing that fell, a flush, a radio left on.",
+		counter = "Throw something away from where you hide; he gets wise if you do it every time.",
+	},
+	{
 		id = "DistantRoam",
 		tiers = { 0, 1, 2, 3 },
 		base = 0.3,

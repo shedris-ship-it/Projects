@@ -29,6 +29,10 @@ function Perception.new(services, body, bodyCtl)
 		body = body,
 		bodyCtl = bodyCtl,
 		memory = {}, -- player -> { position, facing, t, confidence, seen }
+		-- Noises nobody's position is behind: a thrown thing landing, a flush,
+		-- a radio left on (docs/plans/gameplay-rework.md section 4.9).
+		lures = {}, -- { position, t, radius, checked }
+		followed = {}, -- when he went to check one (too many and he gets wary)
 		watchTime = {}, -- player -> seconds continuously watched
 		visibleList = {}, -- players he can see this tick, nearest first
 		hearingMultiplier = 1,
@@ -38,6 +42,8 @@ end
 
 function Perception:Reset()
 	self.memory = {}
+	self.lures = {}
+	self.followed = {}
 	self.watchTime = {}
 	self.visibleList = {}
 end
@@ -132,6 +138,46 @@ function Perception:_remember(player: Player, position: Vector3, confidence: num
 	self.memory[player] = { position = position, facing = facing, t = now, confidence = confidence, seen = seen }
 end
 
+-- The newest lure he hasn't looked into, no older than `maxAge` seconds.
+function Perception:FreshLure(maxAge: number)
+	local now = os.clock()
+	for i = #self.lures, 1, -1 do
+		local lure = self.lures[i]
+		if now - lure.t > maxAge then
+			break
+		end
+		if not lure.checked then
+			return lure
+		end
+	end
+	return nil
+end
+
+-- He went to look. Returns how many lures he has followed lately, this one
+-- included: a squad that leans on them finds him slower to fall for the next.
+function Perception:FollowLure(lure, window: number): number
+	lure.checked = true
+	local now = os.clock()
+	for i = #self.followed, 1, -1 do
+		if now - self.followed[i] > window then
+			table.remove(self.followed, i)
+		end
+	end
+	table.insert(self.followed, now)
+	return #self.followed
+end
+
+-- How wary he is of lures: 1 fresh, smaller the more he's followed lately.
+function Perception:LureTrust(window: number, factor: number): number
+	local now, count = os.clock(), 0
+	for _, t in self.followed do
+		if now - t <= window then
+			count += 1
+		end
+	end
+	return factor ^ count
+end
+
 function Perception:Confidence(player: Player): number
 	local m = self.memory[player]
 	if not m then
@@ -192,6 +238,12 @@ function Perception:Update(hearingBoost: number?)
 		if (noise.position - here).Magnitude <= radius * multiplier then
 			if noise.source and noise.source.Parent then
 				self:_remember(noise.source, noise.position, S.MemoryHeardConfidence, false)
+			elseif noise.kind == "impact" or noise.kind == "lure" then
+				-- Nobody's position, but something to go and look at.
+				table.insert(self.lures, { position = noise.position, t = os.clock(), radius = noise.radius })
+				if #self.lures > 6 then
+					table.remove(self.lures, 1)
+				end
 			end
 			self.lastHeard = { position = noise.position, t = os.clock(), kind = noise.kind }
 		end

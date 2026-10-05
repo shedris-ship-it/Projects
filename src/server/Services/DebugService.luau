@@ -45,7 +45,7 @@ local HELP = table.concat({
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
-	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him)",
+	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -212,6 +212,22 @@ function DebugService:Run(player: Player, text: string)
 		else
 			services.HandsService:Throw(player, (guest + Vector3.new(0, 1.5, 0) - head.Position).Unit)
 			reply(player, "thrown at him")
+		end
+	elseif command == "lure" then
+		-- A noise nobody made where you're looking (up to 25 studs off), as
+		-- if something fell there. He comes to look if he's lost you.
+		local head = services.PlayerStateService:Head(player)
+		local view = services.WitnessService:GetView(player)
+		if not head or not view then
+			reply(player, "no view yet")
+		else
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { player.Character }
+			local hit = workspace:Raycast(head.Position, view.LookVector * 25, params)
+			local spot = hit and hit.Position - view.LookVector * 0.5 or head.Position + view.LookVector * 25
+			services.NoiseService:Emit(spot, tonumber(args[2]) or 40, nil, "lure")
+			reply(player, string.format("a noise at (%.0f, %.0f, %.0f)", spot.X, spot.Y, spot.Z))
 		end
 	elseif command == "door" then
 		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)

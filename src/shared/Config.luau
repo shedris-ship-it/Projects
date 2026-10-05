@@ -606,6 +606,12 @@ Config.Guest = {
 	BeliefClearStrength = 0.85, -- a room he's checked and found empty
 	BeliefPriorRefresh = 5, -- seconds between habit updates
 	SearchPause = { 2, 4 }, -- looking round a room he's reached
+	-- Lures (docs/plans/gameplay-rework.md section 4.9): a noise nobody made
+	-- draws him when he doesn't know where you are.
+	LureFreshSeconds = 15, -- older than this, he doesn't bother
+	LureLookSeconds = { 2.5, 4 }, -- how long he stands and looks round when he gets there
+	LureWaryWindow = 120, -- lures he followed this recently count against the next
+	LureWaryFactor = 0.6, -- each one makes the next this much less tempting
 	BrainHz = 4,
 }
 

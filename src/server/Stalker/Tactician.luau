@@ -9,6 +9,7 @@ local Tactics = require(Shared.Data.Tactics)
 local UtilityAI = require(Shared.Logic.UtilityAI)
 
 local S = Config.Stalker
+local G = Config.Guest
 
 local Tactician = {}
 Tactician.__index = Tactician
@@ -109,6 +110,9 @@ function Tactician:_feasibility(ctx)
 	f.Ambush = hasMemory and 0.8 or 0
 	f.ListenStill = 0.6
 	f.MimicKnock = (hasMemory and ctx.doorNearMemory) and 0.9 or 0
+	-- A noise nobody made, newer than anything he knows: worth a look.
+	local lure = ctx.lure
+	f.Investigate = (lure and (not hasMemory or lure.t > ctx.memory.t)) and ctx.lureTrust or 0
 	-- The final hunt during a ritual leans on flanking: the squad is busy.
 	if ctx.final then
 		f.FlankBlindSpot = hasMemory and 1.4 or 0
@@ -164,6 +168,8 @@ function Tactician:Context(final: boolean)
 		end
 	end
 	ctx.straggler = straggler
+	ctx.lure = self.perception:FreshLure(G.LureFreshSeconds)
+	ctx.lureTrust = self.perception:LureTrust(G.LureWaryWindow, G.LureWaryFactor)
 	return ctx
 end
 
@@ -333,6 +339,11 @@ function Tactician:_plan(id: string, ctx)
 		end
 	elseif id == "ListenStill" then
 		wait(4, true)
+	elseif id == "Investigate" and ctx.lure then
+		self.perception:FollowLure(ctx.lure, G.LureWaryWindow)
+		local spot = ctx.lure.position
+		moveTo(Vector3.new(spot.X, worldService:FloorBase(spot.Y), spot.Z), run)
+		wait(self.rng:NextNumber(G.LureLookSeconds[1], G.LureLookSeconds[2]), true)
 	elseif id == "MimicKnock" and ctx.doorNearMemory then
 		local door = ctx.doorNearMemory
 		local roomId = worldService:RoomAt(memoryPos)

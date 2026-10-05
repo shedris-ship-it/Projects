@@ -13,6 +13,14 @@ local Tactics = {
 		counter = "Move after it loses sight of you.",
 	},
 	{
+		id = "Investigate",
+		base = 1.3,
+		signal = nil,
+		cooldown = 4,
+		description = "Runs to a noise nobody made, in case it was you.",
+		counter = "Throw something to draw it off, then move while it looks.",
+	},
+	{
 		id = "SweepRooms",
 		base = 0.7,
 		signal = "routeHabit",

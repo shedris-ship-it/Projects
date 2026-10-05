@@ -741,6 +741,70 @@ MOVES.Search = {
 	end,
 }
 
+-- A noise nobody made (a thing that fell, a flush, a radio left on): he goes
+-- to look, unseen, stands a moment looking round, and moves on. Only while
+-- he doesn't know where you are (docs/plans/gameplay-rework.md 4.9).
+MOVES.Investigate = {
+	start = function(self, move)
+		local perception = self.service.perception
+		local lure = perception:FreshLure(G.LureFreshSeconds)
+		if not lure then
+			return false
+		end
+		local spot = lure.position
+		local floor = Vector3.new(spot.X, self.services.WorldService:FloorBase(spot.Y), spot.Z)
+		-- As near the noise as he can stand.
+		local goal = self.body:Fits(floor) and floor or nil
+		for i = 1, 8 do
+			if goal then
+				break
+			end
+			local angle = i / 8 * math.pi * 2
+			local point = floor + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 3
+			if self.body:Fits(point) then
+				goal = point
+			end
+		end
+		if not goal then
+			lure.checked = true
+			return false
+		end
+		perception:FollowLure(lure, G.LureWaryWindow)
+		move.goal = goal
+		return true
+	end,
+	update = function(self, move, now, ctx)
+		if ctx.known then
+			return true -- someone to go after instead
+		end
+		if ctx.tier >= 2 and ctx.watchers > 0 then
+			return self:_holdStare(ctx)
+		end
+		if not move.pausing then
+			if relocate(self, move, now) then
+				move.pausing = now + self.rng:NextNumber(G.LureLookSeconds[1], G.LureLookSeconds[2])
+				self.body:Hold()
+				self.body:SetPose(Poses.Idle)
+			end
+			return false
+		end
+		return now >= move.pausing
+	end,
+}
+
+-- Worth going to look at a noise nobody made? A fresh one, he doesn't know
+-- where you are, and less likely the more he's been fooled lately.
+function Stalk:_lureTempts(ctx): boolean
+	if ctx.known or ctx.tier < 1 then
+		return false
+	end
+	local perception = self.service.perception
+	if not perception:FreshLure(G.LureFreshSeconds) then
+		return false
+	end
+	return self.rng:NextNumber() < perception:LureTrust(G.LureWaryWindow, G.LureWaryFactor)
+end
+
 -- Internal moves (not chosen by utility) -------------------------------------------
 
 -- Tier 1: you've clearly seen him. Yanked out of sight in a blink, still
@@ -973,6 +1037,13 @@ function Stalk:_choose(ctx)
 	end
 	if ctx.known then
 		feasibility.Search = 0
+	end
+	-- A noise nobody made: worth a look while he's lost you, less so each
+	-- time he's been fooled lately.
+	if feasibility.Investigate > 0 then
+		local perception = self.service.perception
+		local lure = not ctx.known and perception:FreshLure(G.LureFreshSeconds)
+		feasibility.Investigate = lure and perception:LureTrust(G.LureWaryWindow, G.LureWaryFactor) or 0
 	end
 	local pass = self.target and self.doorwayPass[self.target]
 	if not pass or ctx.now - pass.t > 10 then
@@ -1243,6 +1314,21 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 	self:_provocation(dt, ctx)
 
 	-- Moves ----------------------------------------------------------------------------
+	-- A fresh noise nobody made cuts a walk by habit short: he goes to look.
+	if
+		self.move
+		and (self.move.id == "Search" or self.move.id == "DistantRoam")
+		and now - self.move.started > 0.5
+		and self.service.perception:FreshLure(G.LureFreshSeconds)
+		and self:_lureTempts(ctx)
+	then
+		if MOVES[self.move.id].stop then
+			MOVES[self.move.id].stop(self, self.move)
+		end
+		self.move = nil
+		self.nextChoice = 0
+		self:_begin("Investigate", ctx)
+	end
 	local move = self.move
 	if move then
 		local done = MOVES[move.id].update(self, move, now, ctx)
@@ -1257,7 +1343,10 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		self.nextChoice = now + 1 / G.BrainHz
 		if tier <= 1 and now < self.hiddenUntil then
 			-- Unseen between appearances: walk somewhere new, by habit.
-			if tier == 0 or not self:_begin("Search", ctx) then
+			if self:_lureTempts(ctx) and self:_begin("Investigate", ctx) then
+				-- A noise nobody made: he goes to look first.
+				return
+			elseif tier == 0 or not self:_begin("Search", ctx) then
 				self:_begin("DistantRoam", ctx)
 			end
 		elseif self.forceMove then
