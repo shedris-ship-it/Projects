@@ -374,8 +374,7 @@ function LockService:_publishRing(player: Player)
 		table.insert(names, shown)
 		-- With the token, for the journal's Drop buttons, and where its door
 		-- is once someone has seen it (UI/Map).
-		local info = self.plan and self.plan.tokens[token]
-		local place = finale and info and info.opens and finale:DoorPlace(info.opens)
+		local place = finale and self:KeyPlace(token)
 		table.insert(entries, token .. "=" .. shown .. "=" .. (place or ""))
 	end
 	table.sort(names)
@@ -392,6 +391,35 @@ function LockService:RefreshRings()
 			self:_publishRing(player)
 		end
 	end
+end
+
+-- Where a key's next door is, in words, once someone has seen it (the first
+-- of its doors still shut that has been seen); nil until then.
+function LockService:KeyPlace(token: string): string?
+	local finale = self.services.FinaleService
+	for _, seamId in self:DoorsOf(token) do
+		local entry = self.locks[seamId]
+		if entry and not entry.open then
+			local place = finale:DoorPlace(seamId)
+			if place then
+				return place
+			end
+		end
+	end
+	return nil
+end
+
+-- The doors a key opens: its own and, for the house key, its side rooms'.
+function LockService:DoorsOf(token: string): { string }
+	local info = self.plan and self.plan.tokens[token]
+	local doors = {}
+	if info and info.opens then
+		table.insert(doors, info.opens)
+	end
+	for _, seamId in info and info.also or {} do
+		table.insert(doors, seamId)
+	end
+	return doors
 end
 
 -- Every key the squad holds: { { token, label, holder } }, by token.
@@ -482,6 +510,22 @@ function LockService:_keyRefusal(player: Player, lock): string
 	return mark and ("Locked. There's " .. mark .. " on the plate.") or "Locked. It needs a key."
 end
 
+-- The house key leaves the ring once every door with its mark is open.
+function LockService:_spent(player: Player, token: string, label: string)
+	for _, seamId in self:DoorsOf(token) do
+		local entry = self.locks[seamId]
+		if entry and not entry.open then
+			self:_publishRing(player)
+			return
+		end
+	end
+	if self.rings[player] then
+		self.rings[player][token] = nil
+	end
+	self:_publishRing(player)
+	notify(player, "Nothing left for the " .. label .. ".")
+end
+
 function LockService:_rattle(door)
 	Sfx.play("DoorBang", door.position, 0.25, 1.6)
 	Sfx.play("DoorLatch", door.position, 0.4, 0.7)
@@ -518,13 +562,21 @@ function LockService:_try(door, player: Player?)
 			notify(player, "Bolted from the other side. There must be another way round.")
 		end
 		return
-	elseif lock.kind == "key" then
+	elseif lock.kind == "key" or lock.kind == "pocket" then
 		local token = lock.needs[1]
 		if self:HasKey(player, token) then
 			local label = self.rings[player][token]
-			self.rings[player][token] = nil
-			self:_publishRing(player)
-			self:Unlock(door.lockId, player, "The " .. label .. " turns.")
+			local info = self.plan and self.plan.tokens[token]
+			if info and info.reusable then
+				-- The house key (docs/plans/level-design.md section 11, L3.2):
+				-- it stays on the ring while a door with its mark is still shut.
+				self:Unlock(door.lockId, player, "The " .. label .. " turns.")
+				self:_spent(player, token, label)
+			else
+				self.rings[player][token] = nil
+				self:_publishRing(player)
+				self:Unlock(door.lockId, player, "The " .. label .. " turns.")
+			end
 		else
 			self:_rattle(door)
 			notify(player, self:_keyRefusal(player, lock))

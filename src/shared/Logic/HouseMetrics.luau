@@ -180,6 +180,18 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	local doorRegion = {} -- token id -> the region its door is seen from
 	local regionOpen = { [0] = true }
 	m.doorTokens, m.blindTokens, m.heldKeyBlind = 0, 0, 0
+	-- Side rooms behind the house key, and the doors it opens (section 11, L3.2).
+	m.pockets, m.pocketReturns, m.houseKeyDoors = 0, 0, 0
+	for _, lock in plan.locks do
+		if lock.pocket then
+			m.pockets += 1
+		end
+		for _, need in lock.needs or {} do
+			if plan.tokens[need] and plan.tokens[need].reusable then
+				m.houseKeyDoors += 1
+			end
+		end
+	end
 	for _, id in tokenIds do
 		local token = plan.tokens[id]
 		local lock = token.opens and plan.locks[token.opens]
@@ -303,23 +315,34 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 			break
 		end
 		local lock = plan.locks[best]
-		if position[regionOf[bestFrom]] < newest then
-			m.returns += 1
-		end
-		-- How far each thing it needed was from the door, found where it was.
-		for _, need in lock.needs or {} do
-			local room = LockPlanner.tokenRoom(plan, plan.tokens[need])
-			if room then
-				local d = search(room, opened)[anchor[bestFrom]]
-				table.insert(keyWalks, d or math.huge)
+		if lock.pocket then
+			-- A side room the house key opens (docs/plans/level-design.md
+			-- section 11, L3.2): a trip back that pays, counted on its own.
+			if position[regionOf[bestFrom]] < newest then
+				m.pocketReturns += 1
 			end
+			go(bestFrom, "open " .. best)
+			opened[best] = true
+			sweep({ lock.inside })
+		else
+			if position[regionOf[bestFrom]] < newest then
+				m.returns += 1
+			end
+			-- How far each thing it needed was from the door, found where it was.
+			for _, need in lock.needs or {} do
+				local room = LockPlanner.tokenRoom(plan, plan.tokens[need])
+				if room then
+					local d = search(room, opened)[anchor[bestFrom]]
+					table.insert(keyWalks, d or math.huge)
+				end
+			end
+			go(bestFrom, "open " .. best)
+			opened[best] = true
+			seeRegion(lock.region)
+			table.insert(gateKinds, lock.kind)
+			newest = math.max(newest, position[lock.region] or 0)
+			sweep(plan.regions[lock.region].rooms)
 		end
-		go(bestFrom, "open " .. best)
-		opened[best] = true
-		seeRegion(lock.region)
-		table.insert(gateKinds, lock.kind)
-		newest = math.max(newest, position[lock.region] or 0)
-		sweep(plan.regions[lock.region].rooms)
 	end
 	-- Anything still to fetch (a producer outside every region swept).
 	for _, id in plan.finale.heirlooms do

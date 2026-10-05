@@ -202,7 +202,9 @@ function Kind.hint(service, session, rng)
 	end
 	local rooms = {}
 	for roomId, region in plan.roomRegion do
-		if position[region] < position[lock.region] and roomId ~= session.room then
+		-- (Never in a side room the house key opens: docs/plans/level-design.md 11.)
+		local pocket = plan.pockets and plan.pockets[roomId]
+		if position[region] < position[lock.region] and roomId ~= session.room and not pocket then
 			table.insert(rooms, roomId)
 		end
 	end

@@ -165,6 +165,9 @@ Config.Mansion = {
 			rooms = { 15, 18 },
 			regions = 2,
 			heirlooms = { 2, 2 },
+			-- Side rooms behind the house key (docs/plans/level-design.md
+			-- section 11, L3.2): fewest and most a house.
+			pockets = { 0, 1 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
 		},
@@ -172,6 +175,7 @@ Config.Mansion = {
 			rooms = { 17, 20 },
 			regions = 2,
 			heirlooms = { 2, 3 },
+			pockets = { 1, 1 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
 		},
@@ -180,6 +184,7 @@ Config.Mansion = {
 			rooms = { 17, 20 },
 			regions = 3,
 			heirlooms = { 3, 3 },
+			pockets = { 1, 2 },
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -187,6 +192,7 @@ Config.Mansion = {
 			rooms = { 19, 22 },
 			regions = 3,
 			heirlooms = { 3, 3 },
+			pockets = { 2, 2 },
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -941,6 +947,9 @@ Config.LevelDesign = {
 		-- walked holding one whose door nobody has seen.
 		lockFirst = { band = { 0.6, 1 }, bySquad = { { 0.7, 1 } }, weight = 3, scale = 0.1 },
 		heldKeyBlind = { band = { 0, 0 }, weight = 1, scale = 100 },
+		-- Side rooms behind the house key (section 11, L3.2), by squad: a
+		-- house that can't fit them costs a little.
+		pockets = { band = { 1, 2 }, bySquad = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 2 } }, weight = 2 },
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)

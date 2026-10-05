@@ -585,6 +585,295 @@ local function stationRoom(ctx, rng, rooms: { number }): number
 	return rng:Pick(#storey > 0 and storey or rooms)
 end
 
+-- Side rooms behind a door the house key opens (pockets, docs/plans/
+-- level-design.md section 11, L3.2). One plain key a run is the house key:
+-- it opens its own gate and isn't used up, and the same mark is on the door
+-- of a side room or two in a part of the house the squad has already been
+-- through, each holding an heirloom. Going back pays.
+--
+-- A pocket is a room with one doorway (so nothing lies past it), inside its
+-- region, with nothing else in it the run needs (no key, no puzzle, no note
+-- or chute or servants' passage into it), not a corridor, a stair, the hall
+-- or the dining room. Its door is seen before the house key is found: it
+-- lies in a region opened no later than the key's (older ones first).
+-- `cfg.Pockets` is { fewest, most } a house (by squad, Logic/HouseSize).
+local function addPockets(ctx, rng, plan, cfg, position)
+	local range = cfg.Pockets
+	if not range or not ctx.mansion then
+		return
+	end
+	local want = rng:NextInteger(range[1], range[2])
+	if want <= 0 then
+		return
+	end
+	-- Rooms that must stay open: what's kept in them, puzzles, the chute's
+	-- and the servants' passages' rooms.
+	local busy = { [ctx.dining] = true, [ctx.start] = true }
+	if ctx.goal then
+		busy[ctx.goal] = true
+	end
+	-- (An heirloom in a drawer may stay: it's what the side room is for.)
+	local holds = {}
+	for id, token in plan.tokens do
+		if token.kind == "heirloom" and token.producer.kind == "container" then
+			holds[token.producer.room] = id
+		else
+			for _, room in LockPlanner.producerRooms(plan, token) do
+				busy[room] = true
+			end
+		end
+	end
+	for _, puzzle in plan.puzzles do
+		busy[puzzle.room] = true
+		for _, room in puzzle.rooms or {} do
+			busy[room] = true
+		end
+	end
+	local layout = ctx.layout
+	if layout.chute then
+		busy[layout.chute.ground] = true
+		busy[layout.chute.upper] = true
+	end
+	for _, passage in layout.passages or {} do
+		for _, seam in passage.seams or {} do
+			busy[seam.a] = true
+			busy[seam.b] = true
+		end
+	end
+	local doorways = {}
+	for _, seam in ctx.seams do
+		doorways[seam.a] = doorways[seam.a] or {}
+		doorways[seam.b] = doorways[seam.b] or {}
+		table.insert(doorways[seam.a], seam)
+		table.insert(doorways[seam.b], seam)
+	end
+	local candidates = {}
+	for _, id in ctx.ids do
+		local seams = doorways[id] or {}
+		local seam = seams[1]
+		local room = ctx.byId[id]
+		if
+			#seams == 1
+			and not busy[id]
+			and not ctx.corridor[id]
+			and room.kind ~= "stair"
+			and not room.tall
+			and not room.lantern
+			and not seam.arch
+			and plan.locks[seam.id] == nil
+			and plan.roomRegion[seam.a] == plan.roomRegion[seam.b]
+		then
+			table.insert(candidates, { room = id, seam = seam, region = plan.roomRegion[id] })
+		end
+	end
+	-- Region 0 keeps its hiding spots open.
+	local startHides = 0
+	for _, id in plan.regions[0].rooms do
+		startHides += ctx.offers[id].hides
+	end
+	-- The house key: a gate opened by one key kept in a room, the one with
+	-- the most older side rooms to send the squad back to.
+	local best, bestScore = nil, -1
+	for _, r in plan.order do
+		local lock = plan.locks[plan.regions[r].gate]
+		local token = lock.kind == "key" and lock.needs and #lock.needs == 1 and plan.tokens[lock.needs[1]]
+		if token and token.producer.kind == "container" then
+			local at = position[plan.roomRegion[token.producer.room]]
+			local older, same = {}, {}
+			for _, c in candidates do
+				local p = position[c.region]
+				if p < at then
+					table.insert(older, c)
+				elseif p == at then
+					table.insert(same, c)
+				end
+			end
+			local score = #older * 10 + #same + at * 0.1
+			if (#older + #same) > 0 and score > bestScore then
+				best, bestScore = { lock = lock, token = lock.needs[1], older = older, same = same }, score
+			end
+		end
+	end
+	-- No plain-key gate to share (cranks, padlocks, power, double locks): a
+	-- key of its own that opens only the side rooms, found later than any of
+	-- them (below).
+	if not best then
+		local older = {}
+		for _, c in candidates do
+			if position[c.region] < #plan.order then
+				table.insert(older, c)
+			end
+		end
+		if #older == 0 then
+			return
+		end
+		best = { standalone = true, older = older, same = {} }
+	end
+	-- What each cellar or attic wing holds that the run needs: one of its
+	-- heirlooms may only leave for a side room if something else stays.
+	local storeyHolds = {}
+	local function holdIn(room)
+		local group = ctx.storey[room]
+		if group then
+			storeyHolds[group] = (storeyHolds[group] or 0) + 1
+		end
+	end
+	for _, token in plan.tokens do
+		for _, room in LockPlanner.producerRooms(plan, token) do
+			holdIn(room)
+		end
+	end
+	for _, puzzle in plan.puzzles do
+		holdIn(puzzle.room)
+	end
+	-- Heirlooms that can move into a side room (kept in furniture, not in
+	-- one already).
+	local movable = {}
+	for _, id in plan.finale.heirlooms do
+		if plan.tokens[id].producer.kind == "container" then
+			table.insert(movable, id)
+		end
+	end
+	local pockets = {}
+	local regionsUsed, taken = {}, {}
+	rng:Shuffle(best.older)
+	rng:Shuffle(best.same)
+	-- Older regions first, each a different region where it can be; then
+	-- a second in a region that has one.
+	local passes = {
+		{ pool = best.older, spread = true },
+		{ pool = best.same, spread = true },
+		{ pool = best.older },
+		{ pool = best.same },
+	}
+	for _, pass in passes do
+		for _, c in pass.pool do
+			if #pockets >= want or #movable == 0 then
+				break
+			end
+			local hides = ctx.offers[c.room].hides
+			local keepsHides = c.region ~= 0 or startHides - hides >= cfg.Stage0Hides
+			if not taken[c.room] and not (pass.spread and regionsUsed[c.region]) and keepsHides then
+				taken[c.room] = true
+				-- Its heirloom: the one already in it, else one in this region
+				-- (so the heirlooms stay spread), else one not keeping the
+				-- cellar or the attic busy (they must hold something the run
+				-- needs: section 10.0); none, no side room here.
+				local pick = holds[c.room] and table.find(movable, holds[c.room])
+				for _, rank in { 1, 2 } do
+					for i, id in movable do
+						local room = plan.tokens[id].producer.room
+						local group = ctx.storey[room]
+						local fits = (rank == 1 and plan.roomRegion[room] == c.region)
+							or (rank == 2 and (not group or (storeyHolds[group] or 0) >= 2))
+						if fits and pick == nil then
+							pick = i
+						end
+					end
+				end
+				if pick == nil then
+					taken[c.room] = nil
+					continue
+				end
+				local heirloom = table.remove(movable, pick)
+				local from = plan.tokens[heirloom].producer.room
+				if ctx.storey[from] then
+					storeyHolds[ctx.storey[from]] -= 1
+				end
+				holdIn(c.room)
+				plan.tokens[heirloom].producer = { kind = "container", room = c.room }
+				if c.region == 0 then
+					startHides -= hides
+				end
+				regionsUsed[c.region] = true
+				table.insert(pockets, c)
+			end
+		end
+	end
+	if #pockets == 0 then
+		return
+	end
+	local tokenId = best.token
+	if best.standalone then
+		-- Found in a region opened after every side room's (going back is
+		-- the point), the newest by preference; with a mark no door has.
+		local newest = 0
+		for _, c in pockets do
+			newest = math.max(newest, position[c.region])
+		end
+		local later, same = {}, {}
+		for _, id in ctx.ids do
+			local p = position[plan.roomRegion[id]]
+			if not taken[id] and p > newest then
+				table.insert(later, id)
+			elseif not taken[id] and p == newest then
+				table.insert(same, id)
+			end
+		end
+		local room = keepingRoom(ctx, rng, #later > 0 and later or same, taken)
+		local used = {}
+		for _, lock in plan.locks do
+			if lock.mark then
+				used[lock.mark] = true
+			end
+		end
+		local mark = nil
+		for _, id in rng:Shuffle(table.clone(Marks.Ids)) do
+			if not used[id] then
+				mark = id
+				break
+			end
+		end
+		mark = mark or Marks.Ids[1]
+		tokenId = "key:house"
+		plan.tokens[tokenId] = {
+			kind = "key",
+			opens = pockets[1].seam.id,
+			mark = mark,
+			label = LockPlanner.label("key", Marks.ById[mark].name),
+			producer = { kind = "container", room = room },
+			house = true,
+		}
+	end
+	local key = plan.tokens[tokenId]
+	key.reusable = true
+	key.also = {}
+	plan.pockets = {}
+	for _, c in pockets do
+		plan.locks[c.seam.id] = {
+			kind = "pocket",
+			needs = { tokenId },
+			region = c.region,
+			inside = c.room,
+			mark = key.mark,
+			pocket = true,
+		}
+		plan.pockets[c.room] = { seam = c.seam.id, opener = tokenId }
+		if c.seam.id ~= key.opens then
+			table.insert(key.also, c.seam.id)
+		end
+	end
+	plan.stats.pockets = #pockets
+end
+
+-- When a room can first be reached: its region's place in the order, or, for
+-- a pocket, when the house key that opens it is found. Leads and notes go
+-- only where the squad can already get.
+function LockPlanner.stageOf(plan, room: number): number
+	local position = { [0] = 0 }
+	for i, r in plan.order do
+		position[r] = i
+	end
+	local stage = position[plan.roomRegion[room]] or math.huge
+	local pocket = plan.pockets and plan.pockets[room]
+	if pocket then
+		local key = plan.tokens[pocket.opener]
+		local keyRoom = key and LockPlanner.tokenRoom(plan, key)
+		stage = math.max(stage, keyRoom and position[plan.roomRegion[keyRoom]] or stage) + 0.5
+	end
+	return stage
+end
+
 -- One plan. Its regions are grown here, or, for a mansion planned as wings
 -- (Logic/Wings, docs/plans/level-design.md section 5.3), taken from those:
 -- the regions, the order they open in, each one's gate and where its key
@@ -1055,6 +1344,8 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 		cut = {}
 	end
 	plan.finale = { table = ctx.dining, heirlooms = heirlooms, cut = cut, goal = ctx.goal }
+	-- Side rooms behind the house key (its own fork: nothing else changes).
+	addPockets(ctx, rng:Fork("pockets"), plan, cfg, position)
 	return plan
 end
 
@@ -1268,7 +1559,9 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 	end
 	for _, seamId in sortedKeys(plan.locks) do
 		local lock = plan.locks[seamId]
-		for _, need in lock.needs or {} do
+		-- (A side room in an older region opens with a key found later: that's
+		-- what it's for. The solver above proves it can be.)
+		for _, need in not lock.pocket and lock.needs or {} do
 			local token = plan.tokens[need]
 			local rooms = token and LockPlanner.producerRooms(plan, token) or {}
 			local behind = #rooms == 0

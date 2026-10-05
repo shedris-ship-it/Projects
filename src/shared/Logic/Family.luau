@@ -217,6 +217,40 @@ function Family.markDoors(family, plan, label: (string, string, number?) -> stri
 			end
 		end
 	end
+	-- A house key of its own (section 11, L3.2: no gate to share) carries the
+	-- housekeeper's charm, if no door has it, else one nobody's door has.
+	local ids = {}
+	for id in plan.tokens do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	for _, id in ids do
+		local token = plan.tokens[id]
+		if token.house then
+			local housekeeper = family.byId.housekeeper
+			local mark = housekeeper and housekeeper.mark
+			if not mark or used[mark] then
+				mark = nil
+				for _, other in Marks.Ids do
+					if not used[other] then
+						mark = other
+						break
+					end
+				end
+			end
+			if mark then
+				used[mark] = true
+				token.mark = mark
+				token.label = label("key", Marks.ById[mark].name)
+			end
+		end
+	end
+	-- Side rooms carry their house key's mark.
+	for _, lock in plan.locks do
+		if lock.pocket then
+			lock.mark = plan.tokens[lock.needs[1]].mark
+		end
+	end
 end
 
 return Family

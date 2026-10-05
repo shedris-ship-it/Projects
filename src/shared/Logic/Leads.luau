@@ -78,19 +78,17 @@ local function sortedTokens(plan): { string }
 	return ids
 end
 
--- The order regions open in: region -> 0 for the start, 1 for the first opened...
-local function positions(plan): { [number]: number }
-	local position = { [0] = 0 }
-	for i, r in plan.order do
-		position[r] = i
-	end
-	return position
-end
-
 function Leads.plan(plan, rooms, rng, cfg)
-	local position = positions(plan)
+	-- When each room can first be reached (a side room behind the house key
+	-- only once that key is found: docs/plans/level-design.md section 11).
+	local stages = {}
 	local regionOf = function(room)
-		return position[plan.roomRegion[room]] or math.huge
+		local stage = stages[room]
+		if stage == nil then
+			stage = LockPlanner.stageOf(plan, room)
+			stages[room] = stage
+		end
+		return stage
 	end
 	local ids = {}
 	for id in rooms do
@@ -207,7 +205,8 @@ function Leads.plan(plan, rooms, rng, cfg)
 		local want = rng:NextInteger(entry.count[1], entry.count[2])
 		local free = {}
 		for _, id in ids do
-			if id ~= dining and (rooms[id].tops or 0) > 0 and not entry.taken[id] then
+			local pocket = plan.pockets and plan.pockets[id]
+			if id ~= dining and not pocket and (rooms[id].tops or 0) > 0 and not entry.taken[id] then
 				table.insert(free, id)
 			end
 		end

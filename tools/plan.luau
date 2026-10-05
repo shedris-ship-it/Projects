@@ -166,6 +166,25 @@ if process.args[3] == "locks" then
 	end
 	table.sort(bolts)
 	print("  bolts (shortcuts, opened from inside): " .. (#bolts > 0 and table.concat(bolts, ", ") or "none"))
+	-- Side rooms behind the house key (docs/plans/level-design.md section 11, L3.2).
+	if plan.pockets then
+		local sides, opener = {}, nil
+		for room, pocket in plan.pockets do
+			table.insert(sides, named(room) .. " by " .. pocket.seam)
+			opener = pocket.opener
+		end
+		table.sort(sides)
+		local key = plan.tokens[opener]
+		print(
+			string.format(
+				"  the house key: %s (%s, kept in %s) also opens %s",
+				key.label,
+				opener,
+				named(LockPlanner.tokenRoom(plan, key)),
+				table.concat(sides, ", ")
+			)
+		)
+	end
 	-- The adventure the doors were laid for (Logic/Wings, docs/plans/level-design.md 5.3).
 	local wings = layout.wings
 	if wings and plan.stats.wings then

@@ -38,6 +38,7 @@ function HouseSize.config(mansion, progression, squad: number?, extra: number?)
 	local p = table.clone(progression)
 	p.Regions = { { upTo = math.huge, count = regions } }
 	p.FinaleItems = size.heirlooms
+	p.Pockets = size.pockets
 	if size.flavours then
 		p.Flavours = table.clone(progression.Flavours)
 		for kind, weight in size.flavours do

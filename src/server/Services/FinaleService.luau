@@ -296,7 +296,8 @@ function FinaleService:_lockFacts()
 			local lock = info.opens and self.plan.locks[info.opens]
 			table.insert(keys, {
 				mark = mark.name,
-				place = info.opens and self:DoorPlace(info.opens),
+				-- (The house key's next door still shut: docs/plans/level-design.md 11.)
+				place = self.Locks:KeyPlace(held.token),
 				two = lock and lock.kind == "double" or nil,
 			})
 		end

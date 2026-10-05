@@ -467,3 +467,41 @@ The owner's solo retest follows L3.0, and the squad playtest follows L3.3 (Gate 
 - **`tools/plan`** prints the family: who, their charm and their rooms.
 - **Studio** (one client, seed 5 for four, the Whitcombes): clean console; F2 `leads` shows the notes in their voices; `give heirloom:1` gives "Mom's locket".
 - **Not yet:** photos, children's drawings as leads, place cards with names, the family's story across the notes (L3.6).
+
+### 11.7 L3.2 as built (build `2026-10-05.41`)
+- **Side rooms** (`LockPlanner` `addPockets`, the plan's own fork after everything else):
+  - A pocket is a room with one doorway, inside its region.
+  - It must hold nothing else the run needs: no key, puzzle, chute or servants' passage, and no Lantern.
+  - It can't be a corridor, a stair, a double-height room, the hall, the dining room or an archway.
+  - Region 0 keeps its hiding spots.
+- **Its door:** a `pocket` lock with the house key's mark.
+- **What's inside:** an heirloom, either the one already there or one moved in from the same region (so the heirlooms stay spread). One from elsewhere is moved only if that doesn't leave the cellar or the attic holding nothing (section 10.0).
+- **The house key:**
+  - If there's a gate opened by one plain key kept in a room, that key becomes the house key (`reusable`, `also`): it opens its own gate and the side rooms. The gate chosen is the one with the most side rooms in regions older than where its key lies.
+  - Otherwise (cranks, padlocks, power, double locks) a key of its own (`key:house`). It opens only the side rooms and is found in a region opened after all of them, the newest by preference. It carries the housekeeper's charm if no door has it (`Family.markDoors`).
+  - Either way, a side room's door is seen before the key is found, so the squad goes back for it.
+- **In play** (`LockService`):
+  - The house key isn't used up ("The umbrella key turns.") until every door with its mark is open ("Nothing left for the umbrella key.").
+  - The journal and the objective line name its next shut door once seen (`LockService:KeyPlace`).
+  - The map draws a side room's lock as a key door.
+- **What else respects them:**
+  - `LockPlanner.stageOf`: a pocket room is reachable once the house key is found, so leads never put a note there earlier.
+  - No decoy box or case goes in one, and nor does the fuse box's note.
+  - `LockPlanner.check` skips the "made before it" rule for pockets; the solver proves them.
+- **By squad** (`Config.Mansion.BySquad[n].pockets`): one player 0–1 (about half of runs), two 1, three 1–2, four 2.
+- **Measured** (`HouseMetrics`: `pockets`, `pocketReturns` (trips back that pay), `houseKeyDoors`; target `pockets` by squad):
+
+  | Squad | Searched houses with a pocket |
+  | --- | --- |
+  | 1 | about half (as drawn) |
+  | 2 | 25 of 30 |
+  | 3 | 29 of 30 |
+  | 4 | nearly all; 2 in about a third, median 1 |
+
+  Four players are short of two because few heirlooms can move without emptying the cellar or the attic; L3.3's tools give side rooms more to hold. No cellar or attic is left idle (`storeyIdle` 0 everywhere), and lock first is unchanged.
+- **Studio** (one client, seed 5 for four): the umbrella key of its own, kept in the playroom (the last wing), opens the water tank room in the attic (Mrs. Novak's), holding Mom's locket.
+  - The plaque shows ☂.
+  - Before opening, the line read "The umbrella key fits the door in the Lumber Room."
+  - On opening: "The umbrella key turns.", then "Nothing left for the umbrella key."
+  - Clean console.
+- **Not yet:** a side room holding a later gate's key (a chain), furniture pockets (a locked wardrobe or chest), two clients.

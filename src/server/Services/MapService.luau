@@ -186,7 +186,8 @@ function MapService:State()
 			kind = "crank"
 		elseif entry and not entry.open and not door.open then
 			if door.known then
-				kind = entry.lock.kind
+				-- (A side room's door is a key door to look at.)
+				kind = entry.lock.kind == "pocket" and "key" or entry.lock.kind
 				-- Its mark, never the room behind it (nobody has seen that).
 				local mark = entry.lock.mark and Marks.ById[entry.lock.mark]
 				if mark then

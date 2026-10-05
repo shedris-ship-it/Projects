@@ -55,6 +55,7 @@ local DOORS = {
 	double = "is locked. It needs two keys.",
 	padlock = "has a padlock.",
 	power = "has no power.",
+	pocket = "is locked.",
 }
 
 -- One sentence about keys and locks: a key someone holds whose door has
