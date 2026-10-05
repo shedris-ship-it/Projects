@@ -742,8 +742,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		world.rooms[room.id] = record
 
 		-- Contents: the template's furniture fitted to this room's size and
-		-- doorways (the ground storey's, for a double-height room).
-		local doors = MansionHouse.fitDoors(layout, room)
+		-- doorways (the ground storey's, for a double-height room). The lock
+		-- planner sees the same fit (Logic/Dumbwaiter).
 		for side in DIRS do
 			for _, entry in openingsOf(room, baseFloor, side) do
 				if entry.exit then
@@ -751,9 +751,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				end
 			end
 		end
-		local source = template.mansion and template.mansion.authored and inner
-			or { x = RoomFit.SourceInner, z = RoomFit.SourceInner }
-		local fitted = RoomFit.fit(template, source, inner, doors)
+		local fitted = RoomFit.inMansion(layout, room, template, WALL)
 		if room.lantern and not fitted.shrine then
 			fitted.shrine = { x = 0, z = 0 }
 		end

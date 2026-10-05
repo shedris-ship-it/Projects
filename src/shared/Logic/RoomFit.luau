@@ -18,6 +18,8 @@
 -- at the floor centre, before the room is turned). Pure: no engine calls.
 
 local Props = require(script.Parent.Parent.Data.Props)
+local MansionHouse = require(script.Parent.MansionHouse)
+local RoomRects = require(script.Parent.RoomRects)
 
 local RoomFit = {}
 
@@ -450,6 +452,18 @@ function RoomFit.fit(template, source, inner, doors)
 		caseBoard = caseBoard,
 		dropped = dropped,
 	}
+end
+
+-- A mansion room's furniture as World/MansionBuilder lays it out: its
+-- template fitted inside walls `wall` thick and clear of its doorways
+-- (MansionHouse.fitDoors). Planners read the same fit (Logic/Dumbwaiter), so
+-- they see the furniture the house will have. Returns the fit and the room's
+-- inner half extents, in its own frame.
+function RoomFit.inMansion(layout, room, template, wall: number)
+	local inner = RoomRects.innerOf(room, room.rotation, wall)
+	local source = template.mansion and template.mansion.authored and inner
+		or { x = RoomFit.SourceInner, z = RoomFit.SourceInner }
+	return RoomFit.fit(template, source, inner, MansionHouse.fitDoors(layout, room)), inner
 end
 
 return RoomFit

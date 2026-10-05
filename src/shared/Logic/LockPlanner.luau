@@ -863,9 +863,11 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			if enabled[keeper.id] and weight > 0 and not usedPuzzles[keeper.puzzle] then
 				if plan.stats.puzzles < cfg.MaxPuzzles and keeper.stacked then
 					-- Two stacked rooms, both open no later than this region,
-					-- the upper one in it.
+					-- the upper one in it, with a spot their furniture leaves
+					-- clear (found once a house).
+					ctx.stacked = ctx.stacked or Dumbwaiter.pairs(ctx.layout, cfg.Dumbwaiter or {}, ctx.templatesById)
 					local stacks = {}
-					for _, pair in Dumbwaiter.pairs(ctx.layout, cfg.Dumbwaiter or {}) do
+					for _, pair in ctx.stacked do
 						local upperRegion, groundRegion = roomRegion[pair.upper], roomRegion[pair.ground]
 						if
 							upperRegion == entry.region

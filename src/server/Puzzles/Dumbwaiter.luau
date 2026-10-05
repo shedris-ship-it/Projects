@@ -21,13 +21,14 @@ local Config = require(Shared.Config)
 local Dumbwaiter = require(Shared.Logic.Dumbwaiter)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
+local Rooms = require(Shared.Data.Rooms)
 local Sfx = require(Shared.Lib.Sfx)
 
 local D = Config.Dumbwaiter
 local part = PropFactory.part
 local WOOD = Color3.fromRGB(92, 66, 44)
 local HATCH_Y = 2.6 -- the car's floor at each hatch, above the room's floor
-local WIDTH, DEPTH, CAR = 1.9, 1.7, 1.25
+local WIDTH, DEPTH, CAR = D.Width, D.Depth, 1.25 -- the planner keeps furniture off these (Logic/Dumbwaiter)
 
 local Kind = {
 	label = "Dumbwaiter",
@@ -64,7 +65,9 @@ function Kind.create(service, id: string, puzzle)
 		crankers = {},
 	}
 	local o = Config.Level.Origin
-	for _, spot in Dumbwaiter.spots(world.layout, byId[ground], byId[upper], D) do
+	-- Spots the fitted furniture leaves clear (the planner chose these rooms
+	-- for having one); anything else solid there is still checked.
+	for _, spot in Dumbwaiter.spots(world.layout, byId[ground], byId[upper], D, Rooms.MansionById) do
 		local into = Vector3.new(spot.into.x, 0, spot.into.z)
 		local wall = Vector3.new(o.x + spot.x, 0, o.z + spot.z)
 		if Kind._clear(wall, into, floorY(0)) and Kind._clear(wall, into, floorY(1)) then
@@ -73,7 +76,8 @@ function Kind.create(service, id: string, puzzle)
 		end
 	end
 	if not session.station then
-		-- Nowhere clear on that wall: the heirloom is simply kept upstairs.
+		-- Nowhere clear on that wall (something the planner can't see stands
+		-- there): the heirloom is simply kept upstairs.
 		warn("[Consensus] no room for the dumbwaiter between " .. ground .. " and " .. upper)
 		if token then
 			local at = service.World:RandomPointIn(upper, Random.new(puzzle.seed))
@@ -102,6 +106,7 @@ function Kind.create(service, id: string, puzzle)
 end
 
 -- Is there room for the casing against this wall on a floor (no furniture)?
+-- The last guard: the planner already kept the fitted furniture off it.
 function Kind._clear(wall: Vector3, into: Vector3, y: number): boolean
 	local center = wall + into * (0.6 + DEPTH / 2) + Vector3.new(0, y + 4.5, 0)
 	local params = OverlapParams.new()
@@ -175,7 +180,7 @@ function Kind.build(service, session, wall: Vector3, into: Vector3)
 	local model = Instance.new("Model")
 	model.Name = "Dumbwaiter"
 	local base0 = CFrame.lookAt(
-		Vector3.new(wall.X, floorY(0), wall.Z) + into * 0.55,
+		Vector3.new(wall.X, floorY(0), wall.Z) + into * D.Inset,
 		Vector3.new(wall.X, floorY(0), wall.Z) + into * 2
 	)
 	local base1 = base0 + Vector3.new(0, floorY(1) - floorY(0), 0)

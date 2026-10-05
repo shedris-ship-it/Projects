@@ -175,7 +175,8 @@ Squad 1: 15–18 rooms, 2 regions in 26 of 30 houses, region 0 a median 0.47, sc
 - Solo runs rarely go back to an older region (12 of 30): a solo house's second wing often opens from its first. Tune after the playtest.
 - Shortcuts: half the wings of four rooms or more have one that saves 60+ studs; the zone rules (which rooms may share a door) leave few doorways to add.
 - A lure in every wing isn't guaranteed (`kitGaps` median 2); L3's room options add lures.
-- The dumbwaiter's hatch can find its wall taken by furniture (its heirloom is then left upstairs); it's a rare deck pick until the planner checks furniture (a task is open for it).
 - The authored fallback mansion (`Data/MansionFallback`) wasn't re-frozen: it has no wings and is planned the old way; the search keeps it only when every candidate falls back.
 - Not checked: two clients (TC-90 to TC-94), the feel of it.
+
+**Fixed after L1** (build `2026-10-05.31`): the dumbwaiter's hatch could find its wall taken by furniture, and its heirloom was then left upstairs (seed 3 for four: the garage under the nursery). The planner now offers only spots whose casing, and the crank downstairs, clear the furniture both rooms will have (`Logic/Dumbwaiter`: `furniture` and `footprint`, from `RoomFit.inMansion`, the fit `World/MansionBuilder` builds), so it's an ordinary deck pick again (weight 1.5, was 0.5). The build still checks the spot for anything else solid. Over the first houses of seeds 1 to 80 for four, 39 dumbwaiters were planned and none would hit fitted furniture (before: 28, one blocked).
 

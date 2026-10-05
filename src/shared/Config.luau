@@ -218,9 +218,9 @@ Config.Mansion = {
 	-- Enabled is Config.Progression.Enabled (set below).
 	Programme = {
 		Kinds = { "padlock", "power", "crank", "safe", "musicbox", "dumbwaiter" }, -- in draw order
-		-- (The dumbwaiter is rare: its hatch can find the wall taken by furniture, and
-		-- then its heirloom is simply left upstairs.)
-		Weights = { padlock = 3, power = 2, crank = 1.5, safe = 2, musicbox = 2, dumbwaiter = 0.5 },
+		-- (The dumbwaiter was 0.5 while the planner could pick a wall that furniture
+		-- then filled; it now only picks spots clear of the fitted furniture.)
+		Weights = { padlock = 3, power = 2, crank = 1.5, safe = 2, musicbox = 2, dumbwaiter = 1.5 },
 		DeckSize = { 2, 2, 3, 3 }, -- kinds a run wants, by squad size
 		DrawBonus = 2, -- a room with a landmark or a lure comes up this much more
 		DeckBoost = 10, -- the lock planner's weight for a kind in the deck
@@ -879,6 +879,17 @@ Config.Dumbwaiter = {
 	EndClear = 1.5, -- studs from the end of the shared wall
 	DoorClear = 5, -- and from any doorway on either floor
 	Step = 2, -- spots tried along the wall this far apart
+	-- The casing on each floor: this wide along the wall, this deep, its back
+	-- this far out from the wall's line. Downstairs the crank and its jam box
+	-- stand beside it, this much further along on its right as you face it.
+	Width = 1.9,
+	Depth = 1.7,
+	Inset = 0.55,
+	CrankSide = 0.8,
+	-- The planner keeps it this far off the furniture each room will have
+	-- (Logic/RoomFit; Logic/Dumbwaiter.spots), so the build finds it clear.
+	FurnitureClear = 0.25,
+	Wall = Config.Level.WallThickness, -- the rooms' walls, which that furniture stands inside
 	Rise = 0.18, -- of the way up a second, cranked (about 5.5 s to the top)
 	Fall = 0.35, -- of the way down a second, let go
 	CreakNoise = 12, -- cranking it, heard from you
