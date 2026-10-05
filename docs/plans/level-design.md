@@ -1,6 +1,6 @@
 # The house as a designed level
 
-Status (2026-10-05): **L0 (this document) and L1 under way.** L1 restructures how the mansion is generated: the adventure decides where the doors, wings and shortcuts go; the house follows the squad's size; every room has a reason to go in; and each run is the best of many candidate houses. The squad playtest comes after L1, then L2–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
+Status (2026-10-05): **L0 and L1 done** (builds `2026-10-05.25` to `.30`; section 9, "L1 as built"). The adventure now decides where the doors, wings and shortcuts go; the house follows the squad's size; every room's reason is counted and filled; and each run is the best of 12 candidate houses. **Next: the squad playtest**, then L2–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
 
 ## 1. Why
 
@@ -130,9 +130,9 @@ About 12 candidate houses a run, each from its own forks of the seed, each plann
 | L4 | The house fights back (the old R3): flips chosen by the simulator, his passages, his room, the looping corridor, house events by act | Playtest |
 
 ## 7. Additions to the fairness contract
-- Every wing has a hiding spot, a lure, and somewhere to run round once its bolts are open.
-- A shortcut only ever opens from the far side.
-- A backtrack gate is always reachable with what the squad has.
+- Every stage has somewhere to run round once its bolts are open, and no dead end deeper than 3 rooms (`LockPlanner.checkShape`, run on every partition before it's kept); region 0 is built round a loop of at least 100 studs. Every room but a stair has somewhere to hide. A lure in every wing is preferred by the search, not guaranteed (`kitGaps`); L3's room options close that gap.
+- A shortcut only ever opens from the far side (it's a bolt).
+- A backtrack gate is always reachable with what the squad has (the solver proves every plan).
 - A double lock's two keys are always where the squad can get them before the door.
 - The house follows the squad's size: a solo player never gets a 24-room house.
 
@@ -141,3 +141,41 @@ About 12 candidate houses a run, each from its own forks of the seed, each plann
 - **More doors from the beats lower the validator's pass rate:** more attempts, absorbed by the search; watched with `tools/mansionstats`.
 - **Generation time on the server:** measured in Studio; the number of candidates is in `Config.LevelDesign`, and the search yields between them.
 - **The playtest may move the targets** (loop lengths, how big a house two players can manage): that's what the bands in `Config.LevelDesign.Targets` are for.
+
+## 9. L1 as built (2026-10-05, builds `2026-10-05.25` to `.30`)
+
+**The pipeline, per run** (`RunOrchestrator` → `Logic/HouseSearch`, 12 candidates, the server yielding between them):
+1. `Logic/HouseSize`: the squad's room band, regions and heirlooms (`Config.Mansion.BySquad`; small houses also get fewer extra corridors and one stairwell). F2 `squad <1-4|auto>` stands in for a bigger squad.
+2. `Logic/Programme`: the adventure deck (2 kinds for 1–2 players, 3 for 3–4) and the room list, needed rooms first (the study for the computer, the music room for the music box), then rooms with a landmark or a lure ahead of plain ones.
+3. `Logic/MansionGen`: the spine and rooms as before, packed in the programme's order; then the doors: the required ones, then `Logic/Wings` (region 0 round a loop through the hall or the dining room; wings of 3–7 rooms cut from the tree of doors; a loop inside each wing; shortcuts home; the backtrack; wings side by side for 3–4 players; per-stage dead ends patched), each tried partition checked by `LockPlanner.checkShape`; then extra loops, preferring doors inside a wing.
+4. `Logic/LockPlanner`: takes the wings' regions, order, gates and key regions, and draws the locks' kinds (favouring the deck) and keepers; keys go the long way round (40–300 walking studs from their door, `MansionHouse.walker`); keys and heirlooms go to rooms with no reason of their own first, never an heirloom in a corridor; the double lock for 3–4 players. Houses without wings (the old house, the authored fallback) are planned as before; the old house's plans are byte-identical.
+5. `Logic/Leads` (notes go to rooms with no reason first), `Logic/RoomPurpose` (every room's reasons), `Logic/HouseMetrics` (a simulated squad walks it over `Logic/NavGraph`) and the score; the lowest is kept. F2 `house` prints the scores, the scorecard, the wings and every room's reasons; Telemetry `HouseChosen`.
+
+**Measured** (`lune run tools/housestats 30 <squad>`; "before" is the generator as it stood, build `.24`, one house a seed):
+
+| Squad 4 | Before | After |
+| --- | --- | --- |
+| Region 0's share of the house (band 0.25–0.4) | median 0.58, all 60 houses outside | median 0.43, range 0.29–0.50 |
+| Regions after the first (wanted 3) | median 2 | 3 in 29 of 30 houses |
+| The smallest region | 1–2 rooms in 38 of 60 | 3 or more in every house |
+| Heirlooms in a corridor | in 28 of 60 houses | none |
+| Trips back to an older region | none in 21 of 60 | median 1 (none in 2 of 30) |
+| Puzzles a run | median 1 | median 2 |
+| Rooms with no reason to go in | (not measured) | median 1 |
+| Score on today's targets (lower is better) | one house with L1's generator: median 20.8 | best of 12: median 12.6 |
+
+Squad 1: 15–18 rooms, 2 regions in 26 of 30 houses, region 0 a median 0.47, score 8.7. Generation: about 1.4 s a run in Lune, 0.8–1.5 s in Studio.
+
+**Checked in Studio (one client):** squad sizes (seed 61 solo: 16 rooms, 2 regions, as in Lune); a double lock (shut with no key and with one, open on the second); `navtest fast` with every lock open and the shutters latched on the searched houses of seed 61 (squads 1 and 4: 18 and 23 legs) and seed 7 (17 and 26), and seed 6's single house (24): 0 failed, 0 stuck, 0 phases; a full run on seed 3 for four (the dinner, out of the front door, won); Gate A unchanged (parts 2134, hash 1322547804); clean consoles; `perf` 0.2 ms heartbeat.
+
+**Found and fixed on the way:** the run tick ended a run as abandoned while the search yielded (the squad joins only once the house is built); candidate seeds from `Fork("house " .. i)` overlapped between next seeds (the salts hash one apart); F2 `unlock all` left crank shutters down, so `navtest` timed out on the long way round (it now latches them, and a leg's time follows his route).
+
+**Not done, or open:**
+- A region-0 share under 0.4 isn't always reachable: the hall, the dining room and their loop are a big share of a small house, and a public wing too big to be one wing stays in region 0. L2's house plans (wings built as units) are the real fix.
+- Solo runs rarely go back to an older region (12 of 30): a solo house's second wing often opens from its first. Tune after the playtest.
+- Shortcuts: half the wings of four rooms or more have one that saves 60+ studs; the zone rules (which rooms may share a door) leave few doorways to add.
+- A lure in every wing isn't guaranteed (`kitGaps` median 2); L3's room options add lures.
+- The dumbwaiter's hatch can find its wall taken by furniture (its heirloom is then left upstairs); it's a rare deck pick until the planner checks furniture (a task is open for it).
+- The authored fallback mansion (`Data/MansionFallback`) wasn't re-frozen: it has no wings and is planned the old way; the search keeps it only when every candidate falls back.
+- Not checked: two clients (TC-90 to TC-94), the feel of it.
+

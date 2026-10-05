@@ -413,6 +413,7 @@ The plan was ten stages; each commit says what was checked in Studio and what wa
 - **Flips (R3)** happen only where nobody could see, never close a stairwell or a bridge, never skip a lock, and keep every validator rule.
 - **Throws** are decided on the server; stuns shrink when repeated.
 - **Items can't be lost:** anything that leaves the world or a Lost player's hands returns to where it was found or where its holder fell.
+- **The level design** ([`level-design.md`](level-design.md) section 7): every stage of the wings has somewhere to run round and no dead end deeper than 3 rooms; shortcuts open only from the far side; backtrack gates and double locks are always reachable with what the squad has; the house follows the squad's size.
 
 ## 13. Risks
 1. **Engine unknowns,** each checked in the commit that needs it, each with a fallback flag in Config: does sinking mouse look stop the PlayerModule's camera (else a Scriptable camera)? Does a client-predicted door fight replication (else no prediction)? Is client-owned carrying smooth for others (else the server drives it)?

@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. The pure logic is unit-tested (334 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
+> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (363 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
 
 ---
 
@@ -106,11 +106,12 @@ These commands work in Studio, or on live servers for user ids listed in `Config
 
 ```
 help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lights on|off · gatea
-seed <n> · layout cells|mansion|default   (apply to the next run)
+seed <n> · layout cells|mansion|default · squad <1-4|auto>   (apply to the next run)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · scent · table · tidy
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where
-locks · unlock <seam|all> · give <token> · items · leads [go <token> [note]]
+house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
+locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> · items · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
 switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
@@ -192,7 +193,7 @@ rojo build default.project.json -o Consensus.rbxlx
 | Area | Built | Next |
 | --- | --- | --- |
 | Core loop | Hub, Arrival → Investigation → the dinner → Extraction → Dossier; locks, keys, leads, puzzles, heirlooms; acts and progress-woken hunts; win/lose, downs, revives, Echoes | **A squad playtest**, then the living house (R3: doors that become walls where nobody sees, house events), a tutorial run, a daily contract |
-| The house | The mansion generator (two floors, 18–24 rooms), lighting, trim, materials, grime, fixtures, switches and circuits, walk-in closets | Furnishing and art pass (M4), merged with interactive props |
+| The house | The mansion generator (two floors, 15–24 rooms by squad size), the adventure planned first (wings, a loop in each, shortcuts, the backtrack, double locks), every room with a reason, the best of 12 houses; lighting, trim, materials, grime, fixtures, switches and circuits, walk-in closets | **A squad playtest**, then house plans and new spaces (a cellar, an attic, servants' passages, a laundry chute), the family and furniture laid out for play (`docs/plans/level-design.md`) |
 | Physics | Carry and throw with weight, doors and drawers with momentum, furniture by weight, barricades | Touch controls for hands |
 | Stalker | Director with acts, Tactician (13 tactics over a learned squad profile), stalking between hunts, heirloom scent, errands (the table, tidying), navigation on both floors, barricades | The Orderly (St. Odile Ward) |
 | Progression | Marks for outcome and progress, Clearance 1–50, the Dossier, session-locked saves | Store, private servers, season pass |
