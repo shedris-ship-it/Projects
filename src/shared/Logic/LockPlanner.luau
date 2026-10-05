@@ -171,6 +171,12 @@ LockPlanner.Where = {
 	desk = function(ctx, id)
 		return ctx.offers[id].desk
 	end,
+	-- A service room for the fuse box: the kitchen, laundry, garage, mudroom
+	-- or pantry (not a bathroom).
+	service = function(ctx, id)
+		local template = ctx.templatesById[ctx.byId[id].template]
+		return template ~= nil and template.family == "utility" and template.id ~= "bathroom"
+	end,
 }
 
 -- What kind of lock a region's gate can be. The first is the plain key; the
@@ -197,6 +203,16 @@ LockPlanner.Gates = {
 		where = "desk",
 		label = function(name)
 			return "The code for the padlock on the " .. name .. " door"
+		end,
+	},
+	-- An electric lock, powered from the fuse box (Logic/Puzzles/Breaker).
+	{
+		id = "power",
+		token = "power",
+		puzzle = "breaker",
+		where = "service",
+		label = function(name)
+			return "Power for the " .. name .. " door"
 		end,
 	},
 }

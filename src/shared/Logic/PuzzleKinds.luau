@@ -17,4 +17,5 @@ local Puzzles = script.Parent.Puzzles
 return {
 	terminal = require(Puzzles.Terminal),
 	padlock = require(Puzzles.Padlock),
+	breaker = require(Puzzles.Breaker),
 }

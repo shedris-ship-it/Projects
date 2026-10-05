@@ -677,9 +677,9 @@ Config.Progression = {
 	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
 	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
+	Flavours = { key = 3, padlock = 2, power = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
-	Enabled = { key = true, padlock = true },
+	Enabled = { key = true, padlock = true, power = true },
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
 	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round
@@ -717,6 +717,17 @@ Config.Interact = {
 	SwitchHeight = 4, -- studs above the floor
 	Switch = { DoorWidth = 6, WallFace = 0.55, Beside = 0.9, Margin = 0.8 }, -- Logic/SwitchSpots
 	SwitchNoise = 4, -- a light switch's click carries this far
+}
+
+-- The breaker panel (R2c; Logic/Circuits, Logic/Puzzles/Breaker, server/
+-- Puzzles/Breaker): the house's lights on a handful of breakers.
+Config.Breaker = {
+	Count = { 6, 8 }, -- breakers, the hall's own included
+	Capacity = { 3, 4 }, -- more than this many on at once trips the main
+	SmudgeChance = 0.35, -- the door's breaker has lost its label
+	DecoyChance = 0.5, -- another breaker is wrongly labelled with the door's room
+	TripNoise = 30, -- the main tripping: a loud clunk, and every light out
+	FlipNoise = 6,
 }
 
 -- The map (Services/MapService, UI/Map): what counts as seen.

@@ -28,10 +28,12 @@ local DOORS = {
 	key = { color = Color3.fromRGB(196, 74, 60), tag = "KEY" },
 	padlock = { color = Color3.fromRGB(214, 150, 60), tag = "CODE" },
 	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
+	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },
 }
 local MARKS = {
 	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },
 	display = { text = "CASE", color = Color3.fromRGB(170, 200, 220) },
+	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
 }
 
 function Map.new(ctx)
@@ -316,7 +318,7 @@ function Map:_renderMap()
 		end
 		self:_dot(canvas, x, y, 10, Ui.Theme.accent, "you")
 	end
-	Ui.label("Diamonds: doorways.  KEY, CODE, BOLT: locks.  note: read here.  At the table: places set.", {
+	Ui.label("Diamonds: doorways.  KEY, CODE, BOLT, POWER: locks.  note: read here.  At the table: places set.", {
 		Position = UDim2.fromOffset(0, height * scale + 26),
 		Size = UDim2.fromOffset(width * scale, 18),
 		TextSize = 12,

@@ -136,7 +136,8 @@ function LockService:_clear()
 end
 
 -- A small plate on both faces of a locked door: a keyhole for a key, a
--- padlock on a hasp for a code, a bolt on the side it slides from.
+-- padlock on a hasp for a code, a bolt on the side it slides from, and for
+-- an electric lock a box with a lamp (red until the fuse box powers it).
 local function plate(door, lock)
 	local slab = door.slab
 	local brass = Color3.fromRGB(168, 138, 78)
@@ -160,6 +161,22 @@ local function plate(door, lock)
 			p.Size = Vector3.new(1.4, 0.18, 0.12)
 			p.CFrame = face * CFrame.new(0.3, 1.2, side * 0.06)
 			p.Color = Color3.fromRGB(70, 70, 74)
+		elseif lock.kind == "power" then
+			p.Size = Vector3.new(0.5, 0.8, 0.16)
+			p.CFrame = face * CFrame.new(0, 0.6, side * 0.08)
+			p.Color = Color3.fromRGB(80, 84, 82)
+			local lamp = Instance.new("Part")
+			lamp.Name = "Lamp"
+			lamp.Anchored = true
+			lamp.CanCollide = false
+			lamp.CanTouch = false
+			lamp.CastShadow = false
+			lamp.Material = Enum.Material.Neon
+			lamp.Color = Color3.fromRGB(150, 24, 18)
+			lamp.Shape = Enum.PartType.Ball
+			lamp.Size = Vector3.new(0.16, 0.16, 0.16)
+			lamp.CFrame = face * CFrame.new(0, 0.85, side * 0.17)
+			lamp.Parent = folder
 		else
 			p.Size = Vector3.new(0.3, 0.6, 0.05)
 			p.CFrame = face * CFrame.new(0, 0.6, side * 0.03)
@@ -345,12 +362,28 @@ function LockService:_try(door, player: Player?)
 		end
 		self:_rattle(door)
 		notify(player, "A padlock. It needs a code.")
+	elseif lock.kind == "power" then
+		self:_rattle(door)
+		notify(player, "An electric lock. The lamp by it is dark: no power.")
 	elseif lock.kind == "seal" then
 		self:_rattle(door)
 		notify(player, "It won't move. Not that way.")
 		return
 	end
 	self.Noise:Emit(door.position, 6, player, "door")
+end
+
+-- An electric lock's lamp: green with power, red without (the fuse box).
+function LockService:SetPowered(seamId: string, on: boolean)
+	local entry = self.locks[seamId]
+	if not entry or not entry.plate then
+		return
+	end
+	for _, lamp in entry.plate:GetChildren() do
+		if lamp.Name == "Lamp" then
+			lamp.Color = on and Color3.fromRGB(60, 220, 90) or Color3.fromRGB(150, 24, 18)
+		end
+	end
 end
 
 -- Open a lock for good (a key, a code, a bolt, F2, the dinner).

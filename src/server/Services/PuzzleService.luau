@@ -184,7 +184,7 @@ function PuzzleService:_open(session, player: Player): boolean
 		notify(player, "Someone's already at it.")
 		return false
 	end
-	if session.state.solved then
+	if session.state.solved and not KINDS[session.kind].reusable then
 		notify(player, KINDS[session.kind].done or "It's done.")
 		return false
 	end
@@ -240,6 +240,7 @@ function PuzzleService:_input(player: Player, id: string, action: string, word: 
 	if not input then
 		return
 	end
+	local wasSolved = rules.solved(session.state)
 	local _, events = rules.step(session.spec, session.state, input)
 	local position = session.station.Position
 	local kind = KINDS[session.kind]
@@ -249,7 +250,7 @@ function PuzzleService:_input(player: Player, id: string, action: string, word: 
 		end
 	end
 	Net.get("PuzzleState"):FireClient(player, session.id, public(session), events)
-	if rules.solved(session.state) then
+	if not wasSolved and rules.solved(session.state) then
 		self:_solved(session, player)
 	end
 end
@@ -266,12 +267,14 @@ end
 function PuzzleService:_solved(session, player: Player?)
 	self.Drift:Apply("PuzzleSolved")
 	self.Solved:Fire(session.id, player)
-	task.delay(1.6, function()
-		if session.operator and session.operator == player then
-			self:_close(session)
-		end
-	end)
 	local kind = KINDS[session.kind]
+	if not kind.reusable then
+		task.delay(1.6, function()
+			if session.operator and session.operator == player then
+				self:_close(session)
+			end
+		end)
+	end
 	if kind.solved then
 		kind.solved(self, session, player)
 	end
@@ -344,6 +347,10 @@ function PuzzleService:DebugSolve(player: Player, id: string?): string
 		return session.id .. " is already solved"
 	end
 	PuzzleKinds[session.kind].solve(session.spec, session.state, os.clock())
+	local kind = KINDS[session.kind]
+	if kind.event then
+		kind.event(self, session, { kind = "solved" }, player, session.station.Position)
+	end
 	self:_solved(session, player)
 	return "solved " .. session.id
 end

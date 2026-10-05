@@ -112,6 +112,7 @@ function ItemService:Start()
 		table.clear(self.racks)
 		table.clear(self.decoys)
 		self.folder = nil
+		self.noteCount = 0
 	end)
 end
 
@@ -615,6 +616,25 @@ end
 -- A note in `noteRoom` saying where `token` is kept: lying on a top, else
 -- pinned to a wall, else on the floor.
 function ItemService:_placeNote(token: string, noteRoom: number, room: number, space, rng, used): boolean
+	local info = self.plan.tokens[token]
+	local item = info.kind == "heirloom" and string.lower(self:Label(token)) or info.label
+	local where = space and NoteText.place(space.prop.kind, space.group) or "plain sight"
+	local template = NoteText.pick(rng, info.kind, used)
+	local text = NoteText.write(template, { item = item, place = where, room = NoteText.roomPhrase(self.named, room) })
+	self:AddNote(noteRoom, text, rng, token)
+	return true
+end
+
+-- How a note names a room so it's the only one it could mean (for other
+-- systems' notes: the fuse box's).
+function ItemService:RoomPhrase(roomId: number): string
+	return self.named and (NoteText.roomPhrase(self.named, roomId)) or ("room " .. roomId)
+end
+
+-- A note with `text` in `noteRoom`: lying on a top, else pinned to a wall,
+-- else on the floor. Read with E (ReadNote). `token` is what it's about, if
+-- anything. Other systems leave their hints this way (the fuse box).
+function ItemService:AddNote(noteRoom: number, text: string, rng, token: string?)
 	local onWall = false
 	local at = self:_top(noteRoom, rng)
 	if not at then
@@ -625,12 +645,8 @@ function ItemService:_placeNote(token: string, noteRoom: number, room: number, s
 		local point = self.World:RandomPointIn(noteRoom, rng)
 		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	end
-	local info = self.plan.tokens[token]
-	local item = info.kind == "heirloom" and string.lower(self:Label(token)) or info.label
-	local where = space and NoteText.place(space.prop.kind, space.group) or "plain sight"
-	local template = NoteText.pick(rng, info.kind, used)
-	local text = NoteText.write(template, { item = item, place = where, room = NoteText.roomPhrase(self.named, room) })
-	local id = "note:" .. (#self.folder:GetChildren() + 1)
+	self.noteCount = (self.noteCount or 0) + 1
+	local id = "note:" .. self.noteCount
 	local model, sheet = LeadProps.note(at, self.folder, onWall, rng:NextInteger(1, 2 ^ 30))
 	model:SetAttribute("NoteId", id)
 	local note = { id = id, token = token, text = text, room = noteRoom, model = model, sheet = sheet }
@@ -647,7 +663,7 @@ function ItemService:_placeNote(token: string, noteRoom: number, room: number, s
 	prompt.Triggered:Connect(function(player)
 		self:ReadNote(player, id)
 	end)
-	return true
+	return note
 end
 
 -- Someone reads a note: its text goes to them alone.
