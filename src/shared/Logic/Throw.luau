@@ -52,6 +52,35 @@ function Throw.segmentSegment(p0: Vector3, p1: Vector3, q0: Vector3, q1: Vector3
 	return ((p0 + d1 * s) - (q0 + d2 * t)).Magnitude
 end
 
+-- Did a step from `from` to `to` pass through a box (`box` a CFrame at its
+-- centre, `size` its full size), grown by `pad` all round (the thing's own
+-- size)? A slab test in the box's frame. For glass a throw can break.
+function Throw.segmentBox(from: Vector3, to: Vector3, box: CFrame, size: Vector3, pad: number): boolean
+	local a = box:PointToObjectSpace(from)
+	local b = box:PointToObjectSpace(to)
+	local d = b - a
+	local enter, leave = 0, 1
+	for _, axis in { "X", "Y", "Z" } do
+		local half = size[axis] / 2 + pad
+		local start, delta = a[axis], d[axis]
+		if math.abs(delta) < 1e-9 then
+			if start < -half or start > half then
+				return false
+			end
+		else
+			local t0, t1 = (-half - start) / delta, (half - start) / delta
+			if t0 > t1 then
+				t0, t1 = t1, t0
+			end
+			enter, leave = math.max(enter, t0), math.min(leave, t1)
+			if enter > leave then
+				return false
+			end
+		end
+	end
+	return true
+end
+
 -- Did a thing flying from `from` to `to` this step pass through a body: a
 -- capsule from `feet` to `head` of `radius` (plus the thing's own size)?
 function Throw.hits(from: Vector3, to: Vector3, feet: Vector3, head: Vector3, radius: number): boolean

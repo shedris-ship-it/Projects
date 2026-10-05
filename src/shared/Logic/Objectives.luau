@@ -7,12 +7,24 @@
 --   places, placesLeft: places laid at the table, and how many are empty
 --   locked: the name of the room behind the last locked door someone tried
 --     and couldn't open (nil once it's open)
---   computer: the name of the room with the home computer, once someone has
---     been near it; computerSolved once it's cracked
+--   stations: the puzzles and locked cases someone has been near, in the
+--     order they were first seen: { { kind, room, solved } }. The newest one
+--     not yet dealt with is mentioned.
 --   tidied: he put an heirloom back where it was kept (until it's found again)
 -- }
 
 local Objectives = {}
+
+-- What a station seen and not yet dealt with says, by kind. Each new puzzle
+-- or lead adds its line here.
+Objectives.Stations = {
+	terminal = function(room: string)
+		return "The computer in the " .. room .. " is still on."
+	end,
+	display = function(room: string)
+		return "A glass case in the " .. room .. " is locked."
+	end,
+}
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }
 
@@ -37,8 +49,14 @@ function Objectives.line(facts): string
 	if facts.locked then
 		table.insert(parts, "The " .. facts.locked .. " door is locked.")
 	end
-	if facts.computer and not facts.computerSolved then
-		table.insert(parts, "The computer in the " .. facts.computer .. " is still on.")
+	local stations = facts.stations or {}
+	for i = #stations, 1, -1 do
+		local station = stations[i]
+		local say = Objectives.Stations[station.kind]
+		if not station.solved and say then
+			table.insert(parts, say(station.room))
+			break
+		end
 	end
 	if facts.tidied then
 		table.insert(parts, "Something has been put back where it belongs.")

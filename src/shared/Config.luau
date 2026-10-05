@@ -689,6 +689,27 @@ Config.Progression = {
 	Attempts = 24, -- tries for each number of regions before trying one fewer
 }
 
+-- How keys and heirlooms are found (R2c "leads, not rummaging"; Logic/Leads,
+-- Services/ItemService): a note that says where, a keepsake box, a locked
+-- glass case, a key rack.
+Config.Leads = {
+	Kinds = { "note", "keepsake", "display", "hook", "drawer" }, -- the order they're drawn in
+	Weights = {
+		key = { note = 3, keepsake = 3, display = 1, hook = 2, drawer = 0 },
+		heirloom = { note = 3, keepsake = 3, display = 3, drawer = 0 },
+	},
+	Repeat = 0.5, -- each time a kind is given in a run, its weight halves
+	DecoyKeepsakes = { 1, 2 }, -- empty boxes, a run
+	DecoyDisplays = { 0, 1 }, -- cases with nothing of his inside
+	ReadRange = 9, -- studs from a note to read it
+	WallDrop = 1.6, -- studs below a picture's wall spot a pinned note or key rack goes
+	PickSeconds = 8, -- holding E at a case's lock
+	PickRattle = 1.5, -- seconds between rattles while you pick it
+	PickNoise = 10,
+	SmashSpeed = 12, -- a thrown thing at least this fast breaks a case's glass
+	SmashNoise = 35,
+}
+
 -- The escape's puzzles (docs/plans/gameplay-rework.md section 7;
 -- Services/PuzzleService, Logic/Puzzles/*).
 Config.Puzzles = {

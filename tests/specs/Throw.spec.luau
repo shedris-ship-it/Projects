@@ -19,6 +19,33 @@ return function(test, check, Shared, require)
 		check.truthy(not Throw.hits(Vector3.new(-9, 3, 0), Vector3.new(-3, 3, 0), feet, head, 1.2), "short of him")
 	end)
 
+	test("a throw through a glass case breaks it; one past it, over it or short of it doesn't", function()
+		local CFrame = roblox.CFrame
+		-- A case turned a quarter round, standing on a table at (10, 3, 0).
+		local box = CFrame.new(10, 3.5, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		local size = Vector3.new(1.2, 0.75, 0.9)
+		check.truthy(
+			Throw.segmentBox(Vector3.new(0, 3.5, 0), Vector3.new(20, 3.5, 0), box, size, 0.2),
+			"straight through"
+		)
+		check.truthy(
+			Throw.segmentBox(Vector3.new(8, 3.6, 0), Vector3.new(9.6, 3.5, 0.1), box, size, 0.2),
+			"a step ending in it"
+		)
+		check.truthy(not Throw.segmentBox(Vector3.new(0, 3.5, 2), Vector3.new(20, 3.5, 2), box, size, 0.2), "beside it")
+		check.truthy(not Throw.segmentBox(Vector3.new(0, 5, 0), Vector3.new(20, 5, 0), box, size, 0.2), "over it")
+		check.truthy(
+			not Throw.segmentBox(Vector3.new(0, 3.5, 0), Vector3.new(8, 3.5, 0), box, size, 0.2),
+			"short of it"
+		)
+		-- Turned, its width (1.2) runs along Z: 0.6 either side plus 0.2 of pad.
+		check.truthy(
+			not Throw.segmentBox(Vector3.new(0, 3.5, 0.85), Vector3.new(20, 3.5, 0.85), box, size, 0.2),
+			"graze"
+		)
+		check.truthy(Throw.segmentBox(Vector3.new(0, 3.5, 0.75), Vector3.new(20, 3.5, 0.75), box, size, 0.2), "clip")
+	end)
+
 	test("segment distances", function()
 		check.near(
 			Throw.segmentSegment(Vector3.new(0, 0, 0), Vector3.new(1, 0, 0), Vector3.new(0, 1, 0), Vector3.new(1, 1, 0)),

@@ -48,6 +48,7 @@ local DEFINITIONS = {
 	Pinged = "RemoteEvent",
 	CalloutHeard = "RemoteEvent",
 	Notify = "RemoteEvent",
+	NoteText = "RemoteEvent", -- S->C ({ id, text, title? }): a note or printout you read (UI/Reader)
 	Scare = "RemoteEvent",
 	HuntState = "RemoteEvent",
 	Layout = "RemoteEvent",

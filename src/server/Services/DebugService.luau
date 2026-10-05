@@ -201,6 +201,51 @@ function DebugService:Run(player: Player, text: string)
 		table.sort(lines)
 		print("[debug] items:\n  " .. table.concat(lines, "\n  "))
 		reply(player, #lines .. " items (listed in Output)")
+	elseif command == "leads" then
+		-- How each key and heirloom is found (Logic/Leads), the notes' text,
+		-- and the cases; `leads go <token> [note]` takes you to its room (or
+		-- its note's).
+		local items = services.ItemService
+		local leadOf, notes, cases = items:Leads()
+		if args[2] == "go" then
+			local lead = leadOf[args[3] or ""]
+			local character = player.Character
+			if not lead or not character then
+				reply(player, "usage: leads go <token> [note] (F2 leads lists them)")
+				return
+			end
+			local room = (args[4] == "note" and lead.noteRoom) or lead.room
+			local spot = services.WorldService:RandomPointIn(room, Random.new())
+			services.PlayerStateService:MarkTeleport(player)
+			character:PivotTo(CFrame.new(spot + Vector3.new(0, 3, 0)))
+			reply(player, "in room " .. room)
+			return
+		end
+		local lines = {}
+		for token, lead in leadOf do
+			table.insert(
+				lines,
+				string.format(
+					"%s: %s in room %d%s%s",
+					token,
+					lead.kind,
+					lead.room,
+					lead.noteRoom and (", note in room " .. lead.noteRoom) or "",
+					lead.wanted and (" (wanted " .. lead.wanted .. ")") or ""
+				)
+			)
+		end
+		table.sort(lines)
+		for _, note in notes do
+			local text = string.gsub(note.text, "\n", " / ")
+			table.insert(lines, string.format("%s in room %d: %s", note.id, note.room, text))
+		end
+		for _, case in cases do
+			local what = (case.token or "decoy") .. (case.open and ", open" or "")
+			table.insert(lines, string.format("%s in room %d: %s", case.id, case.room, what))
+		end
+		print("[debug] leads:\n  " .. table.concat(lines, "\n  "))
+		reply(player, #lines .. " lines (listed in Output)")
 	elseif command == "start" then
 		if orchestrator:Phase() == Constants.Phases.Lobby then
 			orchestrator:StartRun(
@@ -239,15 +284,16 @@ function DebugService:Run(player: Player, text: string)
 				or "he shrugged it off (immune or retreating)"
 		)
 	elseif command == "throwat" then
-		-- Throw what you carry straight at his chest, as if you'd aimed it;
-		-- with empty hands, take the nearest thing within reach first.
+		-- Throw what you carry straight at his chest, as if you'd aimed it
+		-- (`throwat case`: at the nearest locked display case's glass); with
+		-- empty hands, take the nearest thing within reach first.
 		local hands = services.HandsService
 		local head = services.PlayerStateService:Head(player)
 		if not hands:Held(player) and head then
 			local best, bestDistance = nil, math.huge
 			for id, thing in hands.things do
 				local d = (thing.model:GetPivot().Position - head.Position).Magnitude
-				if d < bestDistance then
+				if d < bestDistance and not thing.model:GetAttribute("Item") then
 					best, bestDistance = id, d
 				end
 			end
@@ -256,12 +302,25 @@ function DebugService:Run(player: Player, text: string)
 			end
 		end
 		local held = hands:Held(player)
-		local guest = services.StalkerService:GetPosition()
-		if not held or not guest or not head then
-			reply(player, "pick something up first (and he must be in the house)")
+		local target
+		if args[2] == "case" and head then
+			local nearest = math.huge
+			for _, case in services.ItemService.cases do
+				local at = case.cover:GetBoundingBox().Position
+				local d = (at - head.Position).Magnitude
+				if not case.open and d < nearest then
+					target, nearest = at, d
+				end
+			end
 		else
-			services.HandsService:Throw(player, (guest + Vector3.new(0, 1.5, 0) - head.Position).Unit)
-			reply(player, "thrown at him")
+			local guest = services.StalkerService:GetPosition()
+			target = guest and guest + Vector3.new(0, 1.5, 0)
+		end
+		if not held or not target or not head then
+			reply(player, "pick something up first (and he must be in the house, or a case nearby)")
+		else
+			services.HandsService:Throw(player, (target - head.Position).Unit, 1)
+			reply(player, "thrown")
 		end
 	elseif command == "lure" then
 		-- A noise nobody made where you're looking (up to 25 studs off), as

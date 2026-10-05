@@ -19,6 +19,7 @@ local Rng = require(Shared.Lib.Rng)
 local Rooms = require(Shared.Data.Rooms)
 local Locations = require(Shared.Data.Locations)
 local LevelGraph = require(Shared.Logic.LevelGraph)
+local Leads = require(Shared.Logic.Leads)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local MansionGen = require(Shared.Logic.MansionGen)
 
@@ -200,7 +201,10 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- same per seed as it was before the clue loop retired.
 		services.DecorService:Begin(rng:Fork("anomaly"))
 		services.LockService:Begin(plan)
-		services.ItemService:Begin(plan, rng:Fork("items"))
+		-- How each key and heirloom is found (Logic/Leads): its own fork.
+		local templates = mansion and Rooms.MansionById or Rooms.ById
+		local leads = Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
+		services.ItemService:Begin(plan, rng:Fork("items"), leads)
 		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
 		services.FinaleService:Begin(plan)
 		-- Last, so the wall and floor spots each Witness's own atmosphere uses

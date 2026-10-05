@@ -10,13 +10,31 @@ return function(test, check, Shared, require)
 	end)
 
 	test("what's been seen is mentioned, and goes when it's dealt with", function()
-		local line = Objectives.line({ places = 2, placesLeft = 1, locked = "Kitchen", computer = "Study" })
+		local computer = { kind = "terminal", room = "Study" }
+		local line = Objectives.line({ places = 2, placesLeft = 1, locked = "Kitchen", stations = { computer } })
 		check.truthy(string.find(line, "One place", 1, true) ~= nil, "one place left")
 		check.truthy(string.find(line, "The Kitchen door is locked.", 1, true) ~= nil, "the lock tried")
 		check.truthy(string.find(line, "The computer in the Study is still on.", 1, true) ~= nil, "the computer seen")
-		local later = Objectives.line({ places = 2, placesLeft = 0, computer = "Study", computerSolved = true })
+		computer.solved = true
+		local later = Objectives.line({ places = 2, placesLeft = 0, stations = { computer } })
 		check.truthy(string.find(later, "The table is set.", 1, true) ~= nil, "set")
 		check.truthy(string.find(later, "computer", 1, true) == nil, "the cracked computer goes")
+	end)
+
+	test("of the stations seen, the newest one still to deal with is mentioned, one at a time", function()
+		local stations = {
+			{ kind = "terminal", room = "Study" },
+			{ kind = "display", room = "Den" },
+		}
+		local line = Objectives.line({ places = 2, placesLeft = 2, stations = stations })
+		check.truthy(string.find(line, "glass case in the Den", 1, true) ~= nil, "the newest")
+		check.truthy(string.find(line, "computer", 1, true) == nil, "one at a time")
+		stations[2].solved = true
+		line = Objectives.line({ places = 2, placesLeft = 2, stations = stations })
+		check.truthy(string.find(line, "The computer in the Study", 1, true) ~= nil, "then the one before")
+		for kind, say in Objectives.Stations do
+			check.truthy(#say("Den") > 0, kind .. " has a line")
+		end
 	end)
 
 	test("once the dinner is served, only the way out", function()

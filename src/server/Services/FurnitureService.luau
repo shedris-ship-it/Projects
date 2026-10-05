@@ -53,6 +53,7 @@ function FurnitureService:Init(services)
 	self.pieces = {} -- id -> piece
 	self.spaces = {} -- every space a piece opens onto
 	self.moving = {} -- piece -> true while it moves
+	self.count = 0
 	-- Optional (Services/ItemService): function(space, at: CFrame) -> (Model?,
 	-- thing?), what belongs in a space instead of junk (already a thing your
 	-- hands can take, or not yet); false to leave it empty.
@@ -67,6 +68,7 @@ function FurnitureService:Start()
 		table.clear(self.pieces)
 		table.clear(self.spaces)
 		table.clear(self.moving)
+		self.count = 0
 	end)
 	RunService.Heartbeat:Connect(function(dt)
 		for piece in self.moving do
@@ -104,7 +106,9 @@ function FurnitureService:_clearance(joint, primary: BasePart, own: Instance): n
 	params.FilterDescendantsInstances = { own }
 	params.RespectCanCollide = true
 	local step = joint.kind == "slide" and 0.1 or F.ClearStep
-	local size = primary.Size - Vector3.new(0.1, 0.1, 0.1)
+	-- A hair smaller, so touching isn't hitting (and never below nothing: a
+	-- glass lid is thinner than the margin).
+	local size = (primary.Size - Vector3.new(0.1, 0.1, 0.1)):Max(Vector3.new(0.02, 0.02, 0.02))
 	local value = step
 	while value <= joint.max + 1e-6 do
 		for _, hit in Workspace:GetPartBoundsInBox(Joint.pose(joint, value), size, params) do
@@ -118,56 +122,66 @@ function FurnitureService:_clearance(joint, primary: BasePart, own: Instance): n
 end
 
 function FurnitureService:_setup(world)
-	local count = 0
 	for _, prop in world.props or {} do
-		local model = prop.model
-		if not model.Parent then
-			continue
-		end
-		local spaces = {}
-		for _, child in model:GetChildren() do
-			local primary = child:IsA("Model") and child.PrimaryPart
-			local joint = primary and Joint.read(primary)
-			if not joint then
-				continue
-			end
-			count += 1
-			local piece = self:_piece("piece:" .. count, child, primary, joint, prop)
-			local group = primary:GetAttribute("Group") or child.Name
-			local space = spaces[group]
-			if not space then
-				space = {
-					id = prop.id .. ":" .. group,
-					prop = prop,
-					spot = primary:GetAttribute("Spot"),
-					pieces = {},
-					filled = false,
-					contents = {},
-				}
-				spaces[group] = space
-				table.insert(self.spaces, space)
-			end
-			table.insert(space.pieces, piece)
-			piece.space = space
-			if joint.kind == "slide" then
-				-- A drawer carries what's in it.
-				space.rides = piece
-				piece.spotOffset = typeof(space.spot) == "CFrame" and joint.shut:ToObjectSpace(space.spot) or nil
-			end
-			-- Too cramped to see into (a drawer against the bed): nothing's kept there.
-			local roomy = joint.kind == "slide" and piece.state.max >= 0.9 or piece.state.max >= 45
-			if not roomy then
-				space.filled = true
-			end
-		end
-		for _, child in model:GetChildren() do
-			local space = child.Name == "Lamp" and spaces[child:GetAttribute("Group")]
-			if space then
-				space.lamp = child:FindFirstChildOfClass("PointLight")
-			end
-		end
+		self:AddProp(prop)
 	end
 	world.pieces = self.pieces
+end
+
+-- Furniture whose pieces open: the house's, and things made after it was
+-- built (a keepsake box, a display case: Services/ItemService). `prop` is
+-- { id, model, roomId, kind }. Returns the spaces its pieces open onto.
+function FurnitureService:AddProp(prop): { any }
+	local model = prop.model
+	local made = {}
+	if not model.Parent then
+		return made
+	end
+	local spaces = {}
+	for _, child in model:GetChildren() do
+		local primary = child:IsA("Model") and child.PrimaryPart
+		local joint = primary and Joint.read(primary)
+		if not joint then
+			continue
+		end
+		self.count += 1
+		local piece = self:_piece("piece:" .. self.count, child, primary, joint, prop)
+		local group = primary:GetAttribute("Group") or child.Name
+		local space = spaces[group]
+		if not space then
+			space = {
+				id = prop.id .. ":" .. group,
+				group = group,
+				prop = prop,
+				spot = primary:GetAttribute("Spot"),
+				pieces = {},
+				filled = false,
+				contents = {},
+			}
+			spaces[group] = space
+			table.insert(self.spaces, space)
+			table.insert(made, space)
+		end
+		table.insert(space.pieces, piece)
+		piece.space = space
+		if joint.kind == "slide" then
+			-- A drawer carries what's in it.
+			space.rides = piece
+			piece.spotOffset = typeof(space.spot) == "CFrame" and joint.shut:ToObjectSpace(space.spot) or nil
+		end
+		-- Too cramped to see into (a drawer against the bed): nothing's kept there.
+		local roomy = joint.kind == "slide" and piece.state.max >= 0.9 or piece.state.max >= 45
+		if not roomy then
+			space.filled = true
+		end
+	end
+	for _, child in model:GetChildren() do
+		local space = child.Name == "Lamp" and spaces[child:GetAttribute("Group")]
+		if space then
+			space.lamp = child:FindFirstChildOfClass("PointLight")
+		end
+	end
+	return made
 end
 
 function FurnitureService:_piece(id: string, model: Model, primary: BasePart, joint, prop)
@@ -395,6 +409,23 @@ function FurnitureService:SetOpen(piece, open: boolean, fast: boolean?)
 	Articulation.drive(piece.state, open and piece.state.max or 0)
 	piece.fast = fast and piece.joint.rate * 2.2 or nil
 	self.moving[piece] = true
+end
+
+-- Held shut by a lock (a display case): it only rattles in its frame, and
+-- its prompt is off until it's unlocked.
+function FurnitureService:SetLocked(piece, locked: boolean)
+	if locked then
+		local state = piece.state
+		state.value, state.target, state.latched = 0, 0, true
+		state.velocity, state.mode = 0, "driven"
+		self.moving[piece] = nil
+		self:_place(piece)
+		MotionState.settle(piece.primary, 0)
+	end
+	Articulation.setLocked(piece.state, locked)
+	piece.locked = locked or nil
+	piece.primary:SetAttribute("Locked", locked or nil)
+	piece.prompt.Enabled = not locked and piece.state.max > 0
 end
 
 function FurnitureService:Toggle(piece, player: Player?)

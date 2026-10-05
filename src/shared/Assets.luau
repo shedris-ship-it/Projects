@@ -54,6 +54,8 @@ Assets.Sounds = {
 	RadioStatic = "rbxassetid://8028069841", -- NoobMatthew3 "Radio Static Loop"
 	HuntSting = "rbxassetid://9113436052", -- PSE "Big Low-End Impacts 3": a resonant hit
 	MusicBox = "rbxassetid://9043210085", -- APM "Music Box 6" (Conroy): a carried heirloom, faintly (R2c)
+	GlassBreak = "rbxassetid://9114593513", -- PSE "Glass Breaks 21": a display case smashed (R2c)
+	LockClick = "rbxassetid://9125343042", -- PSE "Door Lock Button Clicks 1": picking a small lock
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

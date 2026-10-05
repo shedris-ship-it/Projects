@@ -55,6 +55,7 @@ function FinaleService:Start()
 		self.served = false
 		table.clear(self.places)
 		self.facts = {}
+		self.seenStations = {}
 		ReplicatedStorage.RunState:SetAttribute(RS.Objective, nil)
 	end)
 	self.Locks.Tried:Connect(function(seamId, lock)
@@ -103,32 +104,86 @@ function FinaleService:Start()
 		end
 	end)
 	self.Puzzles.Solved:Connect(function(id)
-		if self.plan and self.plan.puzzles[id] then
-			self.facts.computerSolved = true
-			self:_publish()
-		end
+		self:_stationSolved(id)
 	end)
-	-- Someone near the computer has seen it.
+	self.Items.CaseOpened:Connect(function(_, case)
+		self:_stationSolved(case.id)
+	end)
+	-- Someone near a puzzle or a locked case has seen it.
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
-		if elapsed < 0.5 or not self.plan or self.facts.computer then
+		if elapsed < 0.5 or not self.plan then
 			return
 		end
 		elapsed = 0
-		for _, session in self.Puzzles.sessions do
-			if session.kind == "terminal" and session.station then
-				for _, player in self.PlayerState:ActivePlayers() do
-					local position = self.PlayerState:Position(player)
-					if position and (position - session.station.Position).Magnitude < 14 then
-						self.facts.computer = self.World:Room(session.room).name
-						self:_publish()
-						return
-					end
+		self:_lookForStations()
+	end)
+end
+
+-- The puzzles and locked cases in the house, for the objective line:
+-- { id, kind, position, room, solved }.
+function FinaleService:_stations()
+	local list = {}
+	for _, session in self.Puzzles.sessions do
+		-- A padlock is on a door the line already mentions; puzzles stand in rooms.
+		if session.room and session.station and session.station.Parent then
+			table.insert(list, {
+				id = session.id,
+				kind = session.kind,
+				position = session.station.Position,
+				room = session.room,
+				solved = session.state.solved == true,
+			})
+		end
+	end
+	-- A case with something of his in it (one with a porcelain figure isn't
+	-- worth a line: you can see what's in it).
+	for _, case in self.Items.cases do
+		if case.model.Parent and case.token then
+			table.insert(list, {
+				id = case.id,
+				kind = "display",
+				position = case.model:GetPivot().Position,
+				room = case.room,
+				solved = case.open,
+			})
+		end
+	end
+	return list
+end
+
+function FinaleService:_lookForStations()
+	self.facts.stations = self.facts.stations or {}
+	self.seenStations = self.seenStations or {}
+	local positions = {}
+	for _, player in self.PlayerState:ActivePlayers() do
+		table.insert(positions, self.PlayerState:Position(player))
+	end
+	for _, station in self:_stations() do
+		if not self.seenStations[station.id] and not station.solved then
+			for _, position in positions do
+				if (position - station.position).Magnitude < 14 then
+					local entry = { kind = station.kind, room = self.World:Room(station.room).name, solved = false }
+					self.seenStations[station.id] = entry
+					table.insert(self.facts.stations, entry)
+					self:_publish()
+					break
 				end
 			end
 		end
-	end)
+	end
+end
+
+function FinaleService:_stationSolved(id: string)
+	local entry = self.seenStations and self.seenStations[id]
+	if entry and not entry.solved then
+		entry.solved = true
+		self:_publish()
+	elseif self.seenStations and not entry then
+		-- Dealt with before anyone was near it (F2 `solve`): never mentioned.
+		self.seenStations[id] = { solved = true }
+	end
 end
 
 function FinaleService:_publish()
@@ -291,7 +346,8 @@ function FinaleService:Begin(plan)
 	local head = layout.head * sign
 	self.head = frame:PointToWorldSpace(long and Vector3.new(0, 0, head) or Vector3.new(head, 0, 0))
 	self:_frontExit(world)
-	self.facts = { places = count, placesLeft = count }
+	self.facts = { places = count, placesLeft = count, stations = {} }
+	self.seenStations = {}
 	self:_publish()
 end
 

@@ -395,6 +395,19 @@ function PuzzleService:_solved(session, player: Player)
 					.. "\n\ndon't let HIM in"
 				local page = Items.printout(session.printerAt, text, self.World.content)
 				self.Hands:AddThing(page, { class = "light", label = "Printout" })
+				-- Read it up close (UI/Reader), in your hands or where it lies.
+				local prompt = Instance.new("ProximityPrompt")
+				prompt.Name = "ReadPrompt"
+				prompt.ActionText = "Read"
+				prompt.ObjectText = "Printout"
+				prompt.KeyboardKeyCode = Enum.KeyCode.E
+				prompt.HoldDuration = 0
+				prompt.MaxActivationDistance = Config.Leads.ReadRange
+				prompt.RequiresLineOfSight = false
+				prompt.Parent = page:FindFirstChild("Sheet")
+				prompt.Triggered:Connect(function(reader)
+					Net.get("NoteText"):FireClient(reader, { id = "printout:" .. session.id, text = text })
+				end)
 			end)
 		end)
 	else

@@ -254,8 +254,11 @@ function PushService:_wake(piece)
 			consider(thing.model)
 		end
 	end
-	local pickups = self.World.content and self.World.content:FindFirstChild("ToolPickups")
-	for _, holder in { piece.room, pickups } do
+	local content = self.World.content
+	local pickups = content and content:FindFirstChild("ToolPickups")
+	-- Keepsake boxes, display cases and notes (Services/ItemService).
+	local leads = content and content:FindFirstChild("Leads")
+	for _, holder in { piece.room, pickups, leads } do
 		for _, child in holder and holder:GetChildren() or {} do
 			consider(child)
 		end
@@ -315,6 +318,9 @@ function PushService:_step(piece, dt: number)
 		self.moving[piece] = nil
 		piece.model:SetAttribute("PushSpeed", nil)
 		self.Furniture:Settle(piece.model)
+		for _, rider in piece.riders do
+			self.Furniture:Settle(rider)
+		end
 		return
 	end
 	local step = piece.velocity * dt
@@ -452,6 +458,8 @@ function PushService:_move(piece, step: Vector3)
 	for _, rider in piece.riders do
 		if rider.Parent then
 			rider:PivotTo(rider:GetPivot() + step)
+			-- A box or case riding along: its lid's hinge goes too.
+			self.Furniture:Shift(rider, step)
 		end
 	end
 	piece.prop.frame += step
