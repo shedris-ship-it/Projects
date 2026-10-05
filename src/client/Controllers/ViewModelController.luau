@@ -146,7 +146,10 @@ function ViewModelController:_tuckAmount(camera: Camera, dt: number): number
 	return self.tuck
 end
 
--- What is in your hands: the torch, a found tool, or nothing (an empty slot).
+-- What is in your hands: the torch, a found tool, or nothing. Bare hands
+-- (slot 4) draw nothing, as in Amnesia: a clean view until you grab something
+-- (tried 2026-10-04: two open primitive hands at the bottom of the screen
+-- read as bricks).
 function ViewModelController:_heldId(): string?
 	local tool = player:GetAttribute(PA.Tool)
 	if type(tool) == "string" and tool ~= "" then

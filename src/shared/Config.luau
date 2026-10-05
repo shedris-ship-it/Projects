@@ -627,6 +627,14 @@ Config.Tools = {
 	PickupScale = 0.8, -- a tool lying on a table is this size next to the one in your hand
 }
 
+-- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch
+-- clipped to your shirt while you hold anything but it.
+Config.Hands = {
+	-- Weak and short: enough to see what you're doing, not to search a room
+	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.
+	ClipLight = { Range = 16, Angle = 70, Brightness = 0.8, Height = 1.2 },
+}
+
 Config.Difficulty = {
 	Normal = {
 		Label = "Normal",

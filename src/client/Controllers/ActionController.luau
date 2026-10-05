@@ -2,7 +2,7 @@
 -- through ContextActionService so every action gets a mobile button.
 --
 --   Q  hold to Witness        R  use tool          F  flashlight
---   1 2 3 or wheel  choose a slot (1 is the torch)   X  put the tool down
+--   1 2 3 4 or wheel  choose a slot (1 torch, 4 hands)   X  put the tool down
 --   Shift  sprint             G  hold for pings    C  callouts
 --   Tab  Case File            E  doors / hide / revive (prompts)
 --   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
@@ -98,9 +98,9 @@ function ActionController:Start()
 		end
 	end, true, "Light", Enum.KeyCode.F, Enum.KeyCode.DPadUp)
 
-	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools. The
-	-- server decides; these only ask.
-	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three } do
+	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools, 4 is
+	-- your bare hands. The server decides; these only ask.
+	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four } do
 		self:_bind("ConsensusSlot" .. slot, function(inputState)
 			if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
 				Net.get("SelectSlot"):FireServer(slot)
@@ -362,14 +362,18 @@ function ActionController:_updateMovement(dt: number)
 	self.sprinting = sprinting
 end
 
--- Flashlight: a light for you; the server's head light is what everyone else
--- sees, so it's hidden locally to avoid doubling up. Its aim trails the camera
--- slightly on quick turns, like a handheld torch; the camera itself never
--- moves (doc section 4, comfort-safe). In first person the light leaves the
--- torch's lens (`beamCFrame`, from ViewModelController); the camera-side spot
--- below is the fallback for the hub and third person.
+-- Flashlight: a light for you; the server's head light (or clip light) is
+-- what everyone else sees, so it's hidden locally to avoid doubling up. Its aim
+-- trails the camera slightly on quick turns, like a handheld torch; the camera
+-- itself never moves (doc section 4, comfort-safe). In first person the light
+-- leaves the torch's lens (`beamCFrame`, from ViewModelController); the
+-- camera-side spot below is the fallback for the hub and third person. With
+-- anything else in your hands the torch is clipped to your shirt
+-- (docs/plans/gameplay-rework.md section 4.1): a weak, short light from your
+-- chest, pointing where your body faces.
 function ActionController:_updateFlashlight(dt: number)
 	local on = player:GetAttribute(PA.Flashlight) == true
+	local clipped = player:GetAttribute(PA.TorchClipped) == true
 	if not lightPart then
 		lightPart = Instance.new("Part")
 		lightPart.Name = "ConsensusFlashlight"
@@ -399,12 +403,34 @@ function ActionController:_updateFlashlight(dt: number)
 	-- With a torch in hand the light leaves its lens (ViewModelController sets
 	-- beamCFrame every frame); otherwise it falls back to your eye.
 	lightPart.CFrame = self.beamCFrame or (CFrame.new(target.Position) * flashlightAim)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local clip = Config.Hands.ClipLight
+	if clipped and root then
+		local look = root.CFrame.LookVector
+		local yaw = math.atan2(-look.X, -look.Z)
+		lightPart.CFrame = CFrame.new(root.Position + Vector3.new(0, clip.Height, 0))
+			* CFrame.Angles(0, yaw, 0)
+			* CFrame.Angles(math.rad(-10), 0, 0)
+		cameraLight.Range = clip.Range
+		cameraLight.Angle = clip.Angle
+		cameraLight.Brightness = clip.Brightness
+	else
+		cameraLight.Range = 42
+		cameraLight.Angle = 48
+		cameraLight.Brightness = 2.6
+	end
 	cameraLight.Enabled = on
 	cameraLight.Shadows = not self.state.settings.lowEnd
-	local head = player.Character and player.Character:FindFirstChild("Head")
+	local head = character and character:FindFirstChild("Head")
 	local headLight = head and head:FindFirstChild("Flashlight")
 	if headLight then
 		headLight.Enabled = false
+	end
+	local torso = character and (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"))
+	local clipLight = torso and torso:FindFirstChild("ClipLight")
+	if clipLight then
+		clipLight.Enabled = false
 	end
 end
 

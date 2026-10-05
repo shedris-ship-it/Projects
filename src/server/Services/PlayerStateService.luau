@@ -89,7 +89,7 @@ function PlayerStateService:Start()
 	end)
 
 	Net.onServer("SetFlashlight", { interval = 0.15, types = { "boolean" } }, function(player, on)
-		-- Through ToolService: asking for the light puts the torch in your hands first.
+		-- Through ToolService, which knows where the torch is (hand or shirt).
 		self.services.ToolService:OnFlashlightRequest(player, on == true)
 	end)
 
@@ -126,6 +126,23 @@ function PlayerStateService:_onCharacter(player: Player, character: Model)
 		light.Face = Enum.NormalId.Front
 		light.Enabled = false
 		light.Parent = head
+	end
+	-- The torch clipped to your shirt while your hands hold something else
+	-- (docs/plans/gameplay-rework.md section 4.1): weak and short, pointing
+	-- where your body faces.
+	local torso = character:WaitForChild("UpperTorso", 10) or character:FindFirstChild("Torso")
+	if torso and not torso:FindFirstChild("ClipLight") then
+		local clip = Config.Hands.ClipLight
+		local light = Instance.new("SpotLight")
+		light.Name = "ClipLight"
+		light.Angle = clip.Angle
+		light.Range = clip.Range
+		light.Brightness = clip.Brightness
+		light.Color = Color3.fromRGB(255, 244, 220)
+		light.Shadows = true
+		light.Face = Enum.NormalId.Front
+		light.Enabled = false
+		light.Parent = torso
 	end
 	local record = self:_record(player)
 	record.flashlight = false
@@ -474,11 +491,6 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 	if on and (record.state ~= States.Active or record.battery <= 0) then
 		on = false
 	end
-	-- Only the torch in your hands can be lit (owner, 2026-10-04: one thing in your
-	-- hands at a time). The one choke point, so no caller can light it by accident.
-	if on and not self.services.ToolService:TorchHeld(player) then
-		on = false
-	end
 	if record.flashlight ~= on then
 		local root = self:Root(player)
 		if root and not player:GetAttribute(PA.Hidden) then
@@ -487,10 +499,26 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 	end
 	record.flashlight = on
 	player:SetAttribute(PA.Flashlight, on)
-	local head = self:Head(player)
-	local light = head and head:FindFirstChild("Flashlight")
-	if light then
-		light.Enabled = on
+	self:RefreshFlashlight(player)
+end
+
+-- Which light everyone else sees: the beam from your head while the torch is
+-- in your hand, the weak clip light on your chest while you hold anything
+-- else (ToolService:TorchClipped). Your own client draws its own copy.
+function PlayerStateService:RefreshFlashlight(player: Player)
+	local record = records[player]
+	local on = record ~= nil and record.flashlight
+	local clipped = self.services.ToolService:TorchClipped(player)
+	local character = player.Character
+	local head = character and character:FindFirstChild("Head")
+	local beam = head and head:FindFirstChild("Flashlight")
+	if beam then
+		beam.Enabled = on and not clipped
+	end
+	local torso = character and (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"))
+	local clip = torso and torso:FindFirstChild("ClipLight")
+	if clip then
+		clip.Enabled = on and clipped
 	end
 end
 

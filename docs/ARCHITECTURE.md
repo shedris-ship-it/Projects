@@ -28,7 +28,7 @@ How the code implements the design doc. The design reasons themselves live in [`
 | VerdictService | The Deliberation Table and vote rules (`Logic/Verdict`) |
 | HidingService | Hiding spots, capacity, peek camera, hold breath and gasps, stalker inspections |
 | DoorService | Opening, closing and bracing doors; stalker door delays; knocks |
-| ToolService | Each player's three slots (`Logic/Inventory`), the tools lying in the house (`Logic/ToolPlacement`, `World/ToolPickups`), pickups and drops, and what the Witness Camera, Lantern (and shrines), Radio and Plumb Line do. `PA.Tool` is the tool in your hands now; `Slot1..3` and `ActiveSlot` are what you carry |
+| ToolService | Each player's four slots (`Logic/Inventory`: 1 the torch, 2 and 3 found tools, 4 bare hands; anything but the torch clips it to your shirt, `PA.TorchClipped`), the tools lying in the house (`Logic/ToolPlacement`, `World/ToolPickups`), pickups and drops, and what the Witness Camera, Lantern (and shrines), Radio and Plumb Line do. `PA.Tool` is the tool in your hands now; `Slot1..4` and `ActiveSlot` are what you carry |
 | NoiseService | Noise events the stalker hears |
 | SquadProfileService | Habit counters with decay (`Logic/SquadProfile`), each Witness's gaze habits (`Logic/GazeHabits`), and the end-of-run Dossier |
 | StalkerService | The Guest's mode machine, arrival, lazy visibility, hunts and retreats. Uses `Stalker/Director` (pacing), `Stalker/Stalk` (between hunts: moves from `Data/StalkMoves`, rules from `Logic/StalkRules`), `Stalker/Tactician` (hunts), `Stalker/Body` (the physical body: facing, zoom, lunge, pose-aware head points), `Stalker/Sight` (who can see what, stealth steps), `Stalker/Perception`, `Stalker/Walker` (movement, below), `Stalker/Clearance` (body sweeps, no phasing), `Stalker/Retreat` (backing away, `Logic/RetreatPlan`), `Stalker/NavTest` (F2 `navtest`) and `Stalker/StalkerModel` |
@@ -97,7 +97,7 @@ Every client → server remote goes through `Net.onServer`, which applies a per-
 | UseTool | C→S | `targetId: string?`, `position: Vector3?` | 0.25 s; film, cooldowns and range checked |
 | SetFlashlight, HoldBreath, SetReady | C→S | `boolean` | 0.05–0.2 s |
 | SetDifficulty, CastVote | C→S | `string` | 0.2–0.3 s; whitelisted values |
-| SelectSlot | C→S | `number` | 0.08 s, burst 8; only 1 to 3, only while active and not hiding |
+| SelectSlot | C→S | `number` | 0.08 s, burst 8; only 1 to 4, only while active and not hiding |
 | DropItem | C→S | none | 0.4 s; puts the tool in your hands on the floor in front of you |
 | LeaveHiding, RequestSync | C→S | none | 0.3 s / 2 s |
 | RitualAction | C→S | `table?` | 0.2 s; only during Resolution |

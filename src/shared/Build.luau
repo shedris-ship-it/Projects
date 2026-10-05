@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.11",
-	note = "Rework R1a.1: one passage model for every route (doors now, locks later), no walking at walls when there is no way, F2 block",
+	id = "2026-10-04.12",
+	note = "Rework R1a.2: four slots (4 = your hands), the torch clips to your shirt in any slot but 1, radio static stops when put away",
 }

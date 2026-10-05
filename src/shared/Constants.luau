@@ -60,14 +60,18 @@ Constants.PlayerAttributes = {
 	-- The tool in your hands right now, or nil with the torch or empty hands
 	-- (so everything that reads "your tool" still works with found tools).
 	Tool = "Tool",
-	-- The three inventory slots (Logic/Inventory): ids, "" when empty, and
-	-- which one is in your hands (1 to 3). Slot 1 is always the flashlight.
-	Slots = { "Slot1", "Slot2", "Slot3" },
+	-- The four inventory slots (Logic/Inventory): ids, "" when empty, and
+	-- which one is in your hands (1 to 4). Slot 1 is always the flashlight and
+	-- slot 4 your bare hands ("Hands").
+	Slots = { "Slot1", "Slot2", "Slot3", "Slot4" },
 	ActiveSlot = "ActiveSlot",
-	SlotFilms = { "Film1", "Film2", "Film3" }, -- film on the Camera in each slot (0 for anything else)
+	SlotFilms = { "Film1", "Film2", "Film3", "Film4" }, -- film on the Camera in each slot (0 for anything else)
 	Film = "Film",
 	Battery = "Battery",
 	Flashlight = "Flashlight",
+	-- The torch is clipped to your shirt (anything but slot 1 in your hands):
+	-- a weak light where your body faces instead of the beam in your hand.
+	TorchClipped = "TorchClipped",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
 	Ready = "Ready",

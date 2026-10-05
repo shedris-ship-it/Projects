@@ -16,6 +16,7 @@ local HOW_TO = table.concat({
 	"• Drift is the clock. Stalling, splitting up and mistakes raise it. At 100 the house collapses.",
 	"• Something stalks you. When one of you watches it, it waits. When two of you watch it together, it can't move — hold the stare and it backs off.",
 	"• Hide (E) in lockers, wardrobes, beds and behind curtains. Hold Space to hold your breath when it's close.",
+	"• Slot 1 is your torch, 2 and 3 carry what you find, 4 is your bare hands. Holding anything but the torch clips its light to your shirt: weaker, but your hands are free.",
 	"• When the Case Board narrows it down, call a deliberation at the Dining Room table. Name the anomaly together, end it with its ritual, and get out.",
 }, "\n")
 

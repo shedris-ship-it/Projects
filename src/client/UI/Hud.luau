@@ -1,5 +1,5 @@
 -- The HUD is deliberately small (doc section 8): a Focus ring, what is in your
--- hands (the three slots are UI/Hotbar) and the squad. There is no crosshair (UI/FocusMarkers marks what you
+-- hands (the four slots are UI/Hotbar) and the squad. There is no crosshair (UI/FocusMarkers marks what you
 -- look at). Drift is never a bar; you read it from the world, and from one word.
 
 local Players = game:GetService("Players")
@@ -201,7 +201,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"Q hold: Witness · R: use · 1 2 3 / wheel: slots · X: put down · F: light · Shift: run · G: ping · Tab: Case File · F1: settings",
+		"Q hold: Witness · R: use · 1 2 3 4 / wheel: slots (4: hands) · X: put down · F: light · Shift: run · G: ping · Tab: Case File · F1: settings",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),
@@ -292,11 +292,16 @@ function Hud:Update()
 	-- What's in your hands (the slots themselves are UI/Hotbar)
 	local toolId = player:GetAttribute(PA.Tool)
 	local tool = Tools.ById[toolId]
-	local torchHeld = toolId == nil and (player:GetAttribute(PA.ActiveSlot) or 1) == 1
-	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or "")
+	local activeSlot = player:GetAttribute(PA.ActiveSlot) or 1
+	local torchHeld = toolId == nil and activeSlot == 1
+	local handsFree = activeSlot == 4 -- Logic/Inventory.HANDS_SLOT
+	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or handsFree and "Your hands" or "")
 	local detail = ""
 	if torchHeld then
 		detail = player:GetAttribute(PA.Flashlight) and "F: switch off" or "F: switch on"
+	elseif handsFree then
+		-- The torch rides clipped to your shirt while your hands are free.
+		detail = player:GetAttribute(PA.Flashlight) and "F: clip light off" or "F: clip light on"
 	elseif toolId == "Camera" then
 		detail = string.format("Film: %d", player:GetAttribute(PA.Film) or 0)
 	elseif toolId == "Radio" then

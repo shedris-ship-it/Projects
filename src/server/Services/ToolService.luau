@@ -1,7 +1,8 @@
 -- Tools (doc section 6; owner, 2026-10-04): the Witness Camera, Lantern, Radio
 -- and Plumb Line are found around the house, not picked in the hub. Each player
--- has three slots (Logic/Inventory): slot 1 is the flashlight, always, and 2 and
--- 3 hold found tools, one thing in your hands at a time. This service owns the
+-- has four slots (Logic/Inventory): slot 1 is the flashlight, always, 2 and 3
+-- hold found tools, 4 is bare hands, one thing in your hands at a time (anything
+-- but the torch clips it to your shirt). This service owns the
 -- inventories, the pickups lying on tables, what each tool does, and Lantern
 -- shrines (which make a room safe to rest in).
 --
@@ -105,8 +106,8 @@ function ToolService:Start()
 		local stalker = self.services.StalkerService
 		local stalkerPos = stalker and stalker:GetPosition()
 		local drift = self.services.DriftService:Value()
-		for _, player in self.PlayerState:ActivePlayers() do
-			if player:GetAttribute(PA.Tool) == "Radio" then
+		for player in inventories do
+			if player:GetAttribute(PA.Tool) == "Radio" and self.PlayerState:IsActive(player) then
 				local signal = 0
 				local pos = self.PlayerState:Position(player)
 				if stalkerPos and pos then
@@ -115,6 +116,10 @@ function ToolService:Start()
 				end
 				local noise = (math.random() - 0.5) * 0.3 * (drift / 100)
 				player:SetAttribute("RadioSignal", math.clamp(signal + noise, 0, 1))
+			elseif player:GetAttribute("RadioSignal") ~= nil then
+				-- Put away, dropped or downed: the static stops (the client plays
+				-- it for as long as the attribute is there).
+				player:SetAttribute("RadioSignal", nil)
 			end
 		end
 	end)
@@ -151,7 +156,9 @@ function ToolService:EndRun()
 			end
 			player:SetAttribute(PA.ActiveSlot, nil)
 			player:SetAttribute(PA.Tool, nil)
+			player:SetAttribute(PA.TorchClipped, nil)
 			player:SetAttribute(PA.Film, 0)
+			self.PlayerState:RefreshFlashlight(player)
 		end
 	end
 end
@@ -159,11 +166,18 @@ end
 -- Inventory ---------------------------------------------------------------------
 
 -- Is the flashlight what's in this player's hands? True outside a run, where
--- there is no inventory to say otherwise (PlayerStateService refuses a light
--- when it isn't).
+-- there is no inventory to say otherwise.
 function ToolService:TorchHeld(player: Player): boolean
 	local inv = inventories[player]
 	return inv == nil or Inventory.torchHeld(inv)
+end
+
+-- Is the torch clipped to their shirt (anything else in their hands)? The
+-- light still works, as a weak short light where the body faces
+-- (PlayerStateService picks the head beam or the clip light).
+function ToolService:TorchClipped(player: Player): boolean
+	local inv = inventories[player]
+	return inv ~= nil and Inventory.torchClipped(inv)
 end
 
 -- Tell the player what they carry. Their hands drive everything else: the held
@@ -177,8 +191,10 @@ function ToolService:_publish(player: Player)
 		player:SetAttribute(PA.Slots[slot], id)
 	end
 	player:SetAttribute(PA.ActiveSlot, inv.active)
-	local held = Inventory.heldId(inv)
-	player:SetAttribute(PA.Tool, held ~= Inventory.TORCH and held or nil)
+	local held = Inventory.toolId(inv)
+	player:SetAttribute(PA.Tool, held)
+	player:SetAttribute(PA.TorchClipped, Inventory.torchClipped(inv))
+	self.PlayerState:RefreshFlashlight(player)
 	-- Film rides with each Camera: one count per slot for the bar, and the one in
 	-- your hands (or the first you carry) for everything else.
 	local film = nil
@@ -203,27 +219,22 @@ function ToolService:SelectSlot(player: Player, slot)
 	if not inv or type(slot) ~= "number" or not self.PlayerState:CanAct(player) then
 		return
 	end
+	-- The light stays as it was: changing slots only moves the torch between
+	-- your hand and your shirt (_publish).
 	if Inventory.select(inv, slot) then
-		if not Inventory.torchHeld(inv) then
-			self.PlayerState:SetFlashlight(player, false)
-		end
 		self:_publish(player)
 	end
 end
 
--- F on the keyboard: the torch comes out first if something else is in your hands.
+-- F on the keyboard: the light on or off, wherever the torch is (in your hand,
+-- or clipped to your shirt while you hold something else).
 function ToolService:OnFlashlightRequest(player: Player, on: boolean)
-	local inv = inventories[player]
-	if on and inv and not Inventory.torchHeld(inv) and self.PlayerState:CanAct(player) then
-		Inventory.select(inv, Inventory.TORCH_SLOT)
-		self:_publish(player)
-	end
 	self.PlayerState:SetFlashlight(player, on)
 end
 
 function ToolService:DropHeld(player: Player)
 	local inv = inventories[player]
-	if not inv or not self.PlayerState:CanAct(player) or inv.active <= Inventory.TORCH_SLOT then
+	if not inv or not self.PlayerState:CanAct(player) or not Inventory.isToolSlot(inv.active) then
 		return
 	end
 	local item = Inventory.drop(inv, inv.active)

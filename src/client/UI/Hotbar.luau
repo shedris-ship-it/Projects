@@ -1,12 +1,13 @@
--- The three slots you carry (owner, 2026-10-04): slot 1 is the flashlight, 2 and
--- 3 hold tools found around the house, and one thing is in your hands at a
--- time. Bottom centre. Press 1, 2 or 3, spin the wheel, or tap a slot; X puts
--- the tool in your hands down. Everything shown is read from the player's
--- replicated attributes the server sets (Services/ToolService), so the bar
--- can't disagree with what you're holding.
+-- The four slots you carry (owner, 2026-10-04; docs/plans/gameplay-rework.md
+-- section 4.1): slot 1 is the flashlight, 2 and 3 hold tools found around the
+-- house, 4 is your bare hands, and one thing is in your hands at a time.
+-- Bottom centre. Press 1 to 4, spin the wheel, or tap a slot; X puts the tool
+-- in your hands down. Everything shown is read from the player's replicated
+-- attributes the server sets (Services/ToolService), so the bar can't disagree
+-- with what you're holding.
 --
--- Each icon is the real tool model in a small ViewportFrame (World/ToolModel),
--- so what you see on the bar is what you find on the table.
+-- Each tool's icon is the real tool model in a small ViewportFrame
+-- (World/ToolModel), so what you see on the bar is what you find on the table.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -32,7 +33,18 @@ local Hotbar = {}
 Hotbar.__index = Hotbar
 
 -- A small picture of a tool: its model, seen from the front and a little above.
+-- Your hands are a hand.
 local function icon(parent: Instance, id: string)
+	if id == Inventory.HANDS then
+		return Ui.label("✋", {
+			Name = "Icon",
+			Size = UDim2.fromScale(1, 1),
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextSize = 30,
+			TextColor3 = Ui.Theme.text,
+			Parent = parent,
+		})
+	end
 	local model = id == Inventory.TORCH and ToolModel.torch() or ToolModel.tool(id)
 	if not model then
 		return nil
@@ -58,10 +70,13 @@ local function icon(parent: Instance, id: string)
 end
 
 function Hotbar.new(ctx)
-	local self = setmetatable({ ctx = ctx, slots = {}, shown = { "", "", "" } }, Hotbar)
+	local self = setmetatable({ ctx = ctx, slots = {}, shown = {} }, Hotbar)
+	for slot = 1, Inventory.SLOTS do
+		self.shown[slot] = ""
+	end
 	local gui = Ui.screen("ConsensusHotbar", 6, ctx.playerGui)
 	self.gui = gui
-	local width = SLOT * 3 + GAP * 2
+	local width = SLOT * Inventory.SLOTS + GAP * (Inventory.SLOTS - 1)
 	self.root = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -22),
@@ -70,7 +85,7 @@ function Hotbar.new(ctx)
 		Visible = false,
 		Parent = gui,
 	})
-	for slot = 1, 3 do
+	for slot = 1, Inventory.SLOTS do
 		local button = Ui.new("TextButton", {
 			Name = "Slot" .. slot,
 			Position = UDim2.fromOffset((slot - 1) * (SLOT + GAP), 0),
@@ -142,7 +157,7 @@ function Hotbar.new(ctx)
 	return self
 end
 
--- The three slot ids as the server last told us.
+-- The slot ids as the server last told us.
 function Hotbar:_ids(): { string }
 	local ids = {}
 	for slot, name in PA.Slots do
@@ -154,6 +169,8 @@ end
 local function nameOf(id: string): string
 	if id == Inventory.TORCH then
 		return "Flashlight"
+	elseif id == Inventory.HANDS then
+		return "Your hands"
 	end
 	local info = Tools.ById[id]
 	return info and info.name or id
@@ -184,8 +201,10 @@ function Hotbar:Update()
 		entry.button.BackgroundTransparency = isActive and 0.1 or 0.45
 		entry.stroke.Transparency = isActive and 0 or 0.8
 		entry.stroke.Thickness = isActive and 2 or 1
-		if entry.icon then
+		if entry.icon and entry.icon:IsA("ViewportFrame") then
 			entry.icon.ImageTransparency = isActive and 0 or 0.35
+		elseif entry.icon then
+			entry.icon.TextTransparency = isActive and 0 or 0.35
 		end
 		-- Small facts under each icon: film on a Camera, a lit Lantern, the torch's charge.
 		entry.extra.Text = ""
@@ -198,11 +217,12 @@ function Hotbar:Update()
 			entry.meter.Visible = true
 			entry.meterFill.Size = UDim2.fromScale(player:GetAttribute(PA.Battery) or 1, 1)
 			if player:GetAttribute(PA.Flashlight) then
-				entry.extra.Text = "on"
+				-- Lit in your hand, or clipped to your shirt while you hold something else.
+				entry.extra.Text = player:GetAttribute(PA.TorchClipped) and "clip" or "on"
 			end
 		end
 	end
-	self.name.Text = ids[active] ~= "" and nameOf(ids[active]) or "Empty hands"
+	self.name.Text = ids[active] ~= "" and nameOf(ids[active]) or "Nothing"
 end
 
 return Hotbar
