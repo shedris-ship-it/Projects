@@ -6,10 +6,11 @@
 -- "cells" is the old generator (Logic/LevelGraph); "mansion" is the mansion
 -- generator (docs/plans/mansion-generation.md).
 --
---     lune run tools/plan <seed> mansion freeze
+--     lune run tools/plan <seed> mansion freeze [squad]
 --
 -- also writes that mansion to src/shared/Data/MansionFallback.luau, the
 -- authored house used when every attempt fails (then run stylua on it).
+-- Freeze a two-player house: the fallback serves every squad.
 --
 --     lune run tools/plan <seed> [cells|mansion] locks [squad]
 --
@@ -249,6 +250,12 @@ if mode == "mansion" and process.args[3] == "freeze" then
 			"extraEdges",
 			"frontDoor",
 			"exitDoor",
+			-- (The level design's: the wings, the servants' passages, the
+			-- laundry chute, the house type.)
+			"wings",
+			"passages",
+			"chute",
+			"houseType",
 		}
 	do
 		frozen[key] = layout[key]

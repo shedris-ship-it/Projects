@@ -253,10 +253,10 @@ function FloorPlan.render(layout, config): string
 	if layout.chute then
 		table.insert(
 			out,
-			("laundry chute: from room %d down to room %d (%s wall)"):format(
+			("laundry chute: from room %d down to room %d (%s)"):format(
 				layout.chute.upper,
 				layout.chute.ground,
-				layout.chute.side
+				layout.chute.side and (layout.chute.side .. " wall") or "a trapdoor"
 			)
 		)
 	end
@@ -264,8 +264,9 @@ function FloorPlan.render(layout, config): string
 		table.insert(
 			out,
 			string.format(
-				"seed %d, %d rooms, attempts %d%s, hash %d",
+				"seed %d, %s%d rooms, attempts %d%s, hash %d",
 				layout.seed,
+				layout.houseType and (layout.houseType .. " plan, ") or "",
 				#layout.rooms,
 				layout.attempts or 1,
 				layout.fallback and " (fallback)" or "",

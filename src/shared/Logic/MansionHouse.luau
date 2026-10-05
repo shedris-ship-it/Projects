@@ -321,12 +321,37 @@ function MansionHouse:MaxSeams(room): number
 	return template and template.mansion and template.mansion.maxSeams or math.huge
 end
 
+-- Whether a rect is on the site: behind the front line, inside the site's
+-- box, or (a house type's: docs/plans/level-design.md section 10.6) inside
+-- its rectangles and off its courtyard.
 function MansionHouse:InSite(rect): boolean
 	local c = self.config
-	return rect.x >= -c.SiteHalfWidth
-		and rect.x + rect.w <= c.SiteHalfWidth
-		and rect.z >= c.FrontLine - c.SiteDepth
-		and rect.z + rect.d <= c.FrontLine
+	if rect.z + rect.d > c.FrontLine then
+		return false
+	end
+	if c.Courtyard and RoomRects.overlaps(rect, c.Courtyard) then
+		return false
+	end
+	if not c.Site then
+		return rect.x >= -c.SiteHalfWidth and rect.x + rect.w <= c.SiteHalfWidth and rect.z >= c.FrontLine - c.SiteDepth
+	end
+	-- Every lattice square of it inside one of the site's rectangles.
+	local l = self.lattice
+	for x = rect.x + l / 2, rect.x + rect.w, l do
+		for z = rect.z + l / 2, rect.z + rect.d, l do
+			local inside = false
+			for _, s in c.Site do
+				if x > s.x and x < s.x + s.w and z > s.z and z < s.z + s.d then
+					inside = true
+					break
+				end
+			end
+			if not inside then
+				return false
+			end
+		end
+	end
+	return true
 end
 
 -- Whether a candidate room can go where it is: on the site, on free floor,

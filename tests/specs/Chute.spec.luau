@@ -5,6 +5,7 @@ return function(test, check, Shared, require)
 	local Config = require(Shared.Config)
 	local Rooms = require(Shared.Data.Rooms)
 	local Dumbwaiter = require(Shared.Logic.Dumbwaiter)
+	local FloorPlan = require(Shared.Logic.FloorPlan)
 	local HouseSize = require(Shared.Logic.HouseSize)
 	local MansionGen = require(Shared.Logic.MansionGen)
 	local MansionHouse = require(Shared.Logic.MansionHouse)
@@ -19,6 +20,8 @@ return function(test, check, Shared, require)
 				local layout = MansionGen.generate(seed * 23 + squad, Rooms.Mansion, mansion)
 				if not layout.fallback then
 					houses += 1
+					-- (The plan printer takes either kind of chute.)
+					check.truthy(#FloorPlan.render(layout, mansion) > 0, "the plan prints")
 					local chute = layout.chute
 					if chute then
 						with += 1

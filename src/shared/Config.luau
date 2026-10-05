@@ -302,6 +302,26 @@ Config.Mansion = {
 		LandNoise = 24, -- landing in the basket, heard this far
 		DropNoise = 12, -- something dropped down it
 	},
+	-- House types (docs/plans/level-design.md section 10.6): the plan's
+	-- outline, so the runs don't share one shape. A type changes the site the
+	-- rooms are packed into: `site` (rectangles the house stays inside, from
+	-- the hall at the front middle; mirrored east-west by chance),
+	-- `courtyard` (a rectangle kept open on every floor: the house wraps
+	-- round it), `serviceSide` (the side the service wing takes: along the
+	-- L's arm). The hall stays at the front in the middle in every type.
+	Types = {
+		{ name = "centre", weight = 2 },
+		{ name = "courtyard", weight = 1.5, courtyard = { x = -20, z = -100, w = 40, d = 50 } },
+		{
+			name = "L",
+			weight = 1.5,
+			site = { { x = -90, z = -70, w = 200, d = 70 }, { x = 20, z = -150, w = 90, d = 150 } },
+			serviceSide = "E",
+			mirror = true,
+		},
+		{ name = "wide", weight = 1, site = { { x = -130, z = -80, w = 260, d = 80 } } },
+		{ name = "deep", weight = 1, site = { { x = -60, z = -160, w = 120, d = 160 } } },
+	},
 	-- Archways (docs/plans/level-design.md section 10.7): pairs of rooms that
 	-- open into each other through a wide arch instead of a door, inside one
 	-- wing. Width matches the furniture's doorway lanes (half-width 4).
@@ -922,7 +942,7 @@ Config.LevelDesign = {
 		storeyIdle = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic wing holding nothing the run needs
 		storeyOneWay = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic with one way in (a dead end, a trap)
 		-- The squad's own wings, not counting the cellar's and the attic's.
-		mainWings = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 5 },
+		mainWings = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 10 },
 		passages = { band = { 1, 9 }, weight = 2 }, -- a servants' passage to find
 		chutes = { band = { 1, 1 }, weight = 1.5 }, -- the laundry chute
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door

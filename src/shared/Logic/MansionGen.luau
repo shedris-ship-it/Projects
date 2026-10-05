@@ -361,7 +361,8 @@ function Builder:_spine(): boolean
 		return distance(c.rect, hx, hz) * weight
 	end
 
-	local serviceSide = rng:Pick({ "E", "W" })
+	-- (A house type may say which side: along the L's arm.)
+	local serviceSide = config.ServiceSide or rng:Pick({ "E", "W" })
 	local publicSide = OPPOSITE[serviceSide]
 
 	-- Service wing.
@@ -1862,8 +1863,39 @@ function Builder:_orientWindows()
 	end
 end
 
+-- The house's type (Config.Mansion.Types; docs/plans/level-design.md section
+-- 10.6): a copy of the config with its site, courtyard and service side, and
+-- the type's name.
+function MansionGen.typed(rng, config)
+	local types = config.Types
+	if not types or #types == 0 then
+		return config, nil
+	end
+	local kind = rng:WeightedPick(types, function(t)
+		return t.weight or 1
+	end)
+	local mirror = kind.mirror and rng:Chance(0.5)
+	local c = table.clone(config)
+	if kind.site then
+		c.Site = {}
+		for _, r in kind.site do
+			table.insert(c.Site, mirror and { x = -(r.x + r.w), z = r.z, w = r.w, d = r.d } or table.clone(r))
+		end
+	end
+	if kind.courtyard then
+		local r = kind.courtyard
+		c.Courtyard = mirror and { x = -(r.x + r.w), z = r.z, w = r.w, d = r.d } or table.clone(r)
+	end
+	if kind.serviceSide then
+		c.ServiceSide = mirror and RoomRects.Opposite[kind.serviceSide] or kind.serviceSide
+	end
+	return c, kind.name
+end
+
 -- One generation attempt with a given RNG.
 function MansionGen.attempt(rng, templates, config)
+	local houseType
+	config, houseType = MansionGen.typed(rng:Fork("type"), config)
 	local builder = Builder.new(rng, templates, config)
 	local target = rng:Fork("count"):NextInteger(config.RoomCount[1], config.RoomCount[2])
 	if config.Programme then
@@ -1949,6 +1981,7 @@ function MansionGen.attempt(rng, templates, config)
 		wingLog = builder.wingLog,
 		passages = #passages > 0 and passages or nil,
 		programme = builder.programme,
+		houseType = houseType,
 	}
 	-- The laundry chute, once the layout is whole (it reads the doorways).
 	layout.chute = MansionGen.chute(layout, builder.p.byId, config)
