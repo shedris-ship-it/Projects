@@ -349,6 +349,7 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 
 ### R2a as built (2026-10-05 on)
 - **R2a.1 the lock planner:** `Logic/LockPlanner` (plan, solve, check; spec over 100 mansions, 30 old houses and the fallback), `Config.Progression`, `lune run tools/plan <seed> mansion locks` (the plan beside the floor plan) and `lune run tools/lockstats [n] [mode]`. Changes from 5.3, found tuning: region 0 starts from a loop through the hall or the dining room (otherwise a third of attempts had nowhere to run); the dead-end limit is measured with each stage's bolts open, and a newly opened region instead may run at most `RegionDepth` (4) rooms past its gate (with bolts shut a whole region is one dead end, so the old rule failed nearly every attempt). On 60 mansions: 2 regions 28, 3 regions 30, 1 region 2; a padlock (the computer) in about half; all solvable. Old house: one region in 59 of 60.
+- **R2a.2 the computer and the padlock:** `Logic/Puzzles/Terminal` (a dump of 32 rows of junk with 10–13 words of 5–8 letters from `Data/Words`, likeness feedback, 4 tries, a 15 s lockout with the same password, 3–5 bracket pairs that remove a dud or give tries back; only sets a careful player can crack in 4 tries are kept, proven over 300 seeds) and `Logic/Puzzles/Padlock` (3–4 wheels; pulling a wrong code rattles). Spec: `Terminal.spec`.
 
 ## 10. Later: the living house (R3) and variety (R4)
 **R3.**
