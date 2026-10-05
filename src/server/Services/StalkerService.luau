@@ -31,6 +31,7 @@ local Archetypes = require(Shared.Data.Archetypes)
 local GuestPose = require(Shared.Logic.GuestPose)
 local Net = require(Shared.Net)
 local StalkRules = require(Shared.Logic.StalkRules)
+local Throw = require(Shared.Logic.Throw)
 
 local StalkerFolder = script.Parent.Parent:WaitForChild("Stalker")
 local StalkerModel = require(StalkerFolder.StalkerModel)
@@ -46,6 +47,7 @@ local Director = require(StalkerFolder.Director)
 
 local S = Config.Stalker
 local G = Config.Guest
+local H = Config.Hands
 local Modes = Constants.StalkerModes
 local RS = Constants.RunState
 local Poses = GuestPose.Poses
@@ -91,6 +93,10 @@ function StalkerService:Start()
 	end
 	services.PlayerStateService.Downed:Connect(remember)
 	services.PlayerStateService.Revived:Connect(remember)
+	-- Something thrown: did its path this step pass through him?
+	services.HandsService.Moved:Connect(function(thing, from: Vector3, to: Vector3)
+		self:_thrownMoved(thing, from, to)
+	end)
 
 	local bodyAccumulator, directorAccumulator = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
@@ -170,6 +176,9 @@ function StalkerService:Begin(ctx)
 	self.final = false
 	self.resolved = false
 	self.frozenUntil = 0
+	self.stunnedUntil = 0
+	self.stunImmuneUntil = 0
+	self.stuns = {} -- when each recent stun landed (repeats are shorter)
 	self.coStare = 0
 	self.visibleTo = {}
 	self.parked = true
@@ -248,6 +257,74 @@ function StalkerService:ForceHunt(reason: string?)
 	end
 	self.director:ForceHunt()
 	self.forceReason = reason
+end
+
+-- Thrown things (docs/plans/gameplay-rework.md section 4.4) ------------------
+
+-- A thrown thing moved from `from` to `to` this step (Services/HandsService).
+-- It stuns him if that path passed through his body, it was flying fast
+-- enough, and its thrower could see him (tier 1 shows him to one player:
+-- you can't hit what isn't there for you).
+function StalkerService:_thrownMoved(thing, from: Vector3, to: Vector3)
+	if not self.active or not self.arrived or self.parked or thing.hitGuest or not thing.thrower then
+		return
+	end
+	local root = thing.root
+	if not root or root.AssemblyLinearVelocity.Magnitude < H.StunMinSpeed then
+		return
+	end
+	if self.visibleTo[thing.thrower] ~= true then
+		return
+	end
+	local feet = self.body.root.Position - Vector3.new(0, self.body.groundOffset, 0)
+	local top = feet
+	for _, point in self.bodyCtl:ExposedPoints() do
+		if point.Y > top.Y then
+			top = point
+		end
+	end
+	if not Throw.hits(from, to, feet, top, H.StunRadius) then
+		return
+	end
+	thing.hitGuest = true
+	root.AssemblyLinearVelocity *= -0.3
+	self:Stun(thing.class.stun, thing.thrower, to)
+end
+
+-- Stop him for a moment: `base` seconds, halved for each stun in the last
+-- Config.Hands.StunWindow, never again within StunImmuneSeconds of one
+-- ending, shorter in the final hunt. He knows who did it and where they
+-- stood. Returns the seconds given (0 if he shrugged it off).
+function StalkerService:Stun(base: number, by: Player?, at: Vector3?): number
+	local now = os.clock()
+	if not self.active or now < self.stunImmuneUntil then
+		return 0
+	end
+	if self.mode == Modes.Retreating or self.mode == Modes.Departing then
+		return 0
+	end
+	for i = #self.stuns, 1, -1 do
+		if now - self.stuns[i] > H.StunWindow then
+			table.remove(self.stuns, i)
+		end
+	end
+	local seconds = Throw.stunSeconds(base, #self.stuns, self.final, H.StunFinalScale)
+	table.insert(self.stuns, now)
+	self.stunnedUntil = now + seconds
+	self.stunImmuneUntil = self.stunnedUntil + H.StunImmuneSeconds
+	self.bodyCtl:CancelSpecial()
+	Sfx.play("Thud", at or self.body.root.Position, 0.8, 0.7)
+	if by and by.Parent then
+		local position = self.services.PlayerStateService:Position(by)
+		if position then
+			self.perception:_remember(by, position, 1, true)
+		end
+	end
+	local telemetry = self.services.Telemetry
+	if telemetry then
+		telemetry:Log("GuestStunned", { seconds = math.floor(seconds * 100) / 100, by = by and by.UserId })
+	end
+	return seconds
 end
 
 function StalkerService:StartFinalHunt()
@@ -760,7 +837,16 @@ function StalkerService:_update(dt: number)
 
 	local frozen = StalkRules.frozen(#watchers, now < (self.frozenUntil or 0))
 	local mode = self.mode
-	if frozen and mode ~= Modes.Retreating and mode ~= Modes.Departing then
+	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
+		-- Something thrown hit him: a moment off balance (Stun). The hunt
+		-- waits for him.
+		body:CancelSpecial()
+		body:Hold()
+		body:SetPose(Poses.Stagger)
+		if mode == Modes.Hunting and self.data.endsAt then
+			self.data.endsAt += dt
+		end
+	elseif frozen and mode ~= Modes.Retreating and mode ~= Modes.Departing then
 		-- Two Witnesses lock eyes on him: not a step, and no lunge.
 		body:CancelSpecial()
 		body:Hold()

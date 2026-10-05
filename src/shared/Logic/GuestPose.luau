@@ -81,6 +81,7 @@ GuestPose.Poses = {
 	Zoom = "Zoom",
 	Lunge = "Lunge",
 	Bow = "Bow",
+	Stagger = "Stagger", -- hit by something thrown: head snapped aside, hands up, knees buckled
 }
 
 -- How quickly each pose is reached (1/s). Fast ones snap; the rest ease.
@@ -95,6 +96,7 @@ local RATE = {
 	Zoom = 30,
 	Lunge = 28,
 	Bow = 3,
+	Stagger = 22,
 }
 
 -- Steps: studs travelled per step, swing amplitude, knee bend and lift.
@@ -242,6 +244,20 @@ function GuestPose.target(ctx)
 		add(t, "RightHip", d(10))
 		add(t, "LeftAnkle", d(-30))
 		add(t, "RightAnkle", d(-30))
+	elseif pose == P.Stagger then
+		-- Knocked off balance for a moment: rocked back, head thrown aside,
+		-- hands come up, knees give. He still never turns his back.
+		add(t, "Root", 0, 0, 0, 0, -0.45, 0.35)
+		add(t, "Waist", d(14), d(-10), d(8))
+		add(t, "Neck", d(-22), d(-34), d(18))
+		add(t, "LeftShoulder", d(70), 0, d(-28))
+		add(t, "RightShoulder", d(58), 0, d(30))
+		add(t, "LeftElbow", d(80))
+		add(t, "RightElbow", d(64))
+		add(t, "LeftHip", d(16))
+		add(t, "RightHip", d(6))
+		add(t, "LeftKnee", d(-30))
+		add(t, "RightKnee", d(-16))
 	elseif pose == P.Lunge then
 		add(t, "Root", 0, 0, 0, 0, -0.35, -0.6)
 		add(t, "Waist", d(-34))

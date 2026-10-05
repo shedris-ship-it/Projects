@@ -667,6 +667,14 @@ Config.Hands = {
 	FlightSeconds = 2.5, -- a throw is watched this long for a hit and a landing
 	ImpactSpeed = 10, -- slowing hard from at least this fast is a landing: a sound and a noise
 	FallLimit = 60, -- below the floor by this much, it goes back where it was found
+	-- A throw that hits The Guest stops him for a moment (section 4.4): the
+	-- class's stun (Data/Physical), halved for each stun in the last StunWindow
+	-- seconds, never again within StunImmuneSeconds of one ending.
+	StunMinSpeed = 28, -- slower than this and it just bumps off him
+	StunRadius = 1.6, -- his body's reach plus a thrown thing's
+	StunImmuneSeconds = 4,
+	StunWindow = 60,
+	StunFinalScale = 0.6, -- shorter in the final hunt
 }
 
 Config.Difficulty = {

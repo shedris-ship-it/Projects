@@ -45,6 +45,7 @@ local HELP = table.concat({
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
+	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -180,6 +181,38 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "where" then
 		reply(player, services.StalkerService:DebugWhere(player))
+	elseif command == "stun" then
+		local seconds = services.StalkerService:Stun(tonumber(args[2]) or 1.2, player)
+		reply(
+			player,
+			seconds > 0 and string.format("guest stunned for %.2fs", seconds)
+				or "he shrugged it off (immune or retreating)"
+		)
+	elseif command == "throwat" then
+		-- Throw what you carry straight at his chest, as if you'd aimed it;
+		-- with empty hands, take the nearest thing within reach first.
+		local hands = services.HandsService
+		local head = services.PlayerStateService:Head(player)
+		if not hands:Held(player) and head then
+			local best, bestDistance = nil, math.huge
+			for id, thing in hands.things do
+				local d = (thing.model:GetPivot().Position - head.Position).Magnitude
+				if d < bestDistance then
+					best, bestDistance = id, d
+				end
+			end
+			if best then
+				hands:Grab(player, best)
+			end
+		end
+		local held = hands:Held(player)
+		local guest = services.StalkerService:GetPosition()
+		if not held or not guest or not head then
+			reply(player, "pick something up first (and he must be in the house)")
+		else
+			services.HandsService:Throw(player, (guest + Vector3.new(0, 1.5, 0) - head.Position).Unit)
+			reply(player, "thrown at him")
+		end
 	elseif command == "door" then
 		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)
 		local angle = tonumber(args[4])

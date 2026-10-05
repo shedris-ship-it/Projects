@@ -82,6 +82,9 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 		return false, "too early"
 	elseif StalkRules.frozen(ctx.watchers, ctx.anchored) then
 		return false, "frozen"
+	elseif ctx.stunned then
+		-- Something thrown just hit him (docs/plans/gameplay-rework.md 4.4).
+		return false, "stunned"
 	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
 		return false, "protected"
 	elseif ctx.distance > cfg.LungeRadius or ctx.verticalGap > 4 then
@@ -115,6 +118,8 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 		return false, "out of reach"
 	elseif StalkRules.frozen(ctx.watchers, ctx.anchored) then
 		return false, "frozen"
+	elseif ctx.stunned then
+		return false, "stunned"
 	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
 		return false, "protected"
 	elseif not ctx.lineOfSight then

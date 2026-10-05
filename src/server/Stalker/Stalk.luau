@@ -915,6 +915,7 @@ function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
 					and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
 				watchers = ctx.watchers,
 				anchored = now < (service.frozenUntil or 0),
+				stunned = now < (service.stunnedUntil or 0),
 				hidden = services.HidingService:IsHidden(player),
 				downed = not services.PlayerStateService:IsActive(player),
 				safeRoom = service.perception:InSafeRoom(player),
@@ -1120,6 +1121,7 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 		runTime = service.tierOverride and math.huge or (now - service.runStart),
 		watchers = ctx.watchers,
 		anchored = now < (service.frozenUntil or 0),
+		stunned = now < (service.stunnedUntil or 0),
 		distance = ctx.distance,
 		verticalGap = math.abs(pos.Y - here.Y),
 		lineOfSight = head ~= nil

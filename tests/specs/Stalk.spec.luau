@@ -127,6 +127,16 @@ return function(test, check, Shared, require)
 		return ctx
 	end
 
+	test("a Guest stunned by a throw can't lunge or lunge on contact", function()
+		local ok, why = StalkRules.canLunge(ready({ stunned = true }), G)
+		check.equal(ok, false, "no lunge while stunned")
+		check.equal(why, "stunned", "and says why")
+		local touched, reason = StalkRules.contact(touching({ stunned = true }), G)
+		check.equal(touched, false, "no contact lunge while stunned")
+		check.equal(reason, "stunned", "and says why")
+		check.truthy(StalkRules.canLunge(ready({ stunned = false }), G), "fine once it wears off")
+	end)
+
 	test("walk up to a Guest you can see and he lunges, from tier 1, with no warning or wait", function()
 		for tier = 1, 3 do
 			check.truthy(StalkRules.contact(touching({ tier = tier }), G), "tier " .. tier)

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-04.15",
-	note = "Rework R1a.6: pick up mugs, books, phones and chairs with your hands, carry them, throw them (right click)",
+	id = "2026-10-04.16",
+	note = "Rework R1a.7: a thrown thing that hits The Guest staggers him for a moment (shorter each time); F2 stun, throwat",
 }
