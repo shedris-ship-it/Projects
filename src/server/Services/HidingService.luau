@@ -195,7 +195,8 @@ function HidingService:_tick(dt: number)
 	local now = os.clock()
 	for player, state in hidden do
 		local spot = state.spot
-		local near = stalkerPos ~= nil and (stalkerPos - spot.frontPosition).Magnitude < 16
+		-- Near means on your floor (or in the hall with you), not underfoot.
+		local near = stalkerPos ~= nil and self.World:Together(stalkerPos, spot.frontPosition, 16)
 		if state.holding then
 			state.breath = math.max(0, state.breath - Config.Player.BreathDrainPerSecond * dt)
 			if state.breath <= 0 then

@@ -296,7 +296,16 @@ function ToolService:_putDown(player: Player, item)
 			reach = math.min(reach, math.max(0.4, hit.Distance - 0.5))
 		end
 	end
-	local spot = CFrame.new(feet + forward * reach)
+	-- Onto whatever floor is under that spot (a stair's slope, the gallery);
+	-- over the void beside the gallery, at your feet instead.
+	local point = feet + forward * reach
+	local floor = Workspace:Raycast(point + Vector3.new(0, 2, 0), Vector3.new(0, -5, 0), params)
+	if floor then
+		point = floor.Position
+	else
+		point = feet
+	end
+	local spot = CFrame.new(point)
 	self:_makePickup(item, spot, Rng.new(Rng.hash(item.uid)):NextNumber(0, math.pi * 2))
 	Sfx.play("Cloth", root.Position, 0.5, 1)
 	self.services.NoiseService:Emit(root.Position, 6, player, "tool")

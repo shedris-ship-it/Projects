@@ -545,13 +545,20 @@ function PlayerStateService:_tick(dt: number)
 
 		-- Isolation (only meaningful with teammates)
 		if #living >= 2 and pos then
-			local nearest = math.huge
+			-- A teammate on the other floor doesn't count as company (owner,
+			-- 2026-10-04), unless you share the hall or a stairwell.
+			local together = false
 			for other, otherPos in positions do
-				if other ~= player and otherPos then
-					nearest = math.min(nearest, (otherPos - pos).Magnitude)
+				if
+					other ~= player
+					and otherPos
+					and self.World:Together(otherPos, pos, Config.Drift.IsolationDistance)
+				then
+					together = true
+					break
 				end
 			end
-			if nearest > Config.Drift.IsolationDistance then
+			if not together then
 				record.isolatedSince = record.isolatedSince or now
 			else
 				record.isolatedSince = nil

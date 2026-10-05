@@ -548,13 +548,13 @@ function WitnessService:_tick(dt: number)
 			for _, other in living do
 				if other ~= player then
 					local otherPos = self.PlayerState:Position(other)
-					if otherPos and (otherPos - pos).Magnitude <= W.TeammateRadius then
+					if otherPos and self.World:Together(otherPos, pos, W.TeammateRadius) then
 						near = true
 						break
 					end
 				end
 			end
-			if not near and companionPos and (companionPos - pos).Magnitude <= W.CompanionRadius then
+			if not near and companionPos and self.World:Together(companionPos, pos, W.CompanionRadius) then
 				near = true
 			end
 			local rate = near and W.RegenNearTeammate or W.RegenAlone

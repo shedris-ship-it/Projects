@@ -19,7 +19,13 @@ local PhantomFactory = require(script.Parent.Parent.Lib.PhantomFactory)
 local PropFactory = require(Shared.World.PropFactory)
 
 local Attr = Constants.Attributes
-local FLOOR_Y = Config.Level.Origin.y
+-- The floor of the storey a point is on (the mansion's upper floor starts
+-- just below its level; the old house is all ground floor).
+local function floorY(y: number): number
+	local o = Config.Level.Origin.y
+	local pitch = Config.Mansion.FloorPitch
+	return o + (y - o >= pitch - 0.5 and pitch or 0)
+end
 
 local player = Players.LocalPlayer
 
@@ -135,7 +141,7 @@ end
 
 local function floorCF(params): CFrame
 	local p = vec(params.position)
-	local base = Vector3.new(p.X, FLOOR_Y, p.Z)
+	local base = Vector3.new(p.X, floorY(p.Y), p.Z)
 	if params.normal then
 		local n = vec(params.normal)
 		local flat = Vector3.new(n.X, 0, n.Z)
@@ -969,7 +975,7 @@ function PerceptionController:_scare(payload)
 	elseif kind == "flicker" then
 		effects:FlickerRoom(payload.roomId, payload.duration or 2)
 	elseif kind == "coldSpot" then
-		local cf = CFrame.new(Vector3.new(payload.position.X, FLOOR_Y, payload.position.Z))
+		local cf = CFrame.new(Vector3.new(payload.position.X, floorY(payload.position.Y), payload.position.Z))
 		local model = PhantomFactory.build("BreathFog", cf, phantomFolder())
 		task.delay(7, function()
 			model:Destroy()
@@ -980,9 +986,9 @@ function PerceptionController:_scare(payload)
 		audio:Caption("[a whisper behind you]")
 	elseif kind == "figure" then
 		local root = myRoot()
-		local pos = Vector3.new(payload.position.X, FLOOR_Y, payload.position.Z)
+		local pos = Vector3.new(payload.position.X, floorY(payload.position.Y), payload.position.Z)
 		local cf = root
-				and CFrame.lookAt(pos, Vector3.new(root.Position.X, FLOOR_Y, root.Position.Z)) * CFrame.Angles(
+				and CFrame.lookAt(pos, Vector3.new(root.Position.X, pos.Y, root.Position.Z)) * CFrame.Angles(
 					0,
 					math.pi,
 					0

@@ -135,6 +135,7 @@ function WorldService:LayoutSnapshot()
 			d = rect.d,
 			floor = rect.floor or 0,
 			tall = rect.tall,
+			kind = room.kind,
 			name = room.name,
 			role = room.role,
 			lantern = room.lantern,

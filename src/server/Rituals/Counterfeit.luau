@@ -302,7 +302,7 @@ function Ritual:_tryUnlock(player: Player)
 	local missing = 0
 	for _, other in services.PlayerStateService:ActivePlayers() do
 		local pos = services.PlayerStateService:Position(other)
-		if not pos or (pos - self.box.lock.Position).Magnitude > GATHER_RADIUS then
+		if not pos or not services.WorldService:Together(pos, self.box.lock.Position, GATHER_RADIUS) then
 			missing += 1
 		end
 	end

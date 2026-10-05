@@ -235,7 +235,7 @@ function CaseFile:_renderMap()
 	local height = maxZ - minZ
 	local scale = math.min(540 / height, 900 / width)
 	local canvas = Ui.new("Frame", {
-		Size = UDim2.fromOffset(width * scale, height * scale + 24),
+		Size = UDim2.fromOffset(width * scale, height * scale + 46),
 		BackgroundTransparency = 1,
 		Parent = self.body,
 	})
@@ -258,22 +258,53 @@ function CaseFile:_renderMap()
 				local tag = room.role == "start" and " (Case Board)"
 					or room.role == "deliberation" and " (Table)"
 					or room.role == "exit" and " (Exit)"
+					or room.kind == "stair" and " (Stairs)"
 					or ""
 				if room.lantern then
 					tag ..= " (Lantern)"
 				end
-				Ui.new("TextLabel", {
-					Position = UDim2.fromOffset((left + room.x - minX) * scale + 2, (room.z - minZ) * scale + 2),
-					Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
-					BackgroundColor3 = isHere and Ui.Theme.accent
-						or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight),
-					Text = room.name .. tag,
-					TextWrapped = true,
-					TextSize = 12,
-					Font = Ui.Theme.font,
-					TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
-					Parent = canvas,
-				}, { Ui.corner(4) })
+				local color = isHere and Ui.Theme.accent
+					or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
+				local x0, z0 = (left + room.x - minX) * scale, (room.z - minZ) * scale
+				if room.tall and room.role == "start" and floor == 1 then
+					-- Upstairs the hall is only its gallery, round three walls
+					-- over the open hall (Logic/TallRooms).
+					local g = 8 * scale
+					local strips = {
+						{ 0, 0, room.w * scale, g },
+						{ 0, g, g, room.d * scale - g },
+						{ room.w * scale - g, g, g, room.d * scale - g },
+					}
+					for _, strip in strips do
+						Ui.new("Frame", {
+							Position = UDim2.fromOffset(x0 + strip[1] + 2, z0 + strip[2] + 2),
+							Size = UDim2.fromOffset(math.max(1, strip[3] - 4), math.max(1, strip[4] - 4)),
+							BackgroundColor3 = color,
+							Parent = canvas,
+						}, { Ui.corner(3) })
+					end
+					Ui.label("Gallery", {
+						Position = UDim2.fromOffset(x0 + 2, z0 + 2),
+						Size = UDim2.fromOffset(room.w * scale - 4, g - 4),
+						TextSize = 11,
+						TextXAlignment = Enum.TextXAlignment.Center,
+						TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
+						Parent = canvas,
+					})
+				else
+					Ui.new("TextLabel", {
+						Position = UDim2.fromOffset(x0 + 2, z0 + 2),
+						Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
+						BackgroundColor3 = color,
+						Text = room.name .. tag,
+						TextWrapped = true,
+						TextScaled = room.w * scale < 70,
+						TextSize = 12,
+						Font = Ui.Theme.font,
+						TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
+						Parent = canvas,
+					}, { Ui.corner(4), Ui.new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 7 }) })
+				end
 			end
 		end
 	end

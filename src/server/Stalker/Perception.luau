@@ -186,7 +186,10 @@ function Perception:Update(hearingBoost: number?)
 	local here = self.body.root.Position
 	local multiplier = self.hearingMultiplier * (hearingBoost or 1)
 	for _, noise in services.NoiseService:Drain() do
-		if (noise.position - here).Magnitude <= noise.radius * multiplier then
+		-- A floor muffles it to half its reach; the hall and the stairwells
+		-- carry it (owner, 2026-10-04; Logic/Storeys).
+		local radius = services.WorldService:AudibleRadius(noise.radius, noise.position, here)
+		if (noise.position - here).Magnitude <= radius * multiplier then
 			if noise.source and noise.source.Parent then
 				self:_remember(noise.source, noise.position, S.MemoryHeardConfidence, false)
 			end
