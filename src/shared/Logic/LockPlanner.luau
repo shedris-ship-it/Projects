@@ -171,6 +171,7 @@ local function context(layout, templatesById, config)
 		bare = bare,
 		corridor = corridor,
 		walker = mansion and config and MansionHouse.walker(layout.rooms, layout.seams, config) or nil,
+		deckBoost = config and config.Programme and config.Programme.DeckBoost or 1,
 		kept = {}, -- rooms something is kept in so far (an attempt's)
 		start = layout.start,
 		dining = layout.deliberation,
@@ -618,6 +619,8 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 	local counts = {} -- token kind -> how many so far
 	local usedPuzzles = {} -- puzzle kind -> true once one stands in the house
 	local enabled = cfg.Enabled or {}
+	-- What the run's adventure wants (a mansion's programme; nothing else).
+	local deck = ctx.layout.programme and ctx.layout.programme.deck or {}
 	for index, r in order do
 		local previous = index == 1 and 0 or order[index - 1]
 		local boundary, older, recent = {}, {}, {}
@@ -684,6 +687,10 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 		for i = 2, #LockPlanner.Gates do
 			local kind = LockPlanner.Gates[i]
 			local weight = cfg.Flavours[kind.id] or 0
+			-- The run's adventure deck (Logic/Programme) wants this kind.
+			if deck[kind.id] and weight > 0 then
+				weight *= ctx.deckBoost
+			end
 			if enabled[kind.id] and weight > 0 then
 				if kind.puzzle then
 					if not usedPuzzles[kind.puzzle] and plan.stats.puzzles < cfg.MaxPuzzles then
@@ -850,6 +857,9 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 		for k = 2, #LockPlanner.Keepers do
 			local keeper = LockPlanner.Keepers[k]
 			local weight = (cfg.Keepers or {})[keeper.id] or 0
+			if deck[keeper.id] and weight > 0 then
+				weight *= ctx.deckBoost
+			end
 			if enabled[keeper.id] and weight > 0 and not usedPuzzles[keeper.puzzle] then
 				if plan.stats.puzzles < cfg.MaxPuzzles and keeper.stacked then
 					-- Two stacked rooms, both open no later than this region,

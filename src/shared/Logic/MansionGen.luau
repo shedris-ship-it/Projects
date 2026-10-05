@@ -12,7 +12,9 @@
 --      repeated over its twin for the back stairs, other corridors by
 --      chance, and maybe a second stairwell.
 --   5. General rooms packed against walls, ground floor first; upstairs they
---      stand on the ground floor's footprint.
+--      stand on the ground floor's footprint. With a programme (Logic/
+--      Programme: the rooms the run's adventure needs, then rooms with
+--      something in them), in its order.
 --   6. Doors: the tree that joined every room, the doors that make the upper
 --      floor one piece (each closes a loop through two stairs), then the
 --      adventure's (Logic/Wings: wings, a loop in each, shortcuts, the
@@ -26,6 +28,7 @@ local LayoutValidator = require(script.Parent.LayoutValidator)
 local LevelGraph = require(script.Parent.LevelGraph)
 local LockPlanner = require(script.Parent.LockPlanner)
 local MansionHouse = require(script.Parent.MansionHouse)
+local Programme = require(script.Parent.Programme)
 local RoomRects = require(script.Parent.RoomRects)
 local Wings = require(script.Parent.Wings)
 local Rng = require(script.Parent.Parent.Lib.Rng)
@@ -713,25 +716,39 @@ function Builder:_roomsOn(floor: number, quota: number)
 	local failed = {}
 	local placed = 0
 	local onFloor = {}
+	local listed = self.programme and self.programme.floors[floor] or nil
+	local nextListed = 1
+	local function allowed(template): boolean
+		local m = template.mansion
+		return not failed[template.id]
+			and table.find(m.floors, floor) ~= nil
+			and (self.counts[template.id] or 0) < (m.max or 1)
+			and (onFloor[template.id] or 0) < (m.perFloor or math.huge)
+	end
 	while placed < quota do
-		local options = {}
-		for _, template in p.general do
-			local m = template.mansion
-			if
-				not failed[template.id]
-				and table.find(m.floors, floor)
-				and (self.counts[template.id] or 0) < (m.max or 1)
-				and (onFloor[template.id] or 0) < (m.perFloor or math.huge)
-			then
-				table.insert(options, template)
+		-- The programme's next room, else a weighted draw as before.
+		local template = nil
+		while listed and listed[nextListed] and not template do
+			local candidate = p.byId[listed[nextListed]]
+			nextListed += 1
+			if candidate and allowed(candidate) then
+				template = candidate
 			end
 		end
-		if #options == 0 then
-			break
+		if not template then
+			local options = {}
+			for _, t in p.general do
+				if allowed(t) then
+					table.insert(options, t)
+				end
+			end
+			if #options == 0 then
+				break
+			end
+			template = rng:WeightedPick(options, function(t)
+				return t.mansion.weight or 1
+			end)
 		end
-		local template = rng:WeightedPick(options, function(t)
-			return t.mansion.weight or 1
-		end)
 		local near = template.mansion.near or {}
 		local parents = {}
 		for _, room in house.rooms do
@@ -1114,6 +1131,15 @@ end
 function MansionGen.attempt(rng, templates, config)
 	local builder = Builder.new(rng, templates, config)
 	local target = rng:Fork("count"):NextInteger(config.RoomCount[1], config.RoomCount[2])
+	if config.Programme then
+		builder.programme = Programme.draw(
+			rng:Fork("programme"),
+			builder.p.general,
+			config.Programme,
+			config.Programme.Enabled,
+			config.Squad
+		)
+	end
 	local built, why = builder:_spine()
 	if not built then
 		return nil, why
@@ -1159,6 +1185,7 @@ function MansionGen.attempt(rng, templates, config)
 		exitDoor = exitDoor,
 		wings = builder.wings,
 		wingLog = builder.wingLog,
+		programme = builder.programme,
 	}
 end
 

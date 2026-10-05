@@ -212,6 +212,19 @@ Config.Mansion = {
 		ShortcutStuds = 60, -- a doorway home must save this much walking to be added
 		KeyStuds = { 40, 300 }, -- walking studs from a key to its door: never closer, rarely further
 	},
+	-- The adventure picks the rooms (Logic/Programme; docs/plans/level-design.md
+	-- section 5.4): a deck of lock and keeper kinds drawn first, the rooms they
+	-- need placed first, rooms with a landmark or a lure ahead of plain ones.
+	-- Enabled is Config.Progression.Enabled (set below).
+	Programme = {
+		Kinds = { "padlock", "power", "crank", "safe", "musicbox", "dumbwaiter" }, -- in draw order
+		-- (The dumbwaiter is rare: its hatch can find the wall taken by furniture, and
+		-- then its heirloom is simply left upstairs.)
+		Weights = { padlock = 3, power = 2, crank = 1.5, safe = 2, musicbox = 2, dumbwaiter = 0.5 },
+		DeckSize = { 2, 2, 3, 3 }, -- kinds a run wants, by squad size
+		DrawBonus = 2, -- a room with a landmark or a lure comes up this much more
+		DeckBoost = 10, -- the lock planner's weight for a kind in the deck
+	},
 	LoopLength = { 4, 8 }, -- (doc)
 	MinLoops = 2, -- (doc)
 	MaxDeadEndChain = 2, -- (doc)
@@ -775,6 +788,7 @@ Config.LevelDesign = {
 }
 
 Config.Mansion.Wings.Stage = Config.Progression
+Config.Mansion.Programme.Enabled = Config.Progression.Enabled
 
 -- How keys and heirlooms are found (R2c "leads, not rummaging"; Logic/Leads,
 -- Services/ItemService): a note that says where, a keepsake box, a locked
