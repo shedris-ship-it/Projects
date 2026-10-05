@@ -10,6 +10,11 @@
 --
 -- also writes that mansion to src/shared/Data/MansionFallback.luau, the
 -- authored house used when every attempt fails (then run stylua on it).
+--
+--     lune run tools/plan <seed> [cells|mansion] locks
+--
+-- adds the escape's plan for that house (Logic/LockPlanner): its regions,
+-- what locks each, where the keys, the computer and the heirlooms are.
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -76,6 +81,66 @@ local function literal(value): string
 		end
 	end
 	return "{ " .. table.concat(parts, ", ") .. " }"
+end
+
+if process.args[3] == "locks" then
+	local Rng = Harness.require(Shared.Lib.Rng)
+	local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
+	local templates = mode == "mansion" and Rooms.MansionById or Rooms.ById
+	-- The same fork RunOrchestrator gives it.
+	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), Config.Progression, config)
+	local function named(id)
+		local room
+		for _, r in layout.rooms do
+			if r.id == id then
+				room = r
+			end
+		end
+		local template = room and templates[room.template]
+		return id .. " " .. (template and template.name or "?")
+	end
+	print("Escape plan (" .. #plan.order .. " regions after the first, " .. plan.stats.attempts .. " attempts)")
+	for r = 0, #plan.order do
+		local region = plan.regions[r]
+		local rooms = {}
+		for _, id in region.rooms do
+			table.insert(rooms, tostring(id))
+		end
+		local how = ""
+		if region.gate then
+			local lock = plan.locks[region.gate]
+			local token = plan.tokens[lock.needs[1]]
+			local from = token.producer.kind == "container" and ("kept in " .. named(token.producer.room))
+				or (
+					"from the "
+					.. plan.puzzles[token.producer.id].kind
+					.. " in "
+					.. named(plan.puzzles[token.producer.id].room)
+				)
+			how = string.format("  <- %s %s (%s)", lock.kind, region.gate, from)
+		end
+		local position = r == 0 and "open" or ("opens " .. (table.find(plan.order, r) or "?"))
+		print(string.format("  region %d (%s): rooms %s%s", r, position, table.concat(rooms, " "), how))
+	end
+	local bolts = {}
+	for id, lock in plan.locks do
+		if lock.kind == "bolt" then
+			table.insert(bolts, id .. " from " .. lock.side)
+		end
+	end
+	table.sort(bolts)
+	print("  bolts (shortcuts, opened from inside): " .. (#bolts > 0 and table.concat(bolts, ", ") or "none"))
+	local heirlooms = {}
+	for _, id in plan.finale.heirlooms do
+		table.insert(heirlooms, id .. " in " .. named(plan.tokens[id].producer.room))
+	end
+	print("  heirlooms: " .. table.concat(heirlooms, ", "))
+	print(
+		"  the dinner seals: "
+			.. (#plan.finale.cut > 0 and table.concat(plan.finale.cut, ", ") or "nothing")
+			.. "; out by "
+			.. named(plan.finale.goal)
+	)
 end
 
 if mode == "mansion" and process.args[3] == "freeze" then

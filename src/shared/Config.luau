@@ -644,6 +644,27 @@ Config.Doors = {
 	SlamRate = 520,
 }
 
+-- The escape's locks and keys (docs/plans/gameplay-rework.md section 5;
+-- Logic/LockPlanner). Not the Marks and Clearance of Logic/Progression.
+Config.Progression = {
+	-- Regions opened one after another, by the house's room count.
+	Regions = { { upTo = 16, count = 1 }, { upTo = 20, count = 2 }, { upTo = 99, count = 3 } },
+	R0Share = { 0.25, 0.38 }, -- of the house open from the start
+	LoopBonus = 2.5, -- region 0 favours rooms that close a loop
+	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
+	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
+	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
+	Flavours = { key = 3, padlock = 2 }, -- what kind of lock a gate gets
+	Puzzles = { terminal = true }, -- which puzzles may appear (R2b adds the rest)
+	MaxPuzzles = 4,
+	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
+	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round
+	Stage0Hides = 2, -- and at least this many hiding spots
+	MaxDeadEnd = 3, -- rooms deep any dead end may be, at every stage (its bolts open)
+	RegionDepth = 4, -- rooms a newly opened region may run past its gate
+	Attempts = 24, -- tries for each number of regions before trying one fewer
+}
+
 -- Drawers, cupboard doors and lids (docs/plans/gameplay-rework.md section
 -- 4.5): built as pieces by World/PropFactory, moved by Services/
 -- FurnitureService, dragged like doors.
