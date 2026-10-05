@@ -43,6 +43,7 @@ function UIController:Start()
 			"SpeakBox",
 			"CaseFile",
 			"Verdict",
+			"Puzzle",
 			"Lobby",
 			"Dossier",
 			"Settings",

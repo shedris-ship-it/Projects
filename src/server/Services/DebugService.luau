@@ -48,7 +48,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
-	"loop escape|clues|default (the next run's goal) · locks (the escape's locks to Output) · unlock <seam|all> · give <token> · items",
+	"loop escape|clues|default (the next run's goal) · locks (the escape's locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -160,6 +160,8 @@ function DebugService:Run(player: Player, text: string)
 				reply(player, "at your feet: " .. services.ItemService:Label(token))
 			end
 		end
+	elseif command == "solve" then
+		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
 	elseif command == "items" then
 		local plan = services.LockService.plan
 		if not plan then

@@ -21,6 +21,12 @@ local DEFINITIONS = {
 	DropItem = "RemoteEvent", -- put the tool in your hands down
 	Drag = "UnreliableRemoteEvent", -- (id, value): your hands on a door or drawer, 30 times a second (Services/HandsService)
 	Push = "UnreliableRemoteEvent", -- (prop id, direction): pushing furniture, 10 times a second (Services/PushService)
+	-- The escape's puzzles (Services/PuzzleService, UI/Puzzle).
+	PuzzleOpen = "RemoteEvent", -- S->C (id, kind, view, state): you're at a puzzle
+	PuzzleState = "RemoteEvent", -- S->C (id, state, events)
+	PuzzleClose = "RemoteEvent", -- S->C (id): you're not any more
+	PuzzleInput = "RemoteEvent", -- C->S (id, action, word?, a?, b?)
+	PuzzleLeave = "RemoteEvent", -- C->S (id): step back
 	Grab = "RemoteEvent", -- (id): take hold of a small thing (Data/Physical)
 	Release = "RemoteEvent", -- let go of what you're carrying
 	Throw = "RemoteEvent", -- (aim): throw what you're carrying

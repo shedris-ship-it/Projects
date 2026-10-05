@@ -47,6 +47,12 @@ Config.Drift = {
 		HuntSurvived = -10, -- (doc)
 		CounterfeitUsed = 8,
 		RitualStage = -4,
+		-- The escape (docs/plans/gameplay-rework.md section 8): progress calms
+		-- the house; fumbling a puzzle doesn't.
+		LockOpened = -5, -- (rework)
+		PuzzleSolved = -8, -- (rework)
+		ItemFound = -2, -- (rework)
+		PuzzleFailed = 3, -- (rework)
 	},
 	States = {
 		{ name = "Calm", min = 0 },
@@ -668,6 +674,13 @@ Config.Progression = {
 	MaxDeadEnd = 3, -- rooms deep any dead end may be, at every stage (its bolts open)
 	RegionDepth = 4, -- rooms a newly opened region may run past its gate
 	Attempts = 24, -- tries for each number of regions before trying one fewer
+}
+
+-- The escape's puzzles (docs/plans/gameplay-rework.md section 7;
+-- Services/PuzzleService, Logic/Puzzles/*).
+Config.Puzzles = {
+	LockoutNoise = 20, -- the computer's lockout beep carries this far
+	RattleNoise = 10, -- a padlock pulled on the wrong code
 }
 
 -- Drawers, cupboard doors and lids (docs/plans/gameplay-rework.md section
