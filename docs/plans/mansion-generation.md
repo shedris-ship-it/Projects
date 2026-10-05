@@ -1,5 +1,7 @@
 # The mansion: generation design
 
+> **Continued in [`level-design.md`](level-design.md) (2026-10-05).** The level design builds on this grammar: the adventure decides the doors, wings and shortcuts (L1), house types and new spaces (cellar, attic, servants' passages, laundry chute) come in L2, and M4 (furnishing) is part of L3.
+
 Status (2026-10-04): **M1 and M3 done, M2 mostly done** (build `2026-10-04.9`; M3's results are in section 5, "M3 as built"). Since build `2026-10-04.5` the mansion is the default house (`Config.Level.Mode = "Mansion"`, the owner wanted it when readying up normally); F2 `layout cells` builds the old house for one run. Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
 
 ## 1. The owner's decisions

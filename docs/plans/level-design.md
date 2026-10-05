@@ -1,0 +1,143 @@
+# The house as a designed level
+
+Status (2026-10-05): **L0 (this document) and L1 under way.** L1 restructures how the mansion is generated: the adventure decides where the doors, wings and shortcuts go; the house follows the squad's size; every room has a reason to go in; and each run is the best of many candidate houses. The squad playtest comes after L1, then L2–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
+
+## 1. Why
+
+The owner asked on 2026-10-05: "I want to improve the level design and gameplay loop more and have a super sophisticated procedural level design." Measured over 100 mansions from the generator as it stood (`Logic/MansionGen`, `Logic/LockPlanner`, build `2026-10-05.24`):
+
+| Problem | What was measured |
+| --- | --- |
+| The same skeleton every run | The hall at the front and the dining room beside it in 100 of 100 houses, then the kitchen, the service passage, the back stairs and the garage. Only the side of the service wing changes (49 / 51). |
+| Locks laid on after the house, so they fall unevenly | Region 0 (open from the start) is a median 57% of the house (target 25–38%, the range 28–79%). 25 of 249 later regions are one room. 41 of 245 heirlooms lie in a hallway. A backtrack 0.18 times a run. The planner needs 8 attempts a house, mostly rejected for dead ends. |
+| Rooms are boxes | Squares of 20, 30 or 40 studs with the old 40×40 furniture sets stretched (`Logic/RoomFit`); corridors 20 wide. |
+| Nothing in the layout serves the horror or the talking | No landmarks to call out, no designed sightlines, no foreshadowing. |
+| No story in the space | The notes are "Mom" and "Dad" templates; no room belongs to anyone. |
+
+## 2. The owner's decisions (2026-10-05)
+
+| Topic | Decision |
+| --- | --- |
+| What to build | All six parts (section 3). |
+| New spaces | All four: a **cellar**, an **attic**, **servants' passages** with hidden doors, a **laundry chute**. |
+| House size | **Follows the squad**: smaller for 1–2 players, bigger for 4, so each player covers about the same ground. |
+| Playtest | **After parts 1 and 5** (phase L1), before the builder work. |
+| Rooms | "Make sure each room has a purpose ideally, a reason for going there or being there, even if that reason is as simple as a landmark, but it has to be in such a way that the gameplay forms together cohesively, maybe different rooms could give you different gameplay options too, potentially, whatever you recommend." Section 4. |
+
+## 3. The six parts
+
+1. **Plan the adventure first, then build the house around it.** The approach of *Unexplored*'s cyclic generation, fitted to a house: the plan picks the run's beats (a loop to run in every wing, the long way in and a bolted shortcut home, a key on the far side of a loop from its door, a gate you must go back through an old wing to reach, two wings open at once so a squad splits up) and the house's doors, wings and items are laid to make each one happen.
+2. **Real house plans and new kinds of space.** House types from real mansions (centre hall, L, U round a courtyard, H with two wings, a tower stair); wings with a character (the family's, the servants', the guests', the public rooms); a cellar, an attic, servants' passages and hidden doors, a laundry chute; rooms beyond squares (L-shapes by wide archways, alcoves, bay windows); narrow corridors lined with closets.
+3. **A family who lived here.** Each run makes the family: names, who was who, whose rooms and whose heirlooms. Every note is written by one person in their own voice and only hints; photos on the walls; a child's drawings that point at hiding places. Finding things becomes detective work.
+4. **Furniture laid out for play** (the mansion plan's M4). Furniture in natural groups; cover to break his line of sight; hiding spots spread so no room is a trap; long sightlines for dread; landmarks at junctions, so a squad can say "meet at the clock".
+5. **Pick the best house, not the first that works.** Many candidate houses a run, each walked through by a simulated squad and measured (the walk to the front door, the backtracking and what shortcuts save, a loop at every stage, how far hiding spots are), and the one nearest the targets is played.
+6. **The house fights back** (the rework's R3). Doors become walls where nobody sees, chosen by part 5's simulator so the house keeps its loops; he uses the servants' passages (you hear him in the walls); he has a room of his own; once a run, a corridor that loops.
+
+## 4. Every room has a reason
+
+The owner's rule: every room is worth going into, or being in, and the reasons work together. A room's reasons come in three tiers (`Logic/RoomPurpose`):
+
+- **Strong:** something the run needs is there (a key, a note, a lead, a puzzle station, an heirloom), a Lantern shrine, a landmark, a tool.
+- **Survival:** a hiding spot, a lure to send him the wrong way, heavy furniture to barricade a doorway with.
+- **Route:** a corridor or a stair, or a room on a loop you can run round.
+
+Every room that isn't a corridor or a stair has a strong or a survival reason, and every wing has a hiding spot, a lure and a landmark or a Lantern. Where a room has no strong reason of its own, the planner keeps a key, a lead or an heirloom there first.
+
+L1 counts only what the house has today. L3 gives rooms their own options, each through a system that already exists (lures, noise, the map, hiding, throwing), so they fit together rather than piling up:
+
+| Room | Its reason, or the option it gives (L3 unless it exists) |
+| --- | --- |
+| Grand hall | The start and the front door; the gallery to look down from; landmark: the grandfather clock (exists) |
+| Dining room | The table: its place cards show what's still missing (exists) |
+| Kitchen | Pots and plates to throw (loud); the **kettle**, a lure that whistles 20 s after you set it; the dumbwaiter (exists) |
+| Pantry | A tight hiding spot; jars to throw |
+| Laundry | The **washing machine**: a long rumbling lure that also hides your footsteps nearby; the chute's bottom |
+| Service passage | The **servants' bell board**: a bell drops when something moves through a room with a bell pull. It tells you where he is, if someone's there to read it and call it out |
+| Garage, mudroom | The **car horn**: one huge lure a run; the crowbar (board gates) |
+| Living room, den | TV static (exists); the **record player**, a lure that plays a side for 40 s; heavy sofas to barricade with (exists) |
+| Study | The **house plans**: this floor appears on the map; the computer (exists); the safe (exists) |
+| Library (new) | A **bookcase door** into the servants' passages; notes |
+| Music room | The piano (exists: a lure and the music box's tune) |
+| Sunroom | Moonlit glass: he's seen coming, and so are you |
+| Bathroom | The mirror (see behind you, exists); the flush (exists); a door that **locks from inside** and holds him a few seconds, once a hunt |
+| Master bedroom | The walk-in closet (exists); the family's diary (the story) |
+| Nursery | The **baby monitor**: leave the transmitter in a room, hear that room on the receiver |
+| Kids' bedroom, playroom | Crayon drawings that point at hiding places (leads); **wind-up toys**, a lure that walks |
+| Sewing room | The dress form, which he stops to look at |
+| Guest room | His own room (L4): optional, risky, and what's in it helps at the dinner |
+| Cellar | The boiler room's roar hides you; the breaker panel; the wine cellar's bottles to throw |
+| Attic | The family's old things (heirlooms, the story); creaking boards (louder footsteps) |
+| Corridors | Closets to hide in; landmarks (a clock, a suit of armour, portraits); long sightlines |
+| Servants' passages | Narrow shortcuts behind the walls; he uses them too |
+
+## 5. L1: the adventure, the squad, the search (before the playtest)
+
+L1 changes how the house is put together and judged, using only rooms and systems that exist. The builder (`World/MansionBuilder`), the art and the Guest's walking are untouched, and so is the old house (`Logic/LevelGraph`, the golden houses, Gate A).
+
+### 5.1 Measure first (`Logic/HouseMetrics`, `tools/housestats`)
+A house and its plan are walked by a simulated efficient squad over `Logic/NavGraph` (real walking distances: stairs, the gallery, doors), with each stage's locks shut: start → each thing the plan needs, in the solver's order → its lock → the heirlooms → the table → the front door. Measured:
+
+- the walk in studs, the share of it re-walked through rooms already visited (backtracking), and the returns to region 0;
+- region sizes, region 0's share, one-room regions;
+- what each bolt saves on the way back to the table once it's open;
+- at every stage: the longest loop, the farthest an open room is from a hiding spot, the deepest dead end;
+- items in corridors, the heirlooms' floors, the carry from each heirloom to the table, each key's walk to its door;
+- gate kinds in a row and puzzles used;
+- rooms with no reason (section 4).
+
+`HouseMetrics.score` adds up how far each falls outside its band (`Config.LevelDesign.Targets`, by squad size). `lune run tools/housestats [count] [squad]` prints the spread of every number; `tools/plan` prints a house's scorecard.
+
+### 5.2 The house follows the squad (`Config.Mansion.BySquad`, `Logic/HouseSize`)
+
+| Squad | Rooms | Regions after the first | Heirlooms |
+| --- | --- | --- | --- |
+| 1 | 15–18 | 2 | 2 |
+| 2 | 17–20 | 2 | 2–3 |
+| 3 | 19–22 | 3 | 3 |
+| 4 | 21–24 | 3 | 3 |
+
+Hard adds a region, as before. A seed no longer names one house on its own: the seed and the squad size do. F2 `squad <1-4|auto>` sets the next run's size, so a solo test can build a four-player house, and the tools take the squad size.
+
+### 5.3 Wings and beats (`Logic/Wings`)
+Rooms are packed as before, but which shared walls become doors, and so the loops, wings and shortcuts, comes from the plan:
+
+1. The generator keeps the tree that joined every room, and the doors the house can't do without (both floors joined, the stairs).
+2. **Wings.** Region 0 is the hall, the dining room and the way between, grown to about a third of the house. The other regions are branches of the tree cut into wings of 3–7 rooms, preferably where a wing naturally starts: a corridor's mouth, a stairwell, the kitchen door, a change of floor.
+3. **Beats**, per wing:
+   - **a loop inside it** (4+ rooms), so a chase in the wing has somewhere to go;
+   - **the shortcut**: a bolt from the wing's far end to an earlier region, where it saves the most walking back to the table (at least 60 studs, or none);
+   - **the backtrack** (sometimes): the way in is from an older wing, and the obvious door is bolted from the other side;
+   - **the long way round**: the wing's key is kept in an earlier room a good walk from its door, never in a corridor;
+   - **parallel wings** for 3–4 players: two wings open at once, so splitting up pays;
+   - **the double lock** for 3–4 players: one door, two keys from two far-apart rooms.
+4. The planner (`LockPlanner`) takes the regions, order and gates from the wings and chooses only what each lock is and what keeps each heirloom. Houses without wings (the old house) are planned as before.
+
+### 5.4 The programme (`Logic/Programme`)
+Before any room is placed, the run draws its **adventure deck** (which kinds of lock and keeper it wants: the computer, the breaker, the safe, the music box, the crank, ...) and the **room list**: first the rooms the deck needs (a desk room for the computer, the music room for the music box, a homely room for the safe, a service room for the breaker), then rooms by theme and purpose. A room that fits nowhere drops out and its beat falls back to a plain key.
+
+### 5.5 The search (`Logic/HouseSearch`)
+About 12 candidate houses a run, each from its own forks of the seed, each planned and measured; the best score is played. The server yields between candidates, so it never stalls. F2 `house` prints the chosen house's scorecard and every room's reasons.
+
+## 6. Phases
+
+| Phase | What | Gate |
+| --- | --- | --- |
+| L0 | This document; banners; the `CLAUDE.md` roadmap | Owner approved the plan (2026-10-05) |
+| L1 | Section 5: metrics and targets, squad sizes, room reasons, wings and beats, the programme, the search | Tests; `tools/housestats` meets its bands; Studio: `navtest fast` on 3 seeds at squads 1 and 4, full runs, Gate A unchanged |
+| — | **The squad playtest** (`TESTING.md` TC-68 on, plus the level-design TCs) | "Did it ever feel like it cheated?" "Was it fun?" "Did you get lost?" "Did the shortcuts and going back feel good?" "Was every room worth going into?" |
+| L2 | House plans and new spaces: a grammar of house types with wings as built units; floors from the cellar to the attic (−1 to 2); servants' passages and hidden doors; the laundry chute; narrow corridors with closets; L-shaped rooms by archways; glass-panelled gate doors and courtyard windows to see what's ahead | `navtest` on every new piece; fallback re-frozen; screenshots |
+| L3 | The family (`Logic/Family`) and its notes, photos and drawings; furniture laid out for play (`Logic/RoomFurnish`, the old M4); landmarks; the room options of section 4 | Screenshots per room; `clip`; a playtest |
+| L4 | The house fights back (the old R3): flips chosen by the simulator, his passages, his room, the looping corridor, house events by act | Playtest |
+
+## 7. Additions to the fairness contract
+- Every wing has a hiding spot, a lure, and somewhere to run round once its bolts are open.
+- A shortcut only ever opens from the far side.
+- A backtrack gate is always reachable with what the squad has.
+- A double lock's two keys are always where the squad can get them before the door.
+- The house follows the squad's size: a solo player never gets a 24-room house.
+
+## 8. Risks
+- **Wings that don't fit a house:** that candidate scores badly and the search skips it; the old region growth stays as a last resort.
+- **More doors from the beats lower the validator's pass rate:** more attempts, absorbed by the search; watched with `tools/mansionstats`.
+- **Generation time on the server:** measured in Studio; the number of candidates is in `Config.LevelDesign`, and the search yields between them.
+- **The playtest may move the targets** (loop lengths, how big a house two players can manage): that's what the bands in `Config.LevelDesign.Targets` are for.
