@@ -183,6 +183,36 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "solve" then
 		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
+	elseif command == "switch" then
+		-- Flip the light switch of the room you're in; `switch list` counts them.
+		local interact = services.InteractService
+		if args[2] == "list" then
+			local rooms = 0
+			for _ in interact.switches do
+				rooms += 1
+			end
+			reply(player, rooms .. " switches, " .. #interact.fixtures .. " fixtures")
+			return
+		end
+		local position = services.PlayerStateService:Position(player)
+		local roomId = position and services.WorldService:RoomAt(position)
+		local switch = roomId and interact.switches[roomId]
+		if not switch then
+			reply(player, "no switch in this room")
+		else
+			interact:Flip(roomId, not switch.off, player)
+			local causes = {}
+			for cause in services.WorldService:LightCauses(roomId) do
+				table.insert(causes, cause)
+			end
+			reply(
+				player,
+				"switch "
+					.. (switch.off and "off" or "on")
+					.. "; dark because: "
+					.. (#causes > 0 and table.concat(causes, ", ") or "nothing")
+			)
+		end
 	elseif command == "puzzle" then
 		-- Stand at a puzzle's station (the first of `kind`, or any) and open it.
 		reply(player, services.PuzzleService:DebugVisit(player, args[2]))

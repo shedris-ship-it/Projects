@@ -200,6 +200,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- The "anomaly" fork keeps its old name so the house is dressed the
 		-- same per seed as it was before the clue loop retired.
 		services.DecorService:Begin(rng:Fork("anomaly"))
+		-- Toilets, taps, TVs, radios and every room's light switch.
+		services.InteractService:Begin()
 		services.LockService:Begin(plan)
 		-- How each key and heirloom is found (Logic/Leads): its own fork.
 		local templates = mansion and Rooms.MansionById or Rooms.ById

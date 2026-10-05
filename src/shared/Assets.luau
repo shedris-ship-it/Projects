@@ -56,6 +56,8 @@ Assets.Sounds = {
 	MusicBox = "rbxassetid://9043210085", -- APM "Music Box 6" (Conroy): a carried heirloom, faintly (R2c)
 	GlassBreak = "rbxassetid://9114593513", -- PSE "Glass Breaks 21": a display case smashed (R2c)
 	LockClick = "rbxassetid://9125343042", -- PSE "Door Lock Button Clicks 1": picking a small lock
+	Flush = "rbxassetid://9120106611", -- PSE "Toilet Flush Two Flushes Gushing Water 1" (R2c interactables)
+	Tap = "rbxassetid://9113368238", -- PSE "Bathroom Faucet Running Water 1": a tap left running, looped
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

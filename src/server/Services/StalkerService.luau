@@ -1383,10 +1383,10 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 		end
 	elseif action.type == "lights" then
 		for _, roomId in action.rooms do
-			services.WorldService:SetRoomLight(roomId, false)
+			services.WorldService:SetLightCause(roomId, "killed", true)
 			task.delay(45, function()
 				if services.WorldService.World then
-					services.WorldService:SetRoomLight(roomId, true)
+					services.WorldService:SetLightCause(roomId, "killed", false)
 				end
 			end)
 		end

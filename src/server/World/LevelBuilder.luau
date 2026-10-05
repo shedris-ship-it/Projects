@@ -482,6 +482,9 @@ function LevelBuilder.furnish(world, ctx)
 	record.light = light
 	record.lightPart = keyLightPart
 	record.lightBrightness = light.Brightness
+	-- What lights it: "ceiling", "lamp", "tv" or "window" (moonlight, which
+	-- no switch or breaker turns off: WorldService:SetLightCause).
+	record.lightKind = keyLightKind or "ceiling"
 
 	-- Bounce: a room lit only by a window or TV gets a soft light in front of
 	-- it, standing in for light off the walls (warm for a TV, moonlight for a

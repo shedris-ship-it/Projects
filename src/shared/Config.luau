@@ -710,6 +710,15 @@ Config.Leads = {
 	SmashNoise = 35,
 }
 
+-- Fixtures you can work and the lights' wall switches (Services/
+-- InteractService, Data/Interactables, Logic/SwitchSpots).
+Config.Interact = {
+	Reach = 7, -- studs from a fixture or switch to work it
+	SwitchHeight = 4, -- studs above the floor
+	Switch = { DoorWidth = 6, WallFace = 0.55, Beside = 0.9, Margin = 0.8 }, -- Logic/SwitchSpots
+	SwitchNoise = 4, -- a light switch's click carries this far
+}
+
 -- The map (Services/MapService, UI/Map): what counts as seen.
 Config.Map = {
 	ScanSeconds = 0.5, -- how often who's where and what they look at is checked

@@ -512,7 +512,7 @@ function FinaleService:Serve()
 	local world = self.World.World
 	-- The lights die.
 	for _, id in self.World:RoomIds() do
-		self.World:SetRoomLight(id, false)
+		self.World:SetLightCause(id, "dinner", true)
 	end
 	Sfx.play("Sting", self.tableFrame.Position, 0.6, 0.6)
 	notifyAll("Every light in the house goes out.", "danger")
@@ -556,7 +556,8 @@ function FinaleService:Serve()
 				exit.door.Transparency = 0.85
 			end
 			exit.light.Enabled = true
-			self.World:SetRoomLight(exit.roomId, true)
+			-- The way out is lit, whatever kept it dark.
+			self.World:ClearLightCauses(exit.roomId)
 		end
 		self.facts.served = true
 		self:_publish()

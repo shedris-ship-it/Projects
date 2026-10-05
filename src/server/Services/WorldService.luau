@@ -445,10 +445,52 @@ function WorldService:IsLit(position: Vector3): boolean
 	return room.lightOn and room.light ~= nil and room.light.Enabled
 end
 
-function WorldService:SetRoomLight(id: number, on: boolean)
+-- A room's lights (R2c "one light rule"): lit only while nothing keeps it
+-- dark. Each thing that can is a cause, and this is the one place a room's
+-- lights change, so none of them undoes another:
+--   switch  its wall switch is off (Services/InteractService)
+--   circuit its breaker is off; main: the main has tripped (the breaker)
+--   killed  he put them out (StalkerService), for a while
+--   dinner  every light dies when the dinner is served (FinaleService)
+--   debug   F2 `light`
+-- Moonlight through a window answers only to the dinner, him and F2: no
+-- switch or breaker turns the moon off.
+local ELECTRIC = { switch = true, circuit = true, main = true }
+
+function WorldService:SetLightCause(id: number, cause: string, dark: boolean)
 	local room = self:Room(id)
 	if not room or not room.light then
 		return
+	end
+	room.darkCauses = room.darkCauses or {}
+	if (room.darkCauses[cause] == true) == dark then
+		return
+	end
+	room.darkCauses[cause] = dark or nil
+	self:_applyLight(room)
+end
+
+-- Every cause lifted at once (the way out after the dinner).
+function WorldService:ClearLightCauses(id: number)
+	local room = self:Room(id)
+	if room and room.light then
+		room.darkCauses = {}
+		self:_applyLight(room)
+	end
+end
+
+-- What keeps a room dark right now: { [cause] = true }.
+function WorldService:LightCauses(id: number)
+	local room = self:Room(id)
+	return room and room.darkCauses or {}
+end
+
+function WorldService:_applyLight(room)
+	local on = true
+	for cause in room.darkCauses or {} do
+		if not (ELECTRIC[cause] and room.lightKind == "window") then
+			on = false
+		end
 	end
 	room.lightOn = on
 	room.light.Enabled = on
@@ -459,6 +501,11 @@ function WorldService:SetRoomLight(id: number, on: boolean)
 		light.Enabled = on
 	end
 	room.lightPart:SetAttribute("Lit", on)
+end
+
+-- F2 `light`: on or off by hand.
+function WorldService:SetRoomLight(id: number, on: boolean)
+	self:SetLightCause(id, "debug", not on)
 end
 
 function WorldService:IsLanternRoom(id: number?): boolean

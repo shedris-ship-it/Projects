@@ -21,6 +21,7 @@ Constants.Tags = {
 	Level = "ConsensusLevel",
 	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
 	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)
+	SoundLoop = "ConsensusSoundLoop", -- a part that plays a looped sound while its Loop attribute is set (Controllers/AudioController)
 }
 
 Constants.Attributes = {

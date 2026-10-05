@@ -65,6 +65,7 @@ function AudioController:Start()
 	group("SFX")
 	group("Ambient")
 	self:_heirlooms()
+	self:_loops()
 	group("UI")
 	self:_applyVolumes(self.state.settings)
 	self.state.SettingsChanged:Connect(function(settings)
@@ -446,6 +447,47 @@ function AudioController:_heirlooms()
 		watch(model)
 	end
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.Grabbable):Connect(watch)
+end
+
+-- Fixtures left running (Services/InteractService): a part tagged SoundLoop
+-- plays the Assets key in its Loop attribute, looped, while it's set
+-- (LoopVolume, LoopPitch, LoopRange). The server only sets attributes, so
+-- the sound goes through this client's groups and reverb like any other.
+function AudioController:_loops()
+	local playing = {}
+	local function watch(part: Instance)
+		if not part:IsA("BasePart") then
+			return
+		end
+		local function update()
+			local key = part.Parent and part:GetAttribute("Loop")
+			local sound = playing[part]
+			if sound and (not key or sound:GetAttribute("Key") ~= key) then
+				sound:Destroy()
+				playing[part] = nil
+				sound = nil
+			end
+			if key and not sound then
+				sound =
+					newSound(key, part:GetAttribute("LoopVolume") or 0.5, part:GetAttribute("LoopPitch") or 1, "SFX")
+				if sound then
+					sound:SetAttribute("Key", key)
+					sound.Looped = true
+					sound.RollOffMaxDistance = part:GetAttribute("LoopRange") or 60
+					sound.Parent = part
+					sound:Play()
+					playing[part] = sound
+				end
+			end
+		end
+		part:GetAttributeChangedSignal("Loop"):Connect(update)
+		part.AncestryChanged:Connect(update)
+		update()
+	end
+	for _, part in CollectionService:GetTagged(Constants.Tags.SoundLoop) do
+		watch(part)
+	end
+	CollectionService:GetInstanceAddedSignal(Constants.Tags.SoundLoop):Connect(watch)
 end
 
 -- Subtitles for key audio cues (accessibility, doc section 8).
