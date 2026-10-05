@@ -56,6 +56,7 @@ function NoteText.rooms(layout, templatesById)
 		rooms[room.id] = {
 			name = template and template.name or ("room " .. room.id),
 			floor = room.floor or 0,
+			area = (room.w or 40) * (room.d or 40),
 			neighbours = {},
 		}
 	end
@@ -145,6 +146,15 @@ function NoteText.roomPhrase(rooms, id: number): (string, boolean)
 					.. rooms[landmarks[j]].name,
 					true
 			end
+		end
+	end
+	-- Two of them and nothing tells them apart but their size: "the larger".
+	if #twins == 1 and room.area and twins[1].area then
+		local ratio = room.area / twins[1].area
+		if ratio >= 1.2 then
+			return "the larger " .. name, true
+		elseif ratio <= 1 / 1.2 then
+			return "the smaller " .. name, true
 		end
 	end
 	return "the " .. name, false
