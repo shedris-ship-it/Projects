@@ -1,9 +1,7 @@
 -- Companion Witness (doc sections 6 and 12): for solo runs, an NPC that
--- counts as a second Witness but has limited information. It follows you,
--- joins your Witness windows when it can see what you're looking at, backs
--- up your stare, and pulls you up if you go down. It perceives only the true
--- house, so it can't confirm what only you see; it just agrees you're looking.
--- It keeps a little distance and carries no light, so it reads as a second
+-- counts as a second watcher. It follows you, backs up your stare (two
+-- watchers freeze The Guest), lends a hand pushing furniture, and pulls you
+-- up if you go down. It keeps a little distance and carries no light, so it reads as a second
 -- person searching the house with you, not a lamp at your heels.
 --
 -- It walks the house the way The Guest does (Stalker/Walker: the house graph,
@@ -26,7 +24,6 @@ local CompanionService = {}
 local FOLLOW_NEAR = 8 -- it stops this far away and lets you move
 local FOLLOW_FAR = 16 -- beyond this it walks back towards you
 local CATCH_UP = 40 -- beyond this (walking distance) it reappears behind you, out of view
-local WITNESS_DELAY = 1.3
 local SIGHT_RANGE = 40
 
 function CompanionService:Init(services)
@@ -36,17 +33,6 @@ function CompanionService:Init(services)
 end
 
 function CompanionService:Start()
-	self.services.WitnessService.WindowOpened:Connect(function(_, entry, witness)
-		if not self.npc or witness ~= self.player then
-			return
-		end
-		local position = self.services.WitnessService.PositionOf(entry)
-		task.delay(WITNESS_DELAY, function()
-			if self.npc and self:CanSee(position, entry.ignore) then
-				self.services.WitnessService:AddWitness("companion", entry)
-			end
-		end)
-	end)
 	RunService.Heartbeat:Connect(function()
 		if self.npc then
 			self:_follow()

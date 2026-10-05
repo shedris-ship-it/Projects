@@ -1,10 +1,10 @@
 -- Input, movement, camera and tools. Keyboard, gamepad and touch all go
 -- through ContextActionService so every action gets a mobile button.
 --
---   Q  hold to Witness        R  use tool          F  flashlight
+--   R  use tool               F  flashlight
 --   1 2 3 4 or wheel  choose a slot (1 torch, 4 hands)   X  put the tool down
 --   Shift  sprint             G  hold for pings    C  callouts
---   Tab  Case File            E  doors / hide / revive (prompts)
+--   Tab  map                  E  doors / hide / revive (prompts)
 --   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
 --   Space (hidden)  hold breath                    E (hidden)  leave
 --   F1  settings              F2  debug overlay (Studio)
@@ -61,7 +61,6 @@ end
 
 function ActionController:Start()
 	local ui = self.controllers.UIController
-	local witness = self.controllers.WitnessController
 
 	task.spawn(function()
 		for _ = 1, 10 do
@@ -75,18 +74,9 @@ function ActionController:Start()
 		end
 	end)
 
-	self:_bind("ConsensusWitness", function(inputState)
-		if inputState == Enum.UserInputState.Begin then
-			witness:BeginWitness()
-		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-			witness:EndWitness()
-		end
-	end, true, "Witness", Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
-
 	self:_bind("ConsensusTool", function(inputState)
 		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
-			local aim = witness:Aim()
-			Net.get("UseTool"):FireServer(aim.targetId, aim.position)
+			Net.get("UseTool"):FireServer(nil, nil)
 		end
 	end, true, "Tool", Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
 
@@ -146,11 +136,11 @@ function ActionController:Start()
 		end
 	end, false, nil, Enum.KeyCode.Return, Enum.KeyCode.Slash)
 
-	self:_bind("ConsensusCaseFile", function(inputState)
+	self:_bind("ConsensusMap", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
-			ui:ToggleCaseFile()
+			ui:ToggleMap()
 		end
-	end, true, "Case", Enum.KeyCode.Tab, Enum.KeyCode.ButtonSelect)
+	end, true, "Map", Enum.KeyCode.Tab, Enum.KeyCode.ButtonSelect)
 
 	self:_bind("ConsensusSettings", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
@@ -166,13 +156,12 @@ function ActionController:Start()
 
 	-- Lay the touch buttons out around the jump button.
 	local positions = {
-		ConsensusWitness = UDim2.new(1, -170, 1, -170),
 		ConsensusTool = UDim2.new(1, -95, 1, -230),
 		ConsensusFlashlight = UDim2.new(1, -170, 1, -245),
 		ConsensusSprint = UDim2.new(1, -240, 1, -110),
 		ConsensusPing = UDim2.new(1, -240, 1, -180),
 		ConsensusCallout = UDim2.new(1, -240, 1, -250),
-		ConsensusCaseFile = UDim2.new(0, 20, 0, 120),
+		ConsensusMap = UDim2.new(0, 20, 0, 120),
 	}
 	for name, position in positions do
 		pcall(function()
@@ -197,10 +186,6 @@ function ActionController:Start()
 		end)
 	end)
 	self:_applyCamera()
-
-	Net.get("PlumbLine").OnClientEvent:Connect(function(line)
-		self:_drawPlumbLine(line)
-	end)
 
 	RunService.RenderStepped:Connect(function(dt)
 		self:_updateMovement(dt)
@@ -435,35 +420,6 @@ function ActionController:_updateFlashlight(dt: number)
 	if clipLight then
 		clipLight.Enabled = false
 	end
-end
-
--- Plumb lines: two from different spots triangulate the Source.
-function ActionController:_drawPlumbLine(line)
-	local origin = line.origin + Vector3.new(0, 2.5, 0)
-	local a0 = Instance.new("Attachment")
-	a0.WorldPosition = origin
-	a0.Parent = Workspace.Terrain
-	local a1 = Instance.new("Attachment")
-	a1.WorldPosition = origin + line.direction * 90
-	a1.Parent = Workspace.Terrain
-	local beam = Instance.new("Beam")
-	beam.Attachment0 = a0
-	beam.Attachment1 = a1
-	beam.Width0 = 0.25
-	beam.Width1 = 0.05
-	beam.LightEmission = 1
-	beam.FaceCamera = true
-	beam.Color = ColorSequence.new(Color3.fromRGB(170, 170, 255))
-	beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 0.9) })
-	beam.Parent = a0
-	self.controllers.UIController:Toast(
-		line.name .. " dropped a plumb line. It points roughly at the Source.",
-		"ritual"
-	)
-	task.delay(line.duration or 30, function()
-		a0:Destroy()
-		a1:Destroy()
-	end)
 end
 
 return ActionController

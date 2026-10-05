@@ -231,7 +231,8 @@ function DataService:Send(player: Player)
 	})
 end
 
--- result = { won, extracted, drift, confirmedTells, survivedHunts, anomalyId, stalker }
+-- result = { won, extracted, drift, survivedHunts, regionsOpened, puzzlesSolved, stalker }
+-- (old profiles may hold "anomaly:" Dossier entries from the retired clue loop; they stay readable)
 function DataService:GrantRunRewards(player: Player, result): number
 	local data = profiles[player]
 	if not data then
@@ -246,9 +247,6 @@ function DataService:GrantRunRewards(player: Player, result): number
 	end
 	if result.extracted then
 		data.Extractions += 1
-	end
-	if result.anomalyId then
-		data.Dossier["anomaly:" .. result.anomalyId] = true
 	end
 	if result.stalker then
 		data.Dossier["stalker:" .. result.stalker] = true

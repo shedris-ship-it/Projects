@@ -103,7 +103,7 @@ end
 -- Build what a token is, lying at `at`, as a thing your hands can take.
 function ItemService:_make(token: string, at: CFrame)
 	local info = self.plan.tokens[token]
-	local folder = self.World.folder
+	local folder = self.World.content
 	local model
 	if info.kind == "key" then
 		model = Items.key(at, info.label, folder)

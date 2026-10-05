@@ -117,7 +117,7 @@ end
 -- A 1988 home computer and a dot-matrix printer on a desk (or on the floor
 -- of its room, with no desk).
 function PuzzleService:_buildComputer(session, roomId: number)
-	local folder = self.World.folder
+	local folder = self.World.content
 	local model = Instance.new("Model")
 	model.Name = "HomeComputer"
 	local surface = self:_surface(roomId)
@@ -393,7 +393,7 @@ function PuzzleService:_solved(session, player: Player)
 				local text = "HOMEWARE 64\n\nNOTE TO SELF\nthe lock code\n\n  "
 					.. Padlock.code(session.padlock)
 					.. "\n\ndon't let HIM in"
-				local page = Items.printout(session.printerAt, text, self.World.folder)
+				local page = Items.printout(session.printerAt, text, self.World.content)
 				self.Hands:AddThing(page, { class = "light", label = "Printout" })
 			end)
 		end)

@@ -206,12 +206,10 @@ function Hotbar:Update()
 		elseif entry.icon then
 			entry.icon.TextTransparency = isActive and 0 or 0.35
 		end
-		-- Small facts under each icon: film on a Camera, a lit Lantern, the torch's charge.
+		-- Small facts under each icon: a lit Lantern, the torch's charge.
 		entry.extra.Text = ""
 		entry.meter.Visible = false
-		if id == "Camera" then
-			entry.extra.Text = "x" .. (player:GetAttribute(PA.SlotFilms[slot]) or 0)
-		elseif id == "Lantern" and isActive and player:GetAttribute("LanternOn") then
+		if id == "Lantern" and isActive and player:GetAttribute("LanternOn") then
 			entry.extra.Text = "lit"
 		elseif id == Inventory.TORCH then
 			entry.meter.Visible = true

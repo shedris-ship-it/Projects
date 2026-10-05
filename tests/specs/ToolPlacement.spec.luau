@@ -31,7 +31,7 @@ return function(test, check, Shared, require)
 		return ToolPlacement.plan(Rng.new(seed), surfaces or house(), supply, Tools.Homes, C), supply
 	end
 
-	test("one of each tool, with extra Cameras and Lanterns for bigger squads", function()
+	test("one of each tool, with an extra Lantern for bigger squads", function()
 		local function counts(squad)
 			local n = {}
 			for _, id in ToolPlacement.supply(squad, Tools.Ids, C) do
@@ -41,23 +41,19 @@ return function(test, check, Shared, require)
 		end
 		for _, squad in { 1, 2 } do
 			local n = counts(squad)
-			check.equal(n.Camera, 1, "one camera for a squad of " .. squad)
-			check.equal(n.Lantern, 1, "one lantern")
+			check.equal(n.Lantern, 1, "one lantern for a squad of " .. squad)
 			check.equal(n.Radio, 1, "one radio")
-			check.equal(n.PlumbLine, 1, "one plumb line")
 		end
 		for _, squad in { 3, 4 } do
 			local n = counts(squad)
-			check.equal(n.Camera, 2, "two cameras for a squad of " .. squad)
-			check.equal(n.Lantern, 2, "two lanterns")
+			check.equal(n.Lantern, 2, "two lanterns for a squad of " .. squad)
 			check.equal(n.Radio, 1, "still one radio")
-			check.equal(n.PlumbLine, 1, "still one plumb line")
 		end
 	end)
 
-	test("the Camera is always first in the supply", function()
+	test("the tool kept near the start is always first in the supply", function()
 		for _, squad in { 1, 3 } do
-			check.equal(ToolPlacement.supply(squad, Tools.Ids, C)[1], "Camera", "camera first")
+			check.equal(ToolPlacement.supply(squad, Tools.Ids, C)[1], C.NearStart, "near-start tool first")
 		end
 	end)
 
@@ -97,22 +93,22 @@ return function(test, check, Shared, require)
 		end
 	end)
 
-	test("the Camera is within reach of the start, so a solo player can find it", function()
+	test("the near-start tool is within reach of the start, so a solo player can find it", function()
 		for seed = 1, 50 do
 			local placed = plan(seed, 1)
-			check.equal(placed[1].tool, "Camera", "camera first")
-			check.atMost(placed[1].surface.steps, C.CameraMaxSteps, "camera too far from the start")
+			check.equal(placed[1].tool, C.NearStart, "near-start tool first")
+			check.atMost(placed[1].surface.steps, C.NearStartMaxSteps, "too far from the start")
 		end
 	end)
 
-	test("a Camera is still placed when nothing is near the start", function()
+	test("the near-start tool is still placed when nothing is near the start", function()
 		local far = {}
 		for _, s in house() do
 			s.steps = 5
 			table.insert(far, s)
 		end
 		local placed = plan(3, 1, far)
-		check.equal(placed[1].tool, "Camera", "camera placed anyway")
+		check.equal(placed[1].tool, C.NearStart, "placed anyway")
 	end)
 
 	test("a house with none of a tool's furniture still places it somewhere", function()
@@ -121,7 +117,7 @@ return function(test, check, Shared, require)
 			table.insert(desksOnly, { key = room .. ":d", room = room, kind = "Piano", steps = 1, free = 2 })
 		end
 		local placed = plan(5, 2, desksOnly)
-		check.equal(#placed, 4, "all four tools found a top")
+		check.equal(#placed, #Tools.Ids, "every tool found a top")
 	end)
 
 	test("surfaces with no free place are never used", function()
@@ -150,7 +146,7 @@ return function(test, check, Shared, require)
 				different = true
 			end
 		end
-		check.truthy(different, "other seeds put the camera elsewhere")
+		check.truthy(different, "other seeds put the first tool elsewhere")
 	end)
 
 	test("with no surfaces at all, nothing is placed and nothing breaks", function()

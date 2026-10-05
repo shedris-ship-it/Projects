@@ -1,22 +1,22 @@
 -- Debug console and overlay feed (doc section 7, "Testing and tooling": a
--- debug overlay for seed, tier, profile values and Drift sources, and a
--- command to force any anomaly or tier). Available in Studio, or to user ids
--- listed in Config.Debug.AllowedUserIds on live servers.
+-- debug overlay for seed, tier, profile values and Drift sources, and
+-- commands to force states). Available in Studio, or to user ids listed in
+-- Config.Debug.AllowedUserIds on live servers.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 local Stats = game:GetService("Stats")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
-local Anomalies = require(Shared.Data.Anomalies)
-local Tells = require(Shared.Data.Tells)
 local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 local FloorPlan = require(Shared.Logic.FloorPlan)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
+local PartDump = require(script.Parent.Parent.World.PartDump)
 
 local DebugService = {}
 
@@ -35,12 +35,17 @@ end
 
 local function reply(player: Player, text: string)
 	Net.get("Notify"):FireClient(player, "[debug] " .. text, "debug")
+	if RunService:IsStudio() then
+		-- For the Studio bridge below: the last reply, readable from the
+		-- command bar or Studio's MCP tools.
+		ServerStorage:SetAttribute("DebugReply", text)
+	end
 end
 
 local HELP = table.concat({
-	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · anomaly <id|off> · layout cells|mansion|default",
-	"start · end · skip (to Investigation) · resolve (skip to the ritual) · reveal",
-	"lights on|off · focus · perf · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
+	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default",
+	"start · end · skip (to Investigation) · resolve (serve the dinner)",
+	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
@@ -48,7 +53,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
-	"loop escape|clues|default (the next run's goal) · locks (the escape's locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
+	"locks (the locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -74,6 +79,23 @@ function DebugService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		watchers[player] = nil
 	end)
+	-- Studio only: a command written to ServerStorage's "DebugCommand"
+	-- attribute (from the command bar, or Studio's MCP tools, which can't fire
+	-- remotes) runs as the first player, so tests needn't type into the F2 box.
+	-- Clients can't write ServerStorage, and live servers never listen.
+	if RunService:IsStudio() then
+		ServerStorage:GetAttributeChangedSignal("DebugCommand"):Connect(function()
+			local text = ServerStorage:GetAttribute("DebugCommand")
+			local player = Players:GetPlayers()[1]
+			if typeof(text) == "string" and text ~= "" and player then
+				ServerStorage:SetAttribute("DebugCommand", nil)
+				local ok, err = pcall(self.Run, self, player, text)
+				if not ok then
+					ServerStorage:SetAttribute("DebugReply", "error: " .. tostring(err))
+				end
+			end
+		end)
+	end
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
@@ -121,15 +143,10 @@ function DebugService:Run(player: Player, text: string)
 		local mode = ({ cells = "Cells", mansion = "Mansion" })[args[2] or ""]
 		orchestrator:SetLayoutMode(mode)
 		reply(player, "next run layout " .. (mode or ("default (" .. Config.Level.Mode .. ")")))
-	elseif command == "loop" then
-		-- The escape or the old loop for the next run (docs/plans/gameplay-rework.md).
-		local loop = ({ escape = "Escape", clues = "Clues" })[args[2] or ""]
-		orchestrator:SetLoop(loop)
-		reply(player, "next run loop " .. (loop or ("default (" .. Config.Run.Loop .. ")")))
 	elseif command == "locks" then
 		local lines = services.LockService:Describe()
 		print("[debug] locks:\n  " .. table.concat(lines, "\n  "))
-		reply(player, #lines > 0 and (#lines .. " locks (listed in Output)") or "no locks (not an escape run?)")
+		reply(player, #lines > 0 and (#lines .. " locks (listed in Output)") or "no locks (no run, or an open house)")
 	elseif command == "unlock" then
 		local target = args[2] or ""
 		if target == "all" then
@@ -165,7 +182,7 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "items" then
 		local plan = services.LockService.plan
 		if not plan then
-			reply(player, "not an escape run")
+			reply(player, "no run")
 			return
 		end
 		local lines = {}
@@ -180,20 +197,6 @@ function DebugService:Run(player: Player, text: string)
 		table.sort(lines)
 		print("[debug] items:\n  " .. table.concat(lines, "\n  "))
 		reply(player, #lines .. " items (listed in Output)")
-	elseif command == "anomaly" then
-		local wanted = args[2]
-		local match = nil
-		for _, anomaly in Anomalies.List do
-			if string.lower(anomaly.id) == wanted then
-				match = anomaly
-			end
-		end
-		if match and not match.implemented then
-			reply(player, match.name .. " has no ritual yet; pick PhantomArchitecture, Counterfeit or Gaze")
-			return
-		end
-		orchestrator:SetForcedAnomaly(match and match.id or nil)
-		reply(player, "next run anomaly " .. (match and match.id or "random"))
 	elseif command == "start" then
 		if orchestrator:Phase() == Constants.Phases.Lobby then
 			orchestrator:StartRun(
@@ -208,25 +211,6 @@ function DebugService:Run(player: Player, text: string)
 		orchestrator:SkipArrival()
 	elseif command == "resolve" then
 		orchestrator:SkipToResolution()
-	elseif command == "reveal" then
-		local anomaly = services.AnomalyService:Anomaly()
-		if not anomaly then
-			reply(player, "no run")
-			return
-		end
-		local lines = { "anomaly: " .. anomaly.name }
-		for _, site in services.AnomalyService:Sites() do
-			table.insert(
-				lines,
-				string.format(
-					"%s%s in %s",
-					site.isRedHerring and "(herring) " or "",
-					Tells[site.tellId].name,
-					site.roomName
-				)
-			)
-		end
-		reply(player, table.concat(lines, "\n"))
 	elseif command == "lights" then
 		for _, id in services.WorldService:RoomIds() do
 			services.WorldService:SetRoomLight(id, args[2] ~= "off")
@@ -389,8 +373,16 @@ function DebugService:Run(player: Player, text: string)
 				)
 			end
 		end)
-	elseif command == "focus" then
-		services.WitnessService:SetFocus(player, Config.Witness.FocusMax)
+	elseif command == "gatea" then
+		-- Gate A: the builder's parts, hashed (World/PartDump). Run it before
+		-- opening anything: an opened drawer moves parts.
+		local level = services.WorldService.folder
+		if not level then
+			reply(player, "no house built")
+		else
+			local parts, hash = PartDump.hash(level)
+			reply(player, string.format("parts %d, hash %d", parts, hash))
+		end
 	elseif command == "perf" then
 		reply(
 			player,
@@ -419,13 +411,11 @@ function DebugService:Snapshot()
 		table.insert(signals, string.format("%s %.2f", name, value))
 	end
 	table.sort(signals)
-	local anomaly = services.AnomalyService:Anomaly()
 	return {
 		phase = runState:GetAttribute(Constants.RunState.Phase),
 		seed = runState:GetAttribute(Constants.RunState.Seed),
 		drift = services.DriftService:Value(),
 		driftSources = sources,
-		anomaly = anomaly and anomaly.id or "-",
 		stalker = services.StalkerService:DebugState(),
 		signals = signals,
 		version = Build.id,

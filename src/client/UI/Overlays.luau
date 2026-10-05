@@ -1,6 +1,5 @@
 -- Full-screen states: the loading screen while the house is generated, the
--- downed and Echo overlays, waiting after extraction, and Witness Camera
--- photos.
+-- downed and Echo overlays, and waiting after extraction.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -9,7 +8,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
-local Net = require(Shared.Net)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
@@ -92,49 +90,6 @@ function Overlays.new(ctx)
 		Parent = self.bleed,
 	}, { Ui.corner(3) })
 
-	self.photo = Ui.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -30, 0.45, 0),
-		Size = UDim2.fromOffset(260, 210),
-		BackgroundColor3 = Color3.fromRGB(240, 236, 226),
-		Rotation = 3,
-		Visible = false,
-		Parent = gui,
-	}, { Ui.padding(12) })
-	Ui.new(
-		"Frame",
-		{ Size = UDim2.new(1, 0, 0, 120), BackgroundColor3 = Color3.fromRGB(30, 28, 30), Parent = self.photo }
-	)
-	self.photoLabel = Ui.label("", {
-		Position = UDim2.fromOffset(0, 40),
-		Size = UDim2.new(1, 0, 0, 40),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		Font = Ui.Theme.fontType,
-		TextSize = 18,
-		TextColor3 = Color3.fromRGB(210, 200, 180),
-		Parent = self.photo,
-	})
-	self.photoCaption = Ui.label("", {
-		Position = UDim2.fromOffset(0, 124),
-		Size = UDim2.new(1, 0, 0, 60),
-		Font = Ui.Theme.fontType,
-		TextSize = 14,
-		TextColor3 = Ui.Theme.ink,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Parent = self.photo,
-	})
-	Net.get("PhotoResult").OnClientEvent:Connect(function(result)
-		self.photoLabel.Text = result.label or ""
-		self.photoCaption.Text = result.caption or ""
-		self.photo.Visible = true
-		self.photoToken = (self.photoToken or 0) + 1
-		local token = self.photoToken
-		task.delay(6, function()
-			if self.photoToken == token then
-				self.photo.Visible = false
-			end
-		end)
-	end)
 	return self
 end
 

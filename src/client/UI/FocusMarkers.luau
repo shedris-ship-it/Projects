@@ -1,7 +1,7 @@
 -- Focus markers: the game has no crosshair. Whatever you're close to and
 -- looking at gets a small marker attached to it, with its name and what you
 -- can do (docs/ART.md, "Interface"). One marker per object, merging its
--- prompts (doors: Open, Brace) and Witnessing. Markers fade with distance and
+-- prompts (doors: Open, Brace) and what your hands can do. Markers fade with distance and
 -- with how directly you're looking, so they read as part of the room rather
 -- than a HUD. Proximity prompts use this look instead of Roblox's default.
 -- Markers are screen frames placed by projecting the object's position each
@@ -94,12 +94,10 @@ function FocusMarkers.new(ctx)
 	local self = setmetatable({
 		ctx = ctx,
 		state = ctx.state,
-		witness = ctx.controllers.WitnessController,
 		screen = Ui.screen("ConsensusFocus", 4, ctx.playerGui),
 		markers = {}, -- object -> marker
 		shown = {}, -- ProximityPrompt -> true while Roblox would show it
 		promptHolds = {}, -- ProximityPrompt -> hold start time
-		witnessProgress = nil,
 	}, FocusMarkers)
 
 	-- Take over every prompt's look, now and as the house is built.
@@ -128,9 +126,6 @@ function FocusMarkers.new(ctx)
 	end)
 	ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		self.promptHolds[prompt] = nil
-	end)
-	self.witness.HoldChanged:Connect(function(progress)
-		self.witnessProgress = progress
 	end)
 	return self
 end
@@ -291,13 +286,6 @@ function FocusMarkers:_build(marker)
 			prompt:InputHoldEnd()
 		end)
 	end
-	if marker.witnessable then
-		self:_row(actions, order + 1, keyText(Enum.KeyCode.Q, Enum.KeyCode.ButtonL1), "Witness", function()
-			self.witness:BeginWitness()
-		end, function()
-			self.witness:EndWitness()
-		end)
-	end
 	-- Hold progress: a hairline that fills under the actions.
 	local track = Ui.new("Frame", {
 		LayoutOrder = 4,
@@ -365,8 +353,7 @@ function FocusMarkers:Update(dt: number)
 	local function want(object: Instance)
 		local entry = wanted[object]
 		if not entry then
-			entry =
-				{ prompts = {}, witnessable = false, drag = false, grab = false, push = false, name = nil, target = 0 }
+			entry = { prompts = {}, drag = false, grab = false, push = false, name = nil, target = 0 }
 			wanted[object] = entry
 		end
 		return entry
@@ -416,21 +403,10 @@ function FocusMarkers:Update(dt: number)
 		entry.target = 1
 	end
 
-	-- Witnessing: the object you're looking at, when close, or the one you're
-	-- holding Q on at any range.
-	local aim = (inRun and active) and (self.witness:HoldAim() or self.witness.aim) or nil
-	if aim and aim.instance and aim.label and (aim.distance <= F.WitnessDistance or self.witness:HoldAim()) then
-		local entry = want(objectOf(aim.instance))
-		entry.witnessable = true
-		entry.name = entry.name or aim.label
-		entry.target = 1
-	end
-
 	-- Build, update and retire markers.
 	for object, entry in wanted do
 		local marker = self.markers[object]
-		local signature = (entry.witnessable and "W" or "")
-			.. (entry.drag and "D" or "")
+		local signature = (entry.drag and "D" or "")
 			.. (entry.grab and "G" or "")
 			.. (entry.push and "P" or "")
 			.. inputKind()
@@ -445,7 +421,6 @@ function FocusMarkers:Update(dt: number)
 		if marker.signature ~= signature then
 			marker.signature = signature
 			marker.prompts = entry.prompts
-			marker.witnessable = entry.witnessable
 			marker.drag = entry.drag
 			marker.grab = entry.grab
 			marker.push = entry.push
@@ -467,9 +442,6 @@ function FocusMarkers:Update(dt: number)
 				if started and prompt.HoldDuration > 0 then
 					progress = math.max(progress, math.clamp((now - started) / prompt.HoldDuration, 0, 1))
 				end
-			end
-			if marker.witnessable and self.witnessProgress then
-				progress = math.max(progress, self.witnessProgress)
 			end
 			marker.fill.Size = UDim2.fromScale(progress, 1)
 			self:_setAlpha(marker, marker.alpha)

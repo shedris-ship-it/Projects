@@ -12,7 +12,7 @@ local Config = require(script.Parent.Parent.Config)
 local Joint = require(script.Parent.Parent.Lib.Joint)
 local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
-local Tells = require(script.Parent.Parent.Data.Tells)
+local ClockTimes = require(script.Parent.Parent.Data.ClockTimes)
 local Rng = require(script.Parent.Parent.Lib.Rng)
 local PlantLeaves = require(script.Parent.Parent.Logic.PlantLeaves)
 
@@ -242,10 +242,9 @@ local function clockFace(model, surface: CFrame, radius: number, value: any, rim
 	return dial
 end
 
--- A plausible time for a decorative clock: the same pool the clue clocks
--- draw from, so a clue can't be spotted by its time alone.
+-- A plausible time for a decorative clock (Data/ClockTimes).
 function PropFactory.decorClockTime(rng): string
-	return rng:Pick(Tells.clock_disagree.variants)
+	return rng:Pick(ClockTimes)
 end
 
 -- Builders ---------------------------------------------------------------

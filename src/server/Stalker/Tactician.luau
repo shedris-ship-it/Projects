@@ -105,7 +105,6 @@ function Tactician:_feasibility(ctx)
 	f.TargetStraggler = (ctx.squadSize >= 2 and ctx.straggler) and 1 or 0
 	f.FlankBlindSpot = (hasMemory and ctx.memory.facing) and 1 or 0
 	f.KillLights = (hasMemory and ctx.memoryRoomLit) and 0.8 or 0
-	f.WaitOutFocus = (hasMemory and ctx.averageFocus > 45) and 0.7 or 0
 	f.FakePing = (ctx.squadSize >= 2 and hasMemory) and 0.8 or 0
 	f.Ambush = hasMemory and 0.8 or 0
 	f.ListenStill = 0.6
@@ -116,7 +115,6 @@ function Tactician:_feasibility(ctx)
 	-- The final hunt during a ritual leans on flanking: the squad is busy.
 	if ctx.final then
 		f.FlankBlindSpot = hasMemory and 1.4 or 0
-		f.WaitOutFocus = 0
 		f.FakeLeaveReturn = 0
 	end
 	return f
@@ -135,16 +133,7 @@ function Tactician:Context(final: boolean)
 		squadSize = #services.PlayerStateService:LivingPlayers(),
 		signals = services.SquadProfileService:Signals(),
 		loop = services.SquadProfileService:FavouriteLoop(),
-		averageFocus = 100,
 	}
-	local living = services.PlayerStateService:ActivePlayers()
-	if #living > 0 then
-		local total = 0
-		for _, p in living do
-			total += services.WitnessService:Focus(p)
-		end
-		ctx.averageFocus = total / #living
-	end
 	if memory then
 		local roomId = worldService:RoomAt(memory.position)
 		ctx.memoryRoom = roomId
@@ -312,14 +301,6 @@ function Tactician:_plan(id: string, ctx)
 		table.insert(plan, { type = "lights", rooms = rooms })
 		moveTo(memoryPos, stalk)
 		wait(2)
-	elseif id == "WaitOutFocus" and memoryPos then
-		local roomId = worldService:RoomAt(memoryPos)
-		local neighbour = roomId and self.rng:Pick(worldService:Neighbours(roomId))
-		if neighbour then
-			moveTo(worldService:ApproachPoint(neighbour, roomId, 5), walk)
-		end
-		table.insert(plan, { type = "waitFocus", seconds = 12, threshold = 40 })
-		moveTo(memoryPos, run)
 	elseif id == "FakePing" and memoryPos then
 		local roomId = worldService:RoomAt(memoryPos)
 		local neighbour = roomId and self.rng:Pick(worldService:Neighbours(roomId))

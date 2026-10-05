@@ -70,14 +70,6 @@ function WorldService:Init()
 	PhysicsService:CollisionGroupSetCollidable(Groups.Heavy, Groups.Phantom, false)
 end
 
--- Phantom Architecture's stalker twist: it walks through solid seams.
-function WorldService:SetStalkerUsesSeams(enabled: boolean)
-	local PhysicsService = game:GetService("PhysicsService")
-	local Groups = require(Shared.Constants).CollisionGroups
-	PhysicsService:CollisionGroupSetCollidable(Groups.Stalker, Groups.Seam, not enabled)
-	self.stalkerUsesSeams = enabled
-end
-
 function WorldService:Build(layout, rng)
 	self:Clear()
 	local started = os.clock()
@@ -92,6 +84,14 @@ function WorldService:Build(layout, rng)
 	else
 		self.World = LevelBuilder.build(layout, Rooms.ById, folder, rng)
 	end
+	-- What the run's services add to the house (decor, items, notes, puzzle
+	-- stations, the dinner, tools lying about) goes in here, apart from what
+	-- the builder made, so tools/studio/partdump.luau (Gate A) can measure the
+	-- builder alone.
+	local content = Instance.new("Folder")
+	content.Name = "RunContent"
+	content.Parent = folder
+	self.content = content
 	folder.Parent = Workspace
 	self.lastBuildSeconds = os.clock() - started
 	print(
@@ -124,6 +124,7 @@ function WorldService:Clear()
 	if self.folder then
 		self.folder:Destroy()
 		self.folder = nil
+		self.content = nil
 	end
 	if self.World then
 		self.World = nil
@@ -308,7 +309,7 @@ end
 -- The way between two points (floor spots or roots): { steps = { { position,
 -- node, kind, room, seam, stair, door } }, cost }, or nil. Steps are empty
 -- when both are in the same room on the same level. opts as NavGraph.search
--- (avoid, solid, extra), plus who (SeamCost; "guest" if not given).
+-- (avoid, extra), plus who (SeamCost; "guest" if not given).
 function WorldService:Route(from: Vector3, to: Vector3, opts)
 	local nav, world = self.nav, self.World
 	if not nav or not world then

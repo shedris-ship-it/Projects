@@ -49,16 +49,12 @@ Constants.RunState = {
 	Difficulty = "Difficulty",
 	SquadSize = "SquadSize",
 	LobbyCountdown = "LobbyCountdown",
-	RitualProgress = "RitualProgress",
-	RitualText = "RitualText",
-	ConfirmedCount = "ConfirmedCount",
-	Loop = "Loop", -- "Clues" or "Escape" (Config.Run.Loop)
+	Objective = "Objective", -- the HUD's one-line objective (Logic/Objectives)
 }
 
 -- Attributes on each Player.
 Constants.PlayerAttributes = {
 	State = "RunState", -- "Lobby", "Active", "Downed", "Lost", "Extracted"
-	Focus = "Focus",
 	-- The tool in your hands right now, or nil with the torch or empty hands
 	-- (so everything that reads "your tool" still works with found tools).
 	Tool = "Tool",
@@ -67,8 +63,6 @@ Constants.PlayerAttributes = {
 	-- slot 4 your bare hands ("Hands").
 	Slots = { "Slot1", "Slot2", "Slot3", "Slot4" },
 	ActiveSlot = "ActiveSlot",
-	SlotFilms = { "Film1", "Film2", "Film3", "Film4" }, -- film on the Camera in each slot (0 for anything else)
-	Film = "Film",
 	Battery = "Battery",
 	Flashlight = "Flashlight",
 	-- The torch is clipped to your shirt (anything but slot 1 in your hands):

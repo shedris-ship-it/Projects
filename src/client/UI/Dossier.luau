@@ -80,11 +80,11 @@ end
 function Dossier:Show(data)
 	local s = data.summary
 	local d = data.dossier
-	self.title.Text = s.won and "CASE CLOSED" or "CASE LOST"
+	self.title.Text = s.won and "YOU GOT OUT" or "THE HOUSE KEPT YOU"
 	self.subtitle.Text = string.format(
 		"%s  ·  %s  ·  %dm %02ds  ·  final Drift %d  ·  seed %s (%s)",
 		REASONS[s.reason] or s.reason,
-		s.resolved and ("The anomaly was " .. s.anomaly) or "The anomaly was never resolved",
+		s.resolved and "The dinner was served" or "The table was never set",
 		s.minutes,
 		s.seconds,
 		s.drift,
@@ -92,17 +92,19 @@ function Dossier:Show(data)
 		s.difficulty or "Normal"
 	)
 	local lines = {}
-	table.insert(lines, string.format("+%d Marks%s", data.marks or 0, data.extracted and " (extracted)" or ""))
-	table.insert(lines, "")
-	table.insert(lines, "THE EVIDENCE")
-	for _, e in s.evidence do
-		table.insert(
-			lines,
-			string.format("  %s %s, %s", e.herring and "✘ (red herring)" or "✔", e.name, e.room or "?")
-		)
-	end
-	if (s.wrongVerdicts or 0) > 0 then
-		table.insert(lines, string.format("  Wrong verdicts: %d", s.wrongVerdicts))
+	table.insert(lines, string.format("+%d Marks%s", data.marks or 0, data.extracted and " (got out)" or ""))
+	local escape = s.escape
+	if escape then
+		table.insert(lines, "")
+		table.insert(lines, "THE HOUSE")
+		table.insert(lines, string.format("  Places set at the table: %d of %d", escape.placesSet, escape.places))
+		table.insert(lines, string.format("  Locked doors opened: %d of %d", escape.locksOpened, escape.locks))
+		if escape.puzzles > 0 then
+			table.insert(lines, string.format("  Puzzles solved: %d of %d", escape.puzzlesSolved, escape.puzzles))
+		end
+		for _, line in escape.lines or {} do
+			table.insert(lines, "  " .. line)
+		end
 	end
 	table.insert(lines, "")
 	table.insert(lines, "WHAT IT LEARNED ABOUT YOU")
@@ -137,10 +139,7 @@ function Dossier:Show(data)
 		end
 	end
 	table.insert(lines, "")
-	table.insert(
-		lines,
-		string.format("Hides %d  ·  Anchors %d  ·  Pings %d", d.totals.hides, d.totals.anchors, d.totals.pings)
-	)
+	table.insert(lines, string.format("Hides %d  ·  Pings %d", d.totals.hides, d.totals.pings))
 	self.body.Text = table.concat(lines, "\n")
 	self.gui.Enabled = true
 end

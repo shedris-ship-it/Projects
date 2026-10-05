@@ -6,8 +6,7 @@
 -- tick checks that he hasn't crossed a wall between two positions.
 --
 -- Casts use the walker's collision group, so whatever it passes through
--- anyway is ignored: players, doors (he opens them in code), and solid seams
--- while Phantom Architecture's twist lets him walk through them. Railing
+-- anyway is ignored: players and doors (he opens them in code). Railing
 -- colliders can't be queried (sight passes between the balusters), so they
 -- are found by tag and tested by hand.
 

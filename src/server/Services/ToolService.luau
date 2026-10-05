@@ -1,14 +1,15 @@
--- Tools (doc section 6; owner, 2026-10-04): the Witness Camera, Lantern, Radio
--- and Plumb Line are found around the house, not picked in the hub. Each player
--- has four slots (Logic/Inventory): slot 1 is the flashlight, always, 2 and 3
--- hold found tools, 4 is bare hands, one thing in your hands at a time (anything
--- but the torch clips it to your shirt). This service owns the
--- inventories, the pickups lying on tables, what each tool does, and Lantern
--- shrines (which make a room safe to rest in).
+-- Tools (doc section 6; owner, 2026-10-04): the Lantern and the Radio are
+-- found around the house, not picked in the hub. Each player has four slots
+-- (Logic/Inventory): slot 1 is the flashlight, always, 2 and 3 hold found
+-- tools, 4 is bare hands, one thing in your hands at a time (anything but the
+-- torch clips it to your shirt). This service owns the inventories, the
+-- pickups lying on tables, what each tool does, and Lantern shrines (which
+-- make a room safe to rest in). The Witness Camera and the Plumb Line
+-- retired with the clue loop (R2c).
 --
--- Players are told only the slot ids, which slot is in their hands, and film;
--- `PA.Tool` stays "the tool in your hands now" so everything that read it
--- before (Witness pings, the Radio signal) keeps working.
+-- Players are told only the slot ids and which slot is in their hands;
+-- `PA.Tool` stays "the tool in your hands now" so everything that reads it
+-- (pings, the Radio signal) keeps working.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +19,6 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
-local Assets = require(Shared.Assets)
 local Net = require(Shared.Net)
 local Tools = require(Shared.Data.Tools)
 local Inventory = require(Shared.Logic.Inventory)
@@ -69,8 +69,8 @@ function ToolService:Start()
 			shrine.prompt = prompt
 		end
 	end)
-	Net.onServer("UseTool", { interval = 0.25, types = { "string?", "Vector3?" } }, function(player, targetId, position)
-		self:Use(player, targetId, position)
+	Net.onServer("UseTool", { interval = 0.25, types = { "string?", "Vector3?" } }, function(player)
+		self:Use(player)
 	end)
 	Net.onServer("SelectSlot", { interval = 0.08, burst = 8, types = { "number" } }, function(player, slot)
 		self:SelectSlot(player, slot)
@@ -150,14 +150,12 @@ function ToolService:EndRun()
 	for player in inventories do
 		inventories[player] = nil
 		if player.Parent then
-			for slot, name in PA.Slots do
+			for _, name in PA.Slots do
 				player:SetAttribute(name, nil)
-				player:SetAttribute(PA.SlotFilms[slot], nil)
 			end
 			player:SetAttribute(PA.ActiveSlot, nil)
 			player:SetAttribute(PA.Tool, nil)
 			player:SetAttribute(PA.TorchClipped, nil)
-			player:SetAttribute(PA.Film, 0)
 			self.PlayerState:RefreshFlashlight(player)
 		end
 	end
@@ -181,7 +179,7 @@ function ToolService:TorchClipped(player: Player): boolean
 end
 
 -- Tell the player what they carry. Their hands drive everything else: the held
--- tool id, film on the camera, and a lit lantern going out when it's put away.
+-- tool id, and a lit lantern going out when it's put away.
 function ToolService:_publish(player: Player)
 	local inv = inventories[player]
 	if not inv then
@@ -195,17 +193,6 @@ function ToolService:_publish(player: Player)
 	player:SetAttribute(PA.Tool, held)
 	player:SetAttribute(PA.TorchClipped, Inventory.torchClipped(inv))
 	self.PlayerState:RefreshFlashlight(player)
-	-- Film rides with each Camera: one count per slot for the bar, and the one in
-	-- your hands (or the first you carry) for everything else.
-	local film = nil
-	for slot, item in inv.slots do
-		local count = (item and item.id == "Camera") and (item.film or 0) or 0
-		player:SetAttribute(PA.SlotFilms[slot], count)
-		if item and item.id == "Camera" and (film == nil or item == Inventory.held(inv)) then
-			film = count
-		end
-	end
-	player:SetAttribute(PA.Film, film or 0)
 	local light = lanterns[player]
 	if light and held ~= "Lantern" then
 		light:Destroy()
@@ -268,7 +255,7 @@ end
 
 -- Leave a tool lying somewhere: `cframe` is on the surface, `yaw` turns it.
 function ToolService:_makePickup(item, cframe: CFrame, yaw: number)
-	local folder = self.World.folder
+	local folder = self.World.content
 	if not folder then
 		return
 	end
@@ -385,9 +372,6 @@ function ToolService:_spawnWorldTools(rng, squadSize: number)
 		local spot = Dressing.claim(entry.surface.source)
 		if spot then
 			local item = { id = entry.tool, uid = newUid() }
-			if entry.tool == "Camera" then
-				item.film = squadSize == 1 and Config.Tools.CameraFilmSolo or Config.Tools.CameraFilm
-			end
 			self:_makePickup(item, spot, rng:NextNumber(-0.5, 0.5))
 		end
 	end
@@ -426,7 +410,7 @@ local function nearestShrine(world, position: Vector3, radius: number)
 	return best
 end
 
-function ToolService:Use(player: Player, targetId, position)
+function ToolService:Use(player: Player)
 	if not self.PlayerState:CanAct(player) then
 		return
 	end
@@ -435,9 +419,7 @@ function ToolService:Use(player: Player, targetId, position)
 	if not root then
 		return
 	end
-	if tool == "Camera" then
-		self:_camera(player, targetId, position)
-	elseif tool == "Lantern" then
+	if tool == "Lantern" then
 		local shrine = self.World.World and nearestShrine(self.World.World, root.Position, 10)
 		if shrine then
 			self:LightShrine(shrine, player)
@@ -460,95 +442,21 @@ function ToolService:Use(player: Player, targetId, position)
 			player:SetAttribute("LanternOn", true)
 		end
 	elseif tool == "Radio" then
+		-- Listening hard: how loud the static is says how near he is.
 		local now = os.clock()
-		if lastUse[player] and now - lastUse[player] < 10 then
+		if lastUse[player] and now - lastUse[player] < 4 then
 			return
 		end
 		lastUse[player] = now
-		local count = 0
-		for _, site in self.services.AnomalyService:Sites() do
-			if (site.position - root.Position).Magnitude < 32 then
-				count += 1
-			end
-		end
+		local signal = player:GetAttribute("RadioSignal") or 0
 		notify(
 			player,
-			count == 0 and "The radio hisses. Nothing wrong close by."
-				or string.format(
-					"The radio crackles: %d wrong thing%s within a room of you.",
-					count,
-					count == 1 and "" or "s"
-				),
+			signal > 0.6 and "The static roars. He's very close."
+				or signal > 0.25 and "The static rises and falls. He's somewhere near."
+				or "Only a faint hiss. He's far off, for now.",
 			"info"
 		)
-	elseif tool == "PlumbLine" then
-		self:_plumb(player, root)
 	end
-end
-
-function ToolService:_camera(player: Player, targetId, position)
-	local inv = inventories[player]
-	local item = inv and Inventory.held(inv)
-	local film = item and item.film or 0
-	if not item or film <= 0 then
-		notify(player, "Out of film.", "warning")
-		return
-	end
-	local entry = self.Witness:Resolve(player, targetId, position)
-	if not entry then
-		notify(player, "Nothing worth a photo there.", "info")
-		return
-	end
-	local head = self.PlayerState:Head(player)
-	local targetPos = self.Witness.PositionOf(entry)
-	if (targetPos - head.Position).Magnitude > Config.Tools.CameraRange then
-		notify(player, "Too far for the camera.", "warning")
-		return
-	end
-	item.film = film - 1
-	self:_publish(player)
-	self.services.NoiseService:Emit(head.Position, 12, player, "tool")
-	local caption = self.services.AnomalyService:Photograph(player, entry)
-	Net.get("PhotoResult")
-		:FireClient(player, { label = entry.label, caption = caption, film = film - 1, sound = Assets.Sounds.Shutter })
-end
-
-function ToolService:_plumb(player: Player, root: BasePart)
-	local now = os.clock()
-	if lastUse[player] and now - lastUse[player] < Config.Tools.PlumbLineCooldown then
-		notify(player, "The plumb line is still swinging.", "info")
-		return
-	end
-	local confirmed = #self.services.CaseBoardService:ConfirmedTells()
-	if confirmed < Config.Tools.PlumbLineMinConfirmed then
-		notify(
-			player,
-			string.format("The plumb line won't settle. Confirm %d tells first.", Config.Tools.PlumbLineMinConfirmed),
-			"warning"
-		)
-		return
-	end
-	local source = self.services.AnomalyService:SourcePosition()
-	if not source then
-		return
-	end
-	lastUse[player] = now
-	local errorRange = Config.Tools.PlumbLineErrorDegrees
-	local t = math.clamp((confirmed - 2) / 3, 0, 1)
-	local maxError = errorRange[1] + (errorRange[2] - errorRange[1]) * t
-	local rng = Rng.new(Rng.hash(player.UserId .. ":" .. math.floor(now)))
-	local errorAngle = math.rad(rng:NextNumber(-maxError, maxError))
-	local flat = Vector3.new(source.X - root.Position.X, 0, source.Z - root.Position.Z)
-	if flat.Magnitude < 1 then
-		flat = Vector3.new(0, 0, -1)
-	end
-	local direction = (CFrame.Angles(0, errorAngle, 0) * flat.Unit)
-	Net.get("PlumbLine"):FireAllClients({
-		name = player.DisplayName,
-		origin = root.Position,
-		direction = direction,
-		duration = 30,
-	})
 end
 
 return ToolService

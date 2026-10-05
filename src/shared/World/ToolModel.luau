@@ -128,35 +128,6 @@ function ToolModel.setTorchOn(model: Model, on: boolean)
 	end
 end
 
--- The Witness Camera: a 35mm body, top plate, lens and viewfinder.
-local function camera(): Model
-	local model, root = newModel("Camera")
-	part(model, root, "Body", Vector3.new(0.95, 0.55, 0.42), CFrame.new(), {
-		Color = Color3.fromRGB(70, 64, 60),
-		Material = Enum.Material.Leather,
-	})
-	part(model, root, "Plate", Vector3.new(0.97, 0.12, 0.44), CFrame.new(0, 0.33, 0), {
-		Color = Color3.fromRGB(176, 176, 172),
-		Material = Enum.Material.Metal,
-	})
-	part(model, root, "Finder", Vector3.new(0.26, 0.14, 0.2), CFrame.new(0, 0.46, 0.06), {
-		Color = Color3.fromRGB(150, 150, 146),
-		Material = Enum.Material.Metal,
-	})
-	part(model, root, "Barrel", Vector3.new(0.42, 0.4, 0.4), CFrame.new(0, 0, -0.42) * ALONG_Z, {
-		Shape = Enum.PartType.Cylinder,
-		Color = Color3.fromRGB(28, 28, 30),
-		Material = Enum.Material.Metal,
-	})
-	part(model, root, "Glass", Vector3.new(0.04, 0.32, 0.32), CFrame.new(0, 0, -0.64) * ALONG_Z, {
-		Shape = Enum.PartType.Cylinder,
-		Color = Color3.fromRGB(70, 90, 110),
-		Material = Enum.Material.Glass,
-		Reflectance = 0.3,
-	})
-	return model
-end
-
 -- The Lantern: a cage round a glowing core, with a handle.
 local function lantern(): Model
 	local model, root = newModel("Lantern")
@@ -243,30 +214,7 @@ local function radio(): Model
 	return model
 end
 
--- The Plumb Line: a loop of cord and a brass bob hanging below your hand.
-local function plumb(): Model
-	local model, root = newModel("PlumbLine")
-	part(model, root, "Grip", Vector3.new(0.3, 0.14, 0.14), CFrame.new(0, 0.5, 0), {
-		Color = Color3.fromRGB(96, 70, 46),
-		Material = Enum.Material.Wood,
-	})
-	part(model, root, "Cord", Vector3.new(0.02, 0.9, 0.02), CFrame.new(0, 0, 0), {
-		Color = Color3.fromRGB(190, 176, 140),
-		Material = Enum.Material.Fabric,
-	})
-	part(model, root, "Bob", Vector3.new(0.14, 0.3, 0.14), CFrame.new(0, -0.58, 0), {
-		Color = Color3.fromRGB(176, 142, 70),
-		Material = Enum.Material.Metal,
-	})
-	part(model, root, "Tip", Vector3.new(0.1, 0.12, 0.1), CFrame.new(0, -0.8, 0), {
-		Shape = Enum.PartType.Ball,
-		Color = Color3.fromRGB(176, 142, 70),
-		Material = Enum.Material.Metal,
-	})
-	return model
-end
-
-local BUILDERS = { Camera = camera, Lantern = lantern, Radio = radio, PlumbLine = plumb }
+local BUILDERS = { Lantern = lantern, Radio = radio }
 
 function ToolModel.tool(id: string): Model?
 	local builder = BUILDERS[id]
@@ -274,8 +222,8 @@ function ToolModel.tool(id: string): Model?
 end
 
 -- How each tool lies on a tabletop, as a turn applied to the model before it is
--- stood on the surface: most sit as they are held, a plumb line lies on its side.
-local REST = { PlumbLine = CFrame.Angles(math.rad(90), 0, 0) }
+-- stood on the surface: they all sit as they are held.
+local REST = {}
 
 function ToolModel.restTurn(id: string): CFrame
 	return REST[id] or CFrame.identity

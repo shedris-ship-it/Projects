@@ -65,7 +65,15 @@ return function(test, check, Shared, require)
 	end)
 
 	test("hands reach their item: the right hand is on the right, the left on the left", function()
-		local pose = VM.Poses.Camera
+		-- Something held in both hands (no tool is, today; the maths is kept).
+		local pose = {
+			at = { 0.05, -0.3, 1.25 },
+			turn = { 4, 0, 0 },
+			wrist = { 0.38, -0.22, 0.28 },
+			left = { -0.34, -0.24, 0.22 },
+			yaw = 18,
+			tilt = 22,
+		}
 		local rx = ViewFrame.hand(pose, pose.wrist, 1, SCALE, VM.ArmHandForward)
 		local lx = ViewFrame.hand(pose, pose.left, -1, SCALE, VM.ArmHandForward)
 		check.truthy(rx > pose.at[1] and lx < pose.at[1], "a two-handed item is held from both sides")

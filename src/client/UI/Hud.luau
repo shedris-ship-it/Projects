@@ -7,7 +7,6 @@ local Workspace = game:GetService("Workspace")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Tools = require(Shared.Data.Tools)
 local Util = require(Shared.Lib.Util)
@@ -22,8 +21,6 @@ local player = Players.LocalPlayer
 
 local Hud = {}
 Hud.__index = Hud
-
-local PIPS = 20
 
 local function bar(parent, name, position, color)
 	local frame = Ui.new("Frame", {
@@ -60,42 +57,10 @@ function Hud.new(ctx)
 		Parent = gui,
 	}, { Ui.corner(2) })
 
-	-- Focus ring: pips arranged in a circle (bottom left).
-	local ring = Ui.new("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 28, 1, -28),
-		Size = UDim2.fromOffset(96, 96),
-		BackgroundTransparency = 1,
-		Parent = gui,
-	})
-	self.pips = {}
-	for i = 1, PIPS do
-		local angle = (i - 1) / PIPS * math.pi * 2 - math.pi / 2
-		local pip = Ui.new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, math.cos(angle) * 40, 0.5, math.sin(angle) * 40),
-			Size = UDim2.fromOffset(7, 7),
-			BackgroundColor3 = Ui.Theme.accent,
-			Parent = ring,
-		}, { Ui.corner(4) })
-		self.pips[i] = pip
-	end
-	self.focusLabel = Ui.label("FOCUS", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(80, 30),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		Font = Ui.Theme.fontBold,
-		TextSize = 12,
-		TextColor3 = Ui.Theme.textDim,
-		Parent = ring,
-	})
-	self.ring = ring
-
-	-- Tool and meters, beside the ring.
+	-- Tool and meters (bottom left).
 	local panel = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 136, 1, -30),
+		Position = UDim2.new(0, 28, 1, -30),
 		Size = UDim2.fromOffset(220, 92),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -129,7 +94,7 @@ function Hud.new(ctx)
 	self.batteryFill = batteryFill
 	self.panel = panel
 
-	-- Phase, Drift word, ritual progress (top centre).
+	-- Phase, Drift word and the objective line (top centre).
 	local top = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 14),
@@ -146,7 +111,7 @@ function Hud.new(ctx)
 		TextStrokeTransparency = 0.6,
 		Parent = top,
 	})
-	self.ritualLabel = Ui.label("", {
+	self.objectiveLabel = Ui.label("", {
 		Position = UDim2.fromOffset(0, 24),
 		Size = UDim2.new(1, 0, 0, 34),
 		TextXAlignment = Enum.TextXAlignment.Center,
@@ -155,10 +120,6 @@ function Hud.new(ctx)
 		TextStrokeTransparency = 0.6,
 		Parent = top,
 	})
-	local ritualBar, ritualFill = bar(top, "Ritual", UDim2.new(0.2, 0, 0, 62), Ui.Theme.ritual)
-	ritualBar.Size = UDim2.new(0.6, 0, 0, 5)
-	self.ritualBar = ritualBar
-	self.ritualFill = ritualFill
 
 	-- Squad (top left).
 	self.squad = Ui.new("Frame", {
@@ -201,7 +162,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"Q hold: Witness · R: use · 1 2 3 4 / wheel: slots (4: hands) · X: put down · F: light · Shift: run · G: ping · Tab: Case File · F1: settings",
+		"R: use · 1 2 3 4 / wheel: slots (4: hands) · X: put down · F: light · Shift: run · G: ping · Tab: map · F1: settings",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),
@@ -237,8 +198,7 @@ function Hud:_squad()
 					other.DisplayName,
 					{ Name = "PlayerName", Size = UDim2.new(1, 0, 0, 16), TextSize = 13, Parent = row }
 				)
-				local _, fill = bar(row, "Focus", UDim2.fromOffset(0, 18), Ui.Theme.accent)
-				rows[other] = { frame = row, fill = fill, label = nameLabel }
+				rows[other] = { frame = row, label = nameLabel }
 				row = rows[other]
 			end
 			local text = other.DisplayName
@@ -255,7 +215,6 @@ function Hud:_squad()
 			end
 			row.label.Text = text
 			row.label.TextColor3 = color
-			row.fill.Size = UDim2.fromScale((other:GetAttribute(PA.Focus) or 100) / Config.Witness.FocusMax, 1)
 		end
 	end
 	for other, row in rows do
@@ -278,17 +237,6 @@ function Hud:Update()
 	local active = myState == PS.Active
 	self.reticle.Visible = active and not state:IsHidden() and state.settings.centerDot == true
 
-	-- Focus pips
-	local focus = (player:GetAttribute(PA.Focus) or 100) / Config.Witness.FocusMax
-	local lit = math.floor(focus * PIPS + 0.5)
-	local cost = Config.Witness.Cost / Config.Witness.FocusMax
-	for i, pip in self.pips do
-		local on = i <= lit
-		pip.BackgroundTransparency = on and 0 or 0.8
-		pip.BackgroundColor3 = (focus < cost and on) and Ui.Theme.danger or Ui.Theme.accent
-	end
-	self.ring.Visible = active
-
 	-- What's in your hands (the slots themselves are UI/Hotbar)
 	local toolId = player:GetAttribute(PA.Tool)
 	local tool = Tools.ById[toolId]
@@ -304,8 +252,6 @@ function Hud:Update()
 	elseif handsFree then
 		-- The torch rides clipped to your shirt while your hands are free.
 		detail = player:GetAttribute(PA.Flashlight) and "F: clip light off" or "F: clip light on"
-	elseif toolId == "Camera" then
-		detail = string.format("Film: %d", player:GetAttribute(PA.Film) or 0)
 	elseif toolId == "Radio" then
 		local signal = player:GetAttribute("RadioSignal") or 0
 		detail = "Static "
@@ -314,10 +260,6 @@ function Hud:Update()
 	elseif toolId == "Lantern" then
 		detail = player:GetAttribute("LanternOn") and "Lantern lit (R near a shrine to light it)"
 			or "R: lantern · near a shrine: light it"
-	elseif toolId == "PlumbLine" then
-		local confirmed = state:Run(RS.ConfirmedCount) or 0
-		detail = confirmed >= Config.Tools.PlumbLineMinConfirmed and "R: drop a plumb line"
-			or string.format("Needs %d confirmed tells (%d)", Config.Tools.PlumbLineMinConfirmed, confirmed)
 	end
 	local carrying = player:GetAttribute(PA.Carrying)
 	if carrying then
@@ -344,11 +286,7 @@ function Hud:Update()
 		timer = "  ·  " .. Util.formatClock(endsAt - Workspace:GetServerTimeNow())
 	end
 	self.phaseLabel.Text = phaseText .. (driftState and ("  ·  " .. string.lower(driftState)) or "") .. timer
-	local ritualText = state:Run(RS.RitualText)
-	local ritualProgress = state:Run(RS.RitualProgress)
-	self.ritualLabel.Text = ritualText or ""
-	self.ritualBar.Visible = ritualProgress ~= nil
-	self.ritualFill.Size = UDim2.fromScale(ritualProgress or 0, 1)
+	self.objectiveLabel.Text = state:Run(RS.Objective) or ""
 
 	-- Hiding
 	local hidden = state:IsHidden()

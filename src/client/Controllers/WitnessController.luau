@@ -1,7 +1,8 @@
--- Witnessing from the client side (doc section 6): aiming (the centre of the
--- view; there is no crosshair, UI/FocusMarkers shows the target), the hold-to-
--- Witness gesture, camera view reports for the observation rule, pings,
--- structured callouts, and the world markers that show them.
+-- Your eyes, client side (doc section 6): aiming (the centre of the view;
+-- there is no crosshair, UI/FocusMarkers shows the target), camera view
+-- reports for the observation rule (two of you watching him freeze him),
+-- pings, structured callouts, and the world markers that show them. The
+-- hold-to-Witness gesture retired with the clue loop (R2c).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,19 +14,14 @@ local Config = require(Shared.Config)
 local Net = require(Shared.Net)
 local Pings = require(Shared.Data.Pings)
 local Util = require(Shared.Lib.Util)
-local Signal = require(Shared.Lib.Signal)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local player = Players.LocalPlayer
 
 local WitnessController = {
-	HoldChanged = Signal.new(), -- (progress 0..1 or nil)
 	aim = nil, -- what the view points at this frame, during a run (UI/FocusMarkers)
 }
-
-local holdStarted = nil
-local holdTarget = nil
 
 function WitnessController:Init(controllers)
 	self.controllers = controllers
@@ -62,25 +58,6 @@ function WitnessController:Aim()
 		label = label,
 		distance = (result.Position - ray.Origin).Magnitude,
 	}
-end
-
-function WitnessController:BeginWitness()
-	if not self.state:IsActive() then
-		return
-	end
-	holdStarted = os.clock()
-	holdTarget = self:Aim()
-end
-
-function WitnessController:EndWitness()
-	holdStarted = nil
-	holdTarget = nil
-	self.HoldChanged:Fire(nil)
-end
-
--- The target of a Witness hold in progress, or nil.
-function WitnessController:HoldAim()
-	return holdStarted and holdTarget or nil
 end
 
 function WitnessController:SendPing(pingType: string)
@@ -184,68 +161,8 @@ function WitnessController:Start()
 			"callout"
 		)
 	end)
-	local windowMarkers = {}
-	Net.get("WitnessFeedback").OnClientEvent:Connect(function(fb)
-		local t = fb.type
-		if t == "window" then
-			if windowMarkers[fb.id] then
-				windowMarkers[fb.id]:Destroy()
-			end
-			local seconds = math.max(1, (fb.expires or 0) - Workspace:GetServerTimeNow())
-			windowMarkers[fb.id] = self:_marker(
-				fb.position,
-				string.format("%s is Witnessing: %s (%d/%d)", fb.by, fb.label or "?", fb.count or 1, fb.required or 2),
-				Ui.Theme.accent,
-				"◇",
-				seconds,
-				true
-			)
-			if fb.by ~= player.DisplayName then
-				ui:Toast(
-					string.format("%s is Witnessing %s. Look and hold Q to confirm.", fb.by, fb.label or "something"),
-					"witness"
-				)
-			end
-		elseif t == "anchored" then
-			if windowMarkers[fb.id] then
-				windowMarkers[fb.id]:Destroy()
-				windowMarkers[fb.id] = nil
-			end
-			self:_marker(fb.position, "Anchored: " .. (fb.label or ""), Ui.Theme.good, "◆", 4, true)
-			ui:Toast(string.format("Anchored %s (%s).", fb.label or "it", table.concat(fb.by or {}, " + ")), "good")
-		elseif t == "expired" then
-			if windowMarkers[fb.id] then
-				windowMarkers[fb.id]:Destroy()
-				windowMarkers[fb.id] = nil
-			end
-		elseif t == "noFocus" then
-			ui:Toast("Not enough Focus. Stay near a teammate to recover it.", "warning")
-		elseif t == "tooFar" then
-			ui:Toast("Too far away to Witness.", "warning")
-		elseif t == "blocked" then
-			ui:Toast("You can't see it clearly from here.", "warning")
-		elseif t == "nothing" then
-			ui:Toast("There's nothing there to Witness.", "info")
-		elseif t == "waiting" then
-			ui:Toast("You've Witnessed it. Someone else has to confirm.", "info")
-		elseif t == "alreadyAnchored" then
-			ui:Toast("That's already anchored.", "info")
-		end
-	end)
-
 	local reportClock = 0
 	RunService.RenderStepped:Connect(function(dt)
-		-- Witness hold
-		if holdStarted then
-			local progress = (os.clock() - holdStarted) / Config.Witness.HoldSeconds
-			self.HoldChanged:Fire(math.clamp(progress, 0, 1))
-			if progress >= 1 then
-				local aim = holdTarget or self:Aim()
-				Net.get("Witness"):FireServer(aim.targetId, aim.position)
-				holdStarted = nil
-				self.HoldChanged:Fire(nil)
-			end
-		end
 		-- What the view points at, for the focus markers.
 		self.aim = self.state:InRun() and self:Aim() or nil
 		-- View reports drive the observation rule on the server.

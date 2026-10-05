@@ -4,10 +4,10 @@
 -- dragging, carrying and throwing. Only one slot is in your hands at a time.
 -- Anything but the torch clips it to your shirt (a weak light where your body
 -- faces), so the light can stay on whatever you hold. Pure, so the rules are
--- tests (tests/specs/Inventory.spec.luau). An item is { id = "Camera", uid =
--- "tool:3", film = 6 }: `uid` names the one object in the world, `film` rides
--- with a Camera. The thing you're carrying in your hands is the hands' own
--- business (HandsService), not an item here.
+-- tests (tests/specs/Inventory.spec.luau). An item is { id = "Radio", uid =
+-- "tool:3" }: `uid` names the one object in the world. The thing you're
+-- carrying in your hands is the hands' own business (HandsService), not an
+-- item here.
 --
 -- Empty slots are `false` (a Luau array can't hold nil).
 

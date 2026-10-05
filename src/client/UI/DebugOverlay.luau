@@ -122,7 +122,7 @@ function DebugOverlay:Update(dt: number)
 				d.buildSeconds or 0
 			)
 		)
-		table.insert(lines, string.format("anomaly %s · drift %.1f", d.anomaly, d.drift or 0))
+		table.insert(lines, string.format("drift %.1f", d.drift or 0))
 		table.insert(lines, "drift sources: " .. table.concat(d.driftSources or {}, ", "))
 		local s = d.stalker
 		if s then

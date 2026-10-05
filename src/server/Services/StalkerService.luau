@@ -14,7 +14,7 @@
 --   watched by nobody      -> he moves freely
 --   watched by one player  -> tier 1: he's gone; tier 2: he holds and
 --                             stares; tier 3: he keeps creeping
---   watched by two or more -> frozen; hold the stare ~3 s with Focus and he
+--   watched by two or more -> frozen; hold the stare together ~3 s and he
 --                             backs away
 --
 -- Tiers: 0 Dormant, 1 Watching, 2 Closing, 3 Intruding, 4 Hunting.
@@ -76,11 +76,6 @@ function StalkerService:Start()
 	services.WorldService.Cleared:Connect(function()
 		self:Stop()
 	end)
-	services.WitnessService.Anchored:Connect(function(id)
-		if id == "stalker" and self.active then
-			self.frozenUntil = os.clock() + Config.Witness.StalkerAnchorSeconds
-		end
-	end)
 	-- Downs and revives near a Witness keep him from lunging there for a
 	-- while, so a rescue is always possible.
 	local function remember(player: Player)
@@ -125,14 +120,13 @@ end
 
 -- Lifecycle -----------------------------------------------------------------
 
--- ctx = { archetype = id, rng, difficulty, anomalyId, runStart }
+-- ctx = { archetype = id, rng, difficulty, runStart }
 function StalkerService:Begin(ctx)
 	self:Stop()
 	local archetype = Archetypes[ctx.archetype] or Archetypes.TheGuest
 	self.archetype = archetype
 	self.rng = ctx.rng
 	self.difficulty = ctx.difficulty
-	self.twist = ctx.anomalyId
 	self.runStart = ctx.runStart
 	self.body = StalkerModel.build(archetype, self.services.WorldService.folder)
 	local built = self.body
@@ -145,9 +139,6 @@ function StalkerService:Begin(ctx)
 		halfWidth = 0.9,
 		path = Walker.GuestPath,
 		opensDoors = "stalker",
-		usesSeams = function()
-			return self.services.WorldService.stalkerUsesSeams == true
-		end,
 		-- Locks hold him only in a chase (docs/plans/gameplay-rework.md 5.5),
 		-- so a hunt stays inside the part of the house the squad can reach.
 		who = function()
@@ -175,7 +166,6 @@ function StalkerService:Begin(ctx)
 	self.tier = 0
 	self.final = false
 	self.resolved = false
-	self.frozenUntil = 0
 	self.stunnedUntil = 0
 	self.stunImmuneUntil = 0
 	self.stuns = {} -- when each recent stun landed (repeats are shorter)
@@ -192,20 +182,6 @@ function StalkerService:Begin(ctx)
 	self.recentDowns = {}
 	self.yankTo = nil
 	self.active = true
-	self.services.WitnessService:Register("stalker", {
-		kind = "stalker",
-		position = function()
-			return self.parked and Vector3.new(0, -1e4, 0) or self.bodyCtl:WitnessPoint()
-		end,
-		-- You can't anchor what you can't see.
-		visibleTo = function(player: Player)
-			return self.visibleTo[player] == true
-		end,
-		label = "Figure",
-		radius = 6,
-		anchorSeconds = Config.Witness.StalkerAnchorSeconds,
-		ignore = { self.body.model },
-	})
 	self:_publish()
 end
 
@@ -217,7 +193,6 @@ function StalkerService:Stop()
 	self.body = nil
 	self.bodyCtl = nil
 	self.visibleTo = {}
-	self.services.WitnessService:Unregister("stalker")
 	if self.runState then
 		self.runState:SetAttribute(RS.Hunting, false)
 		self.runState:SetAttribute(RS.StalkerMode, Modes.Dormant)
@@ -825,18 +800,9 @@ function StalkerService:_update(dt: number)
 		self.services.SquadProfileService:RecordGaze(dt * #playerWatchers)
 	end
 
-	-- Two Witnesses holding the stare together, with Focus, drive him off.
+	-- Two Witnesses holding the stare together drive him off.
 	if #watchers >= 2 and self.mode ~= Modes.Retreating and self.mode ~= Modes.Departing then
-		local withFocus = 0
-		for _, player in playerWatchers do
-			self.services.WitnessService:DrainFocus(player, Config.Witness.CoStareFocusPerSecond * dt)
-			if self.services.WitnessService:Focus(player) > 0 then
-				withFocus += 1
-			end
-		end
-		if withFocus + (#watchers - #playerWatchers) >= 2 then
-			self.coStare += dt
-		end
+		self.coStare += dt
 		if self.coStare >= Config.Witness.CoStareSeconds then
 			self.coStare = 0
 			Net.get("Notify"):FireAllClients("You held its gaze together. It backs away.", "good")
@@ -846,7 +812,7 @@ function StalkerService:_update(dt: number)
 		self.coStare = math.max(0, self.coStare - dt * 2)
 	end
 
-	local frozen = StalkRules.frozen(#watchers, now < (self.frozenUntil or 0))
+	local frozen = StalkRules.frozen(#watchers)
 	local mode = self.mode
 	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
 		-- Something thrown hit him: a moment off balance (Stun). The hunt
@@ -1016,16 +982,13 @@ function StalkerService:_updateTelegraph(now: number)
 	end
 end
 
-function StalkerService:_runSpeed(watchers): number
+function StalkerService:_runSpeed(_watchers): number
 	local speed = S.SprintSpeedRatio
 		* Config.Player.SprintSpeed
 		* (self.difficulty.StalkerSpeedMultiplier or 1)
 		* (self.archetype.speedMultiplier or 1)
 	if self.final then
 		speed *= 0.85
-	end
-	if self.twist == "Gaze" and #watchers == 0 then
-		speed *= 1.2 -- Gaze: faster whenever nobody is looking
 	end
 	return speed
 end
@@ -1231,17 +1194,6 @@ function StalkerService:_runPlan(now: number, _dt: number, speed: number)
 			end)
 		end
 		nextAction()
-	elseif action.type == "waitFocus" then
-		body:Hold()
-		local active = services.PlayerStateService:ActivePlayers()
-		local total = 0
-		for _, p in active do
-			total += services.WitnessService:Focus(p)
-		end
-		local average = #active > 0 and total / #active or 0
-		if average < action.threshold or elapsed >= action.seconds then
-			nextAction()
-		end
 	elseif action.type == "fakePing" then
 		local living = services.PlayerStateService:LivingPlayers()
 		local impersonate = self.rng:Pick(living)

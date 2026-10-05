@@ -273,7 +273,6 @@ function Stalk:_peekSpots()
 	if self.peekCache and self.peekCacheFor == world then
 		return self.peekCache
 	end
-	local divergent = self.services.DivergenceService:DivergentSeams()
 	local cfg = {
 		PeekLateral = G.PeekLateral,
 		PeekWallClearance = G.PeekWallClearance,
@@ -282,7 +281,7 @@ function Stalk:_peekSpots()
 	}
 	local spots = {}
 	for id, seam in world.seams do
-		if seam.connected and not divergent[id] then
+		if seam.connected then
 			-- The doorway itself (in the mansion, room centres don't line up
 			-- with their doorways).
 			local n = flat(seam.normal).Unit
@@ -978,7 +977,6 @@ function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
 				lineOfSight = head ~= nil
 					and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
 				watchers = ctx.watchers,
-				anchored = now < (service.frozenUntil or 0),
 				stunned = now < (service.stunnedUntil or 0),
 				hidden = services.HidingService:IsHidden(player),
 				downed = not services.PlayerStateService:IsActive(player),
@@ -1191,7 +1189,6 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 		-- The debug tier override skips the early-run gate, for testing.
 		runTime = service.tierOverride and math.huge or (now - service.runStart),
 		watchers = ctx.watchers,
-		anchored = now < (service.frozenUntil or 0),
 		stunned = now < (service.stunnedUntil or 0),
 		distance = ctx.distance,
 		verticalGap = math.abs(pos.Y - here.Y),

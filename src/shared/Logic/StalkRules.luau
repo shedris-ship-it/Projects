@@ -28,8 +28,8 @@ function StalkRules.visibleTo(tier: number, isTarget: boolean): boolean
 end
 
 -- Two Witnesses (or one with the Companion) always freeze him.
-function StalkRules.frozen(watchers: number, anchored: boolean): boolean
-	return anchored or watchers >= 2
+function StalkRules.frozen(watchers: number): boolean
+	return watchers >= 2
 end
 
 -- May he move closer right now?
@@ -71,7 +71,7 @@ function StalkRules.mayBlockDoorway(tier: number): boolean
 end
 
 -- The lunge. ctx:
---   tier, runTime, watchers, anchored, distance, verticalGap, lineOfSight,
+--   tier, runTime, watchers, distance, verticalGap, lineOfSight,
 --   hidden, downed, safeRoom, sinceDownNearby, sincePlayerLunge,
 --   sinceSquadLunge, warnedFor, sinceWarned
 -- Returns ok and, when not ok, the first reason (for the debug overlay).
@@ -80,7 +80,7 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 		return false, "tier"
 	elseif ctx.runTime < cfg.LungeMinRunSeconds then
 		return false, "too early"
-	elseif StalkRules.frozen(ctx.watchers, ctx.anchored) then
+	elseif StalkRules.frozen(ctx.watchers) then
 		return false, "frozen"
 	elseif ctx.stunned then
 		-- Something thrown just hit him (docs/plans/gameplay-rework.md 4.4).
@@ -108,7 +108,7 @@ end
 -- off while two Witnesses hold him (a buddy who stares is the counter), while
 -- you're hidden, downed or safe, and just after someone nearby went down.
 -- ctx: tier, visibleToVictim, distance, verticalGap, lineOfSight, watchers,
---   anchored, hidden, downed, safeRoom, sinceDownNearby, sinceContact
+--   hidden, downed, safeRoom, sinceDownNearby, sinceContact
 function StalkRules.contact(ctx, cfg): (boolean, string?)
 	if ctx.tier < 1 then
 		return false, "tier"
@@ -116,7 +116,7 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 		return false, "not visible to them"
 	elseif ctx.distance > cfg.ContactRadius or ctx.verticalGap > 4 then
 		return false, "out of reach"
-	elseif StalkRules.frozen(ctx.watchers, ctx.anchored) then
+	elseif StalkRules.frozen(ctx.watchers) then
 		return false, "frozen"
 	elseif ctx.stunned then
 		return false, "stunned"

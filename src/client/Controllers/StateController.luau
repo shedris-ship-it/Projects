@@ -18,7 +18,6 @@ local StateController = {
 	DriftChanged = Signal.new(),
 	PlayerStateChanged = Signal.new(),
 	LayoutChanged = Signal.new(),
-	CaseBoardChanged = Signal.new(),
 	LobbyChanged = Signal.new(),
 	ProfileChanged = Signal.new(),
 	SettingsChanged = Signal.new(),
@@ -26,7 +25,6 @@ local StateController = {
 	RunAttributeChanged = Signal.new(), -- (name, value) for RunState
 
 	layout = nil,
-	caseBoard = nil,
 	lobby = nil,
 	profile = nil,
 	settings = {
@@ -72,10 +70,6 @@ function StateController:Start()
 	Net.get("Layout").OnClientEvent:Connect(function(layout)
 		self.layout = layout
 		self.LayoutChanged:Fire(layout)
-	end)
-	Net.get("CaseBoard").OnClientEvent:Connect(function(snapshot)
-		self.caseBoard = snapshot
-		self.CaseBoardChanged:Fire(snapshot)
 	end)
 	Net.get("LobbyState").OnClientEvent:Connect(function(state)
 		self.lobby = state

@@ -42,7 +42,7 @@ end
 --   halfWidth   how far the body reaches sideways,
 --   path        PathfindingService agent parameters,
 --   opensDoors  "stalker" (waits, bangs braced doors) or "companion",
---   usesSeams   function() -> bool: walks through solid seams (Phantom twist)
+
 --   who         who he walks as, for WorldService:SeamCost (a string, or a
 --               function returning one; "guest" if not given)
 -- }
@@ -169,7 +169,7 @@ function Walker:SetDestination(target: Vector3, opts)
 	local route = self.World:Route(feet, target, {
 		avoid = opts.avoid,
 		extra = opts.extra,
-		solid = self.agent.usesSeams and self.agent.usesSeams() or false,
+
 		who = who,
 	})
 	-- No way there from inside the house (every way is locked or blocked):

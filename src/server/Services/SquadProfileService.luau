@@ -265,9 +265,6 @@ function SquadProfileService:Dossier(extra)
 	if signals.flashlightHabit > 0.6 then
 		table.insert(habits, "You leaned on your flashlights. It learned to wait outside the beam.")
 	end
-	if (self.profile.totals.anchors or 0) >= 5 then
-		table.insert(habits, "You anchored often. It learned when your Focus ran low.")
-	end
 	if (self.profile.totals.pings or 0) >= 10 then
 		table.insert(habits, "You pinged a lot. It learned to fake them.")
 	end
@@ -327,7 +324,6 @@ function SquadProfileService:Dossier(extra)
 		tactics = extra and extra.tactics or {},
 		totals = {
 			hides = self.profile.totals.hides or 0,
-			anchors = self.profile.totals.anchors or 0,
 			pings = self.profile.totals.pings or 0,
 		},
 	}

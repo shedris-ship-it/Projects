@@ -10,7 +10,11 @@
 -- fresh runs: parts 2151, hash 1550694282. Re-baselined with the owner's OK
 -- when furniture gained drawers and doors (gameplay rework R1a.5, build
 -- 2026-10-05.1, two fresh runs with `layout cells`): parts 2272, hash
--- 1308511249. Run it before opening anything: an opened drawer moves parts.
+-- 1308511249. Re-baselined with the owner's OK when the clue loop retired
+-- (R2c.1, build 2026-10-05.6, the escape is the only loop and run content is
+-- left out; two fresh runs with `seed 1800820264`, `layout cells`): parts
+-- 2134, hash 191543809. F2 `gatea` runs the same (World/PartDump). Run it
+-- before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")
 if not level then
@@ -32,9 +36,22 @@ local function inCharacter(d)
 	end
 	return false
 end
+-- What the run's services add (RunContent: decor, items, notes, stations, the
+-- dinner, tools lying about; and anything marked RunContent, like the lock
+-- plates riding on doors) isn't the builder's, so it isn't measured.
+local function runContent(d)
+	local node = d.Parent
+	while node and node ~= level do
+		if node.Name == "RunContent" or node:GetAttribute("RunContent") then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
 local lines = {}
 for _, d in level:GetDescendants() do
-	if d:IsA("BasePart") and not inCharacter(d) then
+	if d:IsA("BasePart") and not inCharacter(d) and not runContent(d) then
 		local p, o, s = d.Position, d.Orientation, d.Size
 		table.insert(
 			lines,

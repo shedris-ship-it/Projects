@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-05.5",
-	note = "Rework R2a.6: the dinner: lay the heirlooms at the table, the lights die, he takes his seat, run out the front door",
+	id = "2026-10-05.6",
+	note = "R2c.1: one loop: the clue loop retires (escape only; atmosphere-only divergence; no Focus, Camera or verdict)",
 }

@@ -9,7 +9,7 @@ function DriftModel.new(config, multiplier: number?)
 		config = config,
 		multiplier = multiplier or 1,
 		value = 0,
-		anchorCredits = {}, -- timestamps of recent anchor rewards
+		credits = {}, -- event name -> timestamps of its recent applications (Caps)
 		sources = {}, -- name -> net change, for the debug overlay
 	}, DriftModel)
 end
@@ -33,23 +33,25 @@ function DriftModel:Tick(dt: number, isolatedCount: number?): number
 	return applied
 end
 
--- Apply a named event from config.Events. Anchor rewards are capped at
--- AnchorCreditsPerMinute so talking is rewarded but spam isn't.
+-- Apply a named event from config.Events. An event listed in config.Caps
+-- counts at most that many times a minute, so a burst of small things (items
+-- found, loud noises) can't swing the meter.
 function DriftModel:Apply(eventName: string, now: number): number
 	local delta = self.config.Events[eventName]
 	assert(delta ~= nil, "Unknown drift event " .. tostring(eventName))
-	if eventName == "Anchor" then
+	local cap = self.config.Caps and self.config.Caps[eventName]
+	if cap then
 		local recent = {}
-		for _, t in self.anchorCredits do
+		for _, t in self.credits[eventName] or {} do
 			if now - t < 60 then
 				table.insert(recent, t)
 			end
 		end
-		self.anchorCredits = recent
-		if #recent >= self.config.AnchorCreditsPerMinute then
+		self.credits[eventName] = recent
+		if #recent >= cap then
 			return 0
 		end
-		table.insert(self.anchorCredits, now)
+		table.insert(recent, now)
 	end
 	if delta > 0 then
 		delta *= self.multiplier

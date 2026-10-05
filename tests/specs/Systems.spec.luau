@@ -3,7 +3,6 @@ return function(test, check, Shared, require)
 	local Rng = require(Shared.Lib.Rng)
 	local Util = require(Shared.Lib.Util)
 	local DriftModel = require(Shared.Logic.DriftModel)
-	local Verdict = require(Shared.Logic.Verdict)
 	local SquadProfile = require(Shared.Logic.SquadProfile)
 	local UtilityAI = require(Shared.Logic.UtilityAI)
 	local Tactics = require(Shared.Data.Tactics)
@@ -54,19 +53,21 @@ return function(test, check, Shared, require)
 		check.near(drift.value, 2.5 + 2, 1e-6, "one minute with two isolated players")
 	end)
 
-	test("drift: events and the anchor cap", function()
+	test("drift: events and the per-minute caps", function()
 		local drift = DriftModel.new(Config.Drift)
 		drift:Set(50)
-		drift:Apply("WrongVerdict", 0)
-		check.near(drift.value, 65, 1e-6, "wrong verdict")
-		drift:Apply("EvidenceConfirmed", 1)
-		check.near(drift.value, 59, 1e-6, "evidence")
-		for i = 1, 5 do
-			drift:Apply("Anchor", 10 + i)
+		drift:Apply("PlayerDowned", 0)
+		check.near(drift.value, 60, 1e-6, "a down")
+		drift:Apply("LockOpened", 1)
+		check.near(drift.value, 55, 1e-6, "a lock opened")
+		local cap = Config.Drift.Caps.ItemFound
+		local step = -Config.Drift.Events.ItemFound
+		for i = 1, cap + 2 do
+			drift:Apply("ItemFound", 10 + i)
 		end
-		check.near(drift.value, 53, 1e-6, "only three anchor credits per minute")
-		drift:Apply("Anchor", 80)
-		check.near(drift.value, 51, 1e-6, "credit returns after a minute")
+		check.near(drift.value, 55 - cap * step, 1e-6, "items found count only so often a minute")
+		drift:Apply("ItemFound", 80)
+		check.near(drift.value, 55 - (cap + 1) * step, 1e-6, "the cap frees up after a minute")
 		check.equal((DriftModel.stateFor(Config.Drift, 61)), "Breaking", "state name")
 		check.equal((DriftModel.stateFor(Config.Drift, 0)), "Calm", "state name")
 	end)
@@ -75,27 +76,6 @@ return function(test, check, Shared, require)
 		local drift = DriftModel.new(Config.Drift, 1.25)
 		drift:Tick(60, 0)
 		check.near(drift.value, 2.5 * 1.25, 1e-6, "hard baseline")
-	end)
-
-	test("verdict: pairs need unanimity, larger squads take a majority after 90s", function()
-		local s = Config.Social
-		check.equal((Verdict.evaluate({ a = "Gaze", b = "Gaze" }, 2, 5, s)), "decided", "unanimous pair")
-		check.equal((Verdict.evaluate({ a = "Gaze", b = "Echo" }, 2, 100, s)), "pending", "split pair still pending")
-		check.equal((Verdict.evaluate({ a = "Gaze", b = "Echo" }, 2, 130, s)), "deadlock", "split pair deadlocks")
-		check.equal(
-			(Verdict.evaluate({ a = "Gaze", b = "Gaze", c = "Echo" }, 3, 30, s)),
-			"pending",
-			"no majority before 90s"
-		)
-		local status, choice = Verdict.evaluate({ a = "Gaze", b = "Gaze", c = "Echo" }, 3, 95, s)
-		check.equal(status, "decided", "majority after 90s")
-		check.equal(choice, "Gaze", "majority choice")
-		check.equal(
-			(Verdict.evaluate({ a = "Gaze", b = "Gaze", c = "Echo", d = "Echo" }, 4, 95, s)),
-			"pending",
-			"tie never carries"
-		)
-		check.equal((Verdict.evaluate({ a = "Gaze" }, 1, 0, s)), "decided", "solo")
 	end)
 
 	test("squad profile: counters decay with the half-life", function()

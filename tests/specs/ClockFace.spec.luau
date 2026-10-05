@@ -1,6 +1,6 @@
 return function(test, check, Shared, require)
 	local ClockFace = require(Shared.Logic.ClockFace)
-	local Tells = require(Shared.Data.Tells)
+	local ClockTimes = require(Shared.Data.ClockTimes)
 
 	test("hands: hours creep with the minutes, minutes go six degrees a minute", function()
 		local h, m = ClockFace.angles("3:15")
@@ -23,8 +23,8 @@ return function(test, check, Shared, require)
 		check.equal(h + m, 0, "hands for nil")
 	end)
 
-	test("every time a clue clock can show is readable on a clock face", function()
-		for _, variant in Tells.clock_disagree.variants do
+	test("every time the house's clocks can show is readable on a clock face", function()
+		for _, variant in ClockTimes do
 			check.truthy(ClockFace.parse(variant) ~= nil, variant .. " does not parse")
 		end
 	end)

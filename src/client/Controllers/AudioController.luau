@@ -122,9 +122,7 @@ function AudioController:Start()
 			self:Caption("[the hum fades]")
 		end
 	end)
-	Net.get("PhotoResult").OnClientEvent:Connect(function()
-		self:PlayUi("Shutter", 0.8)
-	end)
+
 	Net.get("Pinged").OnClientEvent:Connect(function()
 		self:PlayUi("Ping", 0.35)
 	end)
@@ -135,21 +133,7 @@ function AudioController:Start()
 			self:PlayAt(key, position, tonumber(volume), tonumber(pitch), self:_behindWall(position))
 		end
 	end)
-	-- Hands and verdicts.
-	Net.get("WitnessFeedback").OnClientEvent:Connect(function(fb)
-		if fb.type == "anchored" then
-			self:PlayUi("Stamp", 0.7, 1)
-		elseif fb.type == "window" then
-			self:PlayUi("UIClick", 0.25, 0.7)
-		end
-	end)
-	Net.get("VerdictState").OnClientEvent:Connect(function(state)
-		if state.active == false and state.result then
-			self:PlayUi("Stamp", 0.8, 0.7)
-		elseif state.active then
-			self:PlayUi("UIClick", 0.4, 0.7)
-		end
-	end)
+
 	player:GetAttributeChangedSignal("LanternOn"):Connect(function()
 		if player:GetAttribute("LanternOn") == true then
 			self:PlayUi("Match", 0.6, 1)

@@ -41,8 +41,7 @@ function UIController:Start()
 			"Toasts",
 			"PingWheel",
 			"SpeakBox",
-			"CaseFile",
-			"Verdict",
+			"Map",
 			"Puzzle",
 			"Lobby",
 			"Dossier",
@@ -129,10 +128,10 @@ function UIController:OpenSpeak()
 	end
 end
 
-function UIController:ToggleCaseFile()
-	local caseFile = self.components.CaseFile
-	if caseFile then
-		caseFile:Toggle()
+function UIController:ToggleMap()
+	local map = self.components.Map
+	if map then
+		map:Toggle()
 	end
 end
 

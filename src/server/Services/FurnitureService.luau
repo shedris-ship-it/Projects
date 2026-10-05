@@ -310,7 +310,7 @@ function FurnitureService:_fill(space)
 		if rng:NextNumber() >= F.JunkChance then
 			return
 		end
-		model = Junk.build(rng:Pick(Junk.Names), at, self.World.folder)
+		model = Junk.build(rng:Pick(Junk.Names), at, self.World.content)
 	end
 	if not model then
 		return

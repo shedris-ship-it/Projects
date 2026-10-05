@@ -53,7 +53,7 @@ function FinaleService:Start()
 		self.served = false
 		table.clear(self.places)
 		self.facts = {}
-		ReplicatedStorage.RunState:SetAttribute(RS.RitualText, nil)
+		ReplicatedStorage.RunState:SetAttribute(RS.Objective, nil)
 	end)
 	self.Locks.Tried:Connect(function(seamId, lock)
 		local entry = self.Locks.locks[seamId]
@@ -100,7 +100,48 @@ function FinaleService:Start()
 end
 
 function FinaleService:_publish()
-	ReplicatedStorage.RunState:SetAttribute(RS.RitualText, Objectives.line(self.facts))
+	ReplicatedStorage.RunState:SetAttribute(RS.Objective, Objectives.line(self.facts))
+end
+
+-- How far the squad got, for the end-of-run Dossier.
+function FinaleService:Progress()
+	local plan = self.plan
+	if not plan then
+		return nil
+	end
+	local set = 0
+	for _, place in self.places do
+		if place.token then
+			set += 1
+		end
+	end
+	local locks, opened = 0, 0
+	for _, entry in self.Locks.locks do
+		if entry.lock.kind ~= "bolt" and entry.lock.kind ~= "seal" then
+			locks += 1
+			if entry.open then
+				opened += 1
+			end
+		end
+	end
+	local puzzles, solved = 0, 0
+	for _ in plan.puzzles do
+		puzzles += 1
+	end
+	for _, session in self.Puzzles.sessions do
+		if plan.puzzles[session.id] and session.state.solved then
+			solved += 1
+		end
+	end
+	return {
+		places = #self.places,
+		placesSet = set,
+		locks = locks,
+		locksOpened = opened,
+		puzzles = puzzles,
+		puzzlesSolved = solved,
+		lines = {},
+	}
 end
 
 -- The table ----------------------------------------------------------------------------
@@ -195,7 +236,7 @@ function FinaleService:Begin(plan)
 	self.tableFrame, self.tableSize = frame, size
 	local folder = Instance.new("Folder")
 	folder.Name = "Dinner"
-	folder.Parent = self.World.folder
+	folder.Parent = self.World.content
 	-- Places along both long sides, facing in; the head of the table is his.
 	local count = #plan.finale.heirlooms
 	local long = size.Z >= size.X
@@ -233,7 +274,7 @@ function FinaleService:_frontExit(world)
 	local floor = door.Position.Y - door.Size.Y / 2
 	local porchAt = door.Position + outward * 6
 	part(
-		self.World.folder,
+		self.World.content,
 		"FrontPorch",
 		Vector3.new(12, 1, 12),
 		CFrame.new(porchAt.X, floor - 0.5, porchAt.Z),
@@ -241,7 +282,7 @@ function FinaleService:_frontExit(world)
 		PropFactory.material("Concrete")
 	)
 	local zone = part(
-		self.World.folder,
+		self.World.content,
 		"ExitZone",
 		Vector3.new(8, 8, 8),
 		CFrame.new(door.Position + outward * 3.5),

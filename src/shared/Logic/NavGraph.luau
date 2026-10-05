@@ -33,7 +33,6 @@ function NavGraph.options(Config)
 		approach = Config.Nav.Approach,
 		clearance = Config.Nav.Clearance,
 		doorCost = Config.Nav.DoorCost,
-		seamFactor = Config.Nav.SeamFactor,
 		attachRise = Config.Nav.AttachRise,
 	}
 end
@@ -374,7 +373,7 @@ end
 -- Dijkstra from several start nodes. opts:
 --   avoid:    { [roomId] = true } rooms not to walk through (lit Lanterns)
 --   allow:    { [roomId] = true } rooms walked through anyway (start, goal)
---   solid:    walk through solid seams too (Phantom Architecture's twist)
+
 --   doorCost: function(seamId) -> extra studs for that doorway (a closed door),
 --             or nil when nobody of this kind may pass it now (a lock; docs/
 --             plans/gameplay-rework.md section 5.1). Charged on the way into
@@ -390,7 +389,7 @@ function NavGraph.search(graph, sources, opts)
 	end
 	local nodes, seams = graph.nodes, graph.seams
 	local avoid, allow = opts.avoid, opts.allow or {}
-	local factor = graph.options.seamFactor
+
 	while #heap > 0 do
 		local cost, node = pop(heap)
 		if cost <= dist[node] then
@@ -401,7 +400,7 @@ function NavGraph.search(graph, sources, opts)
 				if link.seam then
 					local seam = seams[link.seam]
 					if not seam.connected then
-						step = opts.solid and step * factor or nil
+						step = nil
 					end
 					if step and target.kind == "doorway" and opts.doorCost then
 						local cost = opts.doorCost(link.seam)

@@ -11,7 +11,8 @@
 local ToolPlacement = {}
 
 -- The tools one house holds for a squad: one of each, plus the extras the
--- config gives bigger squads. The Camera comes first so it gets the best pick.
+-- config gives bigger squads. The tool kept near the start (cfg.NearStart)
+-- comes first so it gets the best pick.
 function ToolPlacement.supply(squadSize: number, toolIds: { string }, cfg): { string }
 	local list = {}
 	for _, id in toolIds do
@@ -24,9 +25,10 @@ function ToolPlacement.supply(squadSize: number, toolIds: { string }, cfg): { st
 			end
 		end
 	end
+	local first = cfg.NearStart
 	table.sort(list, function(a, b)
-		if (a == "Camera") ~= (b == "Camera") then
-			return a == "Camera"
+		if (a == first) ~= (b == first) then
+			return a == first
 		end
 		return a < b
 	end)
@@ -42,8 +44,8 @@ local function setOf(list)
 end
 
 -- `homes` maps a tool id to the furniture kinds it makes sense on. `cfg` needs
--- CameraMaxSteps. Returns a list of { tool, surface } in supply order; a tool
--- with nowhere left to go is skipped.
+-- NearStart and NearStartMaxSteps. Returns a list of { tool, surface } in
+-- supply order; a tool with nowhere left to go is skipped.
 function ToolPlacement.plan(rng, surfaces, supply: { string }, homes, cfg)
 	local pool = {}
 	for _, s in surfaces do
@@ -77,7 +79,7 @@ function ToolPlacement.plan(rng, surfaces, supply: { string }, homes, cfg)
 
 	local placed = {}
 	for _, tool in supply do
-		local surface = pickFor(tool, tool == "Camera" and cfg.CameraMaxSteps or nil) or pickFor(tool, nil)
+		local surface = pickFor(tool, tool == cfg.NearStart and cfg.NearStartMaxSteps or nil) or pickFor(tool, nil)
 		if surface then
 			usedSurface[surface.key] = true
 			usedRoom[surface.room] = true

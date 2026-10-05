@@ -103,13 +103,6 @@ function EffectsController:_createEffects()
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
-	self.flash = Ui.new("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BackgroundTransparency = 1,
-		ZIndex = 5,
-		Parent = gui,
-	})
 	-- Bleeding out: a dark red rim that closes in with the heartbeat, plus a
 	-- blur that thickens. Nothing moves the camera (comfort rule, doc §4).
 	self.bleed = {}
@@ -388,10 +381,7 @@ function EffectsController:Start()
 			self:FlickerNear(60, payload.duration or 4)
 		end
 	end)
-	Net.get("PhotoResult").OnClientEvent:Connect(function()
-		self.flash.BackgroundTransparency = 0.1
-		Ui.tween(self.flash, 0.6, { BackgroundTransparency = 1 })
-	end)
+
 	self.state.SettingsChanged:Connect(function(settings)
 		self:_applyQuality(settings)
 	end)

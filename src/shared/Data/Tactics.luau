@@ -77,14 +77,6 @@ local Tactics = {
 		counter = "Spot-check dark corners; save battery.",
 	},
 	{
-		id = "WaitOutFocus",
-		base = 0.5,
-		signal = "anchorHabit",
-		cooldown = 25,
-		description = "Holds back until your Focus runs low.",
-		counter = "Save Focus for emergencies.",
-	},
-	{
 		id = "FakePing",
 		base = 0.4,
 		signal = "pingHabit",

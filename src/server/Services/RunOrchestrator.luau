@@ -1,14 +1,11 @@
--- The run state machine (doc section 2): Lobby -> Generating -> Arrival ->
--- Investigation -> (Verdict) -> Resolution -> Extraction -> Debrief -> Lobby.
--- Owns win/lose: the anomaly is resolved and at least one Witness extracts,
--- or Drift reaches 100, or every Witness is Lost.
---
--- The escape (Config.Run.Loop "Escape", F2 `loop escape`; docs/plans/
--- gameplay-rework.md) runs the same machine with a different goal: the house
--- is planned into locked regions (Logic/LockPlanner), there's no anomaly,
--- evidence or verdict, and Investigation lasts until the table is set
--- (Services/FinaleService). Then the final hunt starts and the front door
--- opens: Extraction, out of the house.
+-- The run state machine (doc section 2, as reworked in docs/plans/
+-- gameplay-rework.md): Lobby -> Generating -> Arrival -> Investigation ->
+-- Extraction -> Debrief -> Lobby. The run is an escape: the house is planned
+-- into locked regions (Logic/LockPlanner), and Investigation lasts until the
+-- table is set (Services/FinaleService). Then the final hunt starts and the
+-- front door opens: Extraction, out of the house. Owns win/lose: at least
+-- one Witness gets out, or Drift reaches 100, or every Witness is Lost. (The
+-- old clue loop of anomalies, evidence and a verdict retired in R2c.)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,8 +18,6 @@ local Net = require(Shared.Net)
 local Rng = require(Shared.Lib.Rng)
 local Rooms = require(Shared.Data.Rooms)
 local Locations = require(Shared.Data.Locations)
-local Anomalies = require(Shared.Data.Anomalies)
-local Tells = require(Shared.Data.Tells)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local MansionGen = require(Shared.Logic.MansionGen)
@@ -38,7 +33,6 @@ function RunOrchestrator:Init(services)
 	self.phase = Phases.Lobby
 	self.run = nil
 	self.nextSeed = nil
-	self.forcedAnomaly = nil
 end
 
 function RunOrchestrator:Phase(): string
@@ -61,12 +55,6 @@ function RunOrchestrator:Start()
 	local services = self.services
 	self:_setPhase(Phases.Lobby)
 
-	services.VerdictService.Decided:Connect(function(choice, correct)
-		self:_onVerdict(choice, correct)
-	end)
-	services.AnomalyService.RitualCompleted:Connect(function()
-		self:_onRitualComplete()
-	end)
 	services.DriftService.Collapsed:Connect(function()
 		if self.run and not self.run.ending then
 			Net.get("Notify"):FireAllClients("The house comes apart. Collapse.", "danger")
@@ -87,11 +75,6 @@ function RunOrchestrator:Start()
 
 	Net.onServer("RequestSync", { interval = 2, types = {} }, function(player)
 		self:SyncPlayer(player)
-	end)
-	Net.onServer("RitualAction", { interval = 0.2, types = { "table?" } }, function(player, payload)
-		if self.phase == Phases.Resolution then
-			services.AnomalyService:HandleRitualAction(player, payload)
-		end
 	end)
 
 	Players.PlayerAdded:Connect(function(player)
@@ -151,7 +134,6 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	local seed = self.nextSeed or Random.new():NextInteger(1, 2147483646)
 	self.nextSeed = nil
 	local rng = Rng.new(seed)
-	local escape = (self.loop or Config.Run.Loop) == "Escape"
 
 	self.run = {
 		seed = seed,
@@ -163,15 +145,12 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		started = os.clock(),
 		lastPositions = {},
 		extracted = {},
-		wrongVerdicts = 0,
 		huntsSurvivedStart = 0,
-		escape = escape,
 	}
 	self:_setPhase(Phases.Generating)
 	ReplicatedStorage.RunState:SetAttribute(RS.Seed, seed)
 	ReplicatedStorage.RunState:SetAttribute(RS.Difficulty, difficultyName)
 	ReplicatedStorage.RunState:SetAttribute(RS.SquadSize, #players)
-	ReplicatedStorage.RunState:SetAttribute(RS.Loop, escape and "Escape" or "Clues")
 	services.Telemetry:SetRun(seed)
 
 	local ok, err = pcall(function()
@@ -187,59 +166,46 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		if layout.fallback then
 			warn("[Consensus] seed " .. seed .. " fell back to the authored layout")
 		end
-		if escape then
-			-- The locks, keys and heirlooms, planned before the house is built so
-			-- every locked doorway gets a door (nested: the fingerprint holds).
-			local plan = LockPlanner.plan(
-				layout,
-				mansion and Rooms.MansionById or Rooms.ById,
-				rng:Fork("progression"),
-				Config.Progression,
-				mansion and Config.Mansion or Config.Level,
-				difficultyName == "Hard" and 1 or 0
-			)
-			layout.progression = plan
-			for _, seam in layout.seams do
-				if plan.locks[seam.id] then
-					seam.door = true
-				end
+		-- The locks, keys and heirlooms, planned before the house is built so
+		-- every locked doorway gets a door (nested: the fingerprint holds).
+		local plan = LockPlanner.plan(
+			layout,
+			mansion and Rooms.MansionById or Rooms.ById,
+			rng:Fork("progression"),
+			Config.Progression,
+			mansion and Config.Mansion or Config.Level,
+			difficultyName == "Hard" and 1 or 0
+		)
+		layout.progression = plan
+		for _, seam in layout.seams do
+			if plan.locks[seam.id] then
+				seam.door = true
 			end
-			print(
-				string.format(
-					"[Consensus] escape: %d regions, %d locks, %d heirlooms",
-					#plan.order,
-					#LockPlanner.lockIds(plan),
-					#plan.finale.heirlooms
-				)
-			)
 		end
+		print(
+			string.format(
+				"[Consensus] escape: %d regions, %d locks, %d heirlooms",
+				#plan.order,
+				#LockPlanner.lockIds(plan),
+				#plan.finale.heirlooms
+			)
+		)
 		services.WorldService:Build(layout, rng:Fork("build"))
 		services.NoiseService:Clear()
 		services.SquadProfileService:Reset()
-		services.CaseBoardService:Reset()
-		services.VerdictService:Reset()
 		services.PlayerStateService:BeginRun(players)
-		services.WitnessService:ResetFocus(players)
 		services.ToolService:BeginRun(players, rng:Fork("tools"))
 		services.DriftService:Begin(difficulty)
-		if escape then
-			services.AnomalyService:SetupAtmosphere({ rng = rng:Fork("anomaly") })
-			local plan = layout.progression
-			services.LockService:Begin(plan)
-			services.ItemService:Begin(plan, rng:Fork("items"))
-			services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
-			services.FinaleService:Begin(plan)
-		else
-			services.AnomalyService:Setup({
-				players = players,
-				rng = rng:Fork("anomaly"),
-				locationId = location.id,
-				forced = self.forcedAnomaly,
-				difficulty = difficulty,
-				squadSize = #players,
-			})
-		end
-		services.CaseBoardService:Broadcast()
+		-- The "anomaly" fork keeps its old name so the house is dressed the
+		-- same per seed as it was before the clue loop retired.
+		services.DecorService:Begin(rng:Fork("anomaly"))
+		services.LockService:Begin(plan)
+		services.ItemService:Begin(plan, rng:Fork("items"))
+		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
+		services.FinaleService:Begin(plan)
+		-- Last, so the wall and floor spots each Witness's own atmosphere uses
+		-- are the ones nothing else took.
+		services.DivergenceService:Begin(players, rng:Fork("atmosphere"))
 	end)
 	if not ok then
 		warn("[Consensus] run setup failed: " .. tostring(err))
@@ -262,89 +228,28 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		archetype = location.stalker,
 		rng = rng:Fork("stalker"),
 		difficulty = difficulty,
-		anomalyId = services.AnomalyService:Anomaly().id,
 		runStart = os.clock(),
 	})
-	services.VerdictService:SetEnabled(not escape)
 	self.run.started = os.clock()
 	self:_setPhase(Phases.Arrival, Config.Run.ArrivalSeconds)
-	Net.get("Notify"):FireAllClients(
-		escape and "The front door locks behind you. The table is laid for a guest."
-			or string.format("%s. Something here is wrong. Find it, agree on it, end it.", location.name),
-		"phase"
-	)
+	Net.get("Notify"):FireAllClients("The front door locks behind you. The table is laid for a guest.", "phase")
+	local plan = world.layout.progression
 	services.Telemetry:Log("RunStarted", {
 		players = #players,
 		difficulty = difficultyName,
-		anomaly = services.AnomalyService:Anomaly().id,
+		location = location.id,
 		rooms = #world.layout.rooms,
 		attempts = world.layout.attempts,
+		regions = plan and #plan.order or 0,
+		heirlooms = plan and #plan.finale.heirlooms or 0,
 	})
-end
-
-function RunOrchestrator:_onVerdict(choice: string, correct: boolean)
-	local run = self.run
-	if not run then
-		return
-	end
-	local services = self.services
-	local anomaly = Anomalies.ById[choice]
-	services.Telemetry:Log("Verdict", { choice = choice, correct = correct, drift = services.DriftService:Value() })
-	if correct then
-		Net.get("Notify")
-			:FireAllClients(string.format("Verdict: %s. The house shudders: you're right.", anomaly.name), "good")
-		services.VerdictService:SetEnabled(false)
-		self:_setPhase(Phases.Resolution)
-		services.AnomalyService:StartRitual(services.PlayerStateService:RunPlayers(), run.rng:Fork("resolution"))
-		services.StalkerService:StartFinalHunt()
-	else
-		run.wrongVerdicts += 1
-		services.DriftService:Apply("WrongVerdict")
-		Net.get("Notify"):FireAllClients(
-			string.format(
-				"Verdict: %s. Wrong. The house laughs, and something starts moving.",
-				anomaly and anomaly.name or "?"
-			),
-			"danger"
-		)
-		services.StalkerService:ForceHunt("wrong verdict")
-	end
-end
-
-function RunOrchestrator:_onRitualComplete()
-	local run = self.run
-	if not run or self.phase ~= Phases.Resolution then
-		return
-	end
-	local services = self.services
-	run.resolved = true
-	services.StalkerService:EndFinalHunt()
-	services.DriftService:Stop()
-	local exit = services.WorldService.World.exit
-	if exit then
-		exit.door.CanCollide = false
-		exit.door.Transparency = 0.85
-		for _, detail in exit.door:GetChildren() do
-			if detail:IsA("BasePart") then
-				detail.Transparency = 0.85
-			end
-		end
-		exit.light.Enabled = true
-	end
-	self:_setPhase(Phases.Extraction, Config.Run.ExtractionSeconds)
-	Net.get("Notify"):FireAllClients(
-		"It's done. Get out: the exit is open in the "
-			.. (exit and services.WorldService:Room(exit.roomId).name or "house")
-			.. ".",
-		"good"
-	)
 end
 
 -- The escape's dinner is served (Services/FinaleService): the final hunt,
 -- and the front door is open. Out.
 function RunOrchestrator:BeginEscape()
 	local run = self.run
-	if not run or not run.escape or self.phase ~= Phases.Investigation and self.phase ~= Phases.Arrival then
+	if not run or self.phase ~= Phases.Investigation and self.phase ~= Phases.Arrival then
 		return
 	end
 	run.resolved = true
@@ -399,7 +304,7 @@ function RunOrchestrator:_checkSquad()
 	end
 end
 
-function RunOrchestrator:_tick(dt: number)
+function RunOrchestrator:_tick(_dt: number)
 	local run = self.run
 	if not run or run.ending then
 		return
@@ -418,8 +323,6 @@ function RunOrchestrator:_tick(dt: number)
 	if self.phase == Phases.Arrival and run.phaseEnds and now >= run.phaseEnds then
 		self:_setPhase(Phases.Investigation)
 		Net.get("Notify"):FireAllClients("The house has noticed you.", "phase")
-	elseif self.phase == Phases.Resolution then
-		services.AnomalyService:UpdateRitual(dt)
 	elseif self.phase == Phases.Extraction then
 		local exit = services.WorldService.World.exit
 		for _, player in services.PlayerStateService:ActivePlayers() do
@@ -447,10 +350,8 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	end
 	run.ending = true
 	local services = self.services
-	local anomaly = services.AnomalyService:Anomaly()
 	local drift = services.DriftService:Value()
 	services.DriftService:Stop()
-	services.VerdictService:SetEnabled(false)
 	local tactics = services.StalkerService:TacticsSummary()
 	-- What he did between hunts goes in the same list: peeks, creeping, ...
 	for _, entry in services.StalkerService:StalkSummary() do
@@ -460,34 +361,21 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		return a.count > b.count
 	end)
 	services.StalkerService:Stop()
-	services.AnomalyService:StopRitual()
 	self:_setPhase(Phases.Debrief, Config.Run.DebriefSeconds)
 
-	local evidence = {}
-	for _, site in services.AnomalyService:Sites() do
-		table.insert(evidence, {
-			name = Tells[site.tellId].name,
-			room = site.roomName,
-			herring = site.isRedHerring,
-		})
-	end
 	local dossier = services.SquadProfileService:Dossier({ tactics = tactics })
 	local duration = os.clock() - run.started
-	local confirmed = #services.CaseBoardService:ConfirmedTells()
 	local summary = {
 		won = won,
 		reason = reason,
-		anomaly = anomaly and anomaly.name or "?",
-		anomalyId = anomaly and anomaly.id,
 		resolved = run.resolved == true,
 		drift = math.floor(drift),
 		minutes = math.floor(duration / 60),
 		seconds = math.floor(duration % 60),
 		seed = run.seed,
 		difficulty = run.difficultyName,
-		evidence = evidence,
-		wrongVerdicts = run.wrongVerdicts,
 		stalker = run.location.stalker,
+		escape = services.FinaleService:Progress(),
 	}
 	for _, player in run.players do
 		if player.Parent then
@@ -496,9 +384,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				won = won,
 				extracted = extracted,
 				drift = drift,
-				confirmedTells = confirmed,
 				survivedHunts = 0,
-				anomalyId = (run.resolved and anomaly and not run.escape) and anomaly.id or nil,
 				stalker = run.location.stalker,
 			})
 			Net.get("Dossier"):FireClient(player, {
@@ -512,11 +398,8 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	services.Telemetry:Log("RunEnded", {
 		won = won,
 		reason = reason,
-		anomaly = summary.anomalyId,
 		drift = summary.drift,
 		duration = math.floor(duration),
-		wrongVerdicts = run.wrongVerdicts,
-		confirmed = confirmed,
 	})
 	task.delay(3, function()
 		self:_returnToLobby()
@@ -547,9 +430,7 @@ function RunOrchestrator:_returnToLobby()
 			RS.StalkerMode,
 			RS.Hunting,
 			RS.RunTime,
-			RS.RitualProgress,
-			RS.RitualText,
-			RS.ConfirmedCount,
+			RS.Objective,
 		}
 	do
 		runState:SetAttribute(key, nil)
@@ -574,10 +455,7 @@ function RunOrchestrator:SyncPlayer(player: Player)
 	end
 	services.WorldService:BroadcastLayout(player)
 	services.DivergenceService:SendProfile(player)
-	services.CaseBoardService:Broadcast(player)
-	services.VerdictService:SyncPlayer(player)
 	services.StalkerService:SyncPlayer(player)
-	services.AnomalyService:SyncPlayer(player)
 end
 
 -- Debug hooks ------------------------------------------------------------------------
@@ -591,26 +469,13 @@ function RunOrchestrator:SetLayoutMode(mode: string?)
 	self.layoutMode = mode
 end
 
-function RunOrchestrator:SetForcedAnomaly(id: string?)
-	self.forcedAnomaly = id
-end
-
--- "Clues" or "Escape" for the next run, or nil for Config.Run.Loop.
-function RunOrchestrator:SetLoop(loop: string?)
-	self.loop = loop
-end
-
 function RunOrchestrator:Run()
 	return self.run
 end
 
 function RunOrchestrator:SkipToResolution()
 	if self.run and (self.phase == Phases.Arrival or self.phase == Phases.Investigation) then
-		if self.run.escape then
-			self.services.FinaleService:Serve()
-		else
-			self:_onVerdict(self.services.AnomalyService:Anomaly().id, true)
-		end
+		self.services.FinaleService:Serve()
 	end
 end
 

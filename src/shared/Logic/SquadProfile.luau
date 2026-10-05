@@ -92,7 +92,6 @@ function SquadProfile:Signals(now: number)
 		cohesion = 1 - unit(self:Average("spread", 30), 40),
 		gazeHabit = unit(self:Get("gazeSeconds", now), 20),
 		flashlightHabit = math.clamp(self:Average("flashlight", 0), 0, 1),
-		anchorHabit = unit(self:Get("anchors", now), 5),
 		pingHabit = unit(self:Get("pings", now), 8),
 		stationary = unit(self:Get("stationarySeconds", now), 60),
 	}

@@ -543,51 +543,6 @@ function LevelBuilder.furnish(world, ctx)
 		for _, spawn in template.spawns or {} do
 			table.insert(world.spawns, CFrame.new(roomCF:PointToWorldSpace(Vector3.new(spawn.x, 3, spawn.z))))
 		end
-		local board = template.caseBoard or { side = "E", along = 10 }
-		local cf = wallCFrame(roomCF, board.side, board.along, 6.5, inner)
-		local boardPart = PropFactory.part(
-			model,
-			"CaseBoard",
-			Vector3.new(9, 5.5, 0.3),
-			cf * CFrame.new(0, 0, -0.15),
-			Color3.fromRGB(150, 110, 74),
-			PropFactory.material("Fabric"),
-			{ collide = false }
-		)
-		-- A wooden frame and pins so it reads as a board, not a rug.
-		local frameColour = Color3.fromRGB(88, 60, 40)
-		local bw, bh = 9, 5.5
-		for _, edge in
-			{
-				{ 0, bh / 2, bw + 0.5, 0.35 },
-				{ 0, -bh / 2, bw + 0.5, 0.35 },
-				{ -bw / 2, 0, 0.35, bh },
-				{ bw / 2, 0, 0.35, bh },
-			}
-		do
-			PropFactory.part(
-				model,
-				"BoardFrame",
-				Vector3.new(edge[3], edge[4], 0.4),
-				cf * CFrame.new(edge[1], edge[2], -0.2),
-				frameColour,
-				PropFactory.material("Wood"),
-				{ collide = false, castShadow = false }
-			)
-		end
-		for _, pin in { { -3.8, 2.2 }, { 3.8, 2.2 }, { -3.8, -2.2 }, { 3.8, -2.2 } } do
-			PropFactory.part(
-				model,
-				"BoardPin",
-				Vector3.new(0.3, 0.3, 0.3),
-				-- On the room-facing surface (z -0.3), not buried behind it.
-				cf * CFrame.new(pin[1], pin[2], -0.33),
-				Color3.fromRGB(180, 40, 36),
-				PropFactory.material("SmoothPlastic"),
-				{ collide = false, castShadow = false, shape = Enum.PartType.Ball }
-			)
-		end
-		world.caseBoardPart = boardPart
 	end
 	if room.lantern and template.shrine then
 		local s = template.shrine

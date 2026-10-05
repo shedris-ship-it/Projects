@@ -4,11 +4,6 @@
 local Config = {}
 
 Config.Run = {
-	-- The run's goal (docs/plans/gameplay-rework.md): "Clues" is the old loop
-	-- (evidence, the Case Board, a verdict); "Escape" is the rework's (locks,
-	-- keys, the computer, the dinner, out the front door). F2 `loop` picks the
-	-- next run's. Escape becomes the default once it's played (R2b.7).
-	Loop = "Clues",
 	MinPlayers = 1,
 	MaxPlayers = 4,
 	LobbyCountdown = 5,
@@ -37,22 +32,19 @@ Config.Drift = {
 	IsolationDistance = 25, -- (doc)
 	IsolationGraceSeconds = 20, -- (doc)
 	IsolationPerMinute = 1, -- (doc) per isolated player
-	AnchorCreditsPerMinute = 3, -- (doc) max anchor rewards per minute
 	Events = {
-		WrongVerdict = 15, -- (doc)
 		PlayerDowned = 10, -- (doc)
-		EvidenceConfirmed = -6, -- (doc)
-		EvidencePhotographed = -3,
-		Anchor = -2, -- (doc)
 		HuntSurvived = -10, -- (doc)
-		CounterfeitUsed = 8,
-		RitualStage = -4,
 		-- The escape (docs/plans/gameplay-rework.md section 8): progress calms
 		-- the house; fumbling a puzzle doesn't.
 		LockOpened = -5, -- (rework)
 		PuzzleSolved = -8, -- (rework)
 		ItemFound = -2, -- (rework)
 		PuzzleFailed = 3, -- (rework)
+	},
+	-- Times a minute an event counts at most (DriftModel:Apply).
+	Caps = {
+		ItemFound = 3, -- (rework)
 	},
 	States = {
 		{ name = "Calm", min = 0 },
@@ -63,34 +55,17 @@ Config.Drift = {
 	},
 }
 
+-- Watching (doc section 6): what the squad's eyes do now that Witness
+-- windows and Focus have retired (R2c).
 Config.Witness = {
-	HoldSeconds = 0.45, -- how long the key is held before a Witness is sent
-	WindowSeconds = 4, -- (doc)
-	AnchorSeconds = 90, -- (doc)
-	StalkerAnchorSeconds = 8,
-	FocusMax = 100, -- (doc)
-	Cost = 20, -- (doc)
-	CostMultiplierWhenBreaking = 1.5, -- (doc) anchoring costs more Focus at Breaking+
-	RegenAlone = 1.2,
-	RegenNearTeammate = 5,
-	RegenLanternBonus = 6,
-	TeammateRadius = 10, -- (doc)
-	CompanionRadius = 16, -- the solo Companion keeps 8-16 studs back, so it counts as near across that band
-	MaxRange = 45,
-	ResolveRadius = 6,
-	MinInterval = 0.35,
-	CoStareSeconds = 3, -- (doc) two players holding a stare make it retreat
-	CoStareFocusPerSecond = 8,
+	MaxRange = 45, -- studs a ping or callout aims
+	CoStareSeconds = 3, -- (doc) two players holding a stare make him back away
 }
 
 Config.Social = {
 	PingCooldown = 0.8,
 	PingLifetime = 7,
 	CalloutCooldown = 2,
-	VerdictMajorityAfter = 90, -- (doc)
-	VerdictWindow = 120,
-	VerdictRetryCooldown = 20,
-	DeliberationRange = 14,
 }
 
 Config.Player = {
@@ -225,7 +200,6 @@ Config.Nav = {
 	Approach = 3.5, -- studs into a room in front of a doorway
 	Clearance = 1.2, -- half the Guest's width plus a margin: routes keep this far from furniture
 	DoorCost = 12, -- studs a closed door is worth (opening it takes 1.5-3 s)
-	SeamFactor = 1.6, -- Phantom Architecture's twist: walking through a solid seam costs this much more
 	AttachRise = 5, -- a point (a floor spot or a body's root) joins graph nodes no further above or below than this
 	SeenCost = 25, -- studs a doorway or stair someone is looking at is worth when he's sneaking
 }
@@ -417,7 +391,6 @@ Config.Ceiling = {
 -- gets a small marker attached to it, with its name and actions (docs/ART.md,
 -- "Interface").
 Config.Focus = {
-	WitnessDistance = 14, -- a Witnessable object shows its marker this close
 	FadeSeconds = 0.25,
 	GazeFull = 0.97, -- dot product with the view: full strength when looked at this directly
 	GazeNone = 0.8, -- ...and fading out by here
@@ -473,19 +446,13 @@ Config.PostFX = {
 	FlashlightFollow = 12,
 }
 
-Config.Evidence = {
-	TrueTells = { 3, 4 }, -- (doc)
-	RedHerrings = { 1, 2 }, -- (doc)
-	MaxSuspectsAfterThree = 2, -- (doc)
-}
-
-Config.Divergence = {
-	CalibrationPerPlayer = 2,
-	UsefulObjectPerPlayer = { 1, 2 },
-	UsefulObjectMinDrift = 20, -- (doc) divergences start touching doors and items
+-- Each Witness's own unsettling moments (Logic/Atmosphere): the Drift each
+-- kind waits for.
+Config.Atmosphere = {
+	EyesMinDrift = 15, -- a portrait's eyes start following you
+	WritingMinDrift = 30, -- words show in your torch beam
 	SoundMinDrift = 40, -- (doc) mislocated sounds
-	RearrangeMinDrift = 60, -- (doc) rooms rearrange behind you
-	FalseConsensusMinDrift = 80, -- (doc)
+	GhostMinDrift = 50, -- a friend glimpsed where they were a moment ago
 }
 
 Config.Stalker = {
@@ -627,20 +594,15 @@ Config.Guest = {
 }
 
 Config.Tools = {
-	CameraFilm = 6, -- (doc)
-	CameraFilmSolo = 8,
-	CameraRange = 40,
-	PlumbLineCooldown = 20,
-	PlumbLineMinConfirmed = 2, -- (doc)
-	PlumbLineErrorDegrees = { 35, 8 }, -- error at 2 confirmed tells, shrinking to the second value
 	LanternLightSeconds = 2,
 	LanternLightSecondsNoTool = 8,
 	RadioRange = 80,
 	-- Tools are found around the house (owner, 2026-10-04): one of each, and
 	-- squads of ExtraCopiesFromSquad or more get these extra copies as well.
 	ExtraCopiesFromSquad = 3,
-	ExtraCopies = { Camera = 1, Lantern = 1 },
-	CameraMaxSteps = 3, -- the Camera is within this many rooms of where you start, so a solo player finds it
+	ExtraCopies = { Lantern = 1 },
+	NearStart = "Lantern", -- this tool lies within NearStartMaxSteps rooms of where you start, so a solo player finds it
+	NearStartMaxSteps = 3,
 	PickupRange = 9, -- studs; the server re-checks it on every pickup
 	PickupScale = 0.8, -- a tool lying on a table is this size next to the one in your hand
 }
@@ -763,14 +725,12 @@ Config.Difficulty = {
 	Normal = {
 		Label = "Normal",
 		DriftMultiplier = 1,
-		RedHerrings = { 1, 2 },
 		StalkerSpeedMultiplier = 1,
 		HuntIntervalMultiplier = 1,
 	},
 	Hard = {
 		Label = "Hard",
 		DriftMultiplier = 1.25,
-		RedHerrings = { 2, 2 },
 		StalkerSpeedMultiplier = 1.04,
 		HuntIntervalMultiplier = 0.8,
 	},
@@ -866,14 +826,6 @@ Config.ViewModel = {
 			yaw = 14,
 			tilt = 24,
 		},
-		Camera = {
-			at = { 0.05, -0.3, 1.25 },
-			turn = { 4, 0, 0 },
-			wrist = { 0.38, -0.22, 0.28 },
-			left = { -0.34, -0.24, 0.22 },
-			yaw = 18,
-			tilt = 22,
-		},
 		Lantern = {
 			at = { 0.42, -0.45, 1.25 },
 			turn = { 0, 0, 0 },
@@ -887,13 +839,6 @@ Config.ViewModel = {
 			wrist = { 0.12, -0.28, 0.22 },
 			yaw = 22,
 			tilt = 26,
-		},
-		PlumbLine = {
-			at = { 0.38, -0.5, 1.25 }, -- hangs from the hand, so low: the bob may dip off a narrow screen
-			turn = { 0, 0, 0 },
-			wrist = { 0, 0.34, 0.28 },
-			yaw = 24,
-			tilt = 30,
 		},
 	},
 	ArmHandForward = 0.18, -- the hand's middle sits this far (unscaled) in front of the wrist

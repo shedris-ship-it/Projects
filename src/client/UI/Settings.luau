@@ -8,16 +8,16 @@ local Settings = {}
 Settings.__index = Settings
 
 local HOW_TO = table.concat({
-	"Something in this house is wrong, and it shows each of you a slightly different version of itself.",
+	"The front door has locked behind you. The dining table is laid for a guest, with empty places.",
 	"",
-	"• If you see something odd, say so (voice, C for a callout, or G to ping).",
-	"• Hold Q on it. If a teammate holds Q on it within 4 seconds, it's Anchored: the truth shows for everyone, and real evidence is pinned to the Case Board (Tab). Lies are debunked.",
-	"• Witnessing costs Focus. Focus recovers fast near a teammate, slowly alone.",
-	"• Drift is the clock. Stalling, splitting up and mistakes raise it. At 100 the house collapses.",
-	"• Something stalks you. When one of you watches it, it waits. When two of you watch it together, it can't move — hold the stare and it backs off.",
+	"• Find the family's heirlooms and set each at its place at the table (carry it there, hold E). Then get out by the front door.",
+	"• Parts of the house are locked. Keys, notes and puzzles open them; bolts slide back from the far side, as shortcuts.",
+	"• Your hands: hold the mouse on a door, drawer or small thing to drag or carry it; right click throws. A good hit stuns him for a moment.",
+	"• Drift is the clock. Stalling, splitting up and getting caught raise it; progress calms it. At 100 the house collapses.",
+	"• Something lives here. When one of you watches it, it waits. When two of you watch it together, it can't move: hold the stare and it backs off.",
 	"• Hide (E) in lockers, wardrobes, beds and behind curtains. Hold Space to hold your breath when it's close.",
-	"• Slot 1 is your torch, 2 and 3 carry what you find, 4 is your bare hands. Holding anything but the torch clips its light to your shirt: weaker, but your hands are free.",
-	"• When the Case Board narrows it down, call a deliberation at the Dining Room table. Name the anomaly together, end it with its ritual, and get out.",
+	"• Slot 1 is your torch, 2 and 3 carry what you find, 4 is your bare hands. Holding anything but the torch clips its light to your shirt.",
+	"• Tab shows the map. Talk to each other (voice, Enter to speak, G to ping, C for callouts): it hears you too.",
 }, "\n")
 
 function Settings.new(ctx)

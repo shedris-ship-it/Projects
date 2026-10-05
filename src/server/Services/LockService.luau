@@ -119,8 +119,10 @@ local function plate(door, lock)
 		end
 		p.Parent = folder
 	end
+	-- Run content, though it lives in the door's model so it swings with it
+	-- (DoorService moves every part of the model): Gate A leaves it out.
+	folder:SetAttribute("RunContent", true)
 	folder.Parent = door.model
-	-- It swings with the door (DoorService moves every part of the model).
 	return folder
 end
 

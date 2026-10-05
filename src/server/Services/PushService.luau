@@ -218,7 +218,7 @@ function PushService:_wake(piece)
 			consider(thing.model)
 		end
 	end
-	local pickups = self.World.folder and self.World.folder:FindFirstChild("ToolPickups")
+	local pickups = self.World.content and self.World.content:FindFirstChild("ToolPickups")
 	for _, holder in { piece.room, pickups } do
 		for _, child in holder and holder:GetChildren() or {} do
 			consider(child)

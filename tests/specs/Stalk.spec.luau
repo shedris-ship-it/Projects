@@ -15,7 +15,6 @@ return function(test, check, Shared, require)
 			tier = 3,
 			runTime = 600,
 			watchers = 1,
-			anchored = false,
 			distance = 4,
 			verticalGap = 0,
 			lineOfSight = true,
@@ -43,9 +42,8 @@ return function(test, check, Shared, require)
 	end)
 
 	test("two watchers freeze him; one doesn't at tier 3", function()
-		check.truthy(StalkRules.frozen(2, false), "two watchers")
-		check.truthy(StalkRules.frozen(0, true), "a Witness anchor")
-		check.equal(StalkRules.frozen(1, false), false, "one watcher alone")
+		check.truthy(StalkRules.frozen(2), "two watchers")
+		check.equal(StalkRules.frozen(1), false, "one watcher alone")
 		check.truthy(StalkRules.canCreep(3, 1), "tier 3 creeps while one watches")
 		check.equal(StalkRules.canCreep(3, 2), false, "but not while two do")
 	end)
@@ -114,7 +112,6 @@ return function(test, check, Shared, require)
 			verticalGap = 0,
 			lineOfSight = true,
 			watchers = 1,
-			anchored = false,
 			hidden = false,
 			downed = false,
 			safeRoom = false,
@@ -159,7 +156,6 @@ return function(test, check, Shared, require)
 
 	test("close contact: two watchers freeze him, and the protected stay protected", function()
 		check.equal(StalkRules.contact(touching({ watchers = 2 }), G), false, "a buddy staring too")
-		check.equal(StalkRules.contact(touching({ anchored = true }), G), false, "anchored")
 		check.equal(StalkRules.contact(touching({ hidden = true }), G), false, "hidden")
 		check.equal(StalkRules.contact(touching({ downed = true }), G), false, "downed")
 		check.equal(StalkRules.contact(touching({ safeRoom = true }), G), false, "safe room")
