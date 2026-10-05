@@ -16,7 +16,9 @@
 -- adds the escape's plan for that house (Logic/LockPlanner): its regions,
 -- what locks each, where the keys, the computer and the heirlooms are, and
 -- how it measures as a level (Logic/HouseMetrics). A mansion is sized for a
--- squad of `squad` (1-4, default 4; docs/plans/level-design.md section 5.2).
+-- squad of `squad` (1-4, default 4; docs/plans/level-design.md section 5.2)
+-- and is the best of several, as a run builds it (Logic/HouseSearch); add
+-- `single` after the squad for the generator's first house alone.
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -32,13 +34,31 @@ local seed = tonumber(process.args[1]) or 1800820264
 local mode = process.args[2] or "cells"
 local squad = tonumber(process.args[4]) or 4
 
-local layout, config
+local layout, config, found
 local progression = Config.Progression
 if mode == "mansion" then
+	local HouseSearch = Harness.require(Shared.Logic.HouseSearch)
 	local HouseSize = Harness.require(Shared.Logic.HouseSize)
-	local MansionGen = Harness.require(Shared.Logic.MansionGen)
+	local NavGraph = Harness.require(Shared.Logic.NavGraph)
 	config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
-	layout = MansionGen.generate(seed, Rooms.Mansion, config)
+	found = HouseSearch.run(seed, {
+		templates = Rooms.Mansion,
+		templatesById = Rooms.MansionById,
+		mansion = config,
+		progression = progression,
+		leads = Config.Leads,
+		nav = NavGraph.options(Config),
+		targets = Config.LevelDesign.Targets,
+		shortcut = Config.LevelDesign.ShortcutStuds,
+		squad = squad,
+		candidates = process.args[5] == "single" and 1 or Config.LevelDesign.Candidates,
+	})
+	layout = found.layout
+	local scores = {}
+	for _, score in found.scores do
+		table.insert(scores, string.format("%.1f", score))
+	end
+	print(string.format("house %d of %d kept (scores %s)", found.index, #found.scores, table.concat(scores, " ")))
 else
 	local LevelGraph = Harness.require(Shared.Logic.LevelGraph)
 	config = Config.Level
@@ -92,8 +112,9 @@ if process.args[3] == "locks" then
 	local Rng = Harness.require(Shared.Lib.Rng)
 	local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
 	local templates = mode == "mansion" and Rooms.MansionById or Rooms.ById
-	-- The same fork RunOrchestrator gives it.
-	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), progression, config)
+	-- The same fork RunOrchestrator gives it (the search planned a mansion's).
+	local plan = found and found.plan
+		or LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), progression, config)
 	local function named(id)
 		local room
 		for _, r in layout.rooms do
@@ -189,7 +210,8 @@ if process.args[3] == "locks" then
 	local NavGraph = Harness.require(Shared.Logic.NavGraph)
 	local RoomPurpose = Harness.require(Shared.Logic.RoomPurpose)
 	-- The leads with the fork RunOrchestrator gives them.
-	local leads = Leads.plan(plan, Leads.rooms(layout, templates), Rng.new(seed):Fork("leads"), Config.Leads)
+	local leads = found and found.leads
+		or Leads.plan(plan, Leads.rooms(layout, templates), Rng.new(seed):Fork("leads"), Config.Leads)
 	local purposes = RoomPurpose.of(layout, plan, templates, leads)
 	print("Every room's reasons (docs/plans/level-design.md section 4):")
 	for _, room in layout.rooms do

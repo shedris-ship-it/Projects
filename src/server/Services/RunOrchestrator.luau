@@ -19,10 +19,11 @@ local Rng = require(Shared.Lib.Rng)
 local Rooms = require(Shared.Data.Rooms)
 local Locations = require(Shared.Data.Locations)
 local LevelGraph = require(Shared.Logic.LevelGraph)
+local HouseSearch = require(Shared.Logic.HouseSearch)
 local HouseSize = require(Shared.Logic.HouseSize)
 local Leads = require(Shared.Logic.Leads)
 local LockPlanner = require(Shared.Logic.LockPlanner)
-local MansionGen = require(Shared.Logic.MansionGen)
+local NavGraph = require(Shared.Logic.NavGraph)
 
 local Phases = Constants.Phases
 local RS = Constants.RunState
@@ -161,34 +162,70 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	local ok, err = pcall(function()
 		-- The old house or the mansion (docs/plans/mansion-generation.md); F2
 		-- `layout` overrides Config.Level.Mode for testing.
-		local layout
+		local layout, plan, found
 		local mansion = (self.layoutMode or Config.Level.Mode) == "Mansion"
-		-- The mansion is sized for the squad; the old house never changes.
-		local houseConfig, progression = Config.Level, Config.Progression
 		if mansion then
-			houseConfig, progression = HouseSize.config(
+			-- The mansion is sized for the squad and is the best of several
+			-- (docs/plans/level-design.md, sections 5.2 and 5.5); the server
+			-- breathes between candidates.
+			local houseConfig, progression = HouseSize.config(
 				Config.Mansion,
 				Config.Progression,
 				self.run.squad,
 				difficultyName == "Hard" and 1 or 0
 			)
-			layout = MansionGen.generate(seed, Rooms.Mansion, houseConfig)
+			local began = os.clock()
+			found = HouseSearch.run(seed, {
+				templates = Rooms.Mansion,
+				templatesById = Rooms.MansionById,
+				mansion = houseConfig,
+				progression = progression,
+				extra = difficultyName == "Hard" and 1 or 0,
+				leads = Config.Leads,
+				nav = NavGraph.options(Config),
+				targets = Config.LevelDesign.Targets,
+				shortcut = Config.LevelDesign.ShortcutStuds,
+				squad = self.run.squad,
+				candidates = Config.LevelDesign.Candidates,
+			}, function()
+				task.wait()
+			end)
+			found.seconds = os.clock() - began
+			layout, plan = found.layout, found.plan
+			self.run.house = found
+			print(
+				string.format(
+					"[Consensus] house %d of %d kept (score %.1f) in %.2fs",
+					found.index,
+					#found.scores,
+					found.score,
+					found.seconds
+				)
+			)
+			services.Telemetry:Log("HouseChosen", {
+				candidate = found.index,
+				candidates = #found.scores,
+				score = math.floor(found.score * 10 + 0.5) / 10,
+				squad = self.run.squad,
+				seconds = math.floor(found.seconds * 100 + 0.5) / 100,
+			})
 		else
+			-- The old house never changes.
 			layout = LevelGraph.generate(seed, Rooms.List, Config.Level)
+			-- The locks, keys and heirlooms, planned before the house is built so
+			-- every locked doorway gets a door (nested: the fingerprint holds).
+			plan = LockPlanner.plan(
+				layout,
+				Rooms.ById,
+				rng:Fork("progression"),
+				Config.Progression,
+				Config.Level,
+				difficultyName == "Hard" and 1 or 0
+			)
 		end
 		if layout.fallback then
 			warn("[Consensus] seed " .. seed .. " fell back to the authored layout")
 		end
-		-- The locks, keys and heirlooms, planned before the house is built so
-		-- every locked doorway gets a door (nested: the fingerprint holds).
-		local plan = LockPlanner.plan(
-			layout,
-			mansion and Rooms.MansionById or Rooms.ById,
-			rng:Fork("progression"),
-			progression,
-			houseConfig,
-			difficultyName == "Hard" and 1 or 0
-		)
 		layout.progression = plan
 		for _, seam in layout.seams do
 			local lock = plan.locks[seam.id]
@@ -220,7 +257,9 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.CrankService:Begin(plan)
 		-- How each key and heirloom is found (Logic/Leads): its own fork.
 		local templates = mansion and Rooms.MansionById or Rooms.ById
-		local leads = Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
+		-- (The search planned the mansion's with its candidate's own fork.)
+		local leads = found and found.leads
+			or Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
 		services.ItemService:Begin(plan, rng:Fork("items"), leads)
 		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
 		services.FinaleService:Begin(plan)
@@ -330,6 +369,11 @@ end
 function RunOrchestrator:_tick(_dt: number)
 	local run = self.run
 	if not run or run.ending then
+		return
+	end
+	-- The house search breathes between candidates (Logic/HouseSearch); the
+	-- squad only joins the run once the house is built.
+	if self.phase == Phases.Generating then
 		return
 	end
 	local services = self.services

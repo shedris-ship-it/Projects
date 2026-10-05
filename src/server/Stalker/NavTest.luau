@@ -304,8 +304,12 @@ function NavTest.run(service, args, report: (string) -> ()): string
 				local legStart = os.clock()
 				local lastY = body.root.Position.Y
 				local fell = false
-				-- Generous: closed doors cost him 1.5-3 s each to open.
-				local timeout = math.max(25, pickDistance / speed * 3 + 20)
+				-- Generous: closed doors cost him 1.5-3 s each to open. Measured
+				-- along his route where there is one (a shut shutter can send
+				-- him the long way round), else as the crow walks.
+				local route = worldService:Route(here, spot.position)
+				local length = math.max(pickDistance, route and route.cost or 0)
+				local timeout = math.max(25, length / speed * 3 + 20)
 				local traced = 0
 				local noWaySince = nil
 				local noWay = false

@@ -759,9 +759,20 @@ Config.Progression = {
 -- by. Bands were set from tools/housestats over the generator as it stood
 -- (section 5.1) and the plan's aims; retune after the playtest.
 Config.LevelDesign = {
+	Candidates = 12, -- houses built for each run; the best is played (Logic/HouseSearch)
 	ShortcutStuds = 60, -- a bolt that saves less than this on the way back isn't a shortcut
 	Targets = {
-		r0Share = { band = { 0.25, 0.4 }, weight = 3, scale = 0.05 }, -- of the house open from the start
+		-- Of the house open from the start; a small house's hall, dining room and
+		-- loop are more of it.
+		r0Share = {
+			band = { 0.25, 0.4 },
+			bySquad = { { 0.25, 0.45 }, { 0.25, 0.45 } },
+			weight = 3,
+			scale = 0.05,
+		},
+		-- Regions after the first: as many as the squad's house wants (Hard's
+		-- extra one is welcome).
+		regions = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 5 },
 		minRegion = { band = { 3, 99 }, weight = 4 }, -- rooms in the smallest region after the first
 		maxRegion = { band = { 0, 8 }, weight = 2 },
 		shortcutShare = { band = { 0.99, 1 }, weight = 3, scale = 0.34 }, -- regions of 4+ rooms with a real shortcut home

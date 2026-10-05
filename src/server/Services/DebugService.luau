@@ -15,6 +15,8 @@ local Constants = require(Shared.Constants)
 local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 local FloorPlan = require(Shared.Logic.FloorPlan)
+local HouseMetrics = require(Shared.Logic.HouseMetrics)
+local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
@@ -51,7 +53,7 @@ local HELP = table.concat({
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
-	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
+	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100> · fling <room> <room> <speed>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -163,8 +165,11 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "unlock" then
 		local target = args[2] or ""
 		if target == "all" then
+			-- Every lock, and every crank shutter up and latched (as the dinner
+			-- does), so tests like navtest walk the whole house.
 			services.LockService:UnlockAll()
-			reply(player, "every lock open")
+			services.CrankService:LatchAll()
+			reply(player, "every lock open, every shutter latched up")
 		else
 			-- Seam ids are lower case already ("seam:2-3").
 			reply(
@@ -364,6 +369,69 @@ function DebugService:Run(player: Player, text: string)
 		else
 			print(FloorPlan.render(world.layout, world.layout.mode == "Mansion" and Config.Mansion or Config.Level))
 			reply(player, "plan of seed " .. tostring(world.layout.seed) .. " printed to Output")
+		end
+	elseif command == "house" then
+		-- Why this house was kept (docs/plans/level-design.md section 5): the
+		-- search's scores, the scorecard, the adventure, every room's reasons.
+		local found = orchestrator.run and orchestrator.run.house
+		if not found then
+			reply(player, "no mansion this run (the old house isn't searched)")
+		else
+			local lines = {
+				string.format(
+					"house %d of %d kept, score %.1f (all: %s), in %.2fs",
+					found.index,
+					#found.scores,
+					found.score,
+					table.concat(
+						(function()
+							local out = {}
+							for _, score in found.scores do
+								table.insert(out, string.format("%.1f", score))
+							end
+							return out
+						end)(),
+						" "
+					),
+					found.seconds or 0
+				),
+			}
+			for _, line in HouseMetrics.describe(found.card) do
+				table.insert(lines, line)
+			end
+			local wings = found.layout.wings
+			if wings and found.plan.stats.wings then
+				for _, r in wings.order do
+					local beat = wings.beats[r]
+					local parts = {}
+					for key in beat do
+						table.insert(parts, key)
+					end
+					table.sort(parts)
+					table.insert(
+						lines,
+						("region %d: %d rooms, gate %s %s"):format(
+							r,
+							#wings.regions[r].rooms,
+							wings.gates[r],
+							#parts > 0 and ("(" .. table.concat(parts, ", ") .. ")") or ""
+						)
+					)
+				end
+			end
+			for _, room in found.layout.rooms do
+				local name = services.WorldService:Room(room.id)
+				table.insert(
+					lines,
+					("  %d %s: %s"):format(
+						room.id,
+						name and name.name or room.template,
+						RoomPurpose.describe(found.purposes[room.id])
+					)
+				)
+			end
+			print("[debug] house:\n  " .. table.concat(lines, "\n  "))
+			reply(player, string.format("house %d of %d, score %.1f (Output)", found.index, #found.scores, found.score))
 		end
 	elseif command == "where" then
 		reply(player, services.StalkerService:DebugWhere(player))

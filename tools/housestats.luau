@@ -2,10 +2,12 @@
 -- section 5.1) over many houses: the spread of every metric and of the score
 -- against Config.LevelDesign.Targets. Run from the repository root:
 --
---     lune run tools/housestats [count] [squad]
+--     lune run tools/housestats [count] [squad] [single]
 --
 -- The squad size (1-4, default 4) sizes the house (Config.Mansion.BySquad)
--- and picks the targets' bands.
+-- and picks the targets' bands. Each house is the best of several, as a run
+-- builds it (Logic/HouseSearch); `single` measures the generator's first
+-- house alone.
 
 local process = require("@lune/process")
 
@@ -14,17 +16,14 @@ local Harness = require("../tests/harness")
 local Shared = Harness.root("src/shared", "Shared")
 local Config = Harness.require(Shared.Config)
 local Rooms = Harness.require(Shared.Data.Rooms)
-local Rng = Harness.require(Shared.Lib.Rng)
 local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
+local HouseSearch = Harness.require(Shared.Logic.HouseSearch)
 local HouseSize = Harness.require(Shared.Logic.HouseSize)
-local Leads = Harness.require(Shared.Logic.Leads)
-local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
-local MansionGen = Harness.require(Shared.Logic.MansionGen)
 local NavGraph = Harness.require(Shared.Logic.NavGraph)
-local RoomPurpose = Harness.require(Shared.Logic.RoomPurpose)
 
 local count = tonumber(process.args[1]) or 50
 local squad = tonumber(process.args[2]) or 4
+local single = process.args[3] == "single"
 local design = Config.LevelDesign
 local nav = NavGraph.options(Config)
 local config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
@@ -34,15 +33,19 @@ local scores = {}
 local misses = {} -- metric -> houses outside the band
 local started = os.clock()
 for seed = 1, count do
-	local layout = MansionGen.generate(seed, Rooms.Mansion, config)
-	local plan = LockPlanner.plan(layout, Rooms.MansionById, Rng.new(seed):Fork("progression"), progression, config)
-	local leads = Leads.plan(plan, Leads.rooms(layout, Rooms.MansionById), Rng.new(seed):Fork("leads"), Config.Leads)
-	local m = HouseMetrics.measure(layout, plan, Rooms.MansionById, {
+	local found = HouseSearch.run(seed, {
+		templates = Rooms.Mansion,
+		templatesById = Rooms.MansionById,
+		mansion = config,
+		progression = progression,
+		leads = Config.Leads,
 		nav = nav,
-		config = config,
+		targets = design.Targets,
 		shortcut = design.ShortcutStuds,
-		purposes = RoomPurpose.of(layout, plan, Rooms.MansionById, leads),
+		squad = squad,
+		candidates = single and 1 or design.Candidates,
 	})
+	local layout, plan, m = found.layout, found.plan, found.metrics
 	-- How many houses were planned as wings (Logic/Wings) and kept them.
 	m.wingsPlanned = layout.wings and 1 or 0
 	m.wingsKept = plan.stats.wings and 1 or 0
