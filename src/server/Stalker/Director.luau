@@ -92,12 +92,14 @@ end
 
 -- A hunt has begun: whatever woke it is spent.
 function Director:HuntBegan()
+	self.services.RunLogService:Hunt(true)
 	self.forced = false
 	self.armedAt, self.armedRooms, self.armedReason = nil, nil, nil
 	self.lanternHeld = false
 end
 
 function Director:HuntEnded(now: number)
+	self.services.RunLogService:Hunt(false)
 	self.lastHuntEnded = now
 	self.retreatUntil = now + Config.Stalker.RetreatTierSeconds
 	self.forced = false
@@ -155,6 +157,7 @@ function Director:Evaluate(runTime: number)
 	local act = Acts.of(self:Facts(), Config.Pacing)
 	if act > self.act then
 		self.act = act
+		self.services.RunLogService:Act(act)
 		if act < 4 then
 			self.services.StalkerService:HeardProgress(self:Arm("act " .. act))
 		end

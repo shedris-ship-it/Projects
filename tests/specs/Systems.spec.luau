@@ -155,6 +155,19 @@ return function(test, check, Shared, require)
 				> Progression.marksForRun({ won = true, drift = 80 }),
 			"low drift pays more"
 		)
+		-- Progress pays, won or lost: +10 a region opened or a puzzle solved.
+		local lost = { won = false, drift = 100 }
+		local progressed = { won = false, drift = 100, regionsOpened = 2, puzzlesSolved = 1 }
+		check.equal(
+			Progression.marksForRun(progressed) - Progression.marksForRun(lost),
+			30,
+			"two regions and a puzzle are worth 30"
+		)
+		check.equal(
+			Progression.marksForRun({ won = false, drift = 100, survivedHunts = 2 }) - Progression.marksForRun(lost),
+			30,
+			"two hunts survived are worth 30"
+		)
 		local level = Progression.levelFromXp(10 ^ 7)
 		check.equal(level, 50, "max level")
 		check.equal((Progression.levelFromXp(0)), 1, "start level")

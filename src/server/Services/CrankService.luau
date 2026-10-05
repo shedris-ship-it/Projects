@@ -396,6 +396,9 @@ function CrankService:_step(crank, dt: number)
 	-- The passage, with a little give.
 	if crank.blocked and crank.height >= C.OpenAt then
 		crank.blocked = false
+		if not crank.raisedOnce then
+			self.services.Telemetry:Log("CrankRaised", { ratchet = crank.ratchet == true })
+		end
 		crank.raisedOnce = true
 		self.World:SetSeamBlocked(crank.id, "crank", false)
 		crank.model.PrimaryPart.CanCollide = false

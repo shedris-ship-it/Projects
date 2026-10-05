@@ -454,6 +454,7 @@ function FinaleService:_set(place, player: Player)
 	end
 	model:PivotTo(place.at * CFrame.new(0, 0.1, 0))
 	self.Items:MarkSet(token)
+	self.services.RunLogService:Set(token, player)
 	place.token = token
 	place.label.Text = self.Items:Label(token)
 	place.flame.Transparency = 0

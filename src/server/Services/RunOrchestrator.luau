@@ -240,6 +240,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		runStart = os.clock(),
 	})
 	self.run.started = os.clock()
+	services.RunLogService:Begin()
 	self:_setPhase(Phases.Arrival, Config.Run.ArrivalSeconds)
 	Net.get("Notify"):FireAllClients("The front door locks behind you. The table is laid for a guest.", "phase")
 	local plan = world.layout.progression
@@ -387,14 +388,21 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		stalker = run.location.stalker,
 		escape = services.FinaleService:Progress(),
 	}
+	if summary.escape then
+		-- Who did what (Services/RunLogService).
+		summary.escape.lines = services.RunLogService:Lines()
+	end
 	for _, player in run.players do
 		if player.Parent then
 			local extracted = run.extracted[player] == true
+			local rewards = services.RunLogService:Rewards(player)
 			local marks = services.DataService:GrantRunRewards(player, {
 				won = won,
 				extracted = extracted,
 				drift = drift,
-				survivedHunts = 0,
+				survivedHunts = rewards.survivedHunts,
+				regionsOpened = rewards.regionsOpened,
+				puzzlesSolved = rewards.puzzlesSolved,
 				stalker = run.location.stalker,
 			})
 			Net.get("Dossier"):FireClient(player, {
@@ -428,6 +436,7 @@ function RunOrchestrator:_returnToLobby()
 		end
 	end
 	services.PlayerStateService:EndRun()
+	services.RunLogService:End()
 	services.WorldService:Clear()
 	services.DivergenceService:Reset()
 	self.run = nil
