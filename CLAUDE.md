@@ -57,7 +57,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (248 as of 2026-10-05; about 35 s)
+lune run tests/run        # unit tests (269 as of 2026-10-05; about 40 s)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -128,7 +128,8 @@ The agreed plan, in order:
    - Decided: escape with a finale (**set the table**: heirlooms laid at the dining table for the Guest), out through the front door; keys per player; divergence as atmosphere only; Amnesia-style hands; Drift kept and retuned; the four first puzzles (home computer, breaker panel, safe by ear, music box); the torch clips to your shirt in any slot but 1.
    - Order: **R1a** hands core → **R2a** the escape slice behind `Config.Run.Loop` (F2 `loop escape`), then a squad playtest → **R1b** world physics → **R2b** the other puzzles, escape as the default, then the old loop retires → R3 the living house → R4 variety, then M4 merged with interactive props.
    - Done: R0, the design document (2026-10-04). R1a (builds `2026-10-04.11` to `2026-10-05.2`): the passage model, four slots and the clip light, door angles and dragging, carrying and throwing, the stun, lures, furniture that opens (drawers, cupboard and fridge doors, chest lids, with odd small things inside; `Services/FurnitureService`, `Lib/Joint`), and **every piece of furniture by weight** (the owner's request of 2026-10-05: lamps, plants and mannequins carried; the rest pushed, the heaviest by several players; `Services/PushService`, `Logic/Push`). Details in the rework doc, "R1a as built"; TC-51 to TC-64 wait on the owner. **Gate A re-baselined with the owner's OK (2026-10-05): parts 2272, hash 1308511249.**
-   - Next: R2a (the escape slice).
+   - Done: **R2a, the escape slice** (builds `2026-10-05.3` to `.5`, behind `Config.Run.Loop` / F2 `loop escape`): the lock planner (`Logic/LockPlanner`, spec over 130 houses; `tools/plan <seed> mansion locks`, `tools/lockstats`), locked doors, bolts and per-player key rings (`Services/LockService`), keys and heirlooms in drawers (`Services/ItemService`), the home computer and padlock (`Logic/Puzzles/*`, `Services/PuzzleService`, `UI/Puzzle`), and the dinner out the front door (`Services/FinaleService`, `Logic/Objectives`). Checked in Studio on seeds 61 and 1, end to end.
+   - Next: **ask the owner for a squad playtest of the escape slice** (TC-65 to TC-68: "Did it ever feel like it cheated?", and is it fun?), then R1b (decor out of AnomalyService, interactables, walk-in closets, barricades) and R2b (the breaker, safe and music box, the map, the Drift retune, escape becomes the default, the old loop retires). Not yet: The Guest's unseen click-pass through locks between hunts (a lock is a wall to him for now), gamepad and touch layouts for the puzzle screens.
    - Retired by the rework: the old item "three more anomalies (Redaction, Dead Air, Mimic)" and "two anomalies on Hard".
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):

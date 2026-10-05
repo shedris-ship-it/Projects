@@ -83,6 +83,10 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
 
 ## How a run plays
 
+**The escape (the gameplay rework, in testing: F2 `loop escape` before `start`).** The front door locks behind you; the dining table is laid for a guest with empty places. Parts of the house are locked: find keys in drawers and cupboards (each key goes on your own ring), crack the home computer's password to print a padlock's code, slide bolts back from inside for shortcuts. Find the family's heirlooms and set each at an empty place (carry it there, hold E). When the last is set, every light dies, he takes his seat, every lock but the dining room's way to the hall springs open, and the front door opens: run out the long way while he hunts you. The plan of locks is different every run (`docs/plans/gameplay-rework.md`).
+
+**The old clue hunt (still the default until the escape is played):**
+
 1. **Arrival (3 min).** The house is quiet and the stalker is dormant. Small harmless divergences teach the core move: something looks odd, say so, then both of you hold **Q** on it within 4 seconds to **Anchor** it.
 2. **Investigation.** True tells and red herrings are spread around the house. Anchoring a tell confirms it and pins it to the Case Board. Anchoring a herring debunks it. Drift rises: slowly by itself, faster when someone wanders off alone, sharply on mistakes. The stalker escalates from a figure only you can see, to something closer every time you look, to intrusions, to hunts.
 3. **Verdict.** At the Dining Room table, call a deliberation and name the anomaly together. A wrong verdict costs 15 Drift and starts a hunt.
