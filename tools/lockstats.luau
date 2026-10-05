@@ -2,7 +2,9 @@
 -- docs/plans/gameplay-rework.md section 5) over many houses. Run from the
 -- repository root:
 --
---     lune run tools/lockstats [count] [cells|mansion]
+--     lune run tools/lockstats [count] [cells|mansion] [squad]
+--
+-- A mansion is sized for a squad of `squad` (1-4, default 4).
 --
 -- Prints how many regions the plans got, how often they needed fewer than
 -- wanted and why, the gate kinds, backtracks, heirloom spread and attempts.
@@ -19,11 +21,15 @@ local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
 
 local count = tonumber(process.args[1]) or 100
 local mode = process.args[2] or "mansion"
+local squad = tonumber(process.args[3]) or 4
 
 local generate, templates, config
+local progression = Config.Progression
 if mode == "mansion" then
+	local HouseSize = Harness.require(Shared.Logic.HouseSize)
 	local MansionGen = Harness.require(Shared.Logic.MansionGen)
-	config, templates = Config.Mansion, Rooms.MansionById
+	config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
+	templates = Rooms.MansionById
 	generate = function(seed)
 		return MansionGen.generate(seed, Rooms.Mansion, config)
 	end
@@ -41,10 +47,10 @@ local backtracks, attempts, puzzles, heirloomRegions, unsolved = 0, 0, 0, 0, 0
 local regionSizes = {}
 for seed = 1, count do
 	local layout = generate(seed)
-	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), Config.Progression, config)
+	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), progression, config)
 	local k = #plan.order
 	regions[k] = (regions[k] or 0) + 1
-	if k < LockPlanner.regionCount(#layout.rooms, Config.Progression) then
+	if k < LockPlanner.regionCount(#layout.rooms, progression) then
 		short += 1
 	end
 	for _, lock in plan.locks do

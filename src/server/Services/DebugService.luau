@@ -45,7 +45,7 @@ local function reply(player: Player, text: string)
 end
 
 local HELP = table.concat({
-	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default",
+	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto>",
 	"start · end · skip (to Investigation) · resolve (serve the dinner)",
 	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
@@ -149,6 +149,13 @@ function DebugService:Run(player: Player, text: string)
 		local mode = ({ cells = "Cells", mansion = "Mansion" })[args[2] or ""]
 		orchestrator:SetLayoutMode(mode)
 		reply(player, "next run layout " .. (mode or ("default (" .. Config.Level.Mode .. ")")))
+	elseif command == "squad" then
+		-- The squad size the next mansion is built for (docs/plans/level-design.md
+		-- section 5.2), so a solo test can build a four-player house.
+		local size = tonumber(args[2])
+		size = size and math.clamp(math.floor(size), 1, #Config.Mansion.BySquad) or nil
+		orchestrator:SetSquadSize(size)
+		reply(player, "next mansion built for a squad of " .. (size and tostring(size) or "however many play"))
 	elseif command == "locks" then
 		local lines = services.LockService:Describe()
 		print("[debug] locks:\n  " .. table.concat(lines, "\n  "))

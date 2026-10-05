@@ -148,6 +148,28 @@ Config.Level = {
 -- faces south (+z) and nothing is built past the front line (z = 0).
 Config.Mansion = {
 	RoomCount = { 18, 24 }, -- owner, 2026-10-04: rooms over both floors, hallways and stairwells included
+	-- The house follows the squad (owner, 2026-10-05; docs/plans/level-design.md
+	-- section 5.2): each player covers about the same ground. Logic/HouseSize
+	-- puts these over RoomCount and the lock planner's Regions and FinaleItems
+	-- for a run. Hard adds a region, as before.
+	-- `mansion` overrides more of this table: a small house has fewer
+	-- hallways, so it isn't half corridor.
+	BySquad = {
+		{
+			rooms = { 15, 18 },
+			regions = 2,
+			heirlooms = { 2, 2 },
+			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
+		},
+		{
+			rooms = { 17, 20 },
+			regions = 2,
+			heirlooms = { 2, 3 },
+			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
+		},
+		{ rooms = { 19, 22 }, regions = 3, heirlooms = { 3, 3 } },
+		{ rooms = { 21, 24 }, regions = 3, heirlooms = { 3, 3 } },
+	},
 	Lattice = 10,
 	FloorPitch = 11, -- WallHeight plus a 1-stud floor
 	MinShared = 20, -- shared wall that makes two rooms neighbours (a seam)

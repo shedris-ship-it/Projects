@@ -11,10 +11,12 @@
 -- also writes that mansion to src/shared/Data/MansionFallback.luau, the
 -- authored house used when every attempt fails (then run stylua on it).
 --
---     lune run tools/plan <seed> [cells|mansion] locks
+--     lune run tools/plan <seed> [cells|mansion] locks [squad]
 --
 -- adds the escape's plan for that house (Logic/LockPlanner): its regions,
--- what locks each, where the keys, the computer and the heirlooms are.
+-- what locks each, where the keys, the computer and the heirlooms are, and
+-- how it measures as a level (Logic/HouseMetrics). A mansion is sized for a
+-- squad of `squad` (1-4, default 4; docs/plans/level-design.md section 5.2).
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -28,11 +30,14 @@ local FloorPlan = Harness.require(Shared.Logic.FloorPlan)
 
 local seed = tonumber(process.args[1]) or 1800820264
 local mode = process.args[2] or "cells"
+local squad = tonumber(process.args[4]) or 4
 
 local layout, config
+local progression = Config.Progression
 if mode == "mansion" then
+	local HouseSize = Harness.require(Shared.Logic.HouseSize)
 	local MansionGen = Harness.require(Shared.Logic.MansionGen)
-	config = Config.Mansion
+	config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
 	layout = MansionGen.generate(seed, Rooms.Mansion, config)
 else
 	local LevelGraph = Harness.require(Shared.Logic.LevelGraph)
@@ -88,7 +93,7 @@ if process.args[3] == "locks" then
 	local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
 	local templates = mode == "mansion" and Rooms.MansionById or Rooms.ById
 	-- The same fork RunOrchestrator gives it.
-	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), Config.Progression, config)
+	local plan = LockPlanner.plan(layout, templates, Rng.new(seed):Fork("progression"), progression, config)
 	local function named(id)
 		local room
 		for _, r in layout.rooms do
@@ -155,8 +160,8 @@ if process.args[3] == "locks" then
 		config = config,
 		shortcut = Config.LevelDesign.ShortcutStuds,
 	})
-	local score, card = HouseMetrics.score(m, Config.LevelDesign.Targets, 4)
-	print(string.format("Level score %.1f (lower is better; squad 4's bands)", score))
+	local score, card = HouseMetrics.score(m, Config.LevelDesign.Targets, squad)
+	print(string.format("Level score %.1f (lower is better; squad %d's bands)", score, squad))
 	for _, line in HouseMetrics.describe(card) do
 		print("  " .. line)
 	end

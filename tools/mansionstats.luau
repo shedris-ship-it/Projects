@@ -1,7 +1,10 @@
 -- How the mansion generator behaves over many seeds, for tuning
 -- Config.Mansion (docs/plans/mansion-generation.md). From the repository root:
 --
---     lune run tools/mansionstats [seeds]
+--     lune run tools/mansionstats [seeds] [squad]
+--
+-- The squad size (1-4) sizes the house (Config.Mansion.BySquad); without
+-- it, Config.Mansion's own RoomCount.
 --
 -- Prints the first-try pass rate, fallbacks, time per house, how many rooms
 -- are corridors and stairwells against real rooms, and the room counts.
@@ -13,15 +16,18 @@ local Harness = require("../tests/harness")
 local Shared = Harness.root("src/shared", "Shared")
 local Config = Harness.require(Shared.Config)
 local Rooms = Harness.require(Shared.Data.Rooms)
+local HouseSize = Harness.require(Shared.Logic.HouseSize)
 local MansionGen = Harness.require(Shared.Logic.MansionGen)
 
 local n = tonumber(process.args[1]) or 300
+local squad = tonumber(process.args[2])
+local config = squad and (HouseSize.config(Config.Mansion, Config.Progression, squad)) or Config.Mansion
 local started = os.clock()
 local attempts, fallbacks, firstTry = 0, 0, 0
 local spine, general, upperGeneral, twoStairs = 0, 0, 0, 0
 local counts, problems = {}, {}
 for seed = 1, n do
-	local layout = MansionGen.generate(seed, Rooms.Mansion, Config.Mansion)
+	local layout = MansionGen.generate(seed, Rooms.Mansion, config)
 	attempts += layout.attempts
 	if layout.fallback then
 		fallbacks += 1

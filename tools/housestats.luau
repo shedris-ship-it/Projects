@@ -4,7 +4,8 @@
 --
 --     lune run tools/housestats [count] [squad]
 --
--- The squad size (1-4, default 4) picks the targets' bands.
+-- The squad size (1-4, default 4) sizes the house (Config.Mansion.BySquad)
+-- and picks the targets' bands.
 
 local process = require("@lune/process")
 
@@ -15,6 +16,7 @@ local Config = Harness.require(Shared.Config)
 local Rooms = Harness.require(Shared.Data.Rooms)
 local Rng = Harness.require(Shared.Lib.Rng)
 local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
+local HouseSize = Harness.require(Shared.Logic.HouseSize)
 local LockPlanner = Harness.require(Shared.Logic.LockPlanner)
 local MansionGen = Harness.require(Shared.Logic.MansionGen)
 local NavGraph = Harness.require(Shared.Logic.NavGraph)
@@ -23,18 +25,18 @@ local count = tonumber(process.args[1]) or 50
 local squad = tonumber(process.args[2]) or 4
 local design = Config.LevelDesign
 local nav = NavGraph.options(Config)
+local config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
 
 local values = {} -- metric -> { values }
 local scores = {}
 local misses = {} -- metric -> houses outside the band
 local started = os.clock()
 for seed = 1, count do
-	local layout = MansionGen.generate(seed, Rooms.Mansion, Config.Mansion)
-	local plan =
-		LockPlanner.plan(layout, Rooms.MansionById, Rng.new(seed):Fork("progression"), Config.Progression, Config.Mansion)
+	local layout = MansionGen.generate(seed, Rooms.Mansion, config)
+	local plan = LockPlanner.plan(layout, Rooms.MansionById, Rng.new(seed):Fork("progression"), progression, config)
 	local m = HouseMetrics.measure(layout, plan, Rooms.MansionById, {
 		nav = nav,
-		config = Config.Mansion,
+		config = config,
 		shortcut = design.ShortcutStuds,
 	})
 	for key, value in m do

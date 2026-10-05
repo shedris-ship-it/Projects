@@ -19,6 +19,7 @@ local Rng = require(Shared.Lib.Rng)
 local Rooms = require(Shared.Data.Rooms)
 local Locations = require(Shared.Data.Locations)
 local LevelGraph = require(Shared.Logic.LevelGraph)
+local HouseSize = require(Shared.Logic.HouseSize)
 local Leads = require(Shared.Logic.Leads)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local MansionGen = require(Shared.Logic.MansionGen)
@@ -147,6 +148,9 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		lastPositions = {},
 		extracted = {},
 		huntsSurvivedStart = 0,
+		-- The house follows the squad (docs/plans/level-design.md section 5.2);
+		-- F2 `squad` stands in for a bigger squad in a solo test.
+		squad = HouseSize.clamp(self.squadSize or #players, Config.Mansion.BySquad),
 	}
 	self:_setPhase(Phases.Generating)
 	ReplicatedStorage.RunState:SetAttribute(RS.Seed, seed)
@@ -159,8 +163,11 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- `layout` overrides Config.Level.Mode for testing.
 		local layout
 		local mansion = (self.layoutMode or Config.Level.Mode) == "Mansion"
+		-- The mansion is sized for the squad; the old house never changes.
+		local houseConfig, progression = Config.Level, Config.Progression
 		if mansion then
-			layout = MansionGen.generate(seed, Rooms.Mansion, Config.Mansion)
+			houseConfig, progression = HouseSize.config(Config.Mansion, Config.Progression, self.run.squad)
+			layout = MansionGen.generate(seed, Rooms.Mansion, houseConfig)
 		else
 			layout = LevelGraph.generate(seed, Rooms.List, Config.Level)
 		end
@@ -173,8 +180,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 			layout,
 			mansion and Rooms.MansionById or Rooms.ById,
 			rng:Fork("progression"),
-			Config.Progression,
-			mansion and Config.Mansion or Config.Level,
+			progression,
+			houseConfig,
 			difficultyName == "Hard" and 1 or 0
 		)
 		layout.progression = plan
@@ -246,6 +253,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	local plan = world.layout.progression
 	services.Telemetry:Log("RunStarted", {
 		players = #players,
+		squad = self.run.squad,
 		difficulty = difficultyName,
 		location = location.id,
 		rooms = #world.layout.rooms,
@@ -487,6 +495,12 @@ end
 -- "Cells" (the old house), "Mansion", or nil for Config.Level.Mode.
 function RunOrchestrator:SetLayoutMode(mode: string?)
 	self.layoutMode = mode
+end
+
+-- The squad size the next mansions are built for (1-4), or nil for the
+-- number of players.
+function RunOrchestrator:SetSquadSize(size: number?)
+	self.squadSize = size
 end
 
 function RunOrchestrator:Run()

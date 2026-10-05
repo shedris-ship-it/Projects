@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-05.25",
-	note = "L1.1: the level-design metrics (no change in play)",
+	id = "2026-10-05.26",
+	note = "L1.2: the house follows the squad (F2 squad)",
 }
