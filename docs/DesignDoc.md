@@ -138,7 +138,7 @@ Anomalies, rooms, tells, stalker archetypes and the validator's thresholds shoul
 
 ## 4. The 12 anomalies
 
-> **Retired by the gameplay rework (2026-10-04).** Anomalies, tells, the Case Board, the verdict and the rituals are replaced by locks, keys and puzzles ([`plans/gameplay-rework.md`](plans/gameplay-rework.md)). Their code retires in R2b. Kept here for the record.
+> **Retired by the gameplay rework (2026-10-04).** Anomalies, tells, the Case Board, the verdict and the rituals are replaced by locks, keys and puzzles ([`plans/gameplay-rework.md`](plans/gameplay-rework.md)). Their code retired in R2c.1 (2026-10-05). Kept here for the record.
 
 Each anomaly attacks a different channel of perception, leaves its own set of tells, and ends with a unique resolution ritual that needs the whole squad. Together they cover space, time, identity, sound, light, memory, topology, objects, attention, absence, environment and scale.
 
@@ -178,6 +178,8 @@ You do not need all 12 on day one. A staged release also gives you a content dro
 | Post-launch | Hollow, Tide, Proportion, Loop Corridor, one per monthly update | Each is a marketing beat and keeps veterans returning |
 
 ## 5. The Stalker
+
+> **Updated (2026-10-05).** The three layers stand. Since the rework's R2c, progress wakes hunts too (acts, and the first step into a newly opened part of the house), and between hunts The Guest wants his dinner: he tracks a carried heirloom's room, visits his things, waits at the table and puts dropped heirlooms back. Barricades hold him a few seconds. See [`plans/gameplay-rework.md`](plans/gameplay-rework.md), "R2c as built", and its fairness additions (section 12).
 
 The stalker will feel intelligent because of three separate layers, not because it cheats or uses machine learning: a Director that paces it, a Tactician that picks smart moves from a learned profile of the squad, and a Body that perceives and moves fairly.
 
@@ -284,7 +286,7 @@ Build The Guest first for the vertical slice, then The Orderly. The remaining th
 
 ## 6. Social design and proximity voice
 
-> **Superseded in part (2026-10-04).** Witnessing, anchoring and Focus retire; tools are now found items in four slots (slot 4 is your hands); see [`plans/gameplay-rework.md`](plans/gameplay-rework.md) sections 4 and 11. Voice, pings, callouts and the social design notes still apply.
+> **Superseded in part (2026-10-04).** Witnessing, anchoring and Focus retired (R2c.1, 2026-10-05); the Witness Camera and Plumb Line went with them; tools are now found items in four slots (slot 4 is your hands); see [`plans/gameplay-rework.md`](plans/gameplay-rework.md) sections 4 and 11. Voice, pings, callouts and the social design notes still apply.
 
 Voice is the game's main instrument, so every system should give players a reason to describe what they perceive, plus a non-voice way to do the same. Roblox voice is not default: players must be 13 or older, complete an age check (ID or facial age estimation), opt in, and are matched for voice with users of similar age groups ([Roblox Help](https://en.help.roblox.com/hc/en-us/articles/34506487825428-How-do-I-turn-on-Voice-Chat)). A large share of your audience will not have voice, which makes the fallbacks below essential. Voice is switched on per experience in Studio under Experience Settings, Communication, and it needs a place capped at 100 players or fewer.
 

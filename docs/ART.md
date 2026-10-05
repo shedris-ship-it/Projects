@@ -79,7 +79,7 @@ Roblox spaces are normally built about 1.5× real size so the camera and movemen
 | Shadow tint | `#23261E` | Shadows lean olive, not neutral black (the P.T. grade) |
 
 **Reserved colours.** These carry meaning, so the house never uses them as decoration:
-- **Brass `#C4965C`:** truth and the interface: anchored objects, Case Board pins, the Witness Camera flash, UI accents (already `Ui.Theme.accent`).
+- **Brass `#C4965C`:** what matters and the interface: lock plates, key tags, the table's place cards and candles, UI accents (already `Ui.Theme.accent`). (Anchored objects, Case Board pins and the Witness Camera flash retired with the clue loop.)
 - **Hunt red `#B8322A`:** hunts only. In the P.T. spirit, the house's **actual lamps** turn this red during a hunt, not just a screen tint.
 - **Decay green-grey `#CDE1D7`:** what Drift pulls the image towards (already `EffectsController`'s tint target).
 
@@ -99,12 +99,14 @@ Roblox spaces are normally built about 1.5× real size so the camera and movemen
 
 P.T. shows that a handful of believable everyday objects does more than a room full of furniture. These get real meshes and materials before anything else:
 
-- **Radio** on a side table, with a muffled broadcast. It ties into the Radio tool and the future Dead Air anomaly.
-- **Clocks** (wall clock and grandfather clock), all with hands. Decorative wall clocks are built exactly like the "Clocks disagree" tell's clock and show times from its pool, so a clue clock can't be spotted by its look or its time. Comparing with a teammate stays the only way. Radios work the same way: decorative radios share the "Radio only some can hear" tell's builder.
+- **Radio** on a side table, with a muffled broadcast; it can be turned up as a lure (R2c fixtures) and ties into the Radio tool.
+- **Clocks** (wall clock and grandfather clock), all with hands, showing times from `Data/ClockTimes` (the clue loop's clock tell is gone).
 - **Family photos** in standing frames on dressers, chests, desks and the piano (`World/Dressing.luau`). As Drift rises the faces blur (60) and then go missing (80), for every player at once. Never Witnessable.
 - **Ceiling pendant lamps, table lamps and sconces** with fabric shades: the light sources themselves.
 - **Doors**, with frames, knobs and hinges.
 - **Telephone** on a hallway table, for later scares.
+
+The escape added props of its own (gameplay rework R2c), all built from code and due a pass in M4: the walk-in closet with mirrored sliding doors, keepsake boxes (brass-cornered wood, a painted tin, a velvet case), the glass display case, the key rack, the family's notes, the beige 1988 computer and dot-matrix printer, the fuse box, the wall safe behind a hinged painting, the music box, the crank door's roller shutter and wall crank, the dumbwaiter's boxed shaft and hatches, and the laid dining table with place cards and candles.
 
 ## Lighting mood by room family
 

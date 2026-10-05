@@ -1,19 +1,20 @@
 # Consensus: notes for Claude
 
-Consensus is a 2–4 player co-op horror game for Roblox. Reality only holds when two players agree on it: each player sees a slightly different house, and a learning stalker exploits the disagreements. This repo is a Rojo project holding the vertical slice from `docs/DesignDoc.md`: The Halfway House, The Guest, and three playable anomalies. **The owner chose a gameplay rework on 2026-10-04** (`docs/plans/gameplay-rework.md`): a procedural escape with locks, keys, puzzles and a physical, hands-on house replaces the anomalies, evidence and verdict. Divergence stays as atmosphere only.
+Consensus is a 2–4 player co-op horror game for Roblox. A squad is locked in a generated 1988 mansion with The Guest, a stalker who learns their habits; two players watching him freeze him, and each player sees a slightly different house as atmosphere. This repo is a Rojo project holding the vertical slice: The Halfway House and The Guest. **The owner chose a gameplay rework on 2026-10-04** (`docs/plans/gameplay-rework.md`): a procedural escape with locks, keys, puzzles and a physical, hands-on house, ending in the dinner (heirlooms set at the table) and a run out of the front door. **Since 2026-10-05 (R2c) it is the only loop:** the anomalies, evidence, verdict and Witnessing are gone.
 
 Read these before starting real work:
 - `docs/DesignDoc.md`: the design and roadmap. It is the spec. Section numbers are cited throughout the code.
 - `docs/plans/gameplay-rework.md`: the rework now under way. Where it disagrees with the design doc, it wins.
 - `docs/ARCHITECTURE.md`: how the code implements it (services, run flow, divergence model, remote protocol, security).
 - `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-15).
-- `README.md`: setup, controls, debug commands, how to add rooms and anomalies.
+- `README.md`: setup, controls, how a run plays, debug commands, how to add rooms and puzzles.
 
 ## Working with the owner
 
 - The owner is a **solo developer** with no artist, sound designer or programmer. Claude is the whole team: code, art direction, assets, tuning and docs.
 - They're on **Windows, using PowerShell**, and newer to command-line tools. Give exact commands to copy and say which folder to run them in. Explain errors in plain words.
 - They test in Roblox Studio. The game builds and runs there. No squad playtest has happened yet.
+- **Their C: drive filled up on 2026-10-05** and Studio crashed (SQLite "disk full" errors in `%LOCALAPPDATA%\Roblox\logs`). If Studio vanishes mid-session, check free space on C: first; don't delete the owner's files to make room, tell them.
 - The place is published (place id 81335718246692) and opened in Studio as a Team Create session. Studio's API access isn't on, so DataStore calls fail with 403 in play tests and the first-launch settings dialog appears each run (close it with Done at GUI ~961,588).
 - Ask before decisions that are theirs: design changes, spending money, publishing, anything on their Roblox account.
 
@@ -39,7 +40,7 @@ Use it for:
 - **Smoke tests:**
   - `start_stop_play` and `get_console_output` after each change; fix every red error.
   - Use `character_navigation` and keyboard and mouse input to walk through flows.
-  - Use the F2 debug console commands to jump states (see README: `drift`, `tier`, `hunt`, `seed`, `anomaly`, `skip`, `resolve`, `reveal`, `perf`).
+  - Use the F2 debug console commands to jump states (README has the list: `seed`, `start`, `drift`, `tier`, `hunt`, `act`, `arm`, `goto`, `unlock`, `give`, `items`, `leads`, `puzzle`, `solve`, `crank`, `barricade`, `resolve`, `perf`, ...). From MCP, set ServerStorage's `DebugCommand` attribute and read `DebugReply` (the MCP can't press F2).
 - **Inspecting and live-tuning:**
   - `execute_luau`, `inspect_instance` and `search_game_tree`.
   - Tune lighting and materials live, then **copy the final values into the code or `Config.luau`**. Live edits are lost on the next sync.
@@ -50,6 +51,7 @@ Use it for:
 Limits:
 - Divergence bugs need two or more clients (**Test → Clients and Servers**). The MCP tools drive one Studio session, so ask the owner to run multi-client checks and report what each client saw.
 - Saves need the place published with Studio API access on. Unpublished places use memory-only profiles.
+- When the Rojo plugin can't be connected (the owner is away and Studio was relaunched), a fallback that still keeps the repo as the source: serve `src/` with `python -m http.server 8765 --bind 127.0.0.1` (Git Bash, in the background) and run an `execute_luau` snippet on the Edit datamodel that fetches each changed file with `HttpService:GetAsync` and sets the script's `Source` verbatim (never hand-edit in Studio). Stop play first; restart it after.
 
 ## Checks: run before every commit
 
@@ -57,7 +59,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (269 as of 2026-10-05; about 40 s)
+lune run tests/run        # unit tests (334 as of 2026-10-05; about 40 s)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -77,16 +79,17 @@ All must pass. When MCP is available, also start a play session and check the co
   - `Start` begins work.
   - Client controllers in `src/client/Controllers` follow the same pattern.
   - Services talk through methods and `Lib/Signal`; there are no globals.
-- **Server authority:** the server decides outcomes (verdicts, catches, anchors, Drift, evidence, ritual progress). It sends clients *rules*, not world state; clients only change what their own player sees.
+- **Server authority:** the server decides outcomes (catches, locks and keys, puzzle answers, the dinner, Drift, stuns). It sends clients *rules*, not world state; clients only change what their own player sees.
 - **Remotes:**
   - Declare them in `src/shared/Net.luau`.
   - Every client-to-server handler goes through `Net.onServer(name, { interval, burst, types }, handler)`, which rate-limits and type-checks.
   - Re-validate range, line of sight and state on the server.
-  - Never send hidden truth before it's earned: herrings, the genuine key, the Source location.
+  - Never send hidden truth before it's earned: a note's text before it's read, a puzzle's answer, a room or lock on the map nobody has seen.
 - **Fairness contract:** this is design doc section 3, enforced by `Logic/LayoutValidator`.
   - Fake walls are visual only and never collidable.
   - Divergences must never trap a player.
   - Room centres and the four doorway lanes stay clear, because the walkers' graph (`Logic/NavGraph`, `Stalker/Walker`) relies on it; `Logic/RoomFit` also keeps solid furniture out of a room's middle.
+  - The one exception is a barricade (`Logic/Barricade`): a pushed piece may fill a doorway's lane only if it then bars it, so routes know; anyone can squeeze past, and he shoves it clear within 8 s or slips past unseen.
 - **Passage and physics (the rework):**
   - Every route and walking distance asks `WorldService:SeamCost(seam, who)` (nil = blocked). Locks, barricades and door/wall flips go there, not into the Guest's modules; call `WorldService:MarkPassageChanged` when one changes.
   - Physical things stay anchored until someone grabs them (`Services/HandsService`) and are anchored again once still. Carried and thrown things (collision groups Held and Prop) never touch players or The Guest; hits on him are worked out on the server.
@@ -95,12 +98,12 @@ All must pass. When MCP is available, also start a play session and check the co
   - Generation, evidence and stalker decisions use the seeded `Lib/Rng`, forked per subsystem.
   - `math.random` is only for cosmetic client timing.
 - **Data-driven:**
-  - Content goes in `src/shared/Data/*` (anomalies, tells, rooms, props, tactics, archetypes, tools, pings).
+  - Content goes in `src/shared/Data/*` (rooms, props, physical things, notes, interactables, tactics, stalk moves, archetypes, tools, pings).
   - Tunable numbers go in `src/shared/Config.luau`; mark values taken from the design doc with `(doc)`.
 - **Pure logic is tested:**
   - Engine-free rules go in `src/shared/Logic` with a spec in `tests/specs/*.spec.luau`.
   - A spec returns `function(test, check, Shared, require)`.
-- **PropFactory names:** the client finds tell-prop parts by child name (`Dial/Face/Time`, `Paper/Writing/Text`, `Badge/Card/Name`, `TellLight`, `EyeL`/`EyeR`, …). Keep those names when restyling props.
+- **PropFactory names:** clients and services find prop parts by child name (`Dial/Face/Time`, `Paper/Writing/Text`, `EyeL`/`EyeR` on portraits, `Lid`, `DoorL`/`DoorR`, `Glass`, …). Keep those names when restyling props.
 - **Style:** match the surrounding code. Write short comments that explain *why* and cite doc sections. Prefix private methods with an underscore (`_roomPath`, `_setup`). Use `Ui.modal` on menus so the mouse unlocks in first person.
 
 ## Git
@@ -123,14 +126,15 @@ Done: design doc Phase 1, most of the code side of Phase 2, plus some of Phase 3
 
 The agreed plan, in order:
 1. **Studio findings.** Fix anything the owner reports, and any console errors you find in play mode.
-2. **The gameplay rework (current work, owner's choice 2026-10-04).** Read `docs/plans/gameplay-rework.md` first: the owner's decisions (section 2), the systems, and the commit list (section 9).
+2. **The gameplay rework (owner's choice 2026-10-04; R2c done 2026-10-05).** Read `docs/plans/gameplay-rework.md` first: the owner's decisions (section 2), the systems, and "R2c as built" (section 9).
    - The owner found the clue-hunting loop a chore and wants a P.T.-style experience: a house where nearly everything can be touched, physical props you carry and throw (a hit stuns the Guest briefly) with a 4th "hands" slot, walk-in closets, heavy beds you push together to barricade doors, Resident Evil progression (locks, keys, backtracking, shortcuts) made procedural, puzzles that are fun minigames on their own, and house changes that change play or unsettle.
    - Decided: escape with a finale (**set the table**: heirlooms laid at the dining table for the Guest), out through the front door; keys per player; divergence as atmosphere only; Amnesia-style hands; Drift kept and retuned; the four first puzzles (home computer, breaker panel, safe by ear, music box); the torch clips to your shirt in any slot but 1.
-   - Order: **R1a** hands core → **R2a** the escape slice behind `Config.Run.Loop` (F2 `loop escape`), then a squad playtest → **R1b** world physics → **R2b** the other puzzles, escape as the default, then the old loop retires → R3 the living house → R4 variety, then M4 merged with interactive props.
-   - Done: R0, the design document (2026-10-04). R1a (builds `2026-10-04.11` to `2026-10-05.2`): the passage model, four slots and the clip light, door angles and dragging, carrying and throwing, the stun, lures, furniture that opens (drawers, cupboard and fridge doors, chest lids, with odd small things inside; `Services/FurnitureService`, `Lib/Joint`), and **every piece of furniture by weight** (the owner's request of 2026-10-05: lamps, plants and mannequins carried; the rest pushed, the heaviest by several players; `Services/PushService`, `Logic/Push`). Details in the rework doc, "R1a as built"; TC-51 to TC-64 wait on the owner. **Gate A re-baselined with the owner's OK (2026-10-05): parts 2272, hash 1308511249.**
-   - Done: **R2a, the escape slice** (builds `2026-10-05.3` to `.5`, behind `Config.Run.Loop` / F2 `loop escape`): the lock planner (`Logic/LockPlanner`, spec over 130 houses; `tools/plan <seed> mansion locks`, `tools/lockstats`), locked doors, bolts and per-player key rings (`Services/LockService`), keys and heirlooms in drawers (`Services/ItemService`), the home computer and padlock (`Logic/Puzzles/*`, `Services/PuzzleService`, `UI/Puzzle`), and the dinner out the front door (`Services/FinaleService`, `Logic/Objectives`). Checked in Studio on seeds 61 and 1, end to end.
-   - Next: **ask the owner for a squad playtest of the escape slice** (TC-65 to TC-68: "Did it ever feel like it cheated?", and is it fun?), then R1b (decor out of AnomalyService, interactables, walk-in closets, barricades) and R2b (the breaker, safe and music box, the map, the Drift retune, escape becomes the default, the old loop retires). Not yet: The Guest's unseen click-pass through locks between hunts (a lock is a wall to him for now), gamepad and touch layouts for the puzzle screens.
-   - Retired by the rework: the old item "three more anomalies (Redaction, Dead Air, Mimic)" and "two anomalies on Hard".
+   - Order: **R1a** hands core → **R2a** the escape slice → **R2c** the loop deepened (took in R1b and R2b) → **the squad playtest** → R3 the living house → R4 variety, then M4 merged with interactive props.
+   - Done: R0, the design document (2026-10-04). R1a (builds `2026-10-04.11` to `2026-10-05.2`): the passage model, four slots and the clip light, door angles and dragging, carrying and throwing, the stun, lures, furniture that opens (drawers, cupboard and fridge doors, chest lids, with odd small things inside; `Services/FurnitureService`, `Lib/Joint`), and **every piece of furniture by weight** (the owner's request of 2026-10-05: lamps, plants and mannequins carried; the rest pushed, the heaviest by several players; `Services/PushService`, `Logic/Push`). Details in the rework doc, "R1a as built"; TC-51 to TC-64 wait on the owner. Gate A was re-baselined then with the owner's OK (since superseded: see R2c below).
+   - Done: **R2a, the escape slice** (builds `2026-10-05.3` to `.5`, then behind a flag that R2c removed): the lock planner (`Logic/LockPlanner`, spec over 130 houses; `tools/plan <seed> mansion locks`, `tools/lockstats`), locked doors, bolts and per-player key rings (`Services/LockService`), keys and heirlooms in drawers (`Services/ItemService`), the home computer and padlock (`Logic/Puzzles/*`, `Services/PuzzleService`, `UI/Puzzle`), and the dinner out the front door (`Services/FinaleService`, `Logic/Objectives`). Checked in Studio on seeds 61 and 1, end to end.
+   - Done: **R2c, the loop deepened** (builds `2026-10-05.6` to `.23`, the owner's choices of 2026-10-05: "do all of them ... the best possible experience"). The clue loop retired (anomalies, evidence, verdict, Witnessing, Focus, the Camera and Plumb Line; `Config.Run.Loop` is gone); acts and progress-woken hunts (`Logic/Acts`, `Director:Arm`, `Pacing.spec`); physics with weight and momentum (`Logic/Heft`, client throws, `Articulation` momentum, `MotionController`, `Push.step`); the Guest wants his dinner (scent, visiting, waiting at the table, tidying up); the planner as a registry and leads (notes, keepsakes, display cases, key racks); the map and journal; puzzles as a registry with the breaker and power doors, the safe by ear, the music box and piano; fixtures, switches and one light rule; crank doors and the dumbwaiter; walk-in closets; barricades; the run journal and Marks for progress; Echoes stop at locks. **Gate A re-baselined with the owner's OK: parts 2134, hash 1322547804.**
+   - Next: **ask the owner for the squad playtest** (`docs/TESTING.md` TC-68, and TC-69 to TC-89 for what needs two clients: "Did it ever feel like it cheated?", and is it fun?). Then R3. Not yet: The Guest's unseen click-pass through locks between hunts (a lock is a wall to him always), touch controls for hands, `navtest barricade`. Unchecked in Studio when the C: drive filled up: squeezing past a barricade, a door stopping against one, R2c.10 (the journal, Marks, Echoes at locks, brace on LB).
+   - Retired by the rework: the old items "three more anomalies (Redaction, Dead Air, Mimic)" and "two anomalies on Hard".
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)
@@ -197,7 +201,7 @@ The agreed plan, in order:
        - Next is **M4** (furnishing, the bare-room mode, corridor closets, mansion art), after the rework and merged with its interactive props.
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
-4. **Tutorial run**, never cut. Build it after R2 so it teaches the new loop. Currently there's only a how-to-play screen.
+4. **Tutorial run**, never cut. Build it after the playtest so it teaches the escape. Currently there's only a how-to-play screen.
 5. **Hub place, MemoryStore matchmaking, reserved and private servers.** The owner must publish the places in Creator Hub; walk them through it.
 6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
 7. **Second location:** St. Odile Ward, with The Orderly. The archetype data already exists.
