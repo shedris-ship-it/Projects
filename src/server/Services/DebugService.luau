@@ -201,6 +201,10 @@ function DebugService:Run(player: Player, text: string)
 		table.sort(lines)
 		print("[debug] items:\n  " .. table.concat(lines, "\n  "))
 		reply(player, #lines .. " items (listed in Output)")
+	elseif command == "ui" then
+		-- Open a screen on your client: `ui map`, `ui journal`, `ui close`.
+		player:SetAttribute("DebugUi", (args[2] or "map") .. ":" .. os.clock())
+		reply(player, "ui " .. (args[2] or "map"))
 	elseif command == "leads" then
 		-- How each key and heirloom is found (Logic/Leads), the notes' text,
 		-- and the cases; `leads go <token> [note]` takes you to its room (or

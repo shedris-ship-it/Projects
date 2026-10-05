@@ -726,7 +726,11 @@ function ItemService:DropKeys(player: Player, ring)
 		local angle = i * 2.1
 		local at = CFrame.new(position.X + math.cos(angle) * 1.2, floor, position.Z + math.sin(angle) * 1.2)
 			* CFrame.Angles(0, angle, 0)
-		self:_make(token, at)
+		local _, thing = self:_make(token, at)
+		if thing then
+			-- Whoever dropped it knows where (Services/MapService).
+			thing.mapSeen = true
+		end
 	end
 end
 

@@ -140,7 +140,7 @@ function ActionController:Start()
 		if inputState == Enum.UserInputState.Begin then
 			ui:ToggleMap()
 		end
-	end, true, "Map", Enum.KeyCode.Tab, Enum.KeyCode.ButtonSelect)
+	end, true, "Map", Enum.KeyCode.Tab, Enum.KeyCode.ButtonY) -- (Select is Roblox's own menu navigation)
 
 	self:_bind("ConsensusSettings", function(inputState)
 		if inputState == Enum.UserInputState.Begin then

@@ -461,6 +461,7 @@ function RunOrchestrator:SyncPlayer(player: Player)
 	services.WorldService:BroadcastLayout(player)
 	services.DivergenceService:SendProfile(player)
 	services.StalkerService:SyncPlayer(player)
+	services.MapService:SyncPlayer(player)
 end
 
 -- Debug hooks ------------------------------------------------------------------------

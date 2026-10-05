@@ -710,6 +710,15 @@ Config.Leads = {
 	SmashNoise = 35,
 }
 
+-- The map (Services/MapService, UI/Map): what counts as seen.
+Config.Map = {
+	ScanSeconds = 0.5, -- how often who's where and what they look at is checked
+	SendHz = 2, -- MapState at most this often (and only when it changed)
+	SeenRange = 30, -- studs: a doorway or something lying about looked at this close is on the map
+	LockSeenRange = 10, -- and its lock (a padlock, a keyhole, a bolt) this close
+	ViewCone = 100, -- degrees across of a player's view that counts
+}
+
 -- The escape's puzzles (docs/plans/gameplay-rework.md section 7;
 -- Services/PuzzleService, Logic/Puzzles/*).
 Config.Puzzles = {

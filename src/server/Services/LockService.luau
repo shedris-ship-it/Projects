@@ -60,6 +60,9 @@ function LockService:Start()
 	self.World.Cleared:Connect(function()
 		self:_clear()
 	end)
+	Net.onServer("DropKey", { interval = 0.3, burst = 3, types = { "string" } }, function(player, token)
+		self:DropKey(player, token)
+	end)
 	self.PlayerState.StateChanged:Connect(function(player, state)
 		-- Downed, Lost or gone: the keys fall where they are (ItemService).
 		if state ~= Constants.PlayerStates.Active and self.rings[player] and next(self.rings[player]) then
@@ -126,6 +129,7 @@ function LockService:_clear()
 	for player in self.rings do
 		if player.Parent then
 			player:SetAttribute(PA.Keys, nil)
+			player:SetAttribute(PA.KeyRing, nil)
 		end
 	end
 	table.clear(self.rings)
@@ -230,12 +234,31 @@ end
 -- Keys ------------------------------------------------------------------------------
 
 function LockService:_publishRing(player: Player)
-	local names = {}
-	for _, label in self.rings[player] or {} do
+	local names, entries = {}, {}
+	for token, label in self.rings[player] or {} do
 		table.insert(names, label)
+		table.insert(entries, token .. "=" .. label)
 	end
 	table.sort(names)
+	table.sort(entries)
 	player:SetAttribute(PA.Keys, #names > 0 and table.concat(names, "\n") or nil)
+	-- With the tokens, for the journal's Drop buttons (UI/Map).
+	player:SetAttribute(PA.KeyRing, #entries > 0 and table.concat(entries, "\n") or nil)
+end
+
+-- Take one key off your ring and leave it at your feet, for someone else.
+function LockService:DropKey(player: Player, token: string)
+	local ring = self.rings[player]
+	local label = ring and ring[token]
+	if not label or not self.PlayerState:CanAct(player) then
+		return
+	end
+	ring[token] = nil
+	self:_publishRing(player)
+	local items = self.services.ItemService
+	if items then
+		items:DropKeys(player, { [token] = label })
+	end
 end
 
 function LockService:GiveKey(player: Player, token: string, label: string?)

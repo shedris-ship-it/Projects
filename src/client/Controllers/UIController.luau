@@ -83,6 +83,22 @@ function UIController:Start()
 	net.get("Notify").OnClientEvent:Connect(function(text, kind)
 		self:Toast(text, kind)
 	end)
+	-- F2 `ui map|journal` (Services/DebugService): open a screen as if its
+	-- key were pressed (for tests that can't press Tab).
+	player:GetAttributeChangedSignal("DebugUi"):Connect(function()
+		local what = string.match(tostring(player:GetAttribute("DebugUi")), "^(%a+)")
+		local map = self.components.Map
+		if map and (what == "map" or what == "journal") then
+			map.tab = what == "journal" and "Journal" or "Map"
+			if not map.open then
+				map:Toggle()
+			else
+				map:Render()
+			end
+		elseif map and what == "close" and map.open then
+			map:Toggle()
+		end
+	end)
 end
 
 function UIController:Toast(text: string, kind: string?)

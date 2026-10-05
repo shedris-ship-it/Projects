@@ -77,6 +77,7 @@ Constants.PlayerAttributes = {
 	-- The keys on your ring (the escape, Services/LockService): their names,
 	-- one a line.
 	Keys = "Keys",
+	KeyRing = "KeyRing", -- "token=label" per line: the journal's Drop buttons
 }
 
 Constants.Phases = {

@@ -1,17 +1,41 @@
--- The map (Tab): the house as the squad knows it (docs/plans/
--- gameplay-rework.md, R2c "the map and the journal").
+-- The map and the journal (Tab; docs/plans/gameplay-rework.md, R2c "the map
+-- and the journal"). The map draws the house as the squad knows it, from
+-- the server's MapState (Services/MapService): rooms someone has been in,
+-- doorways seen and their locks, where notes were read, keys and heirlooms
+-- seen lying about, the puzzles and cases found, the table, and a friend
+-- who's down. You are drawn; your living friends aren't (you can talk).
+-- The journal lists the notes you've read (UI/Reader) and your key ring,
+-- with a button to leave each key at your feet for someone else.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Constants = require(Shared.Constants)
+local Net = require(Shared.Net)
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local player = Players.LocalPlayer
+local PA = Constants.PlayerAttributes
 
 local Map = {}
 Map.__index = Map
 
+-- How each kind of doorway looks: colour, and its short tag.
+local DOORS = {
+	door = { color = Color3.fromRGB(150, 140, 120) },
+	unknown = { color = Color3.fromRGB(150, 140, 120) },
+	key = { color = Color3.fromRGB(196, 74, 60), tag = "KEY" },
+	padlock = { color = Color3.fromRGB(214, 150, 60), tag = "CODE" },
+	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
+}
+local MARKS = {
+	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },
+	display = { text = "CASE", color = Color3.fromRGB(170, 200, 220) },
+}
+
 function Map.new(ctx)
-	local self = setmetatable({ ctx = ctx, tab = "Map", open = false }, Map)
+	local self = setmetatable({ ctx = ctx, tab = "Map", open = false, state = nil }, Map)
 	local gui = Ui.screen("ConsensusMap", 40, ctx.playerGui)
 	gui.Enabled = false
 	self.gui = gui
@@ -28,7 +52,7 @@ function Map.new(ctx)
 		Ui.new("UISizeConstraint", { MaxSize = Vector2.new(1100, 720) }),
 	})
 	Ui.modal(panel)
-	Ui.label("MAP", {
+	self.title = Ui.label("MAP", {
 		Position = UDim2.fromOffset(20, 12),
 		Size = UDim2.fromOffset(300, 28),
 		Font = Ui.Theme.fontType,
@@ -50,7 +74,7 @@ function Map.new(ctx)
 		BackgroundTransparency = 1,
 		Parent = panel,
 	}, { Ui.list(8, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
-	for _, name in { "Map" } do
+	for _, name in { "Map", "Journal" } do
 		Ui.button(name, { Size = UDim2.fromOffset(100, 30), TextSize = 14, Parent = tabs }, function()
 			self.tab = name
 			self:Render()
@@ -67,6 +91,17 @@ function Map.new(ctx)
 	})
 	ctx.state.LayoutChanged:Connect(function()
 		if self.open then
+			self:Render()
+		end
+	end)
+	Net.get("MapState").OnClientEvent:Connect(function(state)
+		self.state = state
+		if self.open then
+			self:Render()
+		end
+	end)
+	player:GetAttributeChangedSignal(PA.KeyRing):Connect(function()
+		if self.open and self.tab == "Journal" then
 			self:Render()
 		end
 	end)
@@ -92,40 +127,103 @@ end
 
 function Map:Render()
 	self:_clear()
-	self.summary.Text = "The rooms you've been in. The way you came is the way you know."
-	if self.tab == "Map" then
+	self.title.Text = string.upper(self.tab)
+	if self.tab == "Journal" then
+		self:_renderJournal()
+	else
 		self:_renderMap()
 	end
 end
 
+-- The map ---------------------------------------------------------------------------
+
+function Map:_summary(state)
+	local parts = {}
+	if state and state.table then
+		table.insert(parts, string.format("Places set: %d of %d", state.table.set, state.table.places))
+	end
+	local locked = 0
+	for _, door in state and state.doors or {} do
+		if DOORS[door.kind] and DOORS[door.kind].tag then
+			locked += 1
+		end
+	end
+	if locked > 0 then
+		table.insert(parts, locked .. (locked == 1 and " lock" or " locks") .. " found")
+	end
+	table.insert(parts, "Only what someone has seen.")
+	return table.concat(parts, "  ·  ")
+end
+
 function Map:_renderMap()
 	local layout = self.ctx.state.layout
-	if not layout then
-		Ui.label("No map yet.", { Parent = self.body })
+	local state = self.state
+	self.summary.Text = self:_summary(state)
+	if not layout or not state then
+		Ui.label("No map yet.", { Size = UDim2.fromOffset(300, 20), Parent = self.body })
 		return
 	end
-	-- Rooms are rectangles (x, z, w, d in studs); the mansion's two floors are
-	-- drawn side by side, the hall and stairwells on both.
+	local ox, oz = layout.origin[1], layout.origin[3]
+	local byId = {}
+	for _, room in layout.rooms do
+		byId[room.id] = room
+	end
+	-- Rooms someone has been in, and the far side of a doorway seen (an
+	-- outline: a room is there, nobody knows what).
+	local entered, glimpsed = {}, {}
+	for _, id in state.rooms do
+		entered[id] = true
+	end
+	for _, door in state.doors do
+		for _, id in { door.a, door.b } do
+			if not entered[id] then
+				glimpsed[id] = true
+			end
+		end
+	end
+	local shown = {}
+	for id in entered do
+		table.insert(shown, byId[id])
+	end
+	for id in glimpsed do
+		table.insert(shown, byId[id])
+	end
+	if #shown == 0 then
+		Ui.label("Nowhere yet.", { Size = UDim2.fromOffset(300, 20), Parent = self.body })
+		return
+	end
+	-- The whole house's extent sets the scale (so the map doesn't jump as it
+	-- grows), the mansion's floors side by side.
 	local floors = layout.mode == "Mansion" and 2 or 1
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	for _, room in layout.rooms do
 		minX, maxX = math.min(minX, room.x), math.max(maxX, room.x + room.w)
 		minZ, maxZ = math.min(minZ, room.z), math.max(maxZ, room.z + room.d)
 	end
-	local gap = 30 -- studs between the floors' plans
+	local gap = 30
 	local width = (maxX - minX) * floors + gap * (floors - 1)
 	local height = maxZ - minZ
-	local scale = math.min(540 / height, 900 / width)
+	-- As big as the panel allows, under the floors' names and the key (the
+	-- panel's size from the screen's: it isn't measured yet the moment the
+	-- map opens).
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local areaX = math.min(viewport.X * 0.86, 1100) - 56
+	local areaY = math.min(viewport.Y * 0.82, 720) - 92 - 70
+	local scale = math.min(math.max(150, areaY) / height, math.max(300, areaX) / width)
 	local canvas = Ui.new("Frame", {
-		Size = UDim2.fromOffset(width * scale, height * scale + 46),
+		Size = UDim2.fromOffset(width * scale, height * scale + 64),
 		BackgroundTransparency = 1,
 		Parent = self.body,
 	})
+	local function toMap(x: number, z: number, floor: number)
+		local left = math.min(floor, floors - 1) * (maxX - minX + gap)
+		return (left + (x - ox) - minX) * scale, ((z - oz) - minZ) * scale
+	end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local here = root and self.ctx.state:RoomAt(root.Position)
 	for floor = 0, floors - 1 do
-		local left = floor * (maxX - minX + gap)
 		if floors > 1 then
+			local left = floor * (maxX - minX + gap)
 			Ui.label(floor == 0 and "Ground floor" or "Upper floor", {
 				Position = UDim2.fromOffset(left * scale, height * scale + 4),
 				Size = UDim2.fromOffset((maxX - minX) * scale, 18),
@@ -134,69 +232,267 @@ function Map:_renderMap()
 				Parent = canvas,
 			})
 		end
-		for _, room in layout.rooms do
+		for _, room in shown do
 			if room.tall or (room.floor or 0) == floor then
-				local isHere = here and here.id == room.id
-				local tag = room.role == "start" and " (Hall)"
-					or room.role == "deliberation" and " (Table)"
-					or room.role == "exit" and " (Exit)"
-					or room.kind == "stair" and " (Stairs)"
-					or ""
-				if room.lantern then
-					tag ..= " (Lantern)"
-				end
-				local color = isHere and Ui.Theme.accent
-					or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
-				local x0, z0 = (left + room.x - minX) * scale, (room.z - minZ) * scale
-				if room.tall and room.role == "start" and floor == 1 then
-					-- Upstairs the hall is only its gallery, round three walls
-					-- over the open hall (Logic/TallRooms).
-					local g = 8 * scale
-					local strips = {
-						{ 0, 0, room.w * scale, g },
-						{ 0, g, g, room.d * scale - g },
-						{ room.w * scale - g, g, g, room.d * scale - g },
-					}
-					for _, strip in strips do
-						Ui.new("Frame", {
-							Position = UDim2.fromOffset(x0 + strip[1] + 2, z0 + strip[2] + 2),
-							Size = UDim2.fromOffset(math.max(1, strip[3] - 4), math.max(1, strip[4] - 4)),
-							BackgroundColor3 = color,
-							Parent = canvas,
-						}, { Ui.corner(3) })
-					end
-					Ui.label("Gallery", {
-						Position = UDim2.fromOffset(x0 + 2, z0 + 2),
-						Size = UDim2.fromOffset(room.w * scale - 4, g - 4),
-						TextSize = 11,
-						TextXAlignment = Enum.TextXAlignment.Center,
-						TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
-						Parent = canvas,
-					})
-				else
-					Ui.new("TextLabel", {
-						Position = UDim2.fromOffset(x0 + 2, z0 + 2),
-						Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
-						BackgroundColor3 = color,
-						Text = room.name .. tag,
-						TextWrapped = true,
-						TextScaled = room.w * scale < 70,
-						TextSize = 12,
-						Font = Ui.Theme.font,
-						TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
-						Parent = canvas,
-					}, { Ui.corner(4), Ui.new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 7 }) })
-				end
+				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, maxX, gap)
 			end
 		end
 	end
-	Ui.label("Rooms only, for now.", {
-		Position = UDim2.fromOffset(0, height * scale + 24),
+	-- The table.
+	if state.table then
+		local x, y = toMap(state.table.x, state.table.z, state.table.floor)
+		self:_dot(
+			canvas,
+			x,
+			y,
+			14,
+			Color3.fromRGB(230, 200, 120),
+			string.format("%d/%d", state.table.set, state.table.places)
+		)
+	end
+	for _, door in state.doors do
+		local look = DOORS[door.kind] or DOORS.door
+		local x, y = toMap(door.x, door.z, door.floor)
+		local size = look.tag and 9 or 6
+		Ui.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(x, y),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundColor3 = look.color,
+			Rotation = 45,
+			Parent = canvas,
+		})
+		if look.tag then
+			Ui.label(look.tag .. (door.label and (" " .. door.label) or ""), {
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.fromOffset(x, y + 6),
+				Size = UDim2.fromOffset(120, 12),
+				TextSize = 10,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				TextColor3 = look.color,
+				Parent = canvas,
+			})
+		end
+	end
+	for _, note in state.notes do
+		local x, y = toMap(note.x, note.z, note.floor)
+		self:_dot(canvas, x, y, 8, Color3.fromRGB(230, 222, 196), "note")
+	end
+	for _, item in state.items do
+		local x, y = toMap(item.x, item.z, item.floor)
+		local color = item.kind == "heirloom" and Color3.fromRGB(230, 200, 120) or Color3.fromRGB(214, 180, 90)
+		self:_dot(canvas, x, y, 8, color, item.label)
+	end
+	for _, mark in state.marks do
+		local look = MARKS[mark.kind] or { text = mark.label or mark.kind, color = Ui.Theme.text }
+		local x, y = toMap(mark.x, mark.z, mark.floor)
+		local color = mark.done and Ui.Theme.textDim or look.color
+		self:_dot(canvas, x, y, 8, color, look.text .. (mark.done and " (done)" or ""))
+	end
+	for _, down in state.downed do
+		local x, y = toMap(down.x, down.z, down.floor)
+		self:_dot(canvas, x, y, 12, Color3.fromRGB(220, 60, 50), down.name .. " is down")
+	end
+	-- You: a dot, and a stroke the way you face.
+	if root then
+		local up = layout.origin[2]
+		local floor = (layout.mode == "Mansion" and root.Position.Y - up >= layout.pitch - 0.5) and 1 or 0
+		local x, y = toMap(root.Position.X, root.Position.Z, floor)
+		local look = root.CFrame.LookVector
+		local facing = Vector2.new(look.X, look.Z)
+		if facing.Magnitude > 1e-3 then
+			facing = facing.Unit
+			-- Map x is the world's X and map y its Z, so a bar turned by this
+			-- angle points the way you face.
+			Ui.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(x + facing.X * 7, y + facing.Y * 7),
+				Size = UDim2.fromOffset(12, 3),
+				BackgroundColor3 = Ui.Theme.accent,
+				BorderSizePixel = 0,
+				Rotation = math.deg(math.atan2(facing.Y, facing.X)),
+				Parent = canvas,
+			})
+		end
+		self:_dot(canvas, x, y, 10, Ui.Theme.accent, "you")
+	end
+	Ui.label("Diamonds: doorways.  KEY, CODE, BOLT: locks.  note: read here.  At the table: places set.", {
+		Position = UDim2.fromOffset(0, height * scale + 26),
 		Size = UDim2.fromOffset(width * scale, 18),
 		TextSize = 12,
 		TextColor3 = Ui.Theme.textDim,
 		Parent = canvas,
 	})
+end
+
+function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, maxX, gap)
+	local left = floor * (maxX - minX + gap)
+	local x0, z0 = (left + room.x - minX) * scale, (room.z - minZ) * scale
+	local isHere = here and here.id == room.id
+	local color = isHere and Ui.Theme.accent or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
+	if not entered then
+		-- Glimpsed through a doorway: there's a room, nobody knows what.
+		Ui.new("Frame", {
+			Position = UDim2.fromOffset(x0 + 2, z0 + 2),
+			Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
+			BackgroundTransparency = 1,
+			Parent = canvas,
+		}, { Ui.corner(4), Ui.stroke(Ui.Theme.textDim, 1, 0.6) })
+		return
+	end
+	if room.tall and room.role == "start" and floor == 1 then
+		-- Upstairs the hall is only its gallery, round three walls over the
+		-- open hall (Logic/TallRooms).
+		local g = 8 * scale
+		for _, strip in
+			{
+				{ 0, 0, room.w * scale, g },
+				{ 0, g, g, room.d * scale - g },
+				{ room.w * scale - g, g, g, room.d * scale - g },
+			}
+		do
+			Ui.new("Frame", {
+				Position = UDim2.fromOffset(x0 + strip[1] + 2, z0 + strip[2] + 2),
+				Size = UDim2.fromOffset(math.max(1, strip[3] - 4), math.max(1, strip[4] - 4)),
+				BackgroundColor3 = color,
+				Parent = canvas,
+			}, { Ui.corner(3) })
+		end
+		return
+	end
+	local tag = room.role == "start" and " (Hall)"
+		or room.role == "deliberation" and " (Table)"
+		or room.kind == "stair" and " (Stairs)"
+		or ""
+	if room.lantern then
+		tag ..= " (Lantern)"
+	end
+	Ui.new("TextLabel", {
+		Position = UDim2.fromOffset(x0 + 2, z0 + 2),
+		Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
+		BackgroundColor3 = color,
+		BackgroundTransparency = 0.15,
+		Text = room.name .. tag,
+		TextWrapped = true,
+		TextScaled = room.w * scale < 70,
+		TextSize = 12,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Font = Ui.Theme.font,
+		TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
+		Parent = canvas,
+	}, { Ui.corner(4), Ui.new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 7 }), Ui.padding(3) })
+end
+
+-- A small round mark with a word under it.
+function Map:_dot(canvas, x: number, y: number, size: number, color: Color3, text: string?)
+	Ui.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(x, y),
+		Size = UDim2.fromOffset(size, size),
+		BackgroundColor3 = color,
+		Parent = canvas,
+	}, { Ui.corner(size) })
+	if text then
+		Ui.label(text, {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.fromOffset(x, y + size / 2 + 1),
+			Size = UDim2.fromOffset(140, 12),
+			TextSize = 10,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextColor3 = color,
+			Parent = canvas,
+		})
+	end
+end
+
+-- The journal -----------------------------------------------------------------------
+
+function Map:_renderJournal()
+	self.summary.Text = "What you've read, and the keys you carry."
+	local list = Ui.new("Frame", {
+		Size = UDim2.new(1, -10, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Parent = self.body,
+	}, { Ui.list(10) })
+	local function heading(text: string, order: number)
+		Ui.label(text, {
+			Size = UDim2.new(1, 0, 0, 24),
+			Font = Ui.Theme.fontType,
+			TextSize = 18,
+			TextColor3 = Ui.Theme.accent,
+			LayoutOrder = order,
+			Parent = list,
+		})
+	end
+	heading("Your keys", 1)
+	local ring = player:GetAttribute(PA.KeyRing)
+	local order = 2
+	if typeof(ring) ~= "string" or ring == "" then
+		Ui.label("None. A key you find goes on your ring; a locked door takes it.", {
+			Size = UDim2.new(1, 0, 0, 20),
+			TextSize = 14,
+			TextColor3 = Ui.Theme.textDim,
+			LayoutOrder = order,
+			Parent = list,
+		})
+		order += 1
+	else
+		for line in string.gmatch(ring, "[^\n]+") do
+			local token, label = string.match(line, "^([^=]+)=(.*)$")
+			if token then
+				local row = Ui.new("Frame", {
+					Size = UDim2.new(1, 0, 0, 30),
+					BackgroundTransparency = 1,
+					LayoutOrder = order,
+					Parent = list,
+				})
+				order += 1
+				Ui.label(label, {
+					Size = UDim2.new(1, -150, 1, 0),
+					TextSize = 15,
+					Parent = row,
+				})
+				Ui.button("Leave it here", {
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.new(1, 0, 0, 0),
+					Size = UDim2.fromOffset(140, 28),
+					TextSize = 13,
+					Parent = row,
+				}, function()
+					Net.get("DropKey"):FireServer(token)
+				end)
+			end
+		end
+	end
+	heading("Notes you've read", 100)
+	local reader = self.ctx.ui.components.Reader
+	local notes = reader and reader:Read() or {}
+	if #notes == 0 then
+		Ui.label("None yet.", {
+			Size = UDim2.new(1, 0, 0, 20),
+			TextSize = 14,
+			TextColor3 = Ui.Theme.textDim,
+			LayoutOrder = 101,
+			Parent = list,
+		})
+	end
+	for i, note in notes do
+		Ui.new("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = Color3.fromRGB(236, 228, 202),
+			Text = note.text,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Font = Enum.Font.IndieFlower,
+			TextSize = 20,
+			TextColor3 = Color3.fromRGB(38, 44, 84),
+			LayoutOrder = 101 + i,
+			Parent = list,
+		}, { Ui.corner(3), Ui.padding(10) })
+	end
 end
 
 return Map
