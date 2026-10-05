@@ -679,7 +679,8 @@ Config.Progression = {
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
 	Flavours = { key = 3, padlock = 2, power = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
-	Enabled = { key = true, padlock = true, power = true },
+	Enabled = { key = true, padlock = true, power = true, safe = true },
+	Keepers = { container = 4, safe = 2 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
 	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round

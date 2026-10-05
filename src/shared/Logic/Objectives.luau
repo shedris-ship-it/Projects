@@ -27,6 +27,9 @@ Objectives.Stations = {
 	breaker = function(room: string)
 		return "There's a fuse box in the " .. room .. "."
 	end,
+	safe = function(room: string)
+		return "There's a safe in the " .. room .. "."
+	end,
 }
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }

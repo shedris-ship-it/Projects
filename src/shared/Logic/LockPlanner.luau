@@ -177,6 +177,25 @@ LockPlanner.Where = {
 		local template = ctx.templatesById[ctx.byId[id].template]
 		return template ~= nil and template.family == "utility" and template.id ~= "bathroom"
 	end,
+	-- A lived-in room for a wall safe behind a painting: a bedroom, the
+	-- study, the den... (not the hall or the dining room).
+	homely = function(ctx, id)
+		local template = ctx.templatesById[ctx.byId[id].template]
+		return template ~= nil
+			and (template.family == "living" or template.family == "bedroom")
+			and template.id ~= "grand_hall"
+			and template.id ~= "foyer"
+			and template.id ~= "dining_room"
+	end,
+}
+
+-- What can keep an heirloom: a drawer or cupboard in its room (the first,
+-- the default; Logic/Leads gives it a lead), or a puzzle that holds it,
+-- standing in a room of the heirloom's region that suits it. Drawn against
+-- each other by Config.Progression.Keepers weights, in this order.
+LockPlanner.Keepers = {
+	{ id = "container" },
+	{ id = "safe", puzzle = "safe", where = "homely" },
 }
 
 -- What kind of lock a region's gate can be. The first is the plain key; the
@@ -632,10 +651,54 @@ local function attempt(ctx, rng, cfg, k: number)
 		end)
 		entry.taken = true
 		local room = keepingRoom(ctx, rng, regions[entry.region].rooms, used)
+		-- What keeps it: a drawer there, or a puzzle switched on that has
+		-- somewhere in its region to stand (one of each puzzle a house).
+		local producer = { kind = "container", room = room }
+		local keepers = { { keeper = LockPlanner.Keepers[1], weight = (cfg.Keepers or {}).container or 1 } }
+		for k = 2, #LockPlanner.Keepers do
+			local keeper = LockPlanner.Keepers[k]
+			local weight = (cfg.Keepers or {})[keeper.id] or 0
+			if enabled[keeper.id] and weight > 0 and not usedPuzzles[keeper.puzzle] then
+				if plan.stats.puzzles < cfg.MaxPuzzles then
+					local rooms = {}
+					for _, id in regions[entry.region].rooms do
+						if id ~= ctx.dining and not used[id] and LockPlanner.Where[keeper.where](ctx, id) then
+							table.insert(rooms, id)
+						end
+					end
+					if #rooms > 0 then
+						table.insert(keepers, { keeper = keeper, weight = weight, rooms = rooms })
+					end
+				end
+			end
+		end
+		if #keepers > 1 then
+			local total = 0
+			for _, option in keepers do
+				total += option.weight
+			end
+			local roll = rng:NextNumber() * total
+			local choice = keepers[1]
+			for _, option in keepers do
+				choice = option
+				if roll < option.weight then
+					break
+				end
+				roll -= option.weight
+			end
+			local keeper = choice.keeper
+			if keeper.puzzle then
+				room = rng:Pick(choice.rooms)
+				local puzzleId = keeper.puzzle .. ":1"
+				plan.puzzles[puzzleId] = { kind = keeper.puzzle, room = room, seed = rng:NextInteger(1, 2 ^ 30) }
+				plan.stats.puzzles += 1
+				usedPuzzles[keeper.puzzle] = true
+				producer = { kind = "puzzle", id = puzzleId }
+			end
+		end
 		used[room] = true
 		local id = "heirloom:" .. i
-		plan.tokens[id] =
-			{ kind = "heirloom", label = "Heirloom " .. i, producer = { kind = "container", room = room } }
+		plan.tokens[id] = { kind = "heirloom", label = "Heirloom " .. i, producer = producer }
 		table.insert(heirlooms, id)
 	end
 

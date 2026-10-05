@@ -74,6 +74,9 @@ function Puzzle:Hide(tell: boolean)
 	local open = self.open
 	self.open = nil
 	self.gui.Enabled = false
+	for _, connection in open and open.connections or {} do
+		connection:Disconnect()
+	end
 	if open and open.panel then
 		local selected = GuiService.SelectedObject
 		if selected and selected:IsDescendantOf(open.panel) then

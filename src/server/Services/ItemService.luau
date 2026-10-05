@@ -38,6 +38,7 @@ local Signal = require(Shared.Lib.Signal)
 local Dressing = require(script.Parent.Parent.World.Dressing)
 local Items = require(script.Parent.Parent.World.Items)
 local Junk = require(script.Parent.Parent.World.Junk)
+local LockPlanner = require(Shared.Logic.LockPlanner)
 local LeadProps = require(script.Parent.Parent.World.LeadProps)
 
 local L = Config.Leads
@@ -143,7 +144,7 @@ function ItemService:Begin(plan, rng, leads)
 		if token.kind == "heirloom" then
 			heirlooms += 1
 			self.heirloomKinds[id] = kinds[(heirlooms - 1) % #kinds + 1]
-			self.heirlooms[id] = { token = id, set = false, home = { room = token.producer.room } }
+			self.heirlooms[id] = { token = id, set = false, home = { room = LockPlanner.tokenRoom(plan, token) } }
 		end
 		if token.producer.kind == "container" then
 			local room = token.producer.room
@@ -243,6 +244,11 @@ function ItemService:_make(token: string, at: CFrame)
 		state.thing = thing
 	end
 	return model, thing
+end
+
+-- Make a token's thing where it lies (a puzzle that holds one: the safe).
+function ItemService:Make(token: string, at: CFrame)
+	return self:_make(token, at)
 end
 
 -- Each heirloom's state, for his scent (Logic/Scent): holder, hidden,

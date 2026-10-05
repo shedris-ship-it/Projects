@@ -18,4 +18,5 @@ return {
 	terminal = require(Puzzles.Terminal),
 	padlock = require(Puzzles.Padlock),
 	breaker = require(Puzzles.Breaker),
+	safe = require(Puzzles.Safe),
 }

@@ -34,6 +34,7 @@ local MARKS = {
 	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },
 	display = { text = "CASE", color = Color3.fromRGB(170, 200, 220) },
 	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
+	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
 }
 
 function Map.new(ctx)
