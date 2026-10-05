@@ -21,6 +21,9 @@ local Storeys = require(Shared.Logic.Storeys)
 
 local CELL = Config.Level.CellSize
 local PITCH = Config.Mansion.FloorPitch
+-- The storeys the house being played has (docs/plans/level-design.md
+-- section 10.1): the cellar is -1, the attic 2.
+local lowStorey, highStorey = 0, 1
 
 local WorldService = {
 	World = nil,
@@ -115,6 +118,8 @@ function WorldService:Build(layout, rng)
 	self.passageChangedAt = {}
 	self.debugBlocked = {}
 	self.World.nav = self.nav
+	lowStorey, highStorey = Storeys.range(layout)
+	self.World.storeys = { low = lowStorey, high = highStorey }
 	self.Built:Fire(self.World)
 	self:BroadcastLayout()
 	return self.World
@@ -157,6 +162,7 @@ function WorldService:LayoutSnapshot()
 			d = rect.d,
 			floor = rect.floor or 0,
 			tall = rect.tall,
+			top = rect.top,
 			kind = room.kind,
 			name = room.name,
 			role = room.role,
@@ -174,6 +180,7 @@ function WorldService:LayoutSnapshot()
 		cell = CELL,
 		pitch = PITCH,
 		mode = world.layout.mode or "Cells",
+		storeys = { lowStorey, highStorey },
 		origin = { o.x, o.y, o.z },
 		seed = world.layout.seed,
 	}
@@ -193,10 +200,11 @@ end
 
 -- Queries ------------------------------------------------------------------
 
--- Which floor of the mansion a point is on: upstairs once it is near the
--- upper floor's level (stairs and the hall stand on both floors).
+-- Which storey of the mansion a point is on: a storey once it is near that
+-- floor's level (stairs and the hall stand on several), within the storeys
+-- the house has (Logic/Storeys).
 local function floorAt(y: number): number
-	return y >= PITCH - 0.5 and 1 or 0
+	return Storeys.of(y, PITCH, lowStorey, highStorey)
 end
 WorldService.FloorAt = floorAt
 
@@ -208,10 +216,11 @@ function WorldService:RoomAt(position: Vector3): number?
 	local o = Config.Level.Origin
 	if world.index then
 		local y = position.Y - o.y
-		if y < -20 or y > 2 * PITCH + 20 then
+		if y < lowStorey * PITCH - 20 or y > (highStorey + 1) * PITCH + 20 then
 			return nil
 		end
-		return world.index[floorAt(y)]:At(position.X - o.x, position.Z - o.z)
+		local index = world.index[floorAt(y)]
+		return index and index:At(position.X - o.x, position.Z - o.z)
 	end
 	local gx = math.floor((position.X - o.x) / CELL + 0.5)
 	local gz = math.floor((position.Z - o.z) / CELL + 0.5)
@@ -402,6 +411,7 @@ local function place(self, p: Vector3)
 	local q = toLayout(p)
 	q.room = room
 	q.tall = record and record.tall or false
+	q.storey = floorAt(q.y)
 	return q
 end
 

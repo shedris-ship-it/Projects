@@ -1,6 +1,6 @@
 # The house as a designed level
 
-Status (2026-10-05): **L0 and L1 done** (builds `2026-10-05.25` to `.30`; section 9, "L1 as built"). The adventure now decides where the doors, wings and shortcuts go; the house follows the squad's size; every room's reason is counted and filled; and each run is the best of 12 candidate houses. **Next: the squad playtest**, then L2–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
+Status (2026-10-05): **L0 and L1 done** (builds `2026-10-05.25` to `.30`; section 9, "L1 as built"). The adventure now decides where the doors, wings and shortcuts go; the house follows the squad's size; every room's reason is counted and filled; and each run is the best of 12 candidate houses. **L2 under way** (section 10): the owner chose to go on to L2 before the squad playtest ("continue with L2", 2026-10-05). The playtest follows L2, then L3–L4. This builds on [`mansion-generation.md`](mansion-generation.md) (the house grammar, M1–M3) and [`gameplay-rework.md`](gameplay-rework.md) (the escape: locks, keys, puzzles, the dinner). Where they disagree about level design, this document wins.
 
 ## 1. Why
 
@@ -180,3 +180,63 @@ Squad 1: 15–18 rooms, 2 regions in 26 of 30 houses, region 0 a median 0.47, sc
 
 **Fixed after L1** (build `2026-10-05.31`): the dumbwaiter's hatch could find its wall taken by furniture, and its heirloom was then left upstairs (seed 3 for four: the garage under the nursery). The planner now offers only spots whose casing, and the crank downstairs, clear the furniture both rooms will have (`Logic/Dumbwaiter`: `furniture` and `footprint`, from `RoomFit.inMansion`, the fit `World/MansionBuilder` builds), so it's an ordinary deck pick again (weight 1.5, was 0.5). The build still checks the spot for anything else solid. Over the first houses of seeds 1 to 80 for four, 39 dumbwaiters were planned and none would hit fitted furniture (before: 28, one blocked).
 
+
+## 10. L2: house plans and new spaces (plan, 2026-10-05)
+
+The owner asked to go on to L2 before the playtest ("continue with L2"). L2 is the builder phase: new kinds of space, then new kinds of plan. Each step below is its own commit, checked by the specs, `tools/housestats` and Studio (`navtest` over every new piece, screenshots), and leaves the old house alone (Gate A).
+
+### 10.1 Storeys from the cellar to the attic (L2.1)
+The code learns floors −1 (cellar) to 2 (attic). Nothing about the houses changes in this step: 240 mansions (four squad sizes) and 20 old houses keep their fingerprints, plans and walking graphs exactly.
+- A room's `floor` is its lowest storey. A double-height room (`tall`) spans `floor` to `top` (one storey up unless it says otherwise), with a zone per storey.
+- Which storey a height is on: storey *k* starts half a stud below its floor (`Storeys.of`, used everywhere that asked "upstairs or down?").
+- A room above the ground stands on the storey below it; a cellar room lies under the ground floor; nothing stands over the void.
+- The builder, the walkers' graph, `WorldService`, the map and the tools take any storeys the house has. The map shows the storeys the house has (Cellar, Ground floor, Upper floor, Attic).
+
+### 10.2 The cellar (L2.2)
+- **Reached** by the cellar stair (a straight flight down from a door off the kitchen side: the kitchen, pantry, service passage or laundry) and, where it fits, by the back stairs carried down. Two ways down make the cellar a loop of its own: kitchen, cellar stair, cellar, back stairs, service passage, kitchen.
+- **Rooms** (2–4): the boiler room (the boiler: a landmark and the breaker panel's home), the wine cellar (racks to hide behind), the storeroom (shelves and crates), the workshop (a bench and tools), the cold store. Stone and whitewash, bare bulbs on pull-chains, joists overhead, no windows.
+- **Zone** `cellar`: doorways only between cellar rooms and the bottoms of the stairs, so the dining room stays the only way into the service wing on the ground floor (the table stays on the path).
+- **For the adventure:** the cellar is a natural wing ("the cellar door is locked"), and `Logic/Wings` already favours a cut at a change of floor.
+
+### 10.3 The attic (L2.3)
+- **Reached** by a steep attic stair from the upper hall and, where it fits, by the back stairs carried up (the servants' stair ran from the cellar to the attic). Two ways up make a loop.
+- **Rooms** (2–3): the box room (trunks: a home for heirlooms), the servants' bedroom, the water-tank room, a stretch of attic passage. Rafters under a pitched roof, bare boards, a round gable window.
+- **Zone** `attic`. Its boards creak: footsteps carry further up there (`Logic/VoiceNoise`'s footstep noise, by room).
+
+**Who gets which** (`Config.Mansion.BySquad`): one or two players get one of them by chance (2–3 rooms); three or four get both (2–4 rooms each). They count in the squad's room band, so the main floors give up the rooms; the cellar and attic are wings the main floors couldn't make in a small house (L1's region-0 share problem).
+
+### 10.4 Servants' passages and hidden doors (L2.4)
+- **Passages:** narrow ways (a 10-stud strip, about 6 to walk) behind the walls of a wing, opening into its rooms by hidden doors: a bookcase in the library or study, a panel in the dining room, a jib door in a bedroom.
+- **Finding a hidden door:** it looks like the wall. Its tells: a draught (dust drifting towards it, a faint whistle), scuffs on the floor in the arc it swings, a book out of line. The prompt shows only at arm's length while facing it. From inside the passage it's a plain latched door.
+- **Fairness:** the house is whole and fair without its passages (the validator, the walker graph and the planner treat an unfound hidden door as wall); nothing the run needs lies only behind one; The Guest treats an unfound hidden door as wall (he uses the passages in L4, as a rule players are told). Once someone opens it, it's a door for everyone.
+- **Purpose:** a shortcut across a wing, somewhere to hide, sometimes a keepsake.
+
+### 10.5 The laundry chute (L2.5)
+- A hatch in an upstairs room standing over the laundry (a bathroom, the upper hall, a bedroom). Climb in to slide down (one way, about a second), or drop what you carry into it (it lands in the laundry basket).
+- It opens only while the laundry can be walked to from the hall with the doors as they are, so nobody drops into a locked wing.
+- Players only: The Guest doesn't fit.
+- **Purpose:** an escape from upstairs, and a shortcut for heirlooms down to the dining room's side of the house.
+
+### 10.6 House types (L2.6)
+A grammar of plans, each a set of wing blocks the packer fills, with wings built as units with a character (the public rooms, the family's, the servants', the guests'): the centre hall (today's), the L, the U round a courtyard (windows across the courtyard show what's ahead), the H, and a tower stair. The search keeps runs from repeating a type.
+
+### 10.7 Corridors, archways and glass (L2.7)
+Narrow corridors (10–14 to walk) lined with closets to hide in; L-shaped rooms, two rectangles joined by a wide archway; glass-panelled gate doors, so a locked wing can be seen before it can be entered.
+
+### 10.8 Fairness additions
+- The cellar and the attic each have two ways in where they fit; where only one fits, the validator's dead-end rule still holds (no room more than 2 doorways from a loop).
+- Hidden doors and the chute are extras: every fairness rule holds without them.
+- The chute never drops anyone into a part of the house that's still locked.
+
+### 10.9 Order and gates
+
+| Step | What | Checked by |
+| --- | --- | --- |
+| L2.1 | Storeys −1 to 2 in the code | 240 + 20 house fingerprints unchanged; Studio: a run on two seeds, Gate A |
+| L2.2 | The cellar | Specs; `housestats`; Studio `navtest` with a cellar on squads 1 and 4; screenshots |
+| L2.3 | The attic | As L2.2 |
+| L2.4 | Passages and hidden doors | Specs; Studio: finding, opening and walking a passage; `navtest` |
+| L2.5 | The laundry chute | Specs; Studio: a drop, an item, the locked case |
+| L2.6 | House types | `housestats` per type; screenshots from above |
+| L2.7 | Corridors, archways, glass | Screenshots; `clip`; `navtest` |
+| — | The fallback re-frozen; the squad playtest | |

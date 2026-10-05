@@ -1,7 +1,8 @@
 -- Builds a mansion layout (Logic/MansionGen, docs/plans/mansion-generation.md)
 -- into parts:
---   * rooms as rectangles over two floors, each wall broken for its doorways,
---     on each storey it stands on;
+--   * rooms as rectangles over their storeys (-1 the cellar to 2 the attic;
+--     docs/plans/level-design.md section 10.1), each wall broken for its
+--     doorways, on each storey it stands on;
 --   * the double-height grand hall: a gallery round three walls, a staircase
 --     up the middle and the locked front door;
 --   * dog-leg stairwells whose doorway on both floors is in the south wall;
@@ -45,9 +46,9 @@ local DOOR_H = Config.Level.DoorHeight
 local DIRS = LevelBuilder.WorldDirs
 local OPPOSITE = RoomRects.Opposite
 local UP = Vector3.new(0, 1, 0)
--- How far below the floor's top above a ground-floor wall stops: inside the
--- slab (ceiling, then the floor over it), never level with its top, where it
--- showed through the room upstairs as a stripe (owner, 2026-10-04).
+-- How far below the floor's top above a room's top wall band stops: inside
+-- the slab (ceiling, then the floor over it), never level with its top, where
+-- it showed through the room upstairs as a stripe (owner, 2026-10-04).
 local SLAB_TUCK = 0.25
 
 -- The hall's gallery and staircase, in the hall's own frame (40x50). The
@@ -529,7 +530,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 	local o = origin()
 
 	-- Which room is where on each floor, for outer walls.
-	local index = { [0] = RoomRects.newIndex(M.Lattice), [1] = RoomRects.newIndex(M.Lattice) }
+	local index = MansionHouse.indices(M.Lattice)
 	for _, room in layout.rooms do
 		for _, floor in MansionHouse.floorsOf(room) do
 			index[floor]:Add(room)
@@ -572,7 +573,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 
 	for _, room in layout.rooms do
 		local template = templatesById[room.template]
-		local floorY = MansionBuilder.floorY(room.tall and 0 or room.floor)
+		local floorY = MansionBuilder.floorY(room.floor)
+		local top = RoomRects.topOf(room)
 		local hx, hz = room.w / 2, room.d / 2
 		local center = Vector3.new(o.X + room.x + hx, floorY, o.Z + room.z + hz)
 		local roomCF = CFrame.new(center) * CFrame.Angles(0, room.rotation * math.pi / 2, 0)
@@ -595,8 +597,10 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		local floorSurface =
 			{ color = PropFactory.rgb(template.floor.color), material = floorMaterial, variant = floorVariant }
 
-		-- Floor and ceiling. Upstairs, the floor sits on the ceiling below.
-		local onGround = room.tall or room.floor == 0
+		-- Floor and ceiling. Over another room, the floor sits on the ceiling
+		-- below; over nothing (the ground, or the cellar's earth) it is thicker.
+		local below = index[room.floor - 1]
+		local onGround = room.floor <= 0 and (below == nil or below:Free(room))
 		local floorThickness = onGround and 1 or 0.5
 		PropFactory.part(
 			model,
@@ -607,7 +611,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			floorSurface.material,
 			{ variant = floorSurface.variant }
 		)
-		local ceilingY = floorY + (room.tall and PITCH + HEIGHT or HEIGHT)
+		local ceilingY = floorY + (top - room.floor) * PITCH + HEIGHT
 		PropFactory.part(
 			model,
 			"Ceiling",
@@ -618,17 +622,14 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			{ variant = ceilingVariant }
 		)
 
-		-- Walls, one band per storey.
+		-- Walls, one band per storey. The top band stops inside the slab over
+		-- it (or just over its own ceiling); a tall room's lower bands meet the
+		-- band above.
 		local panels = {}
-		local storeys = room.tall and { 0, 1 } or { room.floor }
+		local storeys = MansionHouse.floorsOf(room)
 		for band, floor in storeys do
 			local baseY = MansionBuilder.floorY(floor)
-			local top = PITCH
-			if room.tall and band == 2 then
-				top = PITCH + 0.5
-			elseif not room.tall and floor == 0 then
-				top = PITCH - SLAB_TUCK
-			end
+			local bandTop = band < #storeys and PITCH or PITCH - SLAB_TUCK
 			for side, dir in DIRS do
 				local across = (side == "N" or side == "S") and hz or hx
 				local length = (side == "N" or side == "S") and room.w or room.d
@@ -637,7 +638,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				for _, entry in openingsOf(room, floor, side) do
 					table.insert(list, entry)
 				end
-				for id, panel in wallBand(model, base, dir, length, top, list, wallSurface) do
+				for id, panel in wallBand(model, base, dir, length, bandTop, list, wallSurface) do
 					panels[id] = panel
 				end
 			end
@@ -657,8 +658,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 					table.insert(cuts, entry.offset + half)
 				end
 				local a, b = dir * across - axis * half, dir * across + axis * half
-				local lowerOfTwo = room.tall and band == 1
-				local upperOfTwo = room.tall and band == 2
+				local lowerOfTwo = room.tall and band < #storeys
+				local upperOfTwo = room.tall and band > 1
 				local baseboard = true
 				if upperOfTwo then
 					-- Upstairs in the hall only the gallery walls have a floor; in a
@@ -693,7 +694,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		end
 
 		-- Grime's view of the walls (World/Grime): the storey it decorates.
-		local baseFloor = room.tall and 0 or room.floor
+		local baseFloor = room.floor
 		local wallOpenings = {}
 		for side in DIRS do
 			wallOpenings[side] = {}
@@ -793,7 +794,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			center = center,
 			prefabs = nil,
 			inner = inner,
-			fixtureAt = room.tall and center + UP * PITCH or nil,
+			fixtureAt = room.tall and center + UP * (top - room.floor) * PITCH or nil,
 			facesOutside = facesOutside,
 			inFilledArm = function()
 				return false

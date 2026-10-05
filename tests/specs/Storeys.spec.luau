@@ -8,6 +8,22 @@ return function(test, check, Shared, require)
 
 	local PITCH = 11
 
+	test("storeys run from the cellar to the attic, within the house's own", function()
+		check.equal(Storeys.of(-11 + 3, PITCH), -1, "a root in the cellar")
+		check.equal(Storeys.of(-0.6, PITCH), -1, "just under the ground floor")
+		check.equal(Storeys.of(-0.6, PITCH, 0, 1), 0, "a house with no cellar")
+		check.equal(Storeys.of(22 + 3, PITCH), 2, "the attic")
+		check.equal(Storeys.of(22 + 3, PITCH, 0, 1), 1, "a house with no attic")
+		check.equal(Storeys.of(21.4, PITCH), 1, "near the top of the attic stair")
+		local low, high =
+			Storeys.range({ mode = "Mansion", rooms = { { floor = -1 }, { floor = 0, tall = true, top = 2 } } })
+		check.equal(low, -1)
+		check.equal(high, 2)
+		low, high = Storeys.range({ rooms = {} })
+		check.equal(low, 0, "the old house")
+		check.equal(high, 1)
+	end)
+
 	test("a floor muffles noise; the hall and stairwells carry it", function()
 		local below = { x = 0, y = 0, z = 0, room = 1 }
 		local above = { x = 0, y = 11, z = 0, room = 2 }

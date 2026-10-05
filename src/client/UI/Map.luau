@@ -22,6 +22,9 @@ local Map = {}
 Map.__index = Map
 
 -- How each kind of doorway looks: colour, and its short tag.
+-- What each storey is called (Logic/FloorPlan's names).
+local STOREY_NAMES = { [-1] = "Cellar", [0] = "Ground floor", [1] = "Upper floor", [2] = "Attic" }
+
 local DOORS = {
 	door = { color = Color3.fromRGB(150, 140, 120) },
 	unknown = { color = Color3.fromRGB(150, 140, 120) },
@@ -201,39 +204,55 @@ function Map:_renderMap()
 		return
 	end
 	-- The whole house's extent sets the scale (so the map doesn't jump as it
-	-- grows), the mansion's floors side by side.
-	local floors = layout.mode == "Mansion" and 2 or 1
+	-- grows). The mansion's storeys side by side, two to a row when the
+	-- house has a cellar or an attic as well (docs/plans/level-design.md
+	-- section 10.1).
+	local low, high = 0, 0
+	if layout.mode == "Mansion" then
+		local range = layout.storeys or { 0, 1 }
+		low, high = range[1], range[2]
+	end
+	local count = high - low + 1
+	local cols = math.min(count, 2)
+	local rows = math.ceil(count / cols)
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	for _, room in layout.rooms do
 		minX, maxX = math.min(minX, room.x), math.max(maxX, room.x + room.w)
 		minZ, maxZ = math.min(minZ, room.z), math.max(maxZ, room.z + room.d)
 	end
 	local gap = 30
-	local width = (maxX - minX) * floors + gap * (floors - 1)
+	local label = 24 -- pixels under each storey for its name
+	local width = (maxX - minX) * cols + gap * (cols - 1)
 	local height = maxZ - minZ
 	-- As big as the panel allows, under the floors' names and the key (the
 	-- panel's size from the screen's: it isn't measured yet the moment the
 	-- map opens).
 	local viewport = workspace.CurrentCamera.ViewportSize
 	local areaX = math.min(viewport.X * 0.86, 1100) - 56
-	local areaY = math.min(viewport.Y * 0.82, 720) - 92 - 70
-	local scale = math.min(math.max(150, areaY) / height, math.max(300, areaX) / width)
+	local areaY = math.min(viewport.Y * 0.82, 720) - 92 - 46 - label * rows
+	local scale = math.min(math.max(150, areaY) / (height * rows), math.max(300, areaX) / width)
+	local rowPixels = height * scale + label
 	local canvas = Ui.new("Frame", {
-		Size = UDim2.fromOffset(width * scale, height * scale + 64),
+		Size = UDim2.fromOffset(width * scale, rowPixels * rows + 40),
 		BackgroundTransparency = 1,
 		Parent = self.body,
 	})
+	-- Where a storey's plan starts on the canvas, in pixels.
+	local function corner(floor: number): (number, number)
+		local i = math.clamp(floor, low, high) - low
+		return (i % cols) * (maxX - minX + gap) * scale, (i // cols) * rowPixels
+	end
 	local function toMap(x: number, z: number, floor: number)
-		local left = math.min(floor, floors - 1) * (maxX - minX + gap)
-		return (left + (x - ox) - minX) * scale, ((z - oz) - minZ) * scale
+		local left, top = corner(floor)
+		return left + ((x - ox) - minX) * scale, top + ((z - oz) - minZ) * scale
 	end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local here = root and self.ctx.state:RoomAt(root.Position)
-	for floor = 0, floors - 1 do
-		if floors > 1 then
-			local left = floor * (maxX - minX + gap)
-			Ui.label(floor == 0 and "Ground floor" or "Upper floor", {
-				Position = UDim2.fromOffset(left * scale, height * scale + 4),
+	for floor = low, high do
+		local left, top = corner(floor)
+		if count > 1 then
+			Ui.label(STOREY_NAMES[floor] or ("Floor " .. floor), {
+				Position = UDim2.fromOffset(left, top + height * scale + 4),
 				Size = UDim2.fromOffset((maxX - minX) * scale, 18),
 				TextSize = 13,
 				TextColor3 = Ui.Theme.textDim,
@@ -241,8 +260,10 @@ function Map:_renderMap()
 			})
 		end
 		for _, room in shown do
-			if room.tall or (room.floor or 0) == floor then
-				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, maxX, gap)
+			local bottom = room.floor or 0
+			local roof = room.tall and (room.top or bottom + 1) or bottom
+			if floor >= bottom and floor <= roof then
+				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, left, top)
 			end
 		end
 	end
@@ -303,8 +324,7 @@ function Map:_renderMap()
 	end
 	-- You: a dot, and a stroke the way you face.
 	if root then
-		local up = layout.origin[2]
-		local floor = (layout.mode == "Mansion" and root.Position.Y - up >= layout.pitch - 0.5) and 1 or 0
+		local floor = self.ctx.state:StoreyAt(root.Position.Y)
 		local x, y = toMap(root.Position.X, root.Position.Z, floor)
 		local look = root.CFrame.LookVector
 		local facing = Vector2.new(look.X, look.Z)
@@ -327,7 +347,7 @@ function Map:_renderMap()
 	Ui.label(
 		"Diamonds: doorways.  KEY, CODE, BOLT, POWER, CRANK: locks.  note: read here.  At the table: places set.",
 		{
-			Position = UDim2.fromOffset(0, height * scale + 26),
+			Position = UDim2.fromOffset(0, rowPixels * rows + 4),
 			Size = UDim2.fromOffset(width * scale, 18),
 			TextSize = 12,
 			TextColor3 = Ui.Theme.textDim,
@@ -336,9 +356,8 @@ function Map:_renderMap()
 	)
 end
 
-function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, maxX, gap)
-	local left = floor * (maxX - minX + gap)
-	local x0, z0 = (left + room.x - minX) * scale, (room.z - minZ) * scale
+function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, left, top)
+	local x0, z0 = left + (room.x - minX) * scale, top + (room.z - minZ) * scale
 	local isHere = here and here.id == room.id
 	local color = isHere and Ui.Theme.accent or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
 	if not entered then

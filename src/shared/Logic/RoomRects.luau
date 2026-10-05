@@ -1,8 +1,10 @@
 -- Rectangle maths for room layouts (docs/plans/mansion-generation.md). A rect
--- is { id, x, z, w, d, floor, tall } in studs: x, z is the north-west corner
--- relative to Config.Level.Origin, x grows east and z grows south, and every
--- value sits on the lattice. Tall rooms (the grand hall, stairwells) stand on
--- both floors.
+-- is { id, x, z, w, d, floor, tall, top } in studs: x, z is the north-west
+-- corner relative to Config.Level.Origin, x grows east and z grows south, and
+-- every value sits on the lattice. `floor` is the lowest storey a room stands
+-- on (-1 the cellar, 0 the ground, 1 upstairs, 2 the attic; docs/plans/
+-- level-design.md section 10.1). Tall rooms (the grand hall, stairwells) span
+-- `floor` up to `top`, one storey up unless it says otherwise.
 --
 -- The old generator's 40x40 cells are rects too (fromCells), so the builder
 -- and the tools can treat both layouts the same way.
@@ -11,8 +13,18 @@ local RoomRects = {}
 
 RoomRects.Opposite = { N = "S", S = "N", E = "W", W = "E" }
 
+-- The highest storey a room stands on.
+function RoomRects.topOf(rect): number
+	local floor = rect.floor or 0
+	if rect.tall then
+		return rect.top or floor + 1
+	end
+	return floor
+end
+
 function RoomRects.onFloor(rect, floor: number): boolean
-	return (rect.floor or 0) == floor or (rect.tall == true and floor >= 0 and floor <= 1)
+	local low = rect.floor or 0
+	return floor >= low and floor <= RoomRects.topOf(rect)
 end
 
 function RoomRects.center(rect): (number, number)
@@ -250,6 +262,7 @@ function RoomRects.ofLayout(layout, config)
 			d = room.d,
 			floor = room.floor or 0,
 			tall = room.tall,
+			top = room.top,
 			room = room,
 		}
 	end

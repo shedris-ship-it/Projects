@@ -1,12 +1,15 @@
 -- The mansion while it is being generated (docs/plans/mansion-generation.md):
--- rooms as lattice rects over two floors, the rules for where a room may
+-- rooms as lattice rects over its storeys, the rules for where a room may
 -- go, and which shared walls can hold a doorway. Pure; Logic/MansionGen
 -- builds with it and Logic/LayoutValidator checks a finished layout with the
 -- same rules.
 --
--- A room is { id, template, floor, tall, x, z, w, d, rotation, zone,
--- zoneUpper, role, mood }. Tall rooms (the grand hall, stairwells) stand on
--- both floors; zoneUpper is their zone upstairs.
+-- A room is { id, template, floor, tall, top, x, z, w, d, rotation, zone,
+-- zoneUpper, zones, role, mood }. `floor` is its lowest storey (-1 the cellar
+-- to 2 the attic; docs/plans/level-design.md section 10.1). Tall rooms (the
+-- grand hall, stairwells) stand on `floor` up to `top` (one storey up unless
+-- set); `zone` is their zone on `floor`, `zoneUpper` the one above, and
+-- `zones` one per storey when they span more than two.
 
 local RoomRects = require(script.Parent.RoomRects)
 
@@ -14,6 +17,9 @@ local MansionHouse = {}
 MansionHouse.__index = MansionHouse
 
 local DIR_ORDER = { "N", "E", "S", "W" }
+
+-- Every storey a house can have, lowest first.
+MansionHouse.Storeys = { -1, 0, 1, 2 }
 
 -- Zones that may share a doorway (mansion-generation.md, section 2). Every
 -- other shared wall is a solid seam.
@@ -35,7 +41,10 @@ function MansionHouse.zonesMayJoin(a: string?, b: string?): boolean
 end
 
 function MansionHouse.zoneOf(room, floor: number): string
-	if room.tall and floor == 1 then
+	if room.zones then
+		return room.zones[floor] or room.zone
+	end
+	if room.tall and floor > (room.floor or 0) then
 		return room.zoneUpper or room.zone
 	end
 	return room.zone
@@ -50,11 +59,17 @@ function MansionHouse.templateZone(template, floor: number): string
 	return zone
 end
 
+-- The storeys a room stands on, lowest first.
 function MansionHouse.floorsOf(room): { number }
+	local floor = room.floor or 0
 	if room.tall then
-		return { 0, 1 }
+		local list = {}
+		for f = floor, RoomRects.topOf(room) do
+			table.insert(list, f)
+		end
+		return list
 	end
-	return { room.floor or 0 }
+	return { floor }
 end
 
 function MansionHouse.onFloor(room, floor: number): boolean
@@ -78,9 +93,9 @@ end
 
 -- A room's doorways in its own frame, as Logic/RoomFit takes them: its seams,
 -- the exit and the front door, on the storey its furniture stands on (the
--- ground storey of a double-height room).
+-- lowest storey of a double-height room).
 function MansionHouse.fitDoors(layout, room)
-	local storey = room.tall and 0 or (room.floor or 0)
+	local storey = room.floor or 0
 	local doors = {}
 	local function add(side: string, x: number, z: number)
 		local lx, lz = RoomRects.toLocal(room, room.rotation, x, z)
@@ -117,9 +132,33 @@ function MansionHouse.new(config, templatesById)
 		lattice = config.Lattice,
 		rooms = {},
 		byId = {},
-		index = { [0] = RoomRects.newIndex(config.Lattice), [1] = RoomRects.newIndex(config.Lattice) },
+		index = MansionHouse.indices(config.Lattice),
 		keepOut = {}, -- ground-floor rects nothing may cover: the porches
 	}, MansionHouse)
+end
+
+-- An empty lattice index for every storey.
+function MansionHouse.indices(lattice: number)
+	local index = {}
+	for _, floor in MansionHouse.Storeys do
+		index[floor] = RoomRects.newIndex(lattice)
+	end
+	return index
+end
+
+-- Whether a room stands on what is below it (or, under the ground, lies
+-- under what is above it): an upper room on the storey below's footprint, a
+-- cellar room under the ground floor's. A tall room's own storeys hold each
+-- other up.
+function MansionHouse:Supported(rect): boolean
+	local low, top = rect.floor or 0, RoomRects.topOf(rect)
+	if low > 0 and not self.index[low - 1]:Covers(rect) then
+		return false
+	end
+	if top < 0 and not self.index[top + 1]:Covers(rect) then
+		return false
+	end
+	return true
 end
 
 function MansionHouse:Add(room)
@@ -246,11 +285,11 @@ function MansionHouse:Fits(rect)
 			end
 		end
 	end
-	if not rect.tall and rect.floor == 1 and not self.index[0]:Covers(rect) then
+	if not self:Supported(rect) then
 		return false
 	end
 	if rect.tall then
-		for _, floor in { 0, 1 } do
+		for _, floor in MansionHouse.floorsOf(rect) do
 			for _, id in self:Neighbours(rect, floor) do
 				if self.byId[id].tall then
 					return false
@@ -278,7 +317,7 @@ end
 -- Every seam in the finished house, one per pair of rooms, sorted by pair.
 function MansionHouse:AllSeams()
 	local seams = {}
-	for _, floor in { 0, 1 } do
+	for _, floor in MansionHouse.Storeys do
 		for _, room in self.rooms do
 			if MansionHouse.onFloor(room, floor) then
 				for _, id in self:Neighbours(room, floor) do
@@ -304,8 +343,8 @@ function MansionHouse:AllSeams()
 end
 
 -- Studs walked around a cycle (or along a path) of room ids: door to door
--- inside each room, plus a flight of stairs wherever the two doorways are on
--- different floors.
+-- inside each room, plus a flight of stairs for each storey between the two
+-- doorways.
 function MansionHouse.routeStuds(ids: { number }, seamByPair, config, closed: boolean): number
 	local total = 0
 	local n = #ids
@@ -318,10 +357,8 @@ function MansionHouse.routeStuds(ids: { number }, seamByPair, config, closed: bo
 			if s1 and s2 then
 				local x1, z1 = RoomRects.doorPoint(s1.dir, s1.line, s1.along)
 				local x2, z2 = RoomRects.doorPoint(s2.dir, s2.line, s2.along)
-				total += math.abs(x1 - x2) + math.abs(z1 - z2)
-				if s1.floor ~= s2.floor then
-					total += config.StairStuds
-				end
+				-- a flight a storey
+				total += math.abs(x1 - x2) + math.abs(z1 - z2) + math.abs(s1.floor - s2.floor) * config.StairStuds
 			end
 		end
 	end
@@ -350,11 +387,11 @@ function MansionHouse.walker(rooms, seams, config)
 		end
 	end
 	local stair = config.StairStuds
-	-- A room's middle is on its own storey (the ground floor for a tall room).
+	-- A room's middle is on its own storey (the lowest for a tall room).
 	local function toMiddle(room, door): number
 		local cx, cz = RoomRects.center(room)
-		local storey = room.tall and 0 or (room.floor or 0)
-		return math.abs(cx - door.x) + math.abs(cz - door.z) + (door.floor ~= storey and stair or 0)
+		local storey = room.floor or 0
+		return math.abs(cx - door.x) + math.abs(cz - door.z) + math.abs(door.floor - storey) * stair
 	end
 	return function(from: number, passable: (any) -> boolean): { [number]: number }
 		-- Dijkstra over doors (keyed by seam id), seeded from the room's middle.
@@ -394,7 +431,7 @@ function MansionHouse.walker(rooms, seams, config)
 						local d = bestEntry.d
 							+ math.abs(door.x - other.x)
 							+ math.abs(door.z - other.z)
-							+ (door.floor ~= other.floor and stair or 0)
+							+ math.abs(door.floor - other.floor) * stair
 						if dist[other.seam.id] == nil or d < dist[other.seam.id].d then
 							dist[other.seam.id] = { d = d, door = other }
 						end

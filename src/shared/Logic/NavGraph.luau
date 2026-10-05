@@ -16,6 +16,7 @@
 -- room's middle are clear: lane foot to lane foot is a straight walk.
 
 local RoomRects = require(script.Parent.RoomRects)
+local Storeys = require(script.Parent.Storeys)
 local TallRooms = require(script.Parent.TallRooms)
 
 local NavGraph = {}
@@ -51,7 +52,7 @@ NavGraph.distance = distance
 
 -- Which storey a height is on (the same rule as WorldService.FloorAt).
 function NavGraph.storeyOf(graph, y: number): number
-	return y >= graph.pitch - 0.5 and 1 or 0
+	return Storeys.of(y, graph.pitch, graph.low, graph.high)
 end
 
 local function roomIds(graph): { number }
@@ -80,6 +81,7 @@ function NavGraph.build(layout, options)
 		pitch = options.pitch,
 		options = options,
 	}
+	graph.low, graph.high = Storeys.range(mansion and layout or nil)
 	local function addNode(x: number, y: number, z: number, room: number, kind: string, region: string?): number
 		table.insert(graph.nodes, { x = x, y = y, z = z, room = room, kind = kind, region = region or "room" })
 		local id = #graph.nodes
@@ -113,7 +115,7 @@ function NavGraph.build(layout, options)
 			rect = rect,
 			rotation = mansion and room.rotation or 0,
 			tall = TallRooms.kindOf(room),
-			storey = mansion and (room.tall and 0 or room.floor or 0) or 0,
+			storey = mansion and (room.floor or 0) or 0, -- its lowest
 			nodes = {},
 			approaches = {},
 		}
@@ -194,16 +196,18 @@ function NavGraph.build(layout, options)
 	return graph
 end
 
--- A double-height room: its TallRooms shape turned into the house, and each
--- doorway joined to the nearest point of one of its storey's attach lines.
+-- A double-height room: its TallRooms shape turned into the house (its
+-- heights from the room's lowest storey), and each doorway joined to the
+-- nearest point of one of its storey's attach lines.
 function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 	local rect = room.rect
 	local inner = RoomRects.innerOf(rect, room.rotation, options.wall)
 	local shape = TallRooms.walk(room.tall, inner, options.pitch)
+	local base = room.storey * options.pitch
 	local ids = {}
 	for i, p in shape.nodes do
 		local wx, wz = RoomRects.toWorld(rect, room.rotation, p.x, p.z)
-		ids[i] = addNode(wx, p.y, wz, room.id, "tall", p.region)
+		ids[i] = addNode(wx, base + p.y, wz, room.id, "tall", p.region)
 	end
 	for _, l in shape.links do
 		addLink(ids[l.a], ids[l.b], l.stair and { stair = true } or nil)
@@ -211,13 +215,18 @@ function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 			table.insert(graph.stairs, { a = ids[l.a], b = ids[l.b], room = room.id })
 		end
 	end
-	-- Where each doorway joins: [storey][line index] = { { t, node } }.
-	local joins = { [0] = {}, [1] = {} }
+	-- Where each doorway joins: [storey][line index] = { { t, node } }, the
+	-- storey counted from the room's lowest.
+	local joins = {}
+	for storey in shape.attach do
+		joins[storey] = {}
+	end
 	for _, entry in room.approaches do
 		local a = graph.nodes[entry.node]
 		local lx, lz = RoomRects.toLocal(rect, room.rotation, a.x, a.z)
 		local best, bestDistance, bestT = nil, math.huge, 0
-		for index, line in shape.attach[entry.storey] or {} do
+		local storey = entry.storey - room.storey
+		for index, line in shape.attach[storey] or {} do
 			local p, q = shape.nodes[line[1]], shape.nodes[line[2]]
 			local dx, dz = q.x - p.x, q.z - p.z
 			local length2 = dx * dx + dz * dz
@@ -228,13 +237,18 @@ function NavGraph._tallRoom(graph, room, options, addNode, addLink)
 			end
 		end
 		if best then
-			joins[entry.storey][best] = joins[entry.storey][best] or {}
-			table.insert(joins[entry.storey][best], { t = bestT, node = entry.node })
+			joins[storey][best] = joins[storey][best] or {}
+			table.insert(joins[storey][best], { t = bestT, node = entry.node })
 		end
 	end
 	-- The attach lines, each chained through its doorways' joining points.
-	for storey = 0, 1 do
-		for index, line in shape.attach[storey] or {} do
+	local storeys = {}
+	for storey in shape.attach do
+		table.insert(storeys, storey)
+	end
+	table.sort(storeys)
+	for _, storey in storeys do
+		for index, line in shape.attach[storey] do
 			local a, b = ids[line[1]], ids[line[2]]
 			local list = joins[storey][index]
 			if list then

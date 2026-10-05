@@ -66,9 +66,17 @@ local function withZone(list, floor: number, zone: string)
 	return list and list[1]
 end
 
--- A room record for a template at a position. Corridors pass their size.
+-- A room record for a template at a position. Corridors pass their size. A
+-- tall room stands on every storey its template lists, from the lowest.
 local function newRoom(template, floor: number, rotation: number, x: number, z: number, w: number, d: number)
 	local m = template.mansion
+	local low, top = floor, floor
+	if m.tall then
+		low, top = math.huge, -math.huge
+		for _, f in m.floors do
+			low, top = math.min(low, f), math.max(top, f)
+		end
+	end
 	local room = {
 		template = template.id,
 		floor = floor,
@@ -77,15 +85,23 @@ local function newRoom(template, floor: number, rotation: number, x: number, z: 
 		z = z,
 		w = w,
 		d = d,
-		zone = MansionHouse.templateZone(template, if m.tall then 0 else floor),
+		zone = MansionHouse.templateZone(template, low),
 		role = LAYOUT_ROLES[m.role or ""],
 		kind = m.role,
 		mood = template.mood,
 	}
 	if m.tall then
 		room.tall = true
-		room.floor = 0
-		room.zoneUpper = MansionHouse.templateZone(template, 1)
+		room.floor = low
+		room.zoneUpper = MansionHouse.templateZone(template, low + 1)
+		if top ~= low + 1 then
+			-- More than two storeys: its top and a zone for each.
+			room.top = top
+			room.zones = {}
+			for f = low, top do
+				room.zones[f] = MansionHouse.templateZone(template, f)
+			end
+		end
 	end
 	if m.role == "corridor" then
 		room.corridor = true

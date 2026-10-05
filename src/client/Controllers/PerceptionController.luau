@@ -19,17 +19,17 @@ local Net = require(Shared.Net)
 local PhantomFactory = require(script.Parent.Parent.Lib.PhantomFactory)
 
 local Attr = Constants.Attributes
--- The floor of the storey a point is on (the mansion's upper floor starts
--- just below its level; the old house is all ground floor).
-local function floorY(y: number): number
-	local o = Config.Level.Origin.y
-	local pitch = Config.Mansion.FloorPitch
-	return o + (y - o >= pitch - 0.5 and pitch or 0)
-end
 
 local player = Players.LocalPlayer
 
 local PerceptionController = {}
+
+-- The floor of the storey a point is on (a storey starts just below its
+-- level; the old house is all ground floor).
+local function floorY(y: number): number
+	local o = Config.Level.Origin.y
+	return o + PerceptionController.state:StoreyAt(y) * Config.Mansion.FloorPitch
+end
 
 local rules = {}
 local applied = {} -- rule id -> handle

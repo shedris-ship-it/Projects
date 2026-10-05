@@ -91,8 +91,8 @@ function Wings.natural(ctx, p: number, c: number): number
 	if b.kind == "stair" then
 		bonus += 2
 	end
-	if floor == 1 and (a.tall or (a.floor or 0) ~= 1) then
-		bonus += 1.5 -- up from the gallery or a stair: another floor
+	if a.tall and floor ~= 0 then
+		bonus += 1.5 -- off the gallery or a stair: another floor
 	end
 	if a.kind == "deliberation" and b.kind == "kitchen" then
 		bonus += 2 -- the service wing behind the kitchen door

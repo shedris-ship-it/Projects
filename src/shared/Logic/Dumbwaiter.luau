@@ -196,7 +196,7 @@ function Dumbwaiter.pairs(layout, cfg, templatesById)
 		if not room.tall and room.w and room.d then
 			if (room.floor or 0) == 0 then
 				table.insert(grounds, room)
-			else
+			elseif room.floor == 1 then
 				table.insert(uppers, room)
 			end
 		end

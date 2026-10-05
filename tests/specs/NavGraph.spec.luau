@@ -33,6 +33,55 @@ return function(test, check, Shared, require)
 		return nil
 	end
 
+	test("a house a storey lower walks the same, a storey lower", function()
+		-- Storeys from the cellar to the attic (docs/plans/level-design.md
+		-- section 10.1): moving every room and doorway down one storey moves
+		-- every node down one pitch and changes nothing else.
+		for i = 1, 6 do
+			local layout = houses[i].layout
+			local lowered = table.clone(layout)
+			lowered.rooms, lowered.seams = {}, {}
+			for _, room in layout.rooms do
+				local copy = table.clone(room)
+				copy.floor = (room.floor or 0) - 1
+				table.insert(lowered.rooms, copy)
+			end
+			for _, seam in layout.seams do
+				local copy = table.clone(seam)
+				copy.floor = (seam.floor or 0) - 1
+				table.insert(lowered.seams, copy)
+			end
+			local a, b = houses[i].graph, NavGraph.build(lowered, options)
+			check.equal(#b.nodes, #a.nodes)
+			for id, node in a.nodes do
+				local other = b.nodes[id]
+				check.near(other.y, node.y - pitch, 1e-6)
+				check.near(other.x, node.x, 1e-6)
+				check.equal(other.kind, node.kind)
+			end
+			check.equal(b.low, -1)
+			check.equal(NavGraph.storeyOf(b, -pitch + 3), -1)
+		end
+	end)
+
+	test("cellar rooms lie under the ground floor and attic rooms stand on the floor below", function()
+		local config = Config.Mansion
+		local house = MansionHouse.new(config, Rooms.MansionById)
+		house:Add({ template = "living_room", floor = 0, x = 0, z = -40, w = 40, d = 30 })
+		check.truthy(house:Supported({ floor = -1, x = 0, z = -40, w = 20, d = 20 }), "under the ground floor")
+		check.truthy(not house:Supported({ floor = -1, x = 30, z = -40, w = 20, d = 20 }), "half under nothing")
+		check.truthy(not house:Supported({ floor = 2, x = 0, z = -40, w = 20, d = 20 }), "no upper floor yet")
+		house:Add({ template = "kids_bedroom", floor = 1, x = 0, z = -40, w = 30, d = 30 })
+		check.truthy(house:Supported({ floor = 2, x = 0, z = -40, w = 20, d = 20 }), "on the upper floor")
+		check.truthy(
+			house:Supported({ floor = -1, tall = true, x = 50, z = -40, w = 20, d = 30 }),
+			"a stair down holds itself up"
+		)
+		check.equal(#MansionHouse.floorsOf({ floor = -1, tall = true, top = 2 }), 4)
+		check.truthy(RoomRects.onFloor({ floor = -1, tall = true }, 0), "a cellar stair reaches the ground")
+		check.truthy(not RoomRects.onFloor({ floor = -1, tall = true }, 1))
+	end)
+
 	test("toWorld and toLocal turn a room as the builders' CFrame does", function()
 		local roblox = require("@lune/roblox")
 		local rect = { x = 30, z = -20, w = 20, d = 30 }

@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
+local Storeys = require(Shared.Logic.Storeys)
 
 local RS = Constants.RunState
 local PA = Constants.PlayerAttributes
@@ -130,10 +131,22 @@ function StateController:SetSetting(key: string, value: any)
 	Net.get("SaveSettings"):FireServer(table.clone(self.settings))
 end
 
+-- Which storey a height (a world Y) is on, within the storeys the house has
+-- (Logic/Storeys: -1 the cellar to 2 the attic). The old house is all ground
+-- floor.
+function StateController:StoreyAt(y: number): number
+	local layout = self.layout
+	if not layout or layout.mode ~= "Mansion" then
+		return 0
+	end
+	local range = layout.storeys or { 0, 1 }
+	return Storeys.of(y - layout.origin[2], layout.pitch or 11, range[1], range[2])
+end
+
 -- World position -> room, using the layout snapshot. Rooms are rectangles
--- (x, z their north-west corner from the origin) on a floor; in the mansion,
--- upstairs is anything near the upper floor's level, and the hall and the
--- stairwells stand on both floors.
+-- (x, z their north-west corner from the origin) on a storey; in the mansion,
+-- a storey starts near its floor's level, and the hall and the stairwells
+-- stand on several.
 function StateController:RoomAt(position: Vector3)
 	local layout = self.layout
 	if not layout then
@@ -141,13 +154,12 @@ function StateController:RoomAt(position: Vector3)
 	end
 	local x = position.X - layout.origin[1]
 	local z = position.Z - layout.origin[3]
-	local floor = 0
-	if layout.mode == "Mansion" then
-		floor = position.Y - layout.origin[2] >= (layout.pitch or 11) - 0.5 and 1 or 0
-	end
+	local floor = self:StoreyAt(position.Y)
 	for _, room in layout.rooms do
 		if room.x and x >= room.x and x < room.x + room.w and z >= room.z and z < room.z + room.d then
-			if room.tall or (room.floor or 0) == floor then
+			local low = room.floor or 0
+			local top = room.tall and (room.top or low + 1) or low
+			if floor >= low and floor <= top then
 				return room
 			end
 		end

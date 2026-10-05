@@ -16,7 +16,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
-local Storeys = require(Shared.Logic.Storeys)
+local WorldService = require(script.Parent.Parent.Services.WorldService)
 
 local G = Config.Guest
 local Poses = GuestPose.Poses
@@ -28,10 +28,11 @@ local function flat(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
--- The floor height of the storey a point is on (a floor spot or a root).
+-- The floor height of the storey a point is on (a floor spot or a root),
+-- within the storeys the house has.
 local function floorBase(y: number): number
 	local o = Config.Level.Origin.y
-	return o + Storeys.of(y - o, Config.Mansion.FloorPitch) * Config.Mansion.FloorPitch
+	return o + WorldService.FloorAt(y - o) * Config.Mansion.FloorPitch
 end
 Body.FloorBase = floorBase
 

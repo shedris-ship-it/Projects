@@ -55,6 +55,18 @@ function FloorPlan.hash(layout): number
 	return Rng.hash(FloorPlan.fingerprint(layout))
 end
 
+-- What each storey is called.
+FloorPlan.StoreyNames = { [-1] = "Cellar", [0] = "Ground floor", [1] = "Upper floor", [2] = "Attic" }
+
+-- A tall room's storeys, lowest first.
+local function storeysOf(rect): { number }
+	local list = {}
+	for f = rect.floor or 0, RoomRects.topOf(rect) do
+		table.insert(list, f)
+	end
+	return list
+end
+
 -- ASCII plan. Each 10-stud lattice step is 4 columns wide and 2 rows tall.
 local COLS, ROWS = 4, 2
 
@@ -86,7 +98,7 @@ local function renderFloor(layout, rects, floor: number, bounds, lattice: number
 
 	local onFloor = {}
 	for _, rect in rects do
-		if rect.floor == floor or (rect.tall and floor <= 1) then
+		if RoomRects.onFloor(rect, floor) then
 			table.insert(onFloor, rect)
 		end
 	end
@@ -170,19 +182,21 @@ function FloorPlan.render(layout, config): string
 	local lattice = config and config.Lattice or 10
 	local rects = RoomRects.ofLayout(layout, config)
 	local bounds = { minX = math.huge, maxX = -math.huge, minZ = math.huge, maxZ = -math.huge }
-	local floors = 1
+	-- The storeys the house has: -1 the cellar to 2 the attic.
+	local low, high = 0, 0
 	for _, rect in rects do
 		bounds.minX = math.min(bounds.minX, rect.x)
 		bounds.maxX = math.max(bounds.maxX, rect.x + rect.w)
 		bounds.minZ = math.min(bounds.minZ, rect.z)
 		bounds.maxZ = math.max(bounds.maxZ, rect.z + rect.d)
-		floors = math.max(floors, (rect.floor or 0) + 1, rect.tall and 2 or 1)
+		low = math.min(low, rect.floor or 0)
+		high = math.max(high, RoomRects.topOf(rect))
 	end
 
 	local out = {}
 	local seamLayout = layout.mode and layout or RoomRects.seamsOfCells(layout, config)
-	for floor = 0, floors - 1 do
-		table.insert(out, floors > 1 and (floor == 0 and "Ground floor" or "Upper floor") or "Plan")
+	for floor = low, high do
+		table.insert(out, high > low and (FloorPlan.StoreyNames[floor] or ("Floor " .. floor)) or "Plan")
 		for _, line in renderFloor(seamLayout, rects, floor, bounds, lattice) do
 			table.insert(out, line)
 		end
@@ -202,7 +216,7 @@ function FloorPlan.render(layout, config): string
 				room.template or "?",
 				rect.w,
 				rect.d,
-				rect.tall and "0+1" or tostring(rect.floor or 0),
+				rect.tall and table.concat(storeysOf(rect), "+") or tostring(rect.floor or 0),
 				room.zone and (" " .. room.zone) or "",
 				room.rotation or 0,
 				room.role or "",

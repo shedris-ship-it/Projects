@@ -77,11 +77,14 @@ local function mansionRules(layout, templatesById, config, fail, metrics)
 		house:Insert(room)
 	end
 	for _, room in layout.rooms do
-		if not room.tall and room.floor == 1 and not house.index[0]:Covers(room) then
-			fail("upper room " .. room.id .. " is not over the ground floor")
+		if not house:Supported(room) then
+			fail(
+				(room.floor or 0) < 0 and ("cellar room " .. room.id .. " is not under the ground floor")
+					or ("upper room " .. room.id .. " is not over the floor below")
+			)
 		end
 		if room.tall then
-			for _, floor in { 0, 1 } do
+			for _, floor in MansionHouse.floorsOf(room) do
 				for _, id in house:Neighbours(room, floor) do
 					if house.byId[id].tall then
 						fail("tall rooms " .. room.id .. " and " .. id .. " touch")
@@ -146,9 +149,11 @@ local function mansionRules(layout, templatesById, config, fail, metrics)
 		end
 	end
 
-	-- Each floor is one piece by its own doorways, and every stairwell opens
-	-- on both floors, so two stairs always make a loop between the floors.
-	for _, floor in { 0, 1 } do
+	-- Each storey is one piece by its own doorways, and every stairwell opens
+	-- on every storey it climbs through, so two stairs always make a loop
+	-- between them.
+	local storeyNames = { [-1] = "the cellar", [0] = "the ground floor", [1] = "the upper floor", [2] = "the attic" }
+	for _, floor in MansionHouse.Storeys do
 		local ids, edges = {}, {}
 		for _, room in layout.rooms do
 			if MansionHouse.onFloor(room, floor) then
@@ -161,7 +166,7 @@ local function mansionRules(layout, templatesById, config, fail, metrics)
 			end
 		end
 		if #ids > 0 and not Graph.isConnected(Graph.adjacency(ids, edges), ids) then
-			fail(floor == 0 and "the ground floor is not one piece" or "the upper floor is not one piece")
+			fail(storeyNames[floor] .. " is not one piece")
 		end
 	end
 	for _, room in layout.rooms do
@@ -172,8 +177,11 @@ local function mansionRules(layout, templatesById, config, fail, metrics)
 					opens[seam.floor] = true
 				end
 			end
-			if not (opens[0] and opens[1]) then
-				fail("stairwell " .. room.id .. " doesn't open on both floors")
+			for _, floor in MansionHouse.floorsOf(room) do
+				if not opens[floor] then
+					fail("stairwell " .. room.id .. " doesn't open on every floor")
+					break
+				end
 			end
 		end
 	end
