@@ -243,6 +243,7 @@ Config.Mansion = {
 		Weights = { padlock = 3, power = 2, crank = 1.5, safe = 2, musicbox = 2, dumbwaiter = 1.5 },
 		DeckSize = { 2, 2, 3, 3 }, -- kinds a run wants, by squad size
 		DrawBonus = 2, -- a room with a landmark or a lure comes up this much more
+		Always = { "laundry" }, -- rooms every house wants (the laundry chute's bottom)
 		DeckBoost = 10, -- the lock planner's weight for a kind in the deck
 	},
 	-- The cellar and the attic (docs/plans/level-design.md sections 10.2 and
@@ -274,6 +275,32 @@ Config.Mansion = {
 		Keep = 3,
 		Heirloom = 4,
 		Tries = 8, -- packings of its rooms tried until they join its stairs into one piece
+	},
+	-- The laundry chute (docs/plans/level-design.md section 10.5): a hatch in
+	-- an upstairs room over the laundry. Its spot is found like the
+	-- dumbwaiter's (Logic/Dumbwaiter.spots), with its own size.
+	Chute = {
+		Uppers = { bath = 1, private = 2 }, -- rooms a hatch may be in, the first first
+		Width = 2.6, -- along the wall
+		Depth = 2.8, -- out from it (the basket below reaches this far)
+		Inset = 0.1,
+		CrankSide = 0,
+		EndClear = 1.5,
+		DoorClear = 5,
+		Step = 2,
+		FurnitureClear = 0.25,
+		Wall = Config.Level.WallThickness,
+		FloorMargin = 4, -- a trapdoor (no wall to share) keeps this far inside both rooms
+		HatchHeight = 3.2, -- the hatch's middle above its floor
+		HatchSize = 2.2,
+		MouthHeight = 7.4, -- the chute's mouth below
+		MouthDepth = 1.2,
+		Basket = { 2.6, 1.6, 2 }, -- the basket below (width, height, depth)
+		Hold = 0.6,
+		Reach = 6,
+		SlideSeconds = 0.6,
+		LandNoise = 24, -- landing in the basket, heard this far
+		DropNoise = 12, -- something dropped down it
 	},
 	-- Servants' passages (docs/plans/level-design.md section 10.4): a narrow
 	-- way behind the walls of a wing, between two of its rooms by hidden
@@ -317,6 +344,7 @@ Config.Mansion = {
 		Bridge = 6, -- upstairs: touches both the gallery's side and the back stairs' side (more in the cellar and attic)
 		Toward = 0.15, -- cellar and attic: per stud from the other stair's foot, until they join
 		Under = 3, -- a cellar room under the kitchen side (its stair comes up there)
+		Chute = 4, -- an upstairs bathroom or room over the laundry (the laundry chute)
 		Spread = 0.03, -- per stud from the house's middle (keeps it compact)
 		Jitter = 1,
 	},
@@ -867,6 +895,7 @@ Config.LevelDesign = {
 		-- The squad's own wings, not counting the cellar's and the attic's.
 		mainWings = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 5 },
 		passages = { band = { 1, 9 }, weight = 2 }, -- a servants' passage to find
+		chutes = { band = { 1, 1 }, weight = 1.5 }, -- the laundry chute
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
 		walk = {
 			band = { 900, 2200 },

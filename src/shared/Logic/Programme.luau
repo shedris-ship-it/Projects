@@ -67,11 +67,17 @@ function Programme.rooms(rng, general, deck, cfg)
 	for _, template in general do
 		byId[template.id] = template
 	end
-	-- What the deck needs, on the first floor it can stand on.
+	-- What the deck needs, on the first floor it can stand on, then what
+	-- every house wants (the laundry, for its chute).
 	local needed = {}
 	for _, kind in cfg.Kinds do
 		local id = deck[kind] and Programme.Needs[kind]
 		if id and byId[id] and not table.find(needed, id) then
+			table.insert(needed, id)
+		end
+	end
+	for _, id in cfg.Always or {} do
+		if byId[id] and not table.find(needed, id) then
 			table.insert(needed, id)
 		end
 	end

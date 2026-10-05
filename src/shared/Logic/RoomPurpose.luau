@@ -72,6 +72,13 @@ function RoomPurpose.base(layout, templatesById)
 		end
 		out[room.id] = entry
 	end
+	-- The laundry chute (section 10.5): a way down out of a chase, and a
+	-- shortcut for what you carry.
+	local chute = layout.chute
+	if chute and out[chute.upper] and out[chute.ground] then
+		add(out[chute.upper].survival, "chute down")
+		add(out[chute.ground].route, "chute")
+	end
 	-- Rooms on a loop of four or more: somewhere to run round.
 	local ids, edges = {}, {}
 	for _, room in layout.rooms do

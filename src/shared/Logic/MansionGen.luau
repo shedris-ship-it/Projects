@@ -23,6 +23,7 @@
 --   7. Roles, Lantern rooms and window orientation; validate; retry the next
 --      attempt, then fall back to an authored mansion.
 
+local Dumbwaiter = require(script.Parent.Dumbwaiter)
 local Graph = require(script.Parent.Graph)
 local LayoutValidator = require(script.Parent.LayoutValidator)
 local LevelGraph = require(script.Parent.LevelGraph)
@@ -1075,6 +1076,13 @@ function Builder:_roomsOn(floor: number, quota: number, salt: string?)
 	local onFloor = {}
 	local listed = self.programme and self.programme.floors[floor] or nil
 	local nextListed = 1
+	-- (The laundry, which the chute upstairs wants a room over.)
+	local laundry = nil
+	for _, room in house.rooms do
+		if room.template == "laundry" then
+			laundry = room
+		end
+	end
 	local function allowed(template): boolean
 		local m = template.mansion
 		return not failed[template.id]
@@ -1201,6 +1209,17 @@ function Builder:_roomsOn(floor: number, quota: number, salt: string?)
 					end
 					if pieces >= 2 then
 						s += fromStairs and placement.Bridge * 3 or placement.Bridge
+					end
+				end
+				if floor == 1 and laundry and config.Chute and config.Chute.Uppers[MansionHouse.zoneOf(c.rect, 1)] then
+					-- Over the laundry, a bathroom or a room upstairs can have the
+					-- laundry chute (section 10.5).
+					local x0 = math.max(laundry.x, c.rect.x)
+					local x1 = math.min(laundry.x + laundry.w, c.rect.x + c.rect.w)
+					local z0 = math.max(laundry.z, c.rect.z)
+					local z1 = math.min(laundry.z + laundry.d, c.rect.z + c.rect.d)
+					if x1 - x0 >= 10 and z1 - z0 >= 10 then
+						s += placement.Chute
 					end
 				end
 				if floor < 0 then
@@ -1690,6 +1709,105 @@ function Builder:_passages(seams)
 	return { passage }
 end
 
+-- The laundry chute (docs/plans/level-design.md section 10.5): a hatch in
+-- an upstairs room standing over the laundry, on a wall the two share, clear
+-- of both rooms' doorways and furniture (Logic/Dumbwaiter's spots, with the
+-- chute's own size); else a trapdoor in the floor where both rooms are
+-- clear. A bathroom first, then the upper hall, then a bedroom.
+-- { ground, upper, x, z, side, into } or { ground, upper, x, z, floor =
+-- true }, or nil.
+function MansionGen.chute(layout, templatesById, config)
+	local cfg = config.Chute
+	if not cfg then
+		return nil
+	end
+	local laundry = nil
+	for _, room in layout.rooms do
+		if room.template == "laundry" and (room.floor or 0) == 0 then
+			laundry = room
+		end
+	end
+	if not laundry then
+		return nil
+	end
+	local uppers = {}
+	for _, room in layout.rooms do
+		local rank = room.floor == 1 and not room.tall and cfg.Uppers[MansionHouse.zoneOf(room, 1)]
+		if rank then
+			table.insert(uppers, { room = room, rank = rank })
+		end
+	end
+	table.sort(uppers, function(a, b)
+		if a.rank ~= b.rank then
+			return a.rank < b.rank
+		end
+		return a.room.id < b.room.id
+	end)
+	for _, entry in uppers do
+		local spot = Dumbwaiter.spots(layout, laundry, entry.room, cfg, templatesById)[1]
+		if spot then
+			return {
+				ground = laundry.id,
+				upper = entry.room.id,
+				x = spot.x,
+				z = spot.z,
+				side = spot.side,
+				into = spot.into,
+			}
+		end
+	end
+	-- No wall they share: a trapdoor in the floor upstairs over the laundry,
+	-- where both rooms are clear of walls, doorways and furniture.
+	local doors = {}
+	for _, seam in layout.seams do
+		if seam.connected and (seam.floor or 0) <= 1 then
+			local x, z = RoomRects.doorPoint(seam.dir, seam.line, seam.along)
+			table.insert(doors, { x = x, z = z })
+		end
+	end
+	local wall = config.Chute.Wall
+	for _, entry in uppers do
+		local upper = entry.room
+		local margin = cfg.FloorMargin
+		local x0 = math.max(laundry.x, upper.x) + margin
+		local x1 = math.min(laundry.x + laundry.w, upper.x + upper.w) - margin
+		local z0 = math.max(laundry.z, upper.z) + margin
+		local z1 = math.min(laundry.z + laundry.d, upper.z + upper.d) - margin
+		if x1 >= x0 and z1 >= z0 then
+			local boxes = Dumbwaiter.furniture(layout, laundry, templatesById, wall)
+			for _, b in Dumbwaiter.furniture(layout, upper, templatesById, wall) do
+				table.insert(boxes, b)
+			end
+			local cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+			local best, bestDistance = nil, math.huge
+			local half = cfg.Width / 2 + cfg.FurnitureClear
+			for x = x0, x1, cfg.Step do
+				for z = z0, z1, cfg.Step do
+					local clear = true
+					for _, b in boxes do
+						if x - half < b.x1 and b.x0 < x + half and z - half < b.z1 and b.z0 < z + half then
+							clear = false
+						end
+					end
+					for _, door in doors do
+						if math.abs(door.x - x) + math.abs(door.z - z) < cfg.DoorClear + half then
+							clear = false
+						end
+					end
+					local distance = math.abs(x - cx) + math.abs(z - cz)
+					if clear and distance < bestDistance then
+						best, bestDistance = { x = x, z = z }, distance
+					end
+				end
+			end
+			if best then
+				return { ground = laundry.id, upper = upper.id, x = best.x, z = best.z, floor = true }
+			end
+		end
+	end
+	return nil
+end
+
 -- Windows look outside: turn each room with windows (keeping its footprint)
 -- so the most face out, the window that lights the room counting most.
 function Builder:_orientWindows()
@@ -1790,7 +1908,7 @@ function MansionGen.attempt(rng, templates, config)
 	end
 	local exitDoor = table.clone(builder.exitDoor)
 	exitDoor.porch = nil
-	return {
+	local layout = {
 		mode = "Mansion",
 		rooms = house.rooms,
 		edges = builder.edges,
@@ -1808,6 +1926,9 @@ function MansionGen.attempt(rng, templates, config)
 		passages = #passages > 0 and passages or nil,
 		programme = builder.programme,
 	}
+	-- The laundry chute, once the layout is whole (it reads the doorways).
+	layout.chute = MansionGen.chute(layout, builder.p.byId, config)
+	return layout
 end
 
 -- The authored mansion used when ten attempts all fail (Data/MansionFallback,

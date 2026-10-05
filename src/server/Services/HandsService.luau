@@ -357,6 +357,17 @@ function HandsService:Grab(player: Player, id: string)
 	self.Grabbed:Fire(player, thing)
 end
 
+-- Put a thing somewhere for good, at rest (down the laundry chute, into its
+-- basket): out of anyone's hands, anchored where it lands.
+function HandsService:Place(thing, cframe: CFrame)
+	if thing.holder then
+		self:Release(thing.holder)
+	end
+	self:_sleep(thing)
+	thing.model:PivotTo(cframe)
+	thing.lastValid = thing.root and thing.root.CFrame
+end
+
 -- A thing leaves the house's physics for good (a key put on a ring, an
 -- heirloom set at the table): out of anyone's hands, no longer tracked.
 function HandsService:Forget(thing, destroy: boolean?)

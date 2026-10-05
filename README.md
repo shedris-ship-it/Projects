@@ -109,7 +109,7 @@ help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lig
 seed <n> · layout cells|mansion|default · squad <1-4|auto>   (apply to the next run)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · scent · table · tidy
-goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where
+goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> · items · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
@@ -193,7 +193,7 @@ rojo build default.project.json -o Consensus.rbxlx
 | Area | Built | Next |
 | --- | --- | --- |
 | Core loop | Hub, Arrival → Investigation → the dinner → Extraction → Dossier; locks, keys, leads, puzzles, heirlooms; acts and progress-woken hunts; win/lose, downs, revives, Echoes | **A squad playtest**, then the living house (R3: doors that become walls where nobody sees, house events), a tutorial run, a daily contract |
-| The house | The mansion generator (two floors, 15–24 rooms by squad size), the adventure planned first (wings, a loop in each, shortcuts, the backtrack, double locks), every room with a reason, the best of 12 houses; lighting, trim, materials, grime, fixtures, switches and circuits, walk-in closets | **A squad playtest**, then house plans and new spaces (a cellar, an attic, servants' passages, a laundry chute), the family and furniture laid out for play (`docs/plans/level-design.md`) |
+| The house | The mansion generator (two main floors, 15–22 rooms by squad size, plus a cellar and/or an attic, each a locked wing of its own on top of the squad's), the adventure planned first (wings, a loop in each, shortcuts, the backtrack, double locks), every room with a reason, the best of 12 houses; servants' passages behind hidden doors (bookcases, panels); a laundry chute; lighting, trim, materials, grime, fixtures, switches and circuits, walk-in closets | House types (L, U round a courtyard, H, a tower stair), narrow corridors with closets, archways and glass-panelled doors; **a squad playtest**; the family and furniture laid out for play (`docs/plans/level-design.md`) |
 | Physics | Carry and throw with weight, doors and drawers with momentum, furniture by weight, barricades | Touch controls for hands |
 | Stalker | Director with acts, Tactician (13 tactics over a learned squad profile), stalking between hunts, heirloom scent, errands (the table, tidying), navigation on both floors, barricades | The Orderly (St. Odile Ward) |
 | Progression | Marks for outcome and progress, Clearance 1–50, the Dossier, session-locked saves | Store, private servers, season pass |

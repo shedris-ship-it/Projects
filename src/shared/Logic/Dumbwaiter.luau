@@ -208,9 +208,12 @@ function Dumbwaiter.pairs(layout, cfg, templatesById)
 		return p.id < q.id
 	end)
 	local list = {}
+	local chute = layout.chute
 	for _, ground in grounds do
 		for _, upper in uppers do
-			if ground.id ~= layout.start and ground.id ~= layout.deliberation then
+			-- (Not the laundry chute's wall: that's the chute's.)
+			local isChute = chute ~= nil and chute.ground == ground.id and chute.upper == upper.id
+			if ground.id ~= layout.start and ground.id ~= layout.deliberation and not isChute then
 				if #spotsOf(layout, ground, upper, cfg, furnitureOf) > 0 then
 					table.insert(list, { ground = ground.id, upper = upper.id })
 				end

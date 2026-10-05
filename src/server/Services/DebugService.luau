@@ -52,6 +52,7 @@ local HELP = table.concat({
 	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
+	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100> · fling <room> <room> <speed>",
@@ -663,6 +664,25 @@ function DebugService:Run(player: Player, text: string)
 				)
 			end
 		end)
+	elseif command == "chute" then
+		-- The laundry chute (docs/plans/level-design.md section 10.5): `chute`
+		-- takes you to its hatch and down it; `chute here` tries it from where
+		-- you stand.
+		local chute = services.ChuteService:Get()
+		if not chute then
+			reply(player, "this house has no laundry chute")
+		elseif args[2] == "here" then
+			reply(player, services.ChuteService:Use(player))
+		else
+			local character = player.Character
+			if character then
+				services.PlayerStateService:MarkTeleport(player)
+				local at = chute.stand
+				character:PivotTo(CFrame.lookAt(at, at - chute.into))
+			end
+			task.wait(0.3)
+			reply(player, services.ChuteService:Use(player))
+		end
 	elseif command == "goto" then
 		-- Step into a room (its middle, or a free spot near it), for testing;
 		-- or `goto <x> <y> <z>` to a spot (feet).

@@ -247,6 +247,16 @@ function FloorPlan.render(layout, config): string
 			)
 		)
 	end
+	if layout.chute then
+		table.insert(
+			out,
+			("laundry chute: from room %d down to room %d (%s wall)"):format(
+				layout.chute.upper,
+				layout.chute.ground,
+				layout.chute.side
+			)
+		)
+	end
 	if layout.seed then
 		table.insert(
 			out,
