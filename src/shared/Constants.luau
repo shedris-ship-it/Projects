@@ -7,6 +7,7 @@ Constants.Tags = {
 	Object = "ConsensusObject", -- anything with a CId attribute
 	Seam = "ConsensusSeam",
 	Door = "ConsensusDoor",
+	Articulated = "ConsensusArticulated", -- a door's or a furniture piece's main part (Controllers/MotionController)
 	HidingSpot = "ConsensusHidingSpot",
 	TellSite = "ConsensusTellSite",
 	RoomLight = "ConsensusRoomLight",

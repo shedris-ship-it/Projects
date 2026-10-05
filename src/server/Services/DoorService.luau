@@ -10,7 +10,15 @@
 -- Guest's code and the passage model read. Players drag the angle with their
 -- hands (Services/HandsService, Controllers/HandsController): holding a door
 -- shut braces it, and a door swung into The Guest stops dead against him.
+--
+-- Doors have momentum (R2c, the physics feel pass): let go of one mid-swing
+-- and it swings on, bounces off the wall, slams if flung shut (loud: a lure
+-- if nobody held it, a giveaway if you did), or stops ajar. It stops dead
+-- against a body in its way, anyone's. While one moves, clients are told its
+-- motion a few times a second (Lib/MotionState) and draw it smoothly
+-- themselves (Controllers/MotionController).
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -20,6 +28,8 @@ local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Joint = require(Shared.Lib.Joint)
+local MotionState = require(Shared.Lib.MotionState)
+local Net = require(Shared.Net)
 local Sfx = require(Shared.Lib.Sfx)
 
 local D = Config.Doors
@@ -65,15 +75,8 @@ function DoorService:_setup(door)
 			table.insert(door.offsets, door.slab.CFrame:ToObjectSpace(p.CFrame))
 		end
 	end
-	door.state = Articulation.new({
-		max = D.OpenAngle,
-		rate = D.SwingRate,
-		passAt = D.PassAngle,
-		latchAt = D.LatchAngle,
-		value = door.restAngle or 0,
-	})
-	door.open = Articulation.passable(door.state)
-	-- What a dragging client needs to turn its own copy (Controllers/HandsController).
+	-- What a client needs to draw it, or turn its own copy (Controllers/
+	-- MotionController, Controllers/HandsController).
 	door.joint = {
 		kind = "hinge",
 		hinge = door.hinge,
@@ -84,8 +87,12 @@ function DoorService:_setup(door)
 		rate = D.SwingRate,
 		latch = D.LatchAngle,
 	}
+	door.state = Articulation.new(Joint.motionSpec(door.joint, "door", door.restAngle or 0))
+	door.open = Articulation.passable(door.state)
 	Joint.write(door.slab, door.joint)
+	door.slab:SetAttribute("Momentum", "door")
 	door.slab:SetAttribute("Value", door.state.value)
+	CollectionService:AddTag(door.slab, Constants.Tags.Articulated)
 	door.holder, door.heldUntil, door.forcedUntil = nil, 0, 0
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -167,20 +174,61 @@ function DoorService:_guestStop(door, from: number, to: number): number?
 	)
 end
 
+-- Where a swing from `from` to `to` stops against a player standing in it,
+-- or nil: a door never goes through anyone.
+function DoorService:_bodyStop(door, from: number, to: number): number?
+	local shut = door.closedCFrame.Position - door.hinge
+	local best = nil
+	for _, player in self.PlayerState:LivingPlayers() do
+		local position = self.PlayerState:Position(player)
+		if position and math.abs(position.Y - door.hinge.Y - 3) < 5 then
+			local body = position - door.hinge
+			local stop = Articulation.sweepStop(
+				{ x = shut.X, z = shut.Z },
+				{ x = body.X, z = body.Z },
+				DOOR_LENGTH,
+				H.BodyRadius,
+				from,
+				to
+			)
+			if stop and (best == nil or math.abs(stop - from) < math.abs(best - from)) then
+				best = stop
+			end
+		end
+	end
+	return best
+end
+
+-- Tell whoever holds it that it stopped in their hands (against him, against
+-- a body, or forced), so their own copy agrees.
+function DoorService:_dragStopped(door)
+	local holder = self:HeldBy(door)
+	if holder then
+		Net.get("DragStop"):FireClient(holder, door.id, door.state.value)
+	end
+end
+
 function DoorService:_step(door, dt: number)
 	if not door.slab.Parent then
 		self.moving[door] = nil
 		return
 	end
 	local state = door.state
+	local now = os.clock()
+	-- The hand let go (no word from it for a moment): it swings on by itself.
+	if state.mode == "held" and not self:HeldBy(door) then
+		Articulation.release(state)
+	end
 	local from = state.value
 	local events = Articulation.step(state, dt, door.slamRate)
-	local stop = state.value ~= from and self:_guestStop(door, from, state.value)
+	local stop = state.value ~= from
+		and (self:_guestStop(door, from, state.value) or self:_bodyStop(door, from, state.value))
 	if stop then
-		-- It stops dead against something nobody may be able to see.
-		state.value, state.target = stop, stop
-		if os.clock() - (door.bumpedAt or 0) > 1 then
-			door.bumpedAt = os.clock()
+		-- It stops dead against someone, maybe someone nobody can see.
+		Articulation.stop(state, stop)
+		self:_dragStopped(door)
+		if now - (door.bumpedAt or 0) > 1 then
+			door.bumpedAt = now
 			Sfx.play("Thud", door.position, 0.55, 1.15)
 		end
 	end
@@ -189,12 +237,19 @@ function DoorService:_step(door, dt: number)
 		door.open = passable
 		door.slab.CanCollide = not passable
 	end
-	local now = os.clock()
-	local holder = (door.holder and now < door.heldUntil) and door.holder or nil
+	local holder = self:HeldBy(door)
+	-- Who last had their hands on it, for a slam that follows a fling.
+	local flung = (door.lastHolder and now - (door.lastHeldAt or 0) < 2) and door.lastHolder or nil
 	for _, event in events do
 		-- A door moved by hand clicks as it catches and lets go; SetOpen
 		-- plays its own sound.
-		if holder and event == "latch" then
+		if event == "slam" then
+			-- Flung shut: everyone hears it, and so does he.
+			Sfx.play("DoorSlam", door.position, 1, 1)
+			self.Noise:Emit(door.position, D.SlamNoise, flung, flung and "slam" or "lure")
+		elseif event == "knock" then
+			Sfx.play("Thud", door.position, 0.5, 1.3)
+		elseif holder and event == "latch" then
 			Sfx.play("DoorClose", door.position, 0.3, 1.1)
 			self.Noise:Emit(door.position, 8, holder, "door")
 		elseif holder and event == "unlatch" then
@@ -215,14 +270,17 @@ function DoorService:_step(door, dt: number)
 		self.moving[door] = nil
 		door.slamRate = nil
 		door.byGuest = nil
-		door.slab:SetAttribute("Value", math.round(state.value * 10) / 10)
+		MotionState.settle(door.slab, math.round(state.value * 10) / 10)
+	else
+		MotionState.publish(door.slab, state, H.MotionHz, door.slamRate)
 	end
 end
 
 -- A player's hands on the door (Services/HandsService has checked reach and
 -- line of sight): turn it towards `degrees`. Quiet unless swung hard. Not
--- while he's forcing it out of their hands.
-function DoorService:Drag(door, degrees: number, player: Player): boolean
+-- while he's forcing it out of their hands. `release` (degrees a second)
+-- is the last word as the hand lets go: it swings on at that speed.
+function DoorService:Drag(door, degrees: number, player: Player, release: number?): boolean
 	if not door.state or os.clock() < door.forcedUntil then
 		return false
 	end
@@ -236,9 +294,22 @@ function DoorService:Drag(door, degrees: number, player: Player): boolean
 		end
 		return false
 	end
-	door.holder = player
-	door.heldUntil = os.clock() + H.HoldSeconds
-	return self:SetAngle(door, degrees)
+	local now = os.clock()
+	door.lastHolder, door.lastHeldAt = player, now
+	local state = door.state
+	door.slamRate = nil
+	Articulation.hold(state)
+	local ok = Articulation.setTarget(state, degrees)
+	if release then
+		door.holder, door.heldUntil = nil, 0
+		Articulation.release(state, release)
+	else
+		door.holder = player
+		door.heldUntil = now + H.HoldSeconds
+	end
+	self.moving[door] = true
+	door.prompt.ActionText = state.target >= D.PassAngle and "Close" or "Open"
+	return ok
 end
 
 -- Someone has hold of it right now.
@@ -251,7 +322,7 @@ function DoorService:SetAngle(door, degrees: number, rate: number?): boolean
 	if not door.state then
 		return false
 	end
-	local ok = Articulation.setTarget(door.state, degrees)
+	local ok = Articulation.drive(door.state, degrees)
 	door.slamRate = rate
 	self.moving[door] = true
 	door.prompt.ActionText = door.state.target >= D.PassAngle and "Close" or "Open"
@@ -272,6 +343,7 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 		door.byGuest = open or nil
 		if self:HeldBy(door) then
 			door.forcedUntil = os.clock() + H.ForcedSeconds
+			self:_dragStopped(door)
 		end
 		door.holder = nil
 	end
@@ -336,11 +408,12 @@ function DoorService:SetLocked(door, locked: boolean)
 	if locked then
 		local state = door.state
 		state.value, state.target, state.latched = 0, 0, true
+		state.velocity, state.mode, state.passing = 0, "driven", false
 		door.open = false
 		door.slab.CanCollide = true
 		self.moving[door] = nil
 		self:_place(door)
-		door.slab:SetAttribute("Value", 0)
+		MotionState.settle(door.slab, 0)
 		Articulation.setLocked(state, true)
 	else
 		Articulation.setLocked(door.state, false)

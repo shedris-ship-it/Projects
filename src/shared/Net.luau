@@ -18,7 +18,9 @@ local DEFINITIONS = {
 	LeaveHiding = "RemoteEvent",
 	SelectSlot = "RemoteEvent", -- (slot 1 to 4): put that slot in your hands
 	DropItem = "RemoteEvent", -- put the tool in your hands down
-	Drag = "UnreliableRemoteEvent", -- (id, value): your hands on a door or drawer, 30 times a second (Services/HandsService)
+	Drag = "UnreliableRemoteEvent", -- (id, value, release?): your hands on a door or drawer, 30 times a second (Services/HandsService)
+	DragRelease = "RemoteEvent", -- (id, value, velocity): you let go of it, swinging (reliable: it must arrive)
+	DragStop = "RemoteEvent", -- S->C (id, value): what you held stopped in your hands (against a body, or forced)
 	Push = "UnreliableRemoteEvent", -- (prop id, direction): pushing furniture, 10 times a second (Services/PushService)
 	-- The escape's puzzles (Services/PuzzleService, UI/Puzzle).
 	PuzzleOpen = "RemoteEvent", -- S->C (id, kind, view, state): you're at a puzzle

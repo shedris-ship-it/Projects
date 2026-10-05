@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-05.7",
-	note = "R2c.2: acts and progress-armed hunts (a new region, act or heirloom wakes a hunt; stalling makes the house restless)",
+	id = "2026-10-05.8",
+	note = "R2c.3: physics with weight and momentum (carry spring, wound-up throws, swinging doors, coasting pushes)",
 }

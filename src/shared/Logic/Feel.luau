@@ -19,12 +19,17 @@ end
 -- How fast the character is allowed to move right now (studs/s). Sprint and
 -- the downed crawl are unchanged by the slow walk; the hub stays brisk; out of
 -- stamina you stagger at WindedSpeed instead of dropping to a walk.
--- ctx: downed, hidden, hub, sprinting, exhausted
-function Feel.targetSpeed(ctx, P, crawlSpeed: number): number
+-- Leaning on furniture you push (R2c), you go no faster than it moves (plus
+-- a little), so you lean into it rather than run into it.
+-- ctx: downed, hidden, hub, sprinting, exhausted, pushSpeed? (studs a
+-- second the piece you push is moving; push: Config.Push)
+function Feel.targetSpeed(ctx, P, crawlSpeed: number, push): number
 	if ctx.downed then
 		return crawlSpeed
 	elseif ctx.hidden then
 		return 0
+	elseif ctx.pushSpeed and push then
+		return math.max(push.WalkMin, ctx.pushSpeed + push.WalkMargin)
 	elseif ctx.sprinting and not ctx.exhausted then
 		return P.SprintSpeed
 	elseif ctx.hub then

@@ -4,6 +4,7 @@ return function(test, check, Shared, require)
 	local roblox = require("@lune/roblox")
 	local Vector3 = roblox.Vector3
 	local Throw = require(Shared.Logic.Throw)
+	local Config = require(Shared.Config)
 
 	local feet, head = Vector3.new(0, 0, 0), Vector3.new(0, 6, 0)
 
@@ -49,6 +50,27 @@ return function(test, check, Shared, require)
 		check.near(Throw.stunSeconds(1.2, 1, false, 0.6), 0.6, 1e-9, "halved")
 		check.near(Throw.stunSeconds(1.2, 2, false, 0.6), 0.3, 1e-9, "and again")
 		check.near(Throw.stunSeconds(1.2, 0, true, 0.6), 0.72, 1e-9, "final hunt")
+	end)
+
+	test("a wind-up: a tap throws softly, a full wind-up throws at full speed", function()
+		local H = Config.Hands
+		check.near(Throw.charge(0, H), H.ChargeLow, 1e-9, "a tap")
+		check.near(Throw.charge(H.ChargeFull + 1, H), 1, 1e-9, "wound up")
+		local mid = Throw.charge((H.ChargeMin + H.ChargeFull) / 2, H)
+		check.truthy(mid > H.ChargeLow and mid < 1, "in between")
+	end)
+
+	test("a stun counts only on a throw's first arc: it can't be steered into him", function()
+		local H = Config.Hands
+		local from, v = Vector3.new(0, 5, 0), Vector3.new(0, 4, -40)
+		local g = Vector3.new(0, -196.2, 0)
+		local honest = Throw.predict(from, v, g, 0.3)
+		check.truthy(Throw.onArc(from, v, g, 0.3, honest, H), "where it should be")
+		check.truthy(
+			Throw.onArc(from, v, g, 0.3, honest + Vector3.new(1.5, 0, 0), H),
+			"a little off (spin, the network)"
+		)
+		check.truthy(not Throw.onArc(from, v, g, 0.3, honest + Vector3.new(8, 0, 0), H), "steered sideways")
 	end)
 
 	test("a throw leaves along the aim at the class's speed, plus your own motion", function()

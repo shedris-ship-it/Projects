@@ -43,6 +43,29 @@ function Push.direction(directions: { { x: number, z: number } })
 	return { x = x / length, z = z / length }
 end
 
+-- One step of a pushed piece's velocity (R2c, the physics feel pass): it
+-- gathers speed towards `target` (a flat velocity, or zero when nobody
+-- pushes) at cfg.Accel / weight, so a heavy piece is slow to get going, and
+-- coasts to a stop at cfg.Friction. Turning blends the same way. Works on
+-- Vector3s or plain numbers.
+function Push.step(velocity, target, weight: number, dt: number, cfg)
+	local gap = target - velocity
+	local size = typeof(gap) == "number" and math.abs(gap) or gap.Magnitude
+	if size < 1e-6 then
+		return target
+	end
+	-- Speeding up (or turning) is pushing against its weight; slowing down
+	-- with nobody pushing is friction.
+	local pushing = typeof(target) == "number" and target ~= 0
+		or (typeof(target) ~= "number" and target.Magnitude > 1e-6)
+	local rate = pushing and cfg.Accel / math.max(weight, 0.25) or cfg.Friction
+	local reach = rate * dt
+	if size <= reach then
+		return target
+	end
+	return velocity + gap * (reach / size)
+end
+
 -- How loud it scrapes: heavier is louder, and creeping (straining at
 -- something too heavy) louder still.
 function Push.noise(weight: number, creeping: boolean, perWeight: number): number

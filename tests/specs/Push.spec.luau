@@ -80,6 +80,24 @@ return function(test, check, Shared, require)
 		check.near(one.z, -1, 1e-9, "one push, made unit")
 	end)
 
+	test("a pushed piece has weight: slow to get going, it coasts, then stops", function()
+		local P = Config.Push
+		local light, heavy = 0, 0
+		for _ = 1, 6 do
+			light = Push.step(light, 2, 0.8, 0.05, P)
+			heavy = Push.step(heavy, 2, 2, 0.05, P)
+		end
+		check.truthy(light > heavy, "a dresser gets going faster than a bed")
+		check.atMost(light, 2, "never past the speed its pushers give it")
+		local coasting = Push.step(2, 0, 2, 0.05, P)
+		check.truthy(coasting > 0 and coasting < 2, "let go, it coasts")
+		local v = 2
+		for _ = 1, 40 do
+			v = Push.step(v, 0, 2, 0.05, P)
+		end
+		check.equal(v, 0, "then stops")
+	end)
+
 	test("heavier pieces scrape louder, and straining is loudest", function()
 		check.truthy(Push.noise(2, false, 7) > Push.noise(1, false, 7), "heavier")
 		check.truthy(Push.noise(2, true, 7) > Push.noise(2, false, 7), "creeping")

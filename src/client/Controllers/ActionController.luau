@@ -337,14 +337,19 @@ function ActionController:_updateMovement(dt: number)
 	if state == PS.Lobby and not self.state:InRun() then
 		stamina = P.StaminaMax
 	end
-	-- Slow walk, fast sprint, a stagger when out of stamina (Logic/Feel).
+	-- Slow walk, fast sprint, a stagger when out of stamina, and no faster
+	-- than the furniture you lean on (Logic/Feel).
+	local hands = self.controllers.HandsController
+	local pushing = hands and hands.push
+	local pushSpeed = pushing and pushing.model:GetAttribute("PushSpeed") or (pushing and 0 or nil)
 	humanoid.WalkSpeed = Feel.targetSpeed({
 		downed = state == PS.Downed,
 		hidden = self.state:IsHidden(),
 		hub = state == PS.Lobby,
 		sprinting = sprinting,
 		exhausted = exhausted,
-	}, P, Config.Run.DownedCrawlSpeed)
+		pushSpeed = pushSpeed,
+	}, P, Config.Run.DownedCrawlSpeed, Config.Push)
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
 	self.sprinting = sprinting

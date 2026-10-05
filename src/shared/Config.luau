@@ -637,6 +637,15 @@ Config.Doors = {
 	LatchAngle = 3, -- swung back within this of shut, it snaps shut and latches
 	SwingRate = 285, -- degrees a second: a full swing in about a third of a second
 	SlamRate = 520,
+	-- Walkable from PassAngle, and still walkable until it falls this far below
+	-- it, so a door bouncing about the line doesn't flicker the passage model.
+	PassHysteresis = 10,
+	-- Let go of a door and it swings on (Logic/Articulation, R2c): friction
+	-- (degrees a second, each second), bounce off the open stop, how fast
+	-- coming home is a slam (and loud: SlamNoise), how hard against the stop
+	-- knocks, below what it simply stops, and how keenly a held one follows.
+	Motion = { friction = 260, restitution = 0.25, slamSpeed = 160, knockSpeed = 120, stopSpeed = 8, stiffness = 18 },
+	SlamNoise = 25,
 }
 
 -- The escape's locks and keys (docs/plans/gameplay-rework.md section 5;
@@ -685,6 +694,13 @@ Config.Furniture = {
 	NoiseSpeed = 0.8, -- moved faster than this fraction of its rate: heard (a drawer slammed shut)
 	NoiseRadius = 12,
 	ClearStep = 8, -- degrees per step (a tenth of a stud for drawers) when finding how far it opens before it would hit something
+	-- Momentum (Logic/Articulation, R2c), as for doors: hinges (cupboard doors,
+	-- lids) in degrees, slides (drawers) in studs.
+	Motion = {
+		hinge = { friction = 300, restitution = 0.2, slamSpeed = 150, knockSpeed = 110, stopSpeed = 8, stiffness = 20 },
+		slide = { friction = 9, restitution = 0.1, slamSpeed = 4.5, knockSpeed = 4, stopSpeed = 0.2, stiffness = 20 },
+	},
+	SlamNoise = 14,
 }
 
 -- Pushing furniture (docs/plans/gameplay-rework.md section 4.6; Logic/Push,
@@ -693,7 +709,16 @@ Config.Push = {
 	CreepBelow = 0.6, -- with less strength than this share of its weight it only creeps
 	CreepSpeed = 0.25, -- studs a second
 	MaxSpeed = 2.2,
+	-- Momentum (R2c): studs a second gathered each second per person of weight
+	-- (a heavy piece is slow to get going), and lost each second when nobody
+	-- pushes (it coasts a moment, then stops).
+	Accel = 6,
+	Friction = 7,
+	StepHz = 30, -- the server moves a pushed piece this often
 	Reach = 4.5, -- studs from your middle to it
+	ReachHeld = 6, -- once you're pushing (or pulling), it stays yours this far out
+	WalkMargin = 1.2, -- while you push, you walk this much faster than it moves (you lean into it)
+	WalkMin = 1.4, -- and never slower than this
 	Window = 0.3, -- seconds a push counts after it's sent
 	SendHz = 10,
 	ScrapeNoise = 7, -- noise radius per unit of weight while it moves
@@ -718,16 +743,37 @@ Config.Hands = {
 	DragStretch = 2.5, -- your hand never gets further than this ahead of a door that won't follow
 	DragSendHz = 30,
 	PredictDrag = true, -- the dragging client moves its own copy at once (off: wait for the server)
-	HoldSeconds = 0.35, -- a door counts as held this long after your last drag message
+	HoldSeconds = 0.35, -- a door counts as held this long after your last drag message (then it swings on by itself)
+	MotionHz = 20, -- how often something moving tells clients where it is (Controllers/MotionController)
+	MotionBlend = 0.08, -- seconds a client takes to ease its copy into the server's
 	ForcedSeconds = 1.2, -- once he forces a door you're holding, it's out of your hands this long
 	DragNoiseSpeed = 160, -- degrees a second: swing faster than this and the door creaks loud enough to hear
 	DragNoiseRadius = 14,
 	GuestRadius = 1.1, -- a door swung into The Guest stops this far from his middle
+	BodyRadius = 1.3, -- and this far from a player's
 	-- Carrying and throwing small things (sections 4.3 and 4.4; Data/Physical).
 	CarryDistance = { 2.2, 3.2, 5 }, -- nearest, where it starts, furthest: studs in front of your eye (wheel)
-	CarryDrop = 6.5, -- further than this from your head, it slips out of your hands
+	CarryDrop = 7.5, -- further than this from your head, it slips out of your hands
 	BulkySide = 1.1, -- studs to the right a big carried thing (a lamp, a plant) is held, to see past it
-	CarryMaxSpeed = 80, -- faster than this while held is not something a hand did: put back
+	CarryMaxSpeed = 80, -- (old flat cap; now each class's carry.maxSpeed plus the holder's speed plus CarrySpeedMargin)
+	CarrySpeedMargin = 20, -- studs a second of slack for the network on top of a class's own speed
+	GrabGraceSeconds = 0.5, -- just after taking hold (lifting it out of a drawer), passing through isn't checked
+	-- Throwing (R2c): hold the right button to wind up. ChargeMin to ChargeFull
+	-- seconds of holding goes from ChargeLow of the class's throw to all of it.
+	ChargeMin = 0.15,
+	ChargeFull = 0.7,
+	ChargeLow = 0.35,
+	ThrowLift = 0.08, -- a little upward lift on every throw
+	ThrowCarry = 0.5, -- how much of its own swing (and your run) a throw keeps
+	-- A stun counts only on a throw's first arc, within this of where it
+	-- should be (studs, plus this a second): it can't be steered into him.
+	ArcSlack = 2,
+	ArcSlackPerSecond = 4,
+	FlightSpeedScale = 1.3, -- a client-owned thing in flight faster than its throw speed times this (plus the margin) is taken back
+	OwnedPerPlayer = 2, -- things a player's client may keep simulating after letting go
+	SettleSeconds = 0.3, -- taken back by the server this long before it's put to sleep, so it doesn't snap
+	RestSpin = 0.6, -- radians a second: turning faster than this isn't lying still
+	RestHardMaxSeconds = 15, -- asleep after this however it's lying
 	RestSeconds = 1.5, -- lying still this long after you let go, it's put back to sleep (anchored)
 	RestMaxSeconds = 8, -- and asleep after this however it's lying
 	FlightSeconds = 2.5, -- a throw is watched this long for a hit and a landing

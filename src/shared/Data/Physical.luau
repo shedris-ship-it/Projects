@@ -10,6 +10,11 @@
 --   stun         seconds a hit on The Guest stops him (Logic/Throw shrinks repeats)
 --   noise        how far its landing carries (a lure: nobody's position)
 --   sound, pitch what its landing sounds like
+--   carry        in your hands (Logic/Heft, R2c): omega (how keenly the hold
+--                point follows your eye; heavy things trail), forceG (the
+--                force it may use, in g: heavy things sag when whipped),
+--                maxSpeed (studs a second), tilt (radians it leans when
+--                swung), bob (studs it bobs with your stride)
 
 local Classes = {
 	light = {
@@ -20,6 +25,7 @@ local Classes = {
 		noise = 10,
 		sound = "Stamp",
 		pitch = 1.35,
+		carry = { omega = 28, forceG = 10, maxSpeed = 60, tilt = 0.25, bob = 0 },
 	},
 	medium = {
 		density = 0.7,
@@ -29,6 +35,7 @@ local Classes = {
 		noise = 16,
 		sound = "Knock",
 		pitch = 1,
+		carry = { omega = 18, forceG = 7, maxSpeed = 45, tilt = 0.35, bob = 0.03 },
 	},
 	heavy = {
 		density = 1,
@@ -38,17 +45,19 @@ local Classes = {
 		noise = 22,
 		sound = "Thud",
 		pitch = 0.8,
+		carry = { omega = 11, forceG = 5, maxSpeed = 32, tilt = 0.45, bob = 0.06 },
 	},
 	-- Furniture you carry in both arms (a plant, a lamp, a mannequin): slow
 	-- to follow, a short heavy throw.
 	bulky = {
 		density = 1.1,
 		follow = 12,
-		throwSpeed = 24,
+		throwSpeed = 30, -- fast enough to stun (StunMinSpeed) when wound up
 		stun = 2,
 		noise = 28,
 		sound = "Thud",
 		pitch = 0.65,
+		carry = { omega = 7, forceG = 4, maxSpeed = 24, tilt = 0.3, bob = 0.12 },
 	},
 }
 

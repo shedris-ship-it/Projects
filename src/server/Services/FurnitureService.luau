@@ -14,7 +14,13 @@
 --
 -- Each piece learns how far it can open at build: a cupboard in a corner
 -- stops before its door would go through the wall.
+--
+-- Like doors they have momentum (R2c): a flicked drawer slides out to its
+-- stop with a knock, a cupboard door flung shut slams. Clients draw them from
+-- the motion snapshots on their main parts (Lib/MotionState), and what lies
+-- in a drawer is marked RidesOn so it slides with it on every screen.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -24,6 +30,8 @@ local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Joint = require(Shared.Lib.Joint)
+local MotionState = require(Shared.Lib.MotionState)
+local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
@@ -171,6 +179,8 @@ function FurnitureService:_piece(id: string, model: Model, primary: BasePart, jo
 		end
 	end
 	local max = self:_clearance(joint, primary, prop.model)
+	local spec = Joint.motionSpec(joint, "furniture", 0)
+	spec.max = max
 	local piece = {
 		id = id,
 		model = model,
@@ -179,7 +189,7 @@ function FurnitureService:_piece(id: string, model: Model, primary: BasePart, jo
 		prop = prop,
 		parts = parts,
 		offsets = offsets,
-		state = Articulation.new({ max = max, rate = joint.rate, latchAt = joint.latch }),
+		state = Articulation.new(spec),
 		holder = nil,
 		heldUntil = 0,
 		upright = Joint.upright(joint),
@@ -189,6 +199,8 @@ function FurnitureService:_piece(id: string, model: Model, primary: BasePart, jo
 	primary:SetAttribute(Attr.CId, id)
 	primary:SetAttribute("Max", max)
 	primary:SetAttribute("Value", 0)
+	primary:SetAttribute("Momentum", "furniture")
+	CollectionService:AddTag(primary, Constants.Tags.Articulated)
 	self.pieces[id] = piece
 
 	-- The tap version (touch, or anyone who'd rather): E opens and shuts it.
@@ -238,15 +250,25 @@ function FurnitureService:_step(piece, dt: number)
 	end
 	local state = piece.state
 	local joint = piece.joint
+	local now = os.clock()
+	local holder = (piece.holder and now < piece.heldUntil) and piece.holder or nil
+	-- The hand let go (no word from it for a moment): it moves on by itself.
+	if state.mode == "held" and not holder then
+		Articulation.release(state)
+	end
 	local from = state.value
 	local events = Articulation.step(state, dt, piece.fast)
 	self:_place(piece)
-	local now = os.clock()
-	local holder = (piece.holder and now < piece.heldUntil) and piece.holder or nil
 	local position = piece.primary.Position
 	local slide = joint.kind == "slide"
+	local flung = (piece.lastHolder and now - (piece.lastHeldAt or 0) < 2) and piece.lastHolder or nil
 	for _, event in events do
-		if event == "latch" then
+		if event == "slam" then
+			Sfx.play(slide and "Drawer" or "DoorClose", position, 0.7, slide and 0.8 or 1)
+			self.Noise:Emit(position, F.SlamNoise, flung, flung and "furniture" or "lure")
+		elseif event == "knock" then
+			Sfx.play("Knock", position, 0.35, slide and 1.4 or 1.1)
+		elseif event == "latch" then
 			Sfx.play(slide and "Drawer" or "DoorLatch", position, 0.3, slide and 1.25 or 1.35)
 		elseif event == "unlatch" and not slide then
 			Sfx.play("DoorLatch", position, 0.18, 1.5)
@@ -282,8 +304,10 @@ function FurnitureService:_step(piece, dt: number)
 	if not Articulation.moving(state) then
 		self.moving[piece] = nil
 		piece.fast = nil
-		piece.primary:SetAttribute("Value", math.round(state.value * 100) / 100)
+		MotionState.settle(piece.primary, math.round(state.value * 100) / 100)
 		piece.prompt.ActionText = state.value > state.max / 2 and "Close" or "Open"
+	else
+		MotionState.publish(piece.primary, state, H.MotionHz, piece.fast)
 	end
 end
 
@@ -324,6 +348,9 @@ function FurnitureService:_fill(space)
 		if rides then
 			thing.rides = rides
 			thing.rideOffset = rides.primary.CFrame:ToObjectSpace(model:GetPivot())
+			-- Every client slides it with its drawer (Controllers/MotionController).
+			model:SetAttribute("RidesOn", rides.id)
+			model:SetAttribute("RideOffset", thing.rideOffset)
 		end
 	end
 end
@@ -335,17 +362,37 @@ function FurnitureService:Piece(id: string)
 end
 
 -- A player's hand on it (HandsService has checked reach and line of sight).
-function FurnitureService:Drag(piece, value: number, player: Player)
-	piece.holder = player
-	piece.heldUntil = os.clock() + H.HoldSeconds
+-- `release` (per second) is the last word as the hand lets go: it moves on
+-- at that speed.
+function FurnitureService:Drag(piece, value: number, player: Player, release: number?)
+	local now = os.clock()
+	piece.lastHolder, piece.lastHeldAt = player, now
 	piece.fast = nil
+	Articulation.hold(piece.state)
 	Articulation.setTarget(piece.state, value)
+	if release then
+		piece.holder, piece.heldUntil = nil, 0
+		Articulation.release(piece.state, release)
+	else
+		piece.holder = player
+		piece.heldUntil = now + H.HoldSeconds
+	end
 	self.moving[piece] = true
+end
+
+-- Tell whoever holds it that it was taken out of their hands.
+function FurnitureService:_dragStopped(piece)
+	local holder = (piece.holder and os.clock() < piece.heldUntil) and piece.holder or nil
+	if holder then
+		piece.holder = nil
+		Net.get("DragStop"):FireClient(holder, piece.id, piece.state.value)
+	end
 end
 
 -- Open it all the way or shut it; `fast` for a door flung open.
 function FurnitureService:SetOpen(piece, open: boolean, fast: boolean?)
-	Articulation.setTarget(piece.state, open and piece.state.max or 0)
+	self:_dragStopped(piece)
+	Articulation.drive(piece.state, open and piece.state.max or 0)
 	piece.fast = fast and piece.joint.rate * 2.2 or nil
 	self.moving[piece] = true
 end
@@ -370,11 +417,11 @@ end
 function FurnitureService:Shift(model: Instance, step: Vector3)
 	for _, piece in self.pieces do
 		if piece.prop.model == model then
+			-- The joint moves with it; clients are told once it comes to rest
+			-- (Settle), not every step of the push.
 			local joint = piece.joint
 			joint.shut += step
 			joint.hinge += step
-			piece.primary:SetAttribute("Shut", joint.shut)
-			piece.primary:SetAttribute("Hinge", joint.hinge)
 		end
 	end
 	for _, space in self.spaces do
@@ -396,12 +443,14 @@ end
 function FurnitureService:Settle(model: Instance)
 	for _, piece in self.pieces do
 		if piece.prop.model == model then
+			piece.primary:SetAttribute("Shut", piece.joint.shut)
+			piece.primary:SetAttribute("Hinge", piece.joint.hinge)
 			local max = self:_clearance(piece.joint, piece.primary, model)
 			piece.state.max = max
 			piece.primary:SetAttribute("Max", max)
 			piece.prompt.Enabled = max > 0
 			if piece.state.target > max then
-				Articulation.setTarget(piece.state, max)
+				Articulation.drive(piece.state, max)
 				self.moving[piece] = true
 			end
 		end
@@ -413,7 +462,8 @@ function FurnitureService:_setAll(model: Instance, open: boolean, fast: boolean)
 	for _, piece in self.pieces do
 		if piece.prop.model == model and piece.joint.kind == "hinge" then
 			if open then
-				Articulation.setTarget(piece.state, piece.state.max * 0.7)
+				self:_dragStopped(piece)
+				Articulation.drive(piece.state, piece.state.max * 0.7)
 				piece.fast = fast and piece.joint.rate * 2.2 or nil
 				self.moving[piece] = true
 			else

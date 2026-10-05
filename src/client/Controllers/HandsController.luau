@@ -8,19 +8,24 @@
 -- as you push your hand away. Let go of the button and you let go.
 --
 -- The server decides (Services/HandsService checks reach and line of sight;
--- DoorService and FurnitureService move it at its own rate, and a door stops
--- against The Guest).
--- This only says where your hand wants the door, and moves your own copy at
--- once so it feels like your hand, not a round trip (Config.Hands.PredictDrag).
+-- DoorService and FurnitureService move it, and a door stops against The
+-- Guest or anyone in its way). This says where your hand wants the door and
+-- turns your own copy at once (through Controllers/MotionController, the one
+-- writer of moving joints here), so it feels like your hand, not a round
+-- trip. Let go mid-swing and it swings on (R2c): the last word says how fast.
 -- Grabbing anything puts your hands in your hands: slot 4, torch clipped on.
 --
 -- Small things (Data/Physical: a mug, the telephone, a chair, a lamp) are
 -- carried instead (section 4.3): hold the button on one and it floats at
 -- arm's length in front of you while you look and walk about; the wheel
--- brings it nearer or further, the right button (LT) throws it, letting go
--- drops it. Once the server hands it over, this client moves it with two
--- constraints of its own; the server watches that it stays near you and
--- never passes through a wall.
+-- brings it nearer or further, holding the right button (LT) winds up a
+-- throw and letting it go throws, letting the left button go drops it. This
+-- client moves it with two constraints of its own, made as you reach for it
+-- so they take hold the moment the server hands it over; it follows your
+-- eye through a spring with its class's weight (Logic/Heft): light things
+-- keep up, heavy ones trail, sag when whipped and lean as you swing them. A
+-- throw or a drop leaves your hands exactly as it was moving; the server
+-- watches that it stays near you and never passes through a wall.
 --
 -- Everything else that isn't built in is pushed (section 4.6): hold the
 -- button on a bed or a wardrobe and walk, and this says which way you're
@@ -38,11 +43,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Heft = require(Shared.Logic.Heft)
 local Inventory = require(Shared.Logic.Inventory)
 local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
+local Throw = require(Shared.Logic.Throw)
 local Util = require(Shared.Lib.Util)
+
+local GameSettings = UserSettings():GetService("UserGameSettings")
 
 local H = Config.Hands
 local P = Config.Push
@@ -85,13 +94,29 @@ function HandsController:Start()
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+	-- Hold to wind up, let go to throw (a tap still throws, softly).
 	ContextActionService:BindActionAtPriority("ConsensusThrow", function(_, inputState)
-		if inputState == Enum.UserInputState.Begin and self.carry and self.carry.owned then
-			self:_throw()
+		local carry = self.carry
+		if inputState == Enum.UserInputState.Begin and carry and carry.owned then
+			carry.windingSince = os.clock()
+			return Enum.ContextActionResult.Sink
+		elseif
+			(inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel)
+			and carry
+			and carry.windingSince
+		then
+			self:_throw(os.clock() - carry.windingSince)
 			return Enum.ContextActionResult.Sink
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
+	-- The server stopped what you hold (a body in its way, or he forced it).
+	Net.get("DragStop").OnClientEvent:Connect(function(id, value)
+		local drag = self.drag
+		if drag and drag.id == id and typeof(value) == "number" then
+			self:_finish(value)
+		end
+	end)
 	-- The camera reads the mouse itself (UserInputService), so this only
 	-- listens; the view is held still in _update.
 	UserInputService.InputChanged:Connect(function(input)
@@ -103,8 +128,9 @@ function HandsController:Start()
 			self.carry.distance = math.clamp(self.carry.distance + input.Position.Z * 0.4, range[1], range[3])
 		end
 	end)
-	-- Right after the camera, before the view model hangs things on it.
-	RunService:BindToRenderStep("ConsensusHands", Enum.RenderPriority.Camera.Value + 1, function(dt)
+	-- Right after the camera (and after FeelController's roll, so a drag's
+	-- held view isn't rolled), before the view model hangs things on it.
+	RunService:BindToRenderStep("ConsensusHands", Enum.RenderPriority.Camera.Value + 2, function(dt)
 		local ok, err = pcall(self._update, self, dt)
 		if not ok then
 			warn("[Consensus] hands failed: " .. tostring(err))
@@ -213,14 +239,6 @@ function HandsController:_begin(): boolean
 		return self:_lean(hit)
 	end
 	local point = hit.Position
-	local model = primary.Parent :: Model
-	local parts, offsets = {}, {}
-	for _, p in model:GetDescendants() do
-		if p:IsA("BasePart") then
-			table.insert(parts, p)
-			table.insert(offsets, primary.CFrame:ToObjectSpace(p.CFrame))
-		end
-	end
 	local value = math.clamp(Joint.valueOf(joint, primary.CFrame), 0, joint.max)
 	-- Where you took hold of it, on the part, and where that point sits when
 	-- it's shut (a door's angle is measured from there).
@@ -230,6 +248,11 @@ function HandsController:_begin(): boolean
 	local across = grabShut - joint.axis * grabShut:Dot(joint.axis)
 	local look = Workspace.CurrentCamera.CFrame.LookVector
 	local forward = flat(look)
+	-- Your hand holds its state in MotionController, which turns it at once.
+	local state = self.controllers.MotionController:Hold(primary, value)
+	if not state then
+		return false
+	end
 	self.drag = {
 		id = primary:GetAttribute(Constants.Attributes.CId),
 		primary = primary,
@@ -238,8 +261,6 @@ function HandsController:_begin(): boolean
 		onPart = onPart,
 		grabShut = { x = grabShut.X, z = grabShut.Z },
 		radius = math.max(0.5, across.Magnitude),
-		parts = parts,
-		offsets = offsets,
 		hand = point,
 		start = point,
 		startValue = value,
@@ -247,7 +268,7 @@ function HandsController:_begin(): boolean
 		target = value,
 		look = look,
 		forward = forward.Magnitude > 1e-3 and forward.Unit or Vector3.new(0, 0, -1),
-		state = { min = 0, max = joint.max },
+		state = state,
 	}
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
@@ -262,33 +283,26 @@ function HandsController:_begin(): boolean
 	return true
 end
 
-function HandsController:_finish()
+-- Let go. It swings on at the speed your hand had (the server is told, and
+-- its copy takes over as it comes). `stoppedAt` instead: the server stopped
+-- it in your hands, at that value.
+function HandsController:_finish(stoppedAt: number?)
 	local drag = self.drag
 	if not drag then
 		return
 	end
 	self.drag = nil
 	ContextActionService:UnbindAction("ConsensusDragStick")
-	-- Our copy goes back to the server's once it has settled.
-	task.delay(0.5, function()
-		if self.drag and self.drag.primary == drag.primary then
-			return
-		end
-		local value = drag.primary:GetAttribute("Value")
-		if typeof(value) == "number" and drag.primary.Parent then
-			self:_pose(drag, value)
-		end
-	end)
-end
-
--- Put our copy of it at a value.
-function HandsController:_pose(drag, value: number)
-	local at = Joint.pose(drag.joint, value)
-	local cframes = table.create(#drag.parts)
-	for i, offset in drag.offsets do
-		cframes[i] = at * offset
+	local motion = self.controllers.MotionController
+	if stoppedAt then
+		motion:Stop(drag.primary, stoppedAt)
+		return
 	end
-	Workspace:BulkMoveTo(drag.parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+	local velocity = drag.state.velocity
+	motion:Release(drag.primary, velocity)
+	if drag.primary.Parent then
+		Net.get("DragRelease"):FireServer(drag.id, drag.state.target, velocity)
+	end
 end
 
 -- Where your hand wants it: a door turns to point at your hand, a drawer
@@ -346,7 +360,7 @@ function HandsController:_pushStep()
 		return
 	end
 	local box, size = push.model:GetBoundingBox()
-	if (box.Position - root.Position).Magnitude > P.Reach + size.Magnitude / 2 + 2 then
+	if (box.Position - root.Position).Magnitude > P.ReachHeld + size.Magnitude / 2 + 2 then
 		self.push = nil
 		return
 	end
@@ -360,7 +374,7 @@ end
 
 function HandsController:_update(dt: number)
 	if self.carry then
-		self:_carryStep()
+		self:_carryStep(dt)
 	end
 	if self.push then
 		self:_pushStep()
@@ -381,6 +395,7 @@ function HandsController:_update(dt: number)
 		self:_finish()
 		return
 	end
+	local sensitivity = H.DragSensitivity * math.clamp(GameSettings.MouseSensitivity, 0.2, 4)
 	-- Hold the view still: the camera builds each frame from where it looked
 	-- last, so putting its aim back here keeps it put without a jump later.
 	camera.CFrame = CFrame.lookAt(eye, eye + drag.look)
@@ -391,35 +406,28 @@ function HandsController:_update(dt: number)
 	local delta = self.mouseDelta
 	self.mouseDelta = Vector2.zero
 	local hand = drag.hand
-		+ right * (delta.X * H.DragSensitivity + self.stick.X * H.DragStickSpeed * dt)
-		+ forward * (-delta.Y * H.DragSensitivity + self.stick.Y * H.DragStickSpeed * dt)
+		+ right * (delta.X * sensitivity + self.stick.X * H.DragStickSpeed * dt)
+		+ forward * (-delta.Y * sensitivity + self.stick.Y * H.DragStickSpeed * dt)
 	-- Something that won't follow (shut, against something) keeps your hand close.
+	drag.value = drag.state.value
 	local grabNow = Joint.pose(drag.joint, drag.value):PointToWorldSpace(drag.onPart)
 	local reach = flat(hand - grabNow)
 	if reach.Magnitude > H.DragStretch then
 		hand = grabNow + reach.Unit * H.DragStretch + Vector3.new(0, hand.Y - grabNow.Y, 0)
 	end
 	drag.hand = hand
-	drag.target = self:_target(drag, hand)
+	local target = self:_target(drag, hand)
+	-- A locked door only shifts in its frame (the server rattles it and says why).
+	if drag.primary:GetAttribute("Locked") then
+		target = math.min(target, drag.joint.latch)
+	end
+	drag.target = target
+	Articulation.setTarget(drag.state, target)
 
 	local now = os.clock()
 	if now - self.sentAt >= 1 / H.DragSendHz then
 		self.sentAt = now
 		Net.get("Drag"):FireServer(drag.id, drag.target)
-	end
-	-- Our own copy follows at its own rate (the server's catches up).
-	if H.PredictDrag then
-		local joint = drag.joint
-		local step = joint.rate * dt
-		local gap = drag.target - drag.value
-		drag.value = math.abs(gap) <= step and drag.target or drag.value + math.sign(gap) * step
-		if drag.value <= joint.latch and drag.target <= joint.latch then
-			drag.value = 0
-		end
-		self:_pose(drag, drag.value)
-	else
-		local value = drag.primary:GetAttribute("Value")
-		drag.value = typeof(value) == "number" and value or drag.value
 	end
 end
 
@@ -432,16 +440,87 @@ function HandsController:_pickUp(): boolean
 	if not model then
 		return false
 	end
-	self.carry = {
+	local carry = {
 		id = model:GetAttribute("Grab"),
 		model = model,
 		class = Physical.Classes[model:GetAttribute("Class")] or Physical.Classes.medium,
 		distance = H.CarryDistance[2],
 		askedAt = os.clock(),
 		owned = false,
+		phase = 0,
 	}
-	Net.get("Grab"):FireServer(self.carry.id)
+	self.carry = carry
+	-- Reach for it now: the constraints wait on it, and take hold the moment
+	-- the server unanchors it and hands it over, with no round trip of sag.
+	self:_buildHold(carry)
+	Net.get("Grab"):FireServer(carry.id)
 	return true
+end
+
+-- The part everything is welded to: the biggest, as the server picks
+-- (Services/HandsService.rootOf).
+local function rootOf(model: Model): BasePart?
+	local root, best = nil, -1
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			local volume = p.Size.X * p.Size.Y * p.Size.Z
+			if volume > best then
+				root, best = p, volume
+			end
+		end
+	end
+	return root
+end
+
+function HandsController:_buildHold(carry)
+	local model = carry.model
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	local look = camera.CFrame.LookVector
+	local yaw = math.atan2(-look.X, -look.Z)
+	local heft = carry.class.carry
+	-- Held by its middle, so a tall thing (a lamp, a mannequin) is held like
+	-- one rather than by whichever part is biggest.
+	local low, high = Util.verticalSpan(model)
+	local middle = model:GetBoundingBox().Position
+	carry.half = (high - low) / 2
+	carry.root = root
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "HandGrip"
+	attachment.Parent = root
+	attachment.Position = root.CFrame:PointToObjectSpace(Vector3.new(middle.X, (low + high) / 2, middle.Z))
+	-- Mass is worked out from the class's density and the parts' sizes, the
+	-- same as the server sets them on the first grab.
+	local mass = 0
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			mass += p.Size.X * p.Size.Y * p.Size.Z * carry.class.density
+		end
+	end
+	local align = Instance.new("AlignPosition")
+	align.Mode = Enum.PositionAlignmentMode.OneAttachment
+	align.Attachment0 = attachment
+	align.MaxForce = mass * Workspace.Gravity * heft.forceG + 200
+	align.MaxVelocity = heft.maxSpeed
+	align.Responsiveness = 200
+	align.Position = root.Position
+	align.Parent = root
+	local orient = Instance.new("AlignOrientation")
+	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	orient.Attachment0 = attachment
+	orient.MaxTorque = mass * 4000 + 2000
+	orient.Responsiveness = heft.omega * 1.2
+	orient.CFrame = root.CFrame.Rotation
+	orient.Parent = root
+	carry.attachment, carry.align, carry.orient = attachment, align, orient
+	-- Keep the way it was lying, relative to where you face.
+	carry.turn = CFrame.Angles(0, -yaw, 0) * root.CFrame.Rotation
+	-- The hold point starts where it lies and swings up into your hands.
+	carry.holdPos = attachment.WorldPosition
+	carry.holdVel = Vector3.zero
 end
 
 function HandsController:_cleanCarry()
@@ -464,13 +543,38 @@ function HandsController:_drop(tell: boolean)
 	end
 end
 
-function HandsController:_throw()
+-- Throw what you carry, wound up for `held` seconds. This client launches it
+-- (it owns it) from exactly where and how it was moving, and tells the
+-- server, which checks the launch.
+function HandsController:_throw(held: number)
+	local carry = self.carry
+	if not carry then
+		return
+	end
+	local root = carry.root
+	local camera = Workspace.CurrentCamera
+	local look = camera.CFrame.LookVector
+	local class = carry.class
+	local charge = Throw.charge(held, H)
+	local body = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local velocity = look * class.throwSpeed * charge + Vector3.new(0, class.throwSpeed * charge * H.ThrowLift, 0)
+	if root then
+		velocity += root.AssemblyLinearVelocity * H.ThrowCarry
+	end
+	if body then
+		velocity += body.AssemblyLinearVelocity * H.ThrowCarry
+	end
 	self:_cleanCarry()
-	Net.get("Throw"):FireServer(Workspace.CurrentCamera.CFrame.LookVector)
+	if root and root.Parent and not root.Anchored then
+		root.AssemblyLinearVelocity = velocity
+		-- It tumbles end over end along the throw, less the heavier it is.
+		root.AssemblyAngularVelocity = look:Cross(Vector3.yAxis) * (6 / class.density)
+	end
+	Net.get("Throw"):FireServer(look, charge, root and root.Position or nil, velocity)
 end
 
--- Keep what you carry floating in front of you, turning as you turn.
-function HandsController:_carryStep()
+-- Keep what you carry in front of you, following your eye with its weight.
+function HandsController:_carryStep(dt: number)
 	local carry = self.carry
 	local model = carry.model
 	local mine = model.Parent ~= nil and model:GetAttribute("HeldBy") == player.UserId
@@ -485,43 +589,14 @@ function HandsController:_carryStep()
 		self:_drop(true)
 		return
 	end
-	local root = model.PrimaryPart
-	if not root then
+	if not carry.align or not carry.root or not carry.root.Parent then
+		self:_cleanCarry()
 		return
 	end
+	carry.owned = true
 	local camera = Workspace.CurrentCamera
 	local look = camera.CFrame.LookVector
 	local yaw = math.atan2(-look.X, -look.Z)
-	if not carry.owned then
-		carry.owned = true
-		-- Held by its middle, so a tall thing (a lamp, a mannequin) is held
-		-- like one rather than by whichever part is biggest.
-		local low, high = Util.verticalSpan(model)
-		local middle = model:GetBoundingBox().Position
-		carry.half = (high - low) / 2
-		local attachment = Instance.new("Attachment")
-		attachment.Name = "HandGrip"
-		attachment.Parent = root
-		attachment.Position = root.CFrame:PointToObjectSpace(Vector3.new(middle.X, (low + high) / 2, middle.Z))
-		local align = Instance.new("AlignPosition")
-		align.Mode = Enum.PositionAlignmentMode.OneAttachment
-		align.Attachment0 = attachment
-		align.MaxForce = root.AssemblyMass * Workspace.Gravity * 8 + 1000
-		align.MaxVelocity = 60
-		align.Responsiveness = carry.class.follow
-		align.Position = root.Position
-		align.Parent = root
-		local orient = Instance.new("AlignOrientation")
-		orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
-		orient.Attachment0 = attachment
-		orient.MaxTorque = root.AssemblyMass * 4000 + 2000
-		orient.Responsiveness = carry.class.follow * 0.6
-		orient.CFrame = root.CFrame.Rotation
-		orient.Parent = root
-		carry.attachment, carry.align, carry.orient = attachment, align, orient
-		-- Keep the way it was lying, relative to where you face.
-		carry.turn = CFrame.Angles(0, -yaw, 0) * root.CFrame.Rotation
-	end
 	-- In front of your eye, but never pushed into a wall or a shelf.
 	local eye = camera.CFrame.Position
 	local params = RaycastParams.new()
@@ -540,12 +615,23 @@ function HandsController:_carryStep()
 	-- Never pushed into the floor: its bottom stays a little above your feet.
 	local body = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local heft = carry.class.carry
 	if body and humanoid then
+		-- Something big bobs with your stride.
+		local walking = Vector3.new(body.AssemblyLinearVelocity.X, 0, body.AssemblyLinearVelocity.Z).Magnitude
+		carry.phase += dt * walking * 0.9
+		hold += Vector3.new(0, Heft.bob(carry.phase, walking, heft.bob), 0)
 		local feet = body.Position.Y - body.Size.Y / 2 - humanoid.HipHeight
 		hold = Vector3.new(hold.X, math.max(hold.Y, feet + carry.half + 0.3), hold.Z)
 	end
-	carry.align.Position = hold
-	carry.orient.CFrame = CFrame.Angles(0, yaw, 0) * carry.turn
+	-- The hold point follows through a spring: light things keep up, heavy
+	-- ones trail behind a quick turn and settle without wobbling.
+	carry.holdPos, carry.holdVel = Heft.spring(carry.holdPos, carry.holdVel, hold, heft.omega, dt)
+	carry.align.Position = carry.holdPos
+	-- It leans the way it's swung.
+	local swing = camera.CFrame:VectorToObjectSpace(carry.holdVel)
+	local lean = CFrame.Angles(Heft.lean(-swing.Y, heft.tilt * 0.6), 0, Heft.lean(swing.X, heft.tilt))
+	carry.orient.CFrame = CFrame.Angles(0, yaw, 0) * lean * carry.turn
 end
 
 -- Holding a door, carrying something or pushing right now.

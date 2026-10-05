@@ -84,7 +84,10 @@ function FeelController:Start()
 	end)
 	RunService:BindToRenderStep("ConsensusFeelRoll", Enum.RenderPriority.Camera.Value + 1, function()
 		local camera = Workspace.CurrentCamera
-		if camera and self.active and math.abs(self.roll) > 0.001 then
+		-- No roll while your hands hold something still (a door's held view).
+		local hands = self.controllers.HandsController
+		local holding = hands and hands.drag ~= nil
+		if camera and self.active and not holding and math.abs(self.roll) > 0.001 then
 			camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, math.rad(self.roll))
 		end
 	end)

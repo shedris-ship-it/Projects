@@ -276,8 +276,13 @@ function StalkerService:_thrownMoved(thing, from: Vector3, to: Vector3)
 	if not Throw.hits(from, to, feet, top, H.StunRadius) then
 		return
 	end
+	-- Only on the throw's first arc: nothing can be steered into him.
+	local hands = self.services.HandsService
+	if not hands:OnArc(thing, to) then
+		return
+	end
 	thing.hitGuest = true
-	root.AssemblyLinearVelocity *= -0.3
+	hands:BounceOff(thing)
 	self:Stun(thing.class.stun, thing.thrower, to)
 end
 

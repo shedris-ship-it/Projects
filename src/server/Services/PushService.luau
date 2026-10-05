@@ -18,6 +18,13 @@
 -- Everything goes with it: its drawers and doors and what's in them
 -- (FurnitureService:Shift), things standing on top, its light, its hiding
 -- spot. Nobody can push a piece someone is hiding in.
+--
+-- It has weight (R2c, the physics feel pass): a heavy piece is slow to get
+-- going (Logic/Push.step), coasts a moment when you stop, and you walk no
+-- faster than it moves while you lean on it (the PushSpeed attribute,
+-- Controllers/ActionController). You can pull it too: once you have hold,
+-- it stays yours a little further out. Pushed pieces are the Heavy
+-- collision group.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -50,7 +57,7 @@ function PushService:Init(services)
 	self.Companion = services.CompanionService
 	self.Stalker = services.StalkerService
 	self.pieces = {} -- prop id -> piece
-	self.moving = {} -- piece -> true while someone pushes it
+	self.moving = {} -- piece -> true while someone pushes it (or it coasts)
 end
 
 function PushService:Start()
@@ -68,9 +75,16 @@ function PushService:Start()
 		table.clear(self.pieces)
 		table.clear(self.moving)
 	end)
+	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)
+		accumulator += dt
+		if accumulator < 1 / P.StepHz then
+			return
+		end
+		local step = math.min(accumulator, 0.1)
+		accumulator = 0
 		for piece in self.moving do
-			self:_step(piece, dt)
+			self:_step(piece, step)
 		end
 	end)
 end
@@ -101,6 +115,12 @@ function PushService:_setup(world)
 			-- What the client needs to know it can push this (and how heavy).
 			prop.model:SetAttribute("Push", info.weight)
 			prop.model:SetAttribute("PushLabel", info.label)
+			-- Pushed furniture collides with everyone but Echoes (WorldService).
+			for _, p in prop.model:GetDescendants() do
+				if p:IsA("BasePart") then
+					p.CollisionGroup = Groups.Heavy
+				end
+			end
 			self.pieces[prop.id] = {
 				id = prop.id,
 				prop = prop,
@@ -113,6 +133,7 @@ function PushService:_setup(world)
 				pushers = {},
 				riders = {},
 				scrapedAt = 0,
+				velocity = Vector3.zero,
 			}
 		end
 	end
@@ -173,7 +194,10 @@ function PushService:_push(player: Player, id: string, direction: Vector3)
 	end
 	local frame = piece.prop.frame
 	local distance, toward = gap(frame, piece.size, root.Position)
-	if distance > P.Reach or not over(frame, piece.size, root.Position, P.Reach + 1) then
+	-- Once you have hold (pushing or pulling), it stays yours a little further.
+	local holding = piece.pushers[player] and os.clock() - piece.pushers[player].at < 1
+	local reach = holding and P.ReachHeld or P.Reach
+	if distance > reach or not over(frame, piece.size, root.Position, reach + 1) then
 		return
 	end
 	-- You push what's in front of you (pulling, you still face it).
@@ -196,6 +220,18 @@ function PushService:_wake(piece)
 	self.moving[piece] = true
 	table.clear(piece.riders)
 	local frame, size = piece.prop.frame, piece.size
+	-- The points The Guest walks by, near enough to matter, once per push.
+	piece.navNear = {}
+	local nav = self.World.nav
+	if nav then
+		local fromLayout = self.World.FromLayout
+		for _, node in nav.nodes do
+			local p = fromLayout(node)
+			if (p - frame.Position).Magnitude < 50 then
+				table.insert(piece.navNear, p)
+			end
+		end
+	end
 	local top = frame.Y + size.Y
 	local seen = {}
 	local function consider(model: Instance)
@@ -263,27 +299,44 @@ function PushService:_step(piece, dt: number)
 	elseif debug then
 		piece.debug = nil
 	end
-	if #directions == 0 then
+	-- Where the pushers want it to go, if anywhere (they may cancel out).
+	local d = #directions > 0 and Push.direction(directions) or nil
+	local target, creeping = Vector3.zero, false
+	if d then
+		local strength = #directions + (first and self:_help(piece) or 0)
+		local speed
+		speed, creeping = Push.speed(strength, piece.weight, P)
+		target = Vector3.new(d.x, 0, d.z) * speed
+	end
+	piece.velocity = Push.step(piece.velocity, target, piece.weight, dt, P)
+	if #directions == 0 and piece.velocity.Magnitude < 0.02 then
+		-- Nobody pushing and it has coasted to a stop.
+		piece.velocity = Vector3.zero
 		self.moving[piece] = nil
+		piece.model:SetAttribute("PushSpeed", nil)
 		self.Furniture:Settle(piece.model)
 		return
 	end
-	local d = Push.direction(directions)
-	if not d then
-		return
-	end
-	local strength = #directions + (first and self:_help(piece) or 0)
-	local speed, creeping = Push.speed(strength, piece.weight, P)
-	local step = Vector3.new(d.x, 0, d.z) * speed * dt
-	-- Blocked straight on? It slides along whatever stopped it.
-	local moved = self:_try(piece, step)
-	if not moved then
+	local step = piece.velocity * dt
+	-- Blocked straight on? It slides along whatever stopped it, and loses the
+	-- speed it had into it.
+	local moved = step.Magnitude > 1e-5 and self:_try(piece, step)
+	if not moved and step.Magnitude > 1e-5 then
 		for _, part in { Vector3.new(step.X, 0, 0), Vector3.new(0, 0, step.Z) } do
 			if part.Magnitude > 1e-4 and self:_try(piece, part) then
 				moved = true
+				piece.velocity = part / dt
 				break
 			end
 		end
+		if not moved then
+			piece.velocity = Vector3.zero
+		end
+	end
+	-- How fast it really goes, for its pushers' feet (you lean into it).
+	if now - (piece.speedSentAt or 0) > 0.1 then
+		piece.speedSentAt = now
+		piece.model:SetAttribute("PushSpeed", math.round((moved and piece.velocity.Magnitude or 0) * 100) / 100)
 	end
 	if moved and now - piece.scrapedAt > P.ScrapeEvery then
 		piece.scrapedAt = now
@@ -293,21 +346,17 @@ function PushService:_step(piece, dt: number)
 	end
 end
 
--- Where The Guest walks: his graph's points, and every door's swing.
-function PushService:_keepsClear(from: CFrame, to: CFrame, size: Vector3): boolean
+-- Where The Guest walks: his graph's points (those near the piece, found when
+-- the push began), and every door's swing.
+function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3): boolean
 	local world = self.World.World
-	local nav = self.World.nav
-	if nav then
-		local fromLayout = self.World.FromLayout
-		for _, node in nav.nodes do
-			local p = fromLayout(node)
-			if
-				(p - to.Position).Magnitude < 40
-				and over(to, size, p, P.KeepClear)
-				and not over(from, size, p, P.KeepClear)
-			then
-				return false
-			end
+	for _, p in piece.navNear or {} do
+		if
+			(p - to.Position).Magnitude < 40
+			and over(to, size, p, P.KeepClear)
+			and not over(from, size, p, P.KeepClear)
+		then
+			return false
 		end
 	end
 	for _, door in world and world.doors or {} do
@@ -382,7 +431,7 @@ function PushService:_try(piece, step: Vector3): boolean
 			return false
 		end
 	end
-	if not self:_keepsClear(from, to, size) then
+	if not self:_keepsClear(piece, from, to, size) then
 		return false
 	end
 	self:_move(piece, step)

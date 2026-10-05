@@ -14,6 +14,8 @@
 --   Value  where it is now (written by the server when it stops)
 -- The rules for how it moves are Logic/Articulation.
 
+local Config = require(script.Parent.Parent.Config)
+
 local Joint = {}
 
 export type Joint = {
@@ -63,6 +65,28 @@ end
 -- opposed to a lid.
 function Joint.upright(joint: Joint): boolean
 	return joint.kind == "hinge" and math.abs(joint.axis.Y) > 0.99
+end
+
+-- The Logic/Articulation spec for a joint, the same on the server that moves
+-- it and the client that draws or predicts it. `momentum` is the main part's
+-- "Momentum" attribute: "door" for the house's doors, else furniture.
+function Joint.motionSpec(joint: Joint, momentum: string?, value: number?)
+	local door = momentum == "door"
+	local m = door and Config.Doors.Motion or Config.Furniture.Motion[joint.kind] or Config.Furniture.Motion.hinge
+	return {
+		max = joint.max,
+		rate = joint.rate,
+		latchAt = joint.latch,
+		value = value,
+		passAt = door and Config.Doors.PassAngle or nil,
+		passHysteresis = door and Config.Doors.PassHysteresis or 0,
+		friction = m.friction,
+		restitution = m.restitution,
+		slamSpeed = m.slamSpeed,
+		knockSpeed = m.knockSpeed,
+		stopSpeed = m.stopSpeed,
+		stiffness = m.stiffness,
+	}
 end
 
 -- The main part's CFrame when it's `value` open.

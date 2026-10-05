@@ -143,6 +143,101 @@ return function(test, check, Shared, require)
 		check.near(closing, 60 + math.deg(math.asin(1 / 3)), 1e-6, "swinging shut, it stops on the other side")
 	end)
 
+	-- Momentum (R2c, the physics feel pass).
+	local function swinging(value: number?)
+		return Articulation.new({
+			max = 100,
+			rate = 285,
+			passAt = 55,
+			passHysteresis = 10,
+			latchAt = 3,
+			value = value,
+			friction = 260,
+			restitution = 0.25,
+			slamSpeed = 160,
+			knockSpeed = 120,
+			stopSpeed = 8,
+		})
+	end
+
+	test("let go mid-swing, a door keeps going and slows to a stop", function()
+		local d = swinging(30)
+		Articulation.release(d, 150)
+		run(d, 0.2)
+		check.truthy(d.value > 50, "still swinging after you let go")
+		run(d, 3)
+		check.truthy(not Articulation.moving(d), "friction stops it")
+		check.truthy(d.value > 60 and d.value <= 100, "where its momentum took it")
+	end)
+
+	test("flung hard, it bounces off the open stop with a knock", function()
+		local d = swinging(60)
+		Articulation.release(d, 280)
+		local events = run(d, 1)
+		check.truthy(table.find(events, "knock") ~= nil, "knocks against the stop")
+		check.truthy(d.value < 100, "bounced back a little")
+	end)
+
+	test("flung shut it slams; eased shut it only clicks", function()
+		local fast = swinging(80)
+		Articulation.release(fast, -280)
+		local events = run(fast, 1)
+		check.truthy(table.find(events, "slam") ~= nil, "a slam")
+		check.truthy(fast.latched, "shut")
+		local slow = swinging(8)
+		Articulation.release(slow, -60)
+		events = run(slow, 1)
+		check.truthy(table.find(events, "slam") == nil, "no slam when eased")
+		check.truthy(table.find(events, "latch") ~= nil and slow.latched, "a click")
+	end)
+
+	test("a gentle push leaves it ajar", function()
+		local d = swinging(20)
+		Articulation.release(d, -40)
+		run(d, 2)
+		check.truthy(not d.latched and d.value > 3, "stopped short of shut")
+	end)
+
+	test("held, it follows your hand with weight, never faster than its rate", function()
+		local d = swinging(0)
+		Articulation.hold(d)
+		Articulation.setTarget(d, 90)
+		Articulation.step(d, 0.05)
+		check.truthy(d.value > 0 and d.value < 90, "on its way, not there at once")
+		check.atMost(math.abs(d.velocity), 285 + 1e-6, "no faster than its rate")
+		run(d, 1)
+		check.near(d.value, 90, 1, "arrives where the hand is")
+	end)
+
+	test("walkable from 55, and stays walkable until it falls below 45", function()
+		local d = swinging(60)
+		check.truthy(Articulation.passable(d), "open")
+		Articulation.setTarget(d, 50)
+		run(d, 1)
+		check.truthy(Articulation.passable(d), "50 is still walkable: no flicker")
+		Articulation.setTarget(d, 40)
+		local events = run(d, 1)
+		check.truthy(not Articulation.passable(d), "below 45 it blocks")
+		check.equal(events[#events], "block", "once")
+	end)
+
+	test("a locked door can't be flung open", function()
+		local d = swinging(0)
+		Articulation.setLocked(d, true)
+		Articulation.release(d, 250)
+		run(d, 1)
+		check.equal(d.value, 0, "still shut")
+	end)
+
+	test("stopping it dead (a body in the way) holds it there", function()
+		local d = swinging(30)
+		Articulation.release(d, 200)
+		Articulation.step(d, 0.05)
+		Articulation.stop(d, 38)
+		run(d, 1)
+		check.near(d.value, 38, 1e-6, "stays where it hit")
+	end)
+
 	test("a faster rate can be given for one step (a slam)", function()
 		local d = door(100)
 		Articulation.setTarget(d, 0)

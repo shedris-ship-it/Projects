@@ -50,7 +50,7 @@ local HELP = table.concat({
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · where · navtest [fast] (the Guest walks every room; again to stop)",
-	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>",
+	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100> · fling <room> <room> <speed>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -307,6 +307,16 @@ function DebugService:Run(player: Player, text: string)
 		else
 			local ok = services.DoorService:SetAngle(door, angle)
 			reply(player, string.format("%s to %d degrees%s", door.id, angle, ok and "" or " (locked: it rattles)"))
+		end
+	elseif command == "fling" then
+		-- A hand lets go of a door at a speed (degrees a second): it swings on.
+		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)
+		local speed = tonumber(args[4])
+		if not door or not speed then
+			reply(player, "usage: fling <room> <room> <degrees a second, minus to shut>")
+		else
+			services.DoorService:Drag(door, door.state.value, player, speed)
+			reply(player, string.format("%s let go at %d degrees a second from %.0f", door.id, speed, door.state.value))
 		end
 	elseif command == "block" then
 		local world = services.WorldService

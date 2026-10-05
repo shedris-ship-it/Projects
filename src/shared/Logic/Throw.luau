@@ -78,4 +78,26 @@ function Throw.velocity(aim: Vector3, speed: number, carried: Vector3?): Vector3
 	return velocity
 end
 
+-- How much of a throw's speed a wind-up gives (R2c): holding the button
+-- `held` seconds before letting go. A tap still throws, softly.
+function Throw.charge(held: number, cfg): number
+	local t = math.clamp((held - cfg.ChargeMin) / (cfg.ChargeFull - cfg.ChargeMin), 0, 1)
+	return cfg.ChargeLow + (1 - cfg.ChargeLow) * t
+end
+
+-- Where something launched from `from` at `velocity` is `t` seconds later,
+-- if nothing touches it. `gravity` is the gravity vector (pointing down).
+function Throw.predict(from: Vector3, velocity: Vector3, gravity: Vector3, t: number): Vector3
+	return from + velocity * t + gravity * (0.5 * t * t)
+end
+
+-- Is `at` where a validated throw could be, `t` seconds after it left the
+-- hand? The tolerance grows with time (spin, air, network delay), so honest
+-- throws pass and one steered off its arc doesn't (cfg: ArcSlack,
+-- ArcSlackPerSecond).
+function Throw.onArc(from: Vector3, velocity: Vector3, gravity: Vector3, t: number, at: Vector3, cfg): boolean
+	local expected = Throw.predict(from, velocity, gravity, t)
+	return (at - expected).Magnitude <= cfg.ArcSlack + cfg.ArcSlackPerSecond * t
+end
+
 return Throw
