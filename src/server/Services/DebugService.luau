@@ -47,7 +47,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default",
 	"start · end · skip (to Investigation) · resolve (serve the dinner)",
-	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room>",
+	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
@@ -58,6 +58,8 @@ local HELP = table.concat({
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
 	"locks (the locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
+	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
+	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here|squeeze|shove]",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.

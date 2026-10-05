@@ -116,7 +116,8 @@ function DoorService:_setup(door)
 	brace.ActionText = "Brace"
 	brace.ObjectText = "Door"
 	brace.KeyboardKeyCode = Enum.KeyCode.B
-	brace.GamepadKeyCode = Enum.KeyCode.ButtonY
+	-- LB: Y opens the map (Controllers/ActionController).
+	brace.GamepadKeyCode = Enum.KeyCode.ButtonL1
 	brace.MaxActivationDistance = 7
 	brace.RequiresLineOfSight = false
 	brace.HoldDuration = 0.8
@@ -462,6 +463,9 @@ function DoorService:SetLocked(door, locked: boolean)
 	end
 	door.locked = locked or nil
 	door.slab:SetAttribute("Locked", locked or nil)
+	-- Echoes drift through doors, but not locked ones: a lost player can't
+	-- scout the part of the house the squad hasn't opened (R2c fairness).
+	door.slab.CollisionGroup = locked and "Default" or Constants.CollisionGroups.Door
 	door.bracePrompt.Enabled = not locked and not door.open
 end
 
