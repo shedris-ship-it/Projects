@@ -16,6 +16,7 @@ local Build = require(Shared.Build)
 local Net = require(Shared.Net)
 local FloorPlan = require(Shared.Logic.FloorPlan)
 local Acts = require(Shared.Logic.Acts)
+local LockPlanner = require(Shared.Logic.LockPlanner)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 local PartDump = require(script.Parent.Parent.World.PartDump)
 
@@ -190,8 +191,8 @@ function DebugService:Run(player: Player, text: string)
 		end
 		local lines = {}
 		for id, token in plan.tokens do
-			local where = token.producer.kind == "container" and ("room " .. token.producer.room)
-				or ("puzzle " .. token.producer.id)
+			local where = token.producer.kind == "puzzle" and ("puzzle " .. token.producer.id)
+				or ("room " .. table.concat(LockPlanner.producerRooms(plan, token), "+"))
 			table.insert(
 				lines,
 				string.format("%s (%s) %s%s", id, token.kind, where, services.ItemService.found[id] and ", found" or "")

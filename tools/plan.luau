@@ -109,14 +109,20 @@ if process.args[3] == "locks" then
 		local how = ""
 		if region.gate then
 			local lock = plan.locks[region.gate]
-			local token = plan.tokens[lock.needs[1]]
-			local from = token.producer.kind == "container" and ("kept in " .. named(token.producer.room))
-				or (
-					"from the "
-					.. plan.puzzles[token.producer.id].kind
-					.. " in "
-					.. named(plan.puzzles[token.producer.id].room)
-				)
+			local token = lock.needs and plan.tokens[lock.needs[1]]
+			local from
+			if not token then
+				from = "worked from " .. named(lock.side)
+			elseif token.producer.kind == "puzzle" then
+				local puzzle = plan.puzzles[token.producer.id]
+				from = "from the " .. puzzle.kind .. " in " .. named(puzzle.room)
+			else
+				local rooms = {}
+				for _, room in LockPlanner.producerRooms(plan, token) do
+					table.insert(rooms, named(room))
+				end
+				from = "kept in " .. table.concat(rooms, " and ")
+			end
 			how = string.format("  <- %s %s (%s)", lock.kind, region.gate, from)
 		end
 		local position = r == 0 and "open" or ("opens " .. (table.find(plan.order, r) or "?"))
@@ -132,7 +138,7 @@ if process.args[3] == "locks" then
 	print("  bolts (shortcuts, opened from inside): " .. (#bolts > 0 and table.concat(bolts, ", ") or "none"))
 	local heirlooms = {}
 	for _, id in plan.finale.heirlooms do
-		table.insert(heirlooms, id .. " in " .. named(plan.tokens[id].producer.room))
+		table.insert(heirlooms, id .. " in " .. named(LockPlanner.tokenRoom(plan, plan.tokens[id])))
 	end
 	print("  heirlooms: " .. table.concat(heirlooms, ", "))
 	print(

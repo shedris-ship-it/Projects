@@ -677,8 +677,9 @@ Config.Progression = {
 	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
 	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2 }, -- what kind of lock a gate gets
-	Puzzles = { terminal = true }, -- which puzzles may appear (R2b adds the rest)
+	Flavours = { key = 3, padlock = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
+	-- The gate kinds and producers switched on (R2c adds each as it's built).
+	Enabled = { key = true, padlock = true },
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
 	Stage0Loop = 100, -- studs: region 0 has a loop at least this long to run round

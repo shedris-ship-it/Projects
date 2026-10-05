@@ -118,7 +118,7 @@ return function(test, check, Shared, require)
 			local plan = house.plan
 			local regions, rooms = {}, {}
 			for _, id in plan.finale.heirlooms do
-				local room = plan.tokens[id].producer.room
+				local room = LockPlanner.tokenRoom(plan, plan.tokens[id])
 				check.truthy(rooms[room] == nil, "house " .. i .. ": two heirlooms in room " .. room)
 				rooms[room] = true
 				regions[plan.roomRegion[room]] = true
@@ -182,6 +182,91 @@ return function(test, check, Shared, require)
 		check.truthy(deep / mansions >= 0.85, string.format("%d of %d mansions with 2+ regions", deep, mansions))
 		check.truthy(one / cells >= 0.85, string.format("%d of %d old houses with one", one, cells))
 		check.truthy(padlocks / mansions >= 0.3, string.format("a padlock in %d of %d mansions", padlocks, mansions))
+	end)
+
+	test("a gate kind switched off never turns up; the key is always there to fall back on", function()
+		local saved = cfg.Enabled
+		cfg.Enabled = { key = true }
+		for i = 1, 20 do
+			local house = houses[i]
+			local plan = planFor(house.layout, house.templates, house.config, i)
+			for id, lock in plan.locks do
+				check.truthy(
+					lock.kind == "key" or lock.kind == "bolt",
+					"house " .. i .. ": " .. id .. " is " .. lock.kind
+				)
+			end
+			check.equal(next(plan.puzzles), nil, "no puzzles")
+		end
+		cfg.Enabled = saved
+	end)
+
+	test("a gate worked from its outer side (a crank) needs nothing found, and every plan still finishes", function()
+		table.insert(LockPlanner.Gates, { id = "testcrank", side = true })
+		LockPlanner.GateById.testcrank = LockPlanner.Gates[#LockPlanner.Gates]
+		local savedEnabled, savedFlavours = cfg.Enabled, cfg.Flavours
+		cfg.Enabled = { key = true, padlock = true, testcrank = true }
+		cfg.Flavours = { key = 1, padlock = 1, testcrank = 4 }
+		local cranks = 0
+		for i = 1, 40 do
+			local house = houses[i]
+			local plan = planFor(house.layout, house.templates, house.config, i)
+			for id, lock in plan.locks do
+				if lock.kind == "testcrank" then
+					cranks += 1
+					check.equal(lock.needs, nil, "nothing to find")
+					local seam
+					for _, s in house.layout.seams do
+						if s.id == id then
+							seam = s
+						end
+					end
+					check.truthy(lock.side == seam.a or lock.side == seam.b, "worked from one of its rooms")
+					check.truthy(lock.side ~= lock.inside, "from the outside")
+				end
+			end
+			check.truthy(LockPlanner.solve(house.layout, plan, house.templates).solvable, "house " .. i .. " finishes")
+			local problems = LockPlanner.check(house.layout, plan, house.templates, cfg, house.config)
+			check.truthy(#problems == 0 or #plan.order == 0, "house " .. i .. ": " .. table.concat(problems, "; "))
+		end
+		table.remove(LockPlanner.Gates)
+		LockPlanner.GateById.testcrank = nil
+		cfg.Enabled, cfg.Flavours = savedEnabled, savedFlavours
+		check.truthy(cranks > 0, "some gates were cranks")
+	end)
+
+	test("a producer spanning two rooms needs both open before its token is had", function()
+		for i, house in houses do
+			local plan = house.plan
+			-- An heirloom whose second room can never be reached: never had.
+			local id = plan.finale.heirlooms[1]
+			local token = plan.tokens[id]
+			local saved = token.producer
+			token.producer = { kind = "dumbwaiter", rooms = { saved.room, -1 } }
+			local result = LockPlanner.solve(house.layout, plan, house.templates)
+			check.truthy(not result.held[id] and not result.tableSet, "house " .. i .. ": not had")
+			-- Both rooms open: had, and the plan finishes.
+			token.producer = { kind = "dumbwaiter", rooms = { saved.room, house.layout.start } }
+			check.truthy(LockPlanner.solve(house.layout, plan, house.templates).solvable, "house " .. i .. ": had")
+			token.producer = saved
+			-- A key made in two rooms, one behind the gate it opens: the check
+			-- says so.
+			if #plan.order >= 1 then
+				local lock = plan.locks[plan.regions[plan.order[1]].gate]
+				local key = lock.needs and plan.tokens[lock.needs[1]]
+				if key and key.producer.kind == "container" then
+					local before = key.producer
+					key.producer =
+						{ kind = "dumbwaiter", rooms = { before.room, plan.regions[plan.order[1]].rooms[1] } }
+					local flagged = false
+					for _, problem in LockPlanner.check(house.layout, plan, house.templates, cfg, house.config) do
+						flagged = flagged or string.find(problem, "opened by something behind it", 1, true) ~= nil
+					end
+					check.truthy(flagged, "house " .. i .. ": half behind its own gate")
+					key.producer = before
+				end
+			end
+		end
 	end)
 
 	test("a house too small for regions is simply open, with heirlooms to find", function()

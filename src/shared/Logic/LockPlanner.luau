@@ -17,13 +17,21 @@
 --   regions    [0..K] = { rooms = { ids }, gate = seam id? }
 --   roomRegion [room id] = region
 --   order      the regions in the order they open (not counting 0)
---   locks      [seam id] = { kind = "key" | "padlock" | "bolt", needs = { token }?,
---              side = room id (a bolt opens from there), region }
---   tokens     [token id] = { kind = "key" | "code" | "heirloom", opens = seam id?,
---              label, producer = { kind = "container", room } | { kind = "puzzle", id } }
---   puzzles    [puzzle id] = { kind = "terminal", room, seed }
+--   locks      [seam id] = { kind = a gate kind (LockPlanner.Gates) | "bolt",
+--              needs = { token }?, side = room id (a bolt opens from there; a
+--              gate with `side` is worked from there), region, inside }
+--   tokens     [token id] = { kind = "key" | "code" | "heirloom" | ..., opens = seam id?,
+--              label, producer = { kind = "container", room } | { kind = "puzzle", id }
+--              | { kind = <a producer kind>, rooms = { room ids } } }
+--   puzzles    [puzzle id] = { kind = "terminal" | ..., room, seed }
 --   finale     { table = room id, heirlooms = { token ids }, cut = { seam ids }, goal = room id }
 --   stats      { regions, backtracks, puzzles, attempts }
+--
+-- What a gate can be is a registry (LockPlanner.Gates): each later mechanism
+-- (the breaker, the crank door) adds an entry and switches it on in
+-- Config.Progression.Enabled. A producer may need several rooms (the
+-- dumbwaiter: a crank downstairs, a hatch upstairs); all of them must be open
+-- before what it makes is needed.
 
 local Graph = require(script.Parent.Graph)
 local MansionHouse = require(script.Parent.MansionHouse)
@@ -154,6 +162,65 @@ local function reach(ctx, from: number, open: (any) -> boolean, allowed): { [num
 		end
 	end
 	return seen
+end
+
+-- Registries ------------------------------------------------------------------------
+
+-- Where a puzzle may stand, by the room's offers.
+LockPlanner.Where = {
+	desk = function(ctx, id)
+		return ctx.offers[id].desk
+	end,
+}
+
+-- What kind of lock a region's gate can be. The first is the plain key; the
+-- rest are drawn against it by Config.Progression.Flavours weights, in this
+-- order (new kinds go at the end, so a seed's plan only changes when a new
+-- kind is switched on). Each entry:
+--   token      the token kind that opens it (nil: nothing to find)
+--   puzzle     the puzzle that makes the token, standing in a room `where` allows
+--   label      the token's label, from the name of the room behind the gate
+--   side       worked from its outer side (a crank), with no token
+--   available  (ctx, gate seam) -> boolean, for kinds that need a particular doorway
+LockPlanner.Gates = {
+	{
+		id = "key",
+		token = "key",
+		label = function(name)
+			return name .. " key"
+		end,
+	},
+	{
+		id = "padlock",
+		token = "code",
+		puzzle = "terminal",
+		where = "desk",
+		label = function(name)
+			return "The code for the padlock on the " .. name .. " door"
+		end,
+	},
+}
+LockPlanner.GateById = {}
+for _, gate in LockPlanner.Gates do
+	LockPlanner.GateById[gate.id] = gate
+end
+
+-- The rooms a token's producer needs open: a container's room, a puzzle's
+-- room, or every room of a producer that spans several.
+function LockPlanner.producerRooms(plan, token): { number }
+	local producer = token.producer
+	if producer.rooms then
+		return producer.rooms
+	elseif producer.kind == "puzzle" then
+		local puzzle = plan.puzzles[producer.id]
+		return puzzle and { puzzle.room } or {}
+	end
+	return { producer.room }
+end
+
+-- The room a token is found in (the first of its producer's rooms).
+function LockPlanner.tokenRoom(plan, token): number?
+	return LockPlanner.producerRooms(plan, token)[1]
 end
 
 -- Planning -----------------------------------------------------------------------
@@ -404,13 +471,9 @@ local function attempt(ctx, rng, cfg, k: number)
 		puzzles = {},
 		stats = { regions = count, backtracks = 0, puzzles = 0 },
 	}
-	local keys, codes = 0, 0
-	local deskRooms = {}
-	for _, id in ctx.ids do
-		if ctx.offers[id].desk and id ~= ctx.dining then
-			table.insert(deskRooms, id)
-		end
-	end
+	local counts = {} -- token kind -> how many so far
+	local usedPuzzles = {} -- puzzle kind -> true once one stands in the house
+	local enabled = cfg.Enabled or {}
 	for index, r in order do
 		local previous = index == 1 and 0 or order[index - 1]
 		local boundary, older, recent = {}, {}, {}
@@ -446,45 +509,78 @@ local function attempt(ctx, rng, cfg, k: number)
 			end
 		end
 		local nearRooms = rng:Chance(cfg.NearProducer) and regions[previous].rooms or earlier
-		local flavour = "key"
-		if cfg.Puzzles.terminal and plan.stats.puzzles < cfg.MaxPuzzles and next(plan.puzzles) == nil then
-			local desks = {}
-			for _, id in deskRooms do
-				if position[roomRegion[id]] < index then
-					table.insert(desks, id)
-				end
-			end
-			if #desks > 0 then
-				local weights = cfg.Flavours
-				if rng:NextNumber() * (weights.key + weights.padlock) >= weights.key then
-					flavour = "padlock"
-					local room = rng:Pick(desks)
-					plan.puzzles["terminal:1"] = { kind = "terminal", room = room, seed = rng:NextInteger(1, 2 ^ 30) }
-					plan.stats.puzzles += 1
+		-- The kinds this gate could be: the key always, and every other kind
+		-- switched on that fits here (its puzzle has somewhere already open to
+		-- stand; one of each puzzle a house).
+		local options = { { gate = LockPlanner.Gates[1], weight = cfg.Flavours.key } }
+		for i = 2, #LockPlanner.Gates do
+			local kind = LockPlanner.Gates[i]
+			local weight = cfg.Flavours[kind.id] or 0
+			if enabled[kind.id] and weight > 0 then
+				if kind.puzzle then
+					if not usedPuzzles[kind.puzzle] and plan.stats.puzzles < cfg.MaxPuzzles then
+						local rooms = {}
+						for _, id in ctx.ids do
+							local fits = id ~= ctx.dining and LockPlanner.Where[kind.where](ctx, id)
+							if fits and position[roomRegion[id]] < index then
+								table.insert(rooms, id)
+							end
+						end
+						if #rooms > 0 then
+							table.insert(options, { gate = kind, weight = weight, rooms = rooms })
+						end
+					end
+				elseif kind.available == nil or kind.available(ctx, gate) then
+					table.insert(options, { gate = kind, weight = weight })
 				end
 			end
 		end
-		local token
-		if flavour == "padlock" then
-			codes += 1
-			token = "code:" .. codes
-			plan.tokens[token] = {
-				kind = "code",
-				opens = gate.id,
-				label = "The code for the padlock on the " .. roomName(ctx, inside) .. " door",
-				producer = { kind = "puzzle", id = "terminal:1" },
-			}
-		else
-			keys += 1
-			token = "key:" .. keys
-			plan.tokens[token] = {
-				kind = "key",
-				opens = gate.id,
-				label = roomName(ctx, inside) .. " key",
-				producer = { kind = "container", room = keepingRoom(ctx, rng, nearRooms) },
-			}
+		local choice = options[1]
+		if #options > 1 then
+			local total = 0
+			for _, option in options do
+				total += option.weight
+			end
+			local roll = rng:NextNumber() * total
+			for _, option in options do
+				choice = option
+				if roll < option.weight then
+					break
+				end
+				roll -= option.weight
+			end
 		end
-		plan.locks[gate.id] = { kind = flavour, needs = { token }, region = r, inside = inside }
+		local kind = choice.gate
+		local needs = nil
+		if kind.token then
+			counts[kind.token] = (counts[kind.token] or 0) + 1
+			local token = kind.token .. ":" .. counts[kind.token]
+			local producer
+			if kind.puzzle then
+				local puzzleId = kind.puzzle .. ":1"
+				plan.puzzles[puzzleId] =
+					{ kind = kind.puzzle, room = rng:Pick(choice.rooms), seed = rng:NextInteger(1, 2 ^ 30) }
+				plan.stats.puzzles += 1
+				usedPuzzles[kind.puzzle] = true
+				producer = { kind = "puzzle", id = puzzleId }
+			else
+				producer = { kind = "container", room = keepingRoom(ctx, rng, nearRooms) }
+			end
+			plan.tokens[token] = {
+				kind = kind.token,
+				opens = gate.id,
+				label = kind.label(roomName(ctx, inside)),
+				producer = producer,
+			}
+			needs = { token }
+		end
+		plan.locks[gate.id] = {
+			kind = kind.id,
+			needs = needs,
+			region = r,
+			inside = inside,
+			side = kind.side and (inside == gate.a and gate.b or gate.a) or nil,
+		}
 		-- Every other way in is bolted on this side: a shortcut once you're in.
 		for _, seam in boundary do
 			if seam ~= gate then
@@ -561,22 +657,22 @@ function LockPlanner.solve(layout, plan, templatesById)
 	local function open(seam)
 		return plan.locks[seam.id] == nil or opened[seam.id] == true
 	end
-	local function producerRoom(token)
-		local producer = token.producer
-		if producer.kind == "container" then
-			return producer.room
-		end
-		local puzzle = plan.puzzles[producer.id]
-		return puzzle and puzzle.room
-	end
 	local reachable = reach(ctx, ctx.start, open)
+	local function made(token)
+		local rooms = LockPlanner.producerRooms(plan, token)
+		for _, room in rooms do
+			if not reachable[room] then
+				return false
+			end
+		end
+		return #rooms > 0
+	end
 	local tokenIds, lockIds = sortedKeys(plan.tokens), sortedKeys(plan.locks)
 	local changed = true
 	while changed do
 		changed = false
 		for _, id in tokenIds do
-			local room = producerRoom(plan.tokens[id])
-			if not held[id] and room and reachable[room] then
+			if not held[id] and made(plan.tokens[id]) then
 				held[id] = true
 				changed = true
 			end
@@ -588,6 +684,13 @@ function LockPlanner.solve(layout, plan, templatesById)
 				if lock.kind == "bolt" then
 					if reachable[lock.side] then
 						opened[id] = true
+						changed = true
+					end
+				elseif lock.side and not lock.needs then
+					-- Worked from its outer side (a crank): open once you're there.
+					if reachable[lock.side] then
+						opened[id] = true
+						table.insert(gates, id)
 						changed = true
 					end
 				elseif reachable[seam.a] or reachable[seam.b] then
@@ -661,12 +764,17 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 		local lock = plan.locks[seamId]
 		for _, need in lock.needs or {} do
 			local token = plan.tokens[need]
-			local producer = token and token.producer
-			local room = producer
-				and (producer.kind == "container" and producer.room or (plan.puzzles[producer.id] or {}).room)
-			if not room or position[plan.roomRegion[room]] >= position[lock.region] then
+			local rooms = token and LockPlanner.producerRooms(plan, token) or {}
+			local behind = #rooms == 0
+			for _, room in rooms do
+				behind = behind or position[plan.roomRegion[room]] >= position[lock.region]
+			end
+			if behind then
 				table.insert(problems, seamId .. " is opened by something behind it")
 			end
+		end
+		if lock.side and lock.kind ~= "bolt" and position[plan.roomRegion[lock.side]] >= position[lock.region] then
+			table.insert(problems, seamId .. " is worked from behind it")
 		end
 	end
 	-- Region 0: somewhere to run round, and somewhere to hide.

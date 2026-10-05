@@ -62,7 +62,7 @@ for seed = 1, count do
 	puzzles += plan.stats.puzzles
 	local seen = {}
 	for _, id in plan.finale.heirlooms do
-		seen[plan.roomRegion[plan.tokens[id].producer.room]] = true
+		seen[plan.roomRegion[LockPlanner.tokenRoom(plan, plan.tokens[id])]] = true
 	end
 	for _ in seen do
 		heirloomRegions += 1
