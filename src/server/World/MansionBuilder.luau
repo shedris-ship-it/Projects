@@ -658,6 +658,57 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			roofMaterial,
 			{ variant = roofVariant }
 		)
+		if template.rafters then
+			-- Under the roof (the attic): the roof slopes from low on the long
+			-- walls to a ridge down the middle, on rafters every few studs.
+			-- Nothing collides; furniture in attic rooms stays under the low
+			-- side.
+			local R = Config.Mansion.Rafters
+			local alongX = room.w >= room.d
+			local long = (alongX and room.w or room.d) - 2 * WALL
+			local half = (alongX and room.d or room.w) / 2 - WALL
+			local axis = alongX and Vector3.new(1, 0, 0) or Vector3.new(0, 0, 1)
+			local across = alongX and Vector3.new(0, 0, 1) or Vector3.new(1, 0, 0)
+			local ridge = Vector3.new(center.X, ceilingY, center.Z)
+			local wood = roofColor:Lerp(Color3.new(), 0.3)
+			for _, side in { -1, 1 } do
+				local low = Vector3.new(center.X, floorY + R.knee, center.Z) + across * side * half
+				local slope = ridge - low
+				local mid = (low + ridge) / 2
+				local look = CFrame.lookAt(mid, mid + slope.Unit, UP)
+				PropFactory.part(
+					model,
+					"Roof",
+					Vector3.new(long, 0.3, slope.Magnitude),
+					look * CFrame.new(0, 0.15, 0),
+					roofColor,
+					roofMaterial,
+					{ variant = roofVariant, collide = false, query = false }
+				)
+				local count = math.max(1, math.floor(long / R.every))
+				for i = 1, count do
+					local offset = -long / 2 + (i - 0.5) * long / count
+					PropFactory.part(
+						model,
+						"Rafter",
+						Vector3.new(R.width, R.depth, slope.Magnitude),
+						look * CFrame.new(0, -R.depth / 2, 0) + axis * offset,
+						wood,
+						roofMaterial,
+						{ variant = roofVariant, collide = false, query = false }
+					)
+				end
+			end
+			PropFactory.part(
+				model,
+				"Ridge",
+				alongX and Vector3.new(long, 0.8, 0.6) or Vector3.new(0.6, 0.8, long),
+				CFrame.new(ridge - UP * 0.4),
+				wood,
+				roofMaterial,
+				{ variant = roofVariant, collide = false, query = false }
+			)
+		end
 		if template.joists then
 			-- Joists across the short way, every few studs, under the boards.
 			local acrossX = room.w <= room.d

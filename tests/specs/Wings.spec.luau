@@ -67,39 +67,51 @@ return function(test, check, Shared, require)
 		check.truthy(kept / math.max(1, planned) >= 0.9, ("%d of %d wings kept by the planner"):format(kept, planned))
 	end)
 
-	test("the cellar is a wing of its own, on top of the squad's, never open from the start", function()
-		-- Owner, 2026-10-05: "put the cellar and the attic in separate wings
-		-- and not the starting wing", "additions to the existing wings".
-		local own, total = 0, 0
-		for _, house in houses do
-			local wings = house.layout.wings
-			local groups = MansionHouse.storeyGroups(house.layout.rooms, Rooms.MansionById)
-			if wings and next(groups) then
-				total += 1
-				local region = nil
-				local alone = true
-				for id in groups do
-					local r = wings.roomRegion[id]
-					alone = alone and r ~= 0 and (region == nil or region == r)
-					region = region or r
+	test(
+		"the cellar and the attic: each a wing of its own, on top of the squad's, never open from the start",
+		function()
+			-- Owner, 2026-10-05: "put the cellar and the attic in separate wings
+			-- and not the starting wing", "additions to the existing wings".
+			local own, total = 0, 0
+			for _, house in houses do
+				local wings = house.layout.wings
+				local groups = MansionHouse.storeyGroups(house.layout.rooms, Rooms.MansionById)
+				local names = {}
+				for _, name in groups do
+					names[name] = true
 				end
-				for _, id in wings.regions[region].rooms do
-					alone = alone and groups[id] ~= nil
+				if wings and next(groups) then
+					local count = 0
+					for name in names do
+						count += 1
+						total += 1
+						local region = nil
+						local alone = true
+						for id, other in groups do
+							if other == name then
+								local r = wings.roomRegion[id]
+								alone = alone and r ~= 0 and (region == nil or region == r)
+								region = region or r
+							end
+						end
+						for _, id in wings.regions[region].rooms do
+							alone = alone and groups[id] == name
+						end
+						if alone then
+							own += 1
+						end
+					end
+					check.equal(wings.storeys, count, "a wing for each")
+					check.truthy(
+						#wings.order <= house.mansion.Regions + count,
+						("squad %d seed %d: %d wings"):format(house.squad, house.seed, #wings.order)
+					)
 				end
-				if alone then
-					own += 1
-				end
-				check.equal(wings.storeys, 1, "one storey wing")
-				check.truthy(
-					#wings.order <= house.mansion.Regions + 1,
-					("squad %d seed %d: %d wings"):format(house.squad, house.seed, #wings.order)
-				)
 			end
+			check.truthy(total > 0, "houses with a cellar or an attic planned as wings")
+			check.equal(own, total, "every cellar and attic is a wing of its own")
 		end
-		check.truthy(total > 0, "houses with a cellar planned as wings")
-		check.equal(own, total, "every cellar is a wing of its own")
-	end)
-
+	)
 	test(
 		"every wing is 3-7 rooms (the cellar and attic any), holds together, and opens by its gate from somewhere open before it",
 		function()

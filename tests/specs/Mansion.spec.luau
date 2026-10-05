@@ -121,7 +121,7 @@ return function(test, check, Shared, require)
 				if room.floor == 1 and not room.tall then
 					upper += 1
 				end
-				if room.kind == "stair" and room.template ~= "cellar_stair" then
+				if room.kind == "stair" and not byId[room.template].mansion.reach then
 					stairs += 1
 				end
 			end
@@ -303,6 +303,73 @@ return function(test, check, Shared, require)
 		end
 		check.truthy(withCellar >= SEEDS * 0.9, ("%d of %d houses have a cellar"):format(withCellar, SEEDS))
 		check.truthy(twoWays >= withCellar * 0.6, ("%d of %d cellars have two ways in"):format(twoWays, withCellar))
+	end)
+
+	test("the attic: over the upper floor, one piece, up the back stairs and the attic stair", function()
+		-- docs/plans/level-design.md section 10.3.
+		local withAttic, twoWays = 0, 0
+		for seed, layout in layouts do
+			if not layout.fallback then
+				local attic, stairsUp = {}, {}
+				for _, room in layout.rooms do
+					if room.tall and RoomRects.topOf(room) >= 2 then
+						table.insert(stairsUp, room)
+					elseif (room.floor or 0) >= 2 then
+						table.insert(attic, room)
+						check.truthy(
+							room.floor == 2,
+							("seed %d room %d: the attic is one storey"):format(seed, room.id)
+						)
+					end
+				end
+				if #attic > 0 then
+					withAttic += 1
+					local ids = {}
+					for _, room in attic do
+						check.equal(room.zone, "attic", ("seed %d room %d"):format(seed, room.id))
+						table.insert(ids, room.id)
+					end
+					for _, stair in stairsUp do
+						table.insert(ids, stair.id)
+					end
+					local edges = {}
+					for _, seam in layout.seams do
+						if seam.connected and seam.floor == 2 then
+							table.insert(edges, { seam.a, seam.b })
+						end
+					end
+					check.truthy(
+						Graph.isConnected(Graph.adjacency(ids, edges), ids),
+						("seed %d: the attic is one piece"):format(seed)
+					)
+					local back, up = false, false
+					for _, stair in stairsUp do
+						if stair.template == "back_stairs" then
+							back = true
+						elseif stair.template == "attic_stair" then
+							up = true
+							check.equal(stair.floor, 1, "the attic stair goes up from the upper floor")
+							for _, seam in layout.seams do
+								if
+									seam.connected
+									and seam.floor == 1
+									and (seam.a == stair.id or seam.b == stair.id)
+								then
+									local other = layout.rooms[seam.a == stair.id and seam.b or seam.a]
+									check.equal(MansionHouse.zoneOf(other, 1), "private", ("seed %d"):format(seed))
+								end
+							end
+						end
+					end
+					check.truthy(back, ("seed %d: the back stairs reach the attic"):format(seed))
+					if up then
+						twoWays += 1
+					end
+				end
+			end
+		end
+		check.truthy(withAttic >= SEEDS * 0.9, ("%d of %d houses have an attic"):format(withAttic, SEEDS))
+		check.truthy(twoWays >= withAttic * 0.6, ("%d of %d attics have two ways in"):format(twoWays, withAttic))
 	end)
 
 	test("the plan printer draws both floors", function()

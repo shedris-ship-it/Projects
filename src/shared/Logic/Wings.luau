@@ -45,29 +45,40 @@ function Wings.tree(ids: { number }, edges, root: number, groups: { [number]: st
 	local seen = { [root] = true }
 	local entered = {}
 	local head = 1
-	while head <= #order do
-		local node = order[head]
-		head += 1
-		children[node] = {}
-		local mine = groups[node]
-		for _, nextNode in adj[node] do
-			local theirs = groups[nextNode]
-			local allowed
-			if mine then
-				allowed = theirs == mine
-			else
-				allowed = theirs == nil or not entered[theirs]
-			end
-			if allowed and not seen[nextNode] then
-				seen[nextNode] = true
-				if theirs and theirs ~= mine then
-					entered[theirs] = true
+	-- A group in two pieces (a house the validator will turn down) is
+	-- entered again once the rest is done, so the tree still reaches every
+	-- room.
+	local strict = true
+	while true do
+		while head <= #order do
+			local node = order[head]
+			head += 1
+			children[node] = children[node] or {}
+			local mine = groups[node]
+			for _, nextNode in adj[node] do
+				local theirs = groups[nextNode]
+				local allowed
+				if mine then
+					allowed = theirs == mine or not strict
+				else
+					allowed = theirs == nil or not entered[theirs] or not strict
 				end
-				parent[nextNode] = node
-				table.insert(children[node], nextNode)
-				table.insert(order, nextNode)
+				if allowed and not seen[nextNode] then
+					seen[nextNode] = true
+					if theirs and theirs ~= mine then
+						entered[theirs] = true
+					end
+					parent[nextNode] = node
+					table.insert(children[node], nextNode)
+					table.insert(order, nextNode)
+				end
 			end
 		end
+		if not strict or #order == #ids then
+			break
+		end
+		strict = false
+		head = 1
 	end
 	local size, tin, tout = {}, { [root] = 0 }, {}
 	local clock = 0

@@ -617,8 +617,8 @@ local Rooms = {
 -- The mansion (docs/plans/mansion-generation.md). Which of the templates
 -- above it uses and how; the old generator never reads these blocks.
 --   floors    floors the room can be on (-1 cellar, 0 ground, 1 upper, 2 attic)
---   zone      hall, public, dining, kitchen, service, private, bath or
---             cellar; or one per floor ({ [0] = ..., [1] = ... }). Doors
+--   zone      hall, public, dining, kitchen, service, private, bath, cellar
+--             or attic; or one per floor ({ [0] = ..., [1] = ... }). Doors
 --             only join zones that make sense together (MansionHouse.ZoneDoors).
 --   reach     a stair that only reaches the cellar or the attic (not one of
 --             the main stairs)
@@ -804,6 +804,123 @@ local CellarRooms = {
 	},
 }
 
+-- The attic (docs/plans/level-design.md section 10.3): mansion-only rooms
+-- under the roof, reached by the attic stair from the upper floor and by the
+-- back stairs carried up. Bare boards that creak (`creaks`: footsteps carry
+-- further), a sloped roof on rafters (`rafters`), bare bulbs, the family's
+-- old things. Nothing stands taller than the roof's low side (7 studs).
+local AtticRooms = {
+	{
+		id = "box_room",
+		name = "Box Room",
+		mood = "tight",
+		family = "attic",
+		fixture = "bulb",
+		rafters = true,
+		creaks = 1.5,
+		floor = { material = "WoodPlanks", color = { 96, 76, 58 } },
+		wall = { material = "OldPlaster", color = { 146, 136, 118 } },
+		ceiling = { material = "WoodPlanks", color = { 82, 64, 48 } },
+		reverb = "Room",
+		light = { brightness = 1.05, range = 26, color = { 232, 194, 126 } },
+		props = {
+			{ id = "table", kind = "Table", x = 11, z = 16.5, ry = 180 },
+			{ id = "trunk1", kind = "Chest", x = -11, z = -17.5 },
+			{ id = "trunk2", kind = "Chest", x = 11, z = -17.5 },
+			{ id = "trunk3", kind = "Chest", x = -18, z = 10, ry = 90 },
+			{ id = "boxes1", kind = "Boxes", x = 16, z = -8 },
+			{ id = "crib", kind = "Crib", x = -16.5, z = -9, ry = 90 },
+			{ id = "form", kind = "Mannequin", x = 17.5, z = 10 },
+			{ id = "boxes2", kind = "Boxes", x = -10, z = 16 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = -16 }, { side = "E", along = 16 }, { side = "N", along = 16 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = -16, z = -16 },
+		mansion = { floors = { 2 }, zone = "attic", size = { 30, 30 }, weight = 3 },
+	},
+	{
+		id = "servants_room",
+		name = "Servants' Room",
+		mood = "tight",
+		family = "bedroom",
+		fixture = "bulb",
+		rafters = true,
+		creaks = 1.5,
+		floor = { material = "WoodPlanks", color = { 100, 80, 60 } },
+		wall = { material = "Wallpaper", color = { 132, 120, 104 } },
+		ceiling = { material = "WoodPlanks", color = { 86, 68, 50 } },
+		reverb = "Room",
+		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
+		props = {
+			{ id = "bed", kind = "Bed", x = -15.5, z = -12 },
+			{ id = "dresser", kind = "Dresser", x = 11, z = -18.25 },
+			{ id = "trunk", kind = "Chest", x = 18, z = 10, ry = 270 },
+			{ id = "coatrack", kind = "CoatRack", x = -17.5, z = 16 },
+			{ id = "lamp", kind = "FloorLamp", x = 17.5, z = -17.5 },
+			{ id = "boxes", kind = "Boxes", x = 10, z = 16 },
+		},
+		decor = {},
+		wallSlots = { { side = "E", along = -10 }, { side = "S", along = -12 }, { side = "N", along = -12 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = 16, z = 16 },
+		mansion = { floors = { 2 }, zone = "attic", size = { 20, 30 }, weight = 2 },
+	},
+	{
+		id = "tank_room",
+		name = "Water Tank Room",
+		mood = "tight",
+		family = "utility",
+		fixture = "bulb",
+		rafters = true,
+		creaks = 1.5,
+		floor = { material = "WoodPlanks", color = { 90, 72, 56 } },
+		wall = { material = "OldPlaster", color = { 156, 150, 134 } },
+		ceiling = { material = "WoodPlanks", color = { 80, 62, 46 } },
+		reverb = "Room",
+		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
+		props = {
+			{ id = "tank", kind = "WaterTank", x = -11, z = -17 },
+			{ id = "table", kind = "Table", x = 11, z = 16.5, ry = 180 },
+			{ id = "boxes", kind = "Boxes", x = 16, z = -8 },
+			{ id = "trunk", kind = "Chest", x = -18, z = 10, ry = 90 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = -16 }, { side = "E", along = 10 }, { side = "S", along = -12 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = -16, z = 16 },
+		mansion = { floors = { 2 }, zone = "attic", size = { 20, 20 }, weight = 1 },
+	},
+	{
+		id = "lumber_room",
+		name = "Lumber Room",
+		mood = "tight",
+		family = "attic",
+		fixture = "bulb",
+		rafters = true,
+		creaks = 1.5,
+		floor = { material = "WoodPlanks", color = { 94, 74, 56 } },
+		wall = { material = "OldPlaster", color = { 140, 132, 116 } },
+		ceiling = { material = "WoodPlanks", color = { 80, 62, 46 } },
+		reverb = "Room",
+		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
+		props = {
+			{ id = "table", kind = "Table", x = -11, z = -17 },
+			{ id = "boxes1", kind = "Boxes", x = 11, z = -16 },
+			{ id = "boxes2", kind = "Boxes", x = 16, z = -16 },
+			{ id = "chair", kind = "Armchair", x = -16, z = 10 },
+			{ id = "crib", kind = "Crib", x = 17, z = 9, ry = 270 },
+			{ id = "trunk", kind = "Chest", x = 10, z = 17.5, ry = 180 },
+			{ id = "form", kind = "Mannequin", x = -10, z = 17 },
+		},
+		decor = {},
+		wallSlots = { { side = "W", along = -10 }, { side = "E", along = -10 }, { side = "S", along = 15 } },
+		floorSlots = { { x = 8, z = 8 }, { x = -8, z = 8 }, { x = 8, z = -8 } },
+		shrine = { x = -16, z = -8 },
+		mansion = { floors = { 2 }, zone = "attic", size = { 30, 20 }, weight = 2 },
+	},
+}
+
 -- Rooms only the mansion has. Their furniture is a placeholder until the
 -- furnishing phase (M4); corridors get their size from the generator.
 local MansionExtras = {
@@ -909,6 +1026,34 @@ local MansionExtras = {
 	},
 
 	{
+		id = "attic_stair",
+		name = "Attic Stairs",
+		mood = "tight",
+		family = "corridor",
+		fixture = "bulb",
+		-- A dog-leg up from a door off the upper floor to the attic; its
+		-- doorway on both storeys is in the south wall.
+		floor = { material = "WoodPlanks", color = { 92, 72, 54 } },
+		wall = { material = "OldPlaster", color = { 150, 140, 122 } },
+		reverb = "Hallway",
+		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
+		props = {},
+		decor = {},
+		wallSlots = {},
+		floorSlots = {},
+		shrine = { x = 0, z = 10 },
+		mansion = {
+			role = "stair",
+			reach = "attic",
+			authored = true,
+			tall = true,
+			floors = { 1, 2 },
+			zone = { [1] = "private", [2] = "attic" },
+			size = { 20, 30 },
+			sockets = { [1] = { S = true }, [2] = { S = true } },
+		},
+	},
+	{
 		id = "stairwell",
 		name = "Stairwell",
 		mood = "tight",
@@ -994,7 +1139,7 @@ for _, template in Rooms do
 		mansionById[template.id] = template
 	end
 end
-for _, list in { MansionExtras, CellarRooms } do
+for _, list in { MansionExtras, CellarRooms, AtticRooms } do
 	for _, template in list do
 		template.roles = {}
 		template.weight = 0
@@ -1011,7 +1156,8 @@ return {
 	Mansion = mansion,
 	MansionById = mansionById,
 	MansionExtras = MansionExtras,
-	-- The mansion's own general rooms (the cellar's), furnished like the old
-	-- templates and checked by the same rules (Rooms.spec).
-	MansionRooms = CellarRooms,
+	-- The mansion's own general rooms (the cellar's and the attic's),
+	-- furnished like the old templates and checked by the same rules
+	-- (Rooms.spec).
+	MansionRooms = table.move(AtticRooms, 1, #AtticRooms, #CellarRooms + 1, table.clone(CellarRooms)),
 }

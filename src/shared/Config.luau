@@ -92,6 +92,9 @@ Config.Player = {
 	FlashlightRechargePerSecond = 4, -- inside a lit Lantern room
 	SprintNoiseRadius = 28,
 	WalkNoiseRadius = 6,
+	-- On boards that creak (the attic's), a step that makes noise also sets a
+	-- board creaking this often (heard by everyone; creeping is silent).
+	CreakChance = 0.35,
 	WalkSpeedThreshold = 4, -- studs/s; below this you're creeping and silent
 	FlashlightClickRadius = 8,
 	JumpNoiseRadius = 14,
@@ -154,22 +157,39 @@ Config.Mansion = {
 	-- for a run. Hard adds a region, as before.
 	-- `mansion` overrides more of this table: a small house has fewer
 	-- hallways, so it isn't half corridor.
+	-- `rooms` counts the main floors; the cellar's and the attic's come on
+	-- top, each a wing more (`storeys`: one of them for one or two players,
+	-- both for three or four; docs/plans/level-design.md section 10).
 	BySquad = {
 		{
 			rooms = { 15, 18 },
 			regions = 2,
 			heirlooms = { 2, 2 },
+			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
 		},
 		{
 			rooms = { 17, 20 },
 			regions = 2,
 			heirlooms = { 2, 3 },
+			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
 		},
 		-- Three or four: one door may want two keys from two far rooms.
-		{ rooms = { 19, 22 }, regions = 3, heirlooms = { 3, 3 }, flavours = { double = 1.5 } },
-		{ rooms = { 21, 24 }, regions = 3, heirlooms = { 3, 3 }, flavours = { double = 1.5 } },
+		{
+			rooms = { 17, 20 },
+			regions = 3,
+			heirlooms = { 3, 3 },
+			storeys = { cellar = 1, attic = 1 },
+			flavours = { double = 1.5 },
+		},
+		{
+			rooms = { 19, 22 },
+			regions = 3,
+			heirlooms = { 3, 3 },
+			storeys = { cellar = 1, attic = 1 },
+			flavours = { double = 1.5 },
+		},
 	},
 	Lattice = 10,
 	FloorPitch = 11, -- WallHeight plus a 1-stud floor
@@ -233,8 +253,20 @@ Config.Mansion = {
 			Chance = 1,
 			Rooms = { 2, 3 },
 			StairPull = 0.1, -- the cellar stair's placement score per stud from the back stairs (a longer loop)
+			FirstApart = 40,
+			FirstPull = 0.3,
+			Beside = 0,
 		},
-		Attic = { Chance = 0, Rooms = { 2, 3 } },
+		Attic = {
+			Chance = 1,
+			Rooms = { 2, 3 },
+			StairPull = 0.1, -- the attic stair's placement score per stud from the back stairs
+			-- Placed before the attic's rooms: this far from the back stairs
+			-- (studs, middle to middle), losing FirstPull a stud off it.
+			FirstApart = 40,
+			FirstPull = 0.3,
+			Beside = 6, -- placed off the upper hall the back stairs open into
+		},
 		OnlyOne = false, -- one of the two at most, by their chances
 		-- They hold what the run needs (owner, 2026-10-05: "tie into the
 		-- gameplay loop"): the lock planner's weight for keeping a key there,
@@ -258,6 +290,9 @@ Config.Mansion = {
 	Sconce = { range = 18, brightness = 1.1, height = 6.2 },
 	-- Joists under a cellar's ceiling (templates with `joists`).
 	Joists = { every = 4, width = 0.6, depth = 0.7 },
+	-- The attic's roof (templates with `rafters`): it slopes from `knee` studs
+	-- up on the long walls to the ceiling at the ridge.
+	Rafters = { knee = 7, every = 4, width = 0.5, depth = 0.6 },
 	Placement = {
 		Top = 6, -- weighted pick among this many best candidates
 		Contact = 1, -- per extra neighbour a door could join
@@ -329,6 +364,7 @@ Config.Lighting = {
 		bedroom = { ceiling = "Lamp" },
 		utility = { ceiling = "Fluorescent" },
 		windows = { ceiling = "Lamp" },
+		attic = { ceiling = "Lamp" },
 	},
 }
 
@@ -814,6 +850,9 @@ Config.LevelDesign = {
 		-- 2026-10-05): one that isn't costs more than anything else.
 		storeyWings = { band = { 0, 0 }, weight = 20 },
 		storeyIdle = { band = { 0, 0 }, weight = 6 }, -- a cellar or attic wing holding nothing the run needs
+		storeyOneWay = { band = { 0, 0 }, weight = 3 }, -- a cellar or attic with one way in (a dead end)
+		-- The squad's own wings, not counting the cellar's and the attic's.
+		mainWings = { band = { 3, 9 }, bySquad = { { 2, 9 }, { 2, 9 } }, weight = 5 },
 		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
 		walk = {
 			band = { 900, 2200 },

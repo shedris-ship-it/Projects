@@ -1992,6 +1992,54 @@ function builders.WineRack(model, cf, size, color, material)
 	end
 end
 
+-- The attic's water tank: a riveted galvanised cistern with its pipes.
+function builders.WaterTank(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	part(model, "Tank", Vector3.new(w, h - 0.6, d), cf * CFrame.new(0, (h - 0.6) / 2 + 0.6, 0), color, material)
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			part(
+				model,
+				"Leg",
+				Vector3.new(0.5, 0.6, 0.5),
+				cf * CFrame.new(sx * (w / 2 - 0.4), 0.3, sz * (d / 2 - 0.4)),
+				shade(color, 0.6),
+				material
+			)
+		end
+	end
+	-- Bands of rivets round it, and the lid's lip.
+	for _, y in { 1.6, h - 1 } do
+		part(
+			model,
+			"Band",
+			Vector3.new(w + 0.1, 0.25, d + 0.1),
+			cf * CFrame.new(0, y, 0),
+			shade(color, 0.8),
+			material,
+			{ collide = false, castShadow = false }
+		)
+	end
+	part(
+		model,
+		"Lid",
+		Vector3.new(w + 0.2, 0.2, d + 0.2),
+		cf * CFrame.new(0, h + 0.1, 0),
+		shade(color, 0.9),
+		material,
+		{ collide = false }
+	)
+	part(
+		model,
+		"Pipe",
+		Vector3.new(0.4, h, 0.4),
+		cf * CFrame.new(w / 2 - 0.6, h / 2, -d / 2 + 0.3),
+		Color3.fromRGB(116, 92, 70),
+		PropFactory.material("Metal"),
+		{ collide = false, castShadow = false }
+	)
+end
+
 function builders.Default(model, cf, size, color, material)
 	part(model, "Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, material)
 end

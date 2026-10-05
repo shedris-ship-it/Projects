@@ -230,6 +230,14 @@ function WorldService:RoomAt(position: Vector3): number?
 	return world.layout.cells[gx .. "," .. gz]
 end
 
+-- How much further footsteps carry in the room a point is in: its template's
+-- `creaks` (the attic's boards), else 1.
+function WorldService:CreaksAt(position: Vector3): number
+	local id = self:RoomAt(position)
+	local room = id and self.World and self.World.rooms[id]
+	return room and room.template.creaks or 1
+end
+
 -- Walking the house (Logic/NavGraph, docs/plans/mansion-generation.md M3) ----
 
 local function toLayout(p: Vector3)

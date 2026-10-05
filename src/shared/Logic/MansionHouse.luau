@@ -37,6 +37,8 @@ local ZONE_DOORS = {
 	-- Under the house: only the cellar's own rooms and the feet of its
 	-- stairs (docs/plans/level-design.md section 10.2).
 	cellar = { cellar = true },
+	-- Under the roof, the same (section 10.3).
+	attic = { attic = true },
 }
 
 function MansionHouse.zonesMayJoin(a: string?, b: string?): boolean

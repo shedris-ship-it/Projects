@@ -181,8 +181,10 @@ local function lightFor(kind: string, parentPart: BasePart, template)
 		-- Ceiling light: fluorescent in utility rooms, tungsten everywhere else.
 		local settings = template.light or {}
 		local family = palette.Families[template.family] or palette.Families.living
-		if palette.CeilingSpot then
+		if palette.CeilingSpot and template.fixture ~= "bulb" then
 			-- A cone aimed down: nothing above the fixture is lit (see Config.Lighting).
+			-- (A bare bulb hangs well clear of the ceiling and lights all round:
+			-- the cellar's joists, the attic's rafters.)
 			local spot = Instance.new("SpotLight")
 			spot.Face = downFace(parentPart)
 			spot.Angle = palette.CeilingSpotAngle

@@ -53,6 +53,7 @@ return function(test, check, Shared, require)
 			Stove = true,
 			WaterHeater = true,
 			Boiler = true,
+			WaterTank = true,
 			Car = true,
 			Curtain = true,
 			Rug = true,

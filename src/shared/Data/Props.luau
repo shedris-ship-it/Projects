@@ -122,6 +122,8 @@ local Props = {
 	-- landmark you can call out ("by the boiler"), and racks of bottles.
 	Boiler = { size = { 6, 8, 5 }, landmark = true, color = { 74, 70, 64 }, material = "Metal" },
 	WineRack = { size = { 6, 8, 2 }, color = { 92, 66, 46 }, material = "Wood" },
+	-- The attic's water tank (section 10.3).
+	WaterTank = { size = { 8, 6, 5 }, color = { 150, 152, 148 }, material = "Metal" },
 	-- No `top`: its lid opens (World/PropFactory), and nothing should float.
 	Chest = { size = { 5, 3, 3 }, color = { 86, 58, 38 }, material = "Wood" },
 	Mannequin = { size = { 2, 6.5, 2 }, color = { 214, 200, 180 }, material = "SmoothPlastic" },

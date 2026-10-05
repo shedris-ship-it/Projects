@@ -365,11 +365,15 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 
 	-- Regions ------------------------------------------------------------------------------------
 	m.r0Share = #plan.regions[0].rooms / math.max(1, #layout.rooms)
+	-- (The squad's own wings: the cellar's and the attic's may be small.)
+	local below = mansion and MansionHouse.storeyGroups(layout.rooms, templatesById) or {}
 	m.minRegion, m.maxRegion = math.huge, 0
 	for r = 1, #plan.order do
-		local n = #plan.regions[r].rooms
-		m.minRegion = math.min(m.minRegion, n)
-		m.maxRegion = math.max(m.maxRegion, n)
+		local rooms = plan.regions[r].rooms
+		if not below[rooms[1]] then
+			m.minRegion = math.min(m.minRegion, #rooms)
+			m.maxRegion = math.max(m.maxRegion, #rooms)
+		end
 	end
 	if #plan.order == 0 then
 		m.minRegion, m.maxRegion = nil, nil
@@ -512,6 +516,24 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 				m.storeyIdle += 1
 			end
 		end
+		-- And each has two ways in, so it's a loop to run round, not a trap.
+		local ways = {}
+		for _, seam in layout.seams do
+			local ga, gb = groups[seam.a], groups[seam.b]
+			if seam.connected and ga ~= gb then
+				local name = ga or gb
+				ways[name] = (ways[name] or 0) + 1
+			end
+		end
+		m.storeyOneWay = 0
+		for name in regionOfGroup do
+			if (ways[name] or 0) < 2 then
+				m.storeyOneWay += 1
+			end
+		end
+		-- The squad's own wings, the cellar's and the attic's not counted
+		-- (they come on top).
+		m.mainWings = (m.regions or 0) - m.storeys
 	end
 
 	-- Rooms with no reason to go in, and regions short of a hiding spot, a

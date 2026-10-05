@@ -11,6 +11,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Signal = require(Shared.Lib.Signal)
 local Net = require(Shared.Net)
+local Sfx = require(Shared.Lib.Sfx)
 
 local States = Constants.PlayerStates
 local PA = Constants.PlayerAttributes
@@ -629,16 +630,27 @@ function PlayerStateService:_tick(dt: number)
 			if horizontal > 1 then
 				record.lastActive = now
 			end
+			-- Boards that creak (the attic: docs/plans/level-design.md section
+			-- 10.3): footsteps carry further, and now and then a board answers.
+			-- Creeping stays silent.
+			local creaks = self.World:CreaksAt(root.Position)
+			local stepped = false
 			if horizontal > Config.Player.SprintSpeedThreshold and now - record.lastSprintNoise > 0.5 then
 				record.lastSprintNoise = now
-				self.Noise:Emit(root.Position, Config.Player.SprintNoiseRadius, player, "sprint")
+				self.Noise:Emit(root.Position, Config.Player.SprintNoiseRadius * creaks, player, "sprint")
+				stepped = true
 			elseif velocity.Y > 12 and now - record.lastSprintNoise > 0.5 then
 				record.lastSprintNoise = now
-				self.Noise:Emit(root.Position, Config.Player.JumpNoiseRadius, player, "jump")
+				self.Noise:Emit(root.Position, Config.Player.JumpNoiseRadius * creaks, player, "jump")
+				stepped = true
 			elseif horizontal > Config.Player.WalkSpeedThreshold and now - record.lastSprintNoise > 1 then
 				-- Footsteps: quiet, but he can hear them from the next room's doorway.
 				record.lastSprintNoise = now
-				self.Noise:Emit(root.Position, Config.Player.WalkNoiseRadius, player, "walk")
+				self.Noise:Emit(root.Position, Config.Player.WalkNoiseRadius * creaks, player, "walk")
+				stepped = true
+			end
+			if stepped and creaks > 1 and math.random() < Config.Player.CreakChance then
+				Sfx.play(math.random() < 0.5 and "Creak" or "CreakAlt", root.Position - Vector3.new(0, 2.5, 0), 0.7, 1)
 			end
 		end
 		if player:GetAttribute(PA.Hidden) then

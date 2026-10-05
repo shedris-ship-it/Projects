@@ -91,7 +91,7 @@ local Dressing = {
 -- carried like a small thing (`class`), or pushed (`weight`, in people: 1 is
 -- what one player moves at full speed; Logic/Push). Kinds not listed are
 -- fixed: built in or plumbed (Counter, Sink, Toilet, Bathtub, Stove,
--- WaterHeater, Boiler, Car, Curtain, Rug, Shrine).
+-- WaterHeater, Boiler, WaterTank, Car, Curtain, Rug, Shrine).
 local Furniture = {
 	Chair = { class = "heavy", label = "Chair" },
 	Plant = { class = "bulky", label = "Plant" },

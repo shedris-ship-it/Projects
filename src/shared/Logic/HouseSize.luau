@@ -25,6 +25,16 @@ function HouseSize.config(mansion, progression, squad: number?, extra: number?)
 	for key, value in size.mansion or {} do
 		m[key] = value
 	end
+	-- Which of the cellar and the attic the squad's house has (section 10.3).
+	if size.storeys and mansion.Storeys then
+		local s = table.clone(mansion.Storeys)
+		s.Cellar = table.clone(s.Cellar)
+		s.Attic = table.clone(s.Attic)
+		s.Cellar.Chance = size.storeys.cellar
+		s.Attic.Chance = size.storeys.attic
+		s.OnlyOne = size.storeys.onlyOne == true
+		m.Storeys = s
+	end
 	local p = table.clone(progression)
 	p.Regions = { { upTo = math.huge, count = regions } }
 	p.FinaleItems = size.heirlooms
