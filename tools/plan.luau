@@ -147,6 +147,19 @@ if process.args[3] == "locks" then
 			.. "; out by "
 			.. named(plan.finale.goal)
 	)
+	-- How it measures as a level (Logic/HouseMetrics, docs/plans/level-design.md).
+	local HouseMetrics = Harness.require(Shared.Logic.HouseMetrics)
+	local NavGraph = Harness.require(Shared.Logic.NavGraph)
+	local m = HouseMetrics.measure(layout, plan, templates, {
+		nav = NavGraph.options(Config),
+		config = config,
+		shortcut = Config.LevelDesign.ShortcutStuds,
+	})
+	local score, card = HouseMetrics.score(m, Config.LevelDesign.Targets, 4)
+	print(string.format("Level score %.1f (lower is better; squad 4's bands)", score))
+	for _, line in HouseMetrics.describe(card) do
+		print("  " .. line)
+	end
 end
 
 if mode == "mansion" and process.args[3] == "freeze" then

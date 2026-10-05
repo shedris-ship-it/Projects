@@ -698,6 +698,40 @@ Config.Progression = {
 	Attempts = 24, -- tries for each number of regions before trying one fewer
 }
 
+-- The house as a designed level (docs/plans/level-design.md): what a good
+-- house measures (Logic/HouseMetrics) and how many to choose from.
+-- Targets: { band = { lo, hi }, bySquad = { [squad] = { lo, hi } }?, weight,
+-- scale }: outside its band a metric costs `weight` per `scale` it misses
+-- by. Bands were set from tools/housestats over the generator as it stood
+-- (section 5.1) and the plan's aims; retune after the playtest.
+Config.LevelDesign = {
+	ShortcutStuds = 60, -- a bolt that saves less than this on the way back isn't a shortcut
+	Targets = {
+		r0Share = { band = { 0.25, 0.4 }, weight = 3, scale = 0.05 }, -- of the house open from the start
+		minRegion = { band = { 3, 99 }, weight = 4 }, -- rooms in the smallest region after the first
+		maxRegion = { band = { 0, 8 }, weight = 2 },
+		shortcutShare = { band = { 0.99, 1 }, weight = 3, scale = 0.34 }, -- regions with a real shortcut home
+		returns = { band = { 1, 3 }, weight = 2 }, -- trips back to an older region to open a door
+		stageLoop = { band = { 100, math.huge }, weight = 3, scale = 20 }, -- the shortest "longest loop" of any stage
+		deadEnd = { band = { 0, 3 }, weight = 3 },
+		hideReach = { band = { 0, 70 }, weight = 1, scale = 10 }, -- studs from any open room to a hiding spot
+		corridorHeirlooms = { band = { 0, 0 }, weight = 4 },
+		corridorTokens = { band = { 0, 0 }, weight = 1 },
+		heirloomRegions = { band = { 2, 9 }, weight = 2 },
+		keyWalkMin = { band = { 40, math.huge }, weight = 1, scale = 20 }, -- a key is never right by its door
+		gateRepeats = { band = { 0, 0 }, weight = 1 },
+		puzzles = { band = { 1, 9 }, weight = 2 },
+		purposeless = { band = { 0, 0 }, weight = 2 },
+		finaleRun = { band = { 120, 400 }, weight = 1, scale = 40 }, -- the run from the table to the front door
+		walk = {
+			band = { 900, 2200 },
+			bySquad = { { 700, 1600 }, { 800, 1900 }, { 900, 2200 }, { 1000, 2400 } },
+			weight = 1,
+			scale = 200,
+		},
+	},
+}
+
 -- How keys and heirlooms are found (R2c "leads, not rummaging"; Logic/Leads,
 -- Services/ItemService): a note that says where, a keepsake box, a locked
 -- glass case, a key rack.
