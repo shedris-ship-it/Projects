@@ -953,7 +953,7 @@ function LevelBuilder.build(layout, templatesById, folder: Instance, rng)
 		-- hallway (docs/ART.md, Scale), and arms that end at an outside wall are
 		-- filled in too (Logic/Corridor). They match the walls exactly so nothing
 		-- marks them out, and the doorway lanes and centre stay clear for the
-		-- stalker's Navigator. Anything the template put in a filled arm is
+		-- stalker's walker (Stalker/Walker). Anything the template put in a filled arm is
 		-- left out.
 		local filledArms = Corridor.filledArms(template, room, cells)
 		local function inFilledArm(x: number, z: number): boolean

@@ -10,7 +10,7 @@
 -- side +1 stand in room b (watching room a); side -1 in room a.
 --
 -- Spots stay outside the doorway lane (|along| > Config.Level.LaneHalfWidth)
--- that the Navigator and the furniture rules keep clear.
+-- that the walkers (Stalker/Walker) and the furniture rules keep clear.
 
 local PeekSpots = {}
 

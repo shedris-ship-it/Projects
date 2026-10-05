@@ -105,6 +105,8 @@ down [name] · revive [name]   (yourself if no name; any part of a display name 
 guest here [studs] · guest walk [studs] [speed] · guest pose <Idle|Hold|Walk|Run|Creep|BackAway|Peek|Zoom|Lunge|Bow>
 guest form <0-2> · guest smile <0-1> · guest lean <-1..1> · guest off   (pose The Guest for screenshots)
 guest arrive (knock now) · guest move <Peek|DoorwayStand|CreepBehind|ShadowBehind|StareDown|DistantRoam> · guest peeks · guest scare
+layout cells|mansion|default (the next run's house) · plan (prints the house plan to Output) · where (your room and floor, and his)
+navtest [fast] (the Guest walks every room; results in Output) · navtest room <id> [fast] (one room, traced) · navtest retreat [n] (back-aways from awkward spots)
 ```
 
 The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the squad-profile signals, and client and server performance numbers.
@@ -133,7 +135,7 @@ src/server/
                          CaseBoardService, VerdictService, HidingService, DoorService,
                          ToolService, NoiseService, SquadProfileService, StalkerService,
                          CompanionService, DataService, Telemetry, DebugService
-  Stalker/               StalkerModel, Navigator, Perception, Tactician, Director
+  Stalker/               StalkerModel, Walker, Clearance, Retreat, Perception, Tactician, Director
   Rituals/               PhantomArchitecture, Counterfeit, Gaze
   World/LevelBuilder     layout → parts (rooms, flippable seams, doors, lights, hiding spots)
 src/client/

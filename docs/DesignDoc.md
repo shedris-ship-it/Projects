@@ -214,7 +214,7 @@ After every hunt or stare-down he backs away, still watching you, until nobody c
 ### Perception model (the Body)
 
 - **Vision:** a cone of roughly 100 degrees. Range depends on light: about 40 studs in lit rooms and about 15 in darkness, unless a flashlight beam hits the target. Line of sight uses raycasts.
-- **Hearing:** noise events with radii, such as sprinting, slammed doors and dropped items. Walking is quiet (and slow: 8 studs/s against a sprint of 19) and holding breath reduces noise further. Do not rely on microphone loudness; Roblox does not clearly expose it to developers (verify before planning around it).
+- **Hearing:** noise events with radii, such as sprinting, slammed doors and dropped items. In the mansion a floor muffles a noise to half its radius; the grand hall and the stairwells carry it in full (owner, 2026-10-04). Walking is quiet (and slow: 8 studs/s against a sprint of 19) and holding breath reduces noise further. Do not rely on microphone loudness; Roblox does not clearly expose it to developers (verify before planning around it).
 - **Memory:** a last-known position for each player with a confidence value that decays over about 30 seconds. Searching expands outward from that point, weighted by the squad profile.
 - **Pathfinding:** a strategic layer on the room graph (see section 7) decides where to go, and Roblox pathfinding handles movement inside rooms.
 

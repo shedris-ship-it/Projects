@@ -56,7 +56,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (203 as of 2026-10-04; about 25 s)
+lune run tests/run        # unit tests (218 as of 2026-10-04; about 35 s)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -85,7 +85,7 @@ All must pass. When MCP is available, also start a play session and check the co
 - **Fairness contract:** this is design doc section 3, enforced by `Logic/LayoutValidator`.
   - Fake walls are visual only and never collidable.
   - Divergences must never trap a player.
-  - Room centres and the four doorway lanes stay clear, because the stalker's `Navigator` relies on it.
+  - Room centres and the four doorway lanes stay clear, because the walkers' graph (`Logic/NavGraph`, `Stalker/Walker`) relies on it; `Logic/RoomFit` also keeps solid furniture out of a room's middle.
 - **Determinism:**
   - Generation, evidence and stalker decisions use the seeded `Lib/Rng`, forked per subsystem.
   - `math.random` is only for cosmetic client timing.
@@ -168,7 +168,15 @@ The agreed plan, in order:
        - New code: `World/MansionBuilder` (two floors, the hall's gallery and staircase, dog-leg stairwells, sconces) and `Logic/RoomFit` (40x40 furniture fitted to any room).
        - `WorldService`, the client and the Case File handle rooms as rectangles on floors.
        - Checked in Studio on three seeds: clean consoles, seams aligned, stairs walkable, and Gate A still holds. Results and open items are in `docs/plans/mansion-generation.md` section 5.
-       - Next is **M3:** the Guest and the Companion on the stairs (`Navigator` stair waypoints), noise between floors, a bare-room mode, and `navtest`. Ask the owner to try TC-45 first.
+     - **M3 done (2026-10-04, build `2026-10-04.9`): a navigation overhaul plus both floors.** The owner asked for it after seeing the Guest back into and through walls ("I want his pathfinding in general to be very advanced and dynamic").
+       - The Guest and the Companion walk by the house graph (`Logic/NavGraph`, `Logic/TallRooms`) and Roblox's navmesh (`Stalker/Walker`, which replaced `Navigator`). `Stalker/Clearance` sweeps every non-walking move, and `Body` puts him back if he crosses a wall.
+       - He backs away by `Logic/RetreatPlan` and `Stalker/Retreat`, and holds his stare when cornered.
+       - Distances to players are walking distances (`WorldService:Separation`).
+       - Owner decisions: floors muffle hearing to half, and players on different floors are apart (`Logic/Storeys`).
+       - F2 `plan`, `where`, `navtest [fast]`, `navtest room <id>`, `navtest retreat [n]`.
+       - Studio results (navtest 0 stuck, 0 falls, 0 phases on 3 seeds and the old house) and open items are in `docs/plans/mansion-generation.md`, "M3 as built".
+       - Waiting on the owner: TC-46 to TC-50, including 3 clients.
+       - Next is **M4** (furnishing, the bare-room mode, corridor closets, mansion art).
      - step 7, hub polish
    - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 3. **Three more anomalies: Redaction, Dead Air, Mimic.** That makes 6, which the design doc says must never be cut.

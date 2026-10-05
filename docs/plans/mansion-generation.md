@@ -1,6 +1,6 @@
 # The mansion: generation design
 
-Status (2026-10-04): **M1 done, M2 mostly done.** Since build `2026-10-04.5` the mansion is the default house (`Config.Level.Mode = "Mansion"`, the owner wanted it when readying up normally); F2 `layout cells` builds the old house for one run. Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
+Status (2026-10-04): **M1 and M3 done, M2 mostly done** (build `2026-10-04.9`; M3's results are in section 5, "M3 as built"). Since build `2026-10-04.5` the mansion is the default house (`Config.Level.Mode = "Mansion"`, the owner wanted it when readying up normally); F2 `layout cells` builds the old house for one run. Print a house with `lune run tools/plan <seed> mansion`, and see `mansion-examples.md`. M2's results and open items are in section 5. This supersedes the layout parts of [`variable-room-sizes.md`](variable-room-sizes.md). That plan's section 5 (the map of every file that assumes "one room = one 40×40 cell") and section 6 (invariants) still apply, and the builder, navigation and furnishing phases below lean on them.
 
 ## 1. The owner's decisions
 
@@ -14,6 +14,9 @@ The owner asked for this on 2026-10-04 ("I want really advanced procedural gener
 | Size | **18–24 rooms** in all, counting hallways and stairwells. |
 | Room sizes | 20, 30 or 40 studs a side on a 10-stud lattice. **Only the grand entrance is bigger** (about 40×50, double height, with a split staircase up to a balcony gallery). |
 | Old house | The old generator (`Logic/LevelGraph`) was the default until 2026-10-04, when the owner wanted the mansion on a normal ready-up. It stays in the code (`Config.Level.Mode = "Cells"`, or F2 `layout cells`) and its houses are golden-guarded. |
+| The Guest's movement | Owner, 2026-10-04: "when the guest retreats he commonly backs up into a wall or phase through the wall, I want him to feel smart and aware, I want his pathfinding in general to be very advanced and dynamic." M3 became a navigation overhaul as well as the stairs. |
+| Hearing between floors | **Muffled**: through a floor a noise carries half its range (`Config.Stalker.FloorNoiseScale`); inside the grand hall and a stairwell it carries in full. |
+| Company between floors | Players on **different floors are apart** (isolation, Drift, who the Guest picks as most alone, rescuers near a lunge), unless both are in the hall or the same stairwell. |
 
 ### Future gameplay the generator must leave room for (owner's notes, not built yet)
 - Most objects interactable; small ones physical (pick up, throw, stun the Guest briefly); closets you physically get into and close.
@@ -141,7 +144,7 @@ New, for mansion layouts only:
 | --- | --- | --- | --- |
 | M1 (**done** 2026-10-04) | `Logic/RoomRects`, `Logic/FloorPlan` (ASCII plans, fingerprints), `tools/plan`, the golden guard for the old generator (`tools/golden`, `Golden.spec`), mansion data, `Logic/MansionHouse` and `Logic/MansionGen`, validator rules, `Mansion.spec`, the authored fallback (`Data/MansionFallback`) | pure (Lune) | Example plans read like a house; tests green |
 | M2 | Builder: two floors, rectangle rooms, per-segment walls and door gaps, the double-height hall with gallery and grand stair, stairwells (walkable ramps under step visuals), porches, windows on outer stretches; `RoomAt` by floor; `Config.Level.Mode` | Studio | Old mode identical (part dump hash); `plan` matches the house; seams line up (`execute_luau`); no console errors |
-| M3 | Navigation and "bare rooms": `Navigator` routes along lanes and up stairs, `RandomPointIn`, peek spots and flank from seams, Companion on stairs, noise damped between floors, the Case File map per floor; F2 `plan`, `layout`, `navtest` | Studio | `navtest` 0 stuck on 3 seeds; hunts work on both floors; 3 clients |
+| M3 (**done** 2026-10-04) | Navigation overhaul and both floors: the house graph (`Logic/NavGraph`, `Logic/TallRooms`), the walker on the navmesh (`Stalker/Walker`), no-phasing sweeps (`Stalker/Clearance`), the smart retreat (`Logic/RetreatPlan`, `Stalker/Retreat`), walking distances and floors for every distance check, the Companion on stairs, floors muffle hearing, the Case File's gallery; F2 `plan`, `where`, `navtest`, `navtest retreat`. Bare-room mode moved to M4 | Studio | `navtest` 0 stuck, 0 falls, 0 phases on 3 seeds; `navtest retreat` 0 phases; hunts on both floors; 3 clients (owner, TC-46 to TC-50) |
 | M4 | Furnishing: `Logic/RoomFurnish` (props anchored to walls, lanes and clear zone kept, essentials checked), every template moved over, mansion art (hall, gallery, stair, panelling, chandeliers, corridor closets), `docs/ART.md` updated | pure, then Studio | Screenshots per room; `clip`; hiding spots enterable |
 | M5 | Retune lights, dust and stalker distances; docs (`Mode = "Mansion"` already, since build `2026-10-04.5`) | Studio | Full squad run; fps no worse; "did it ever feel like it cheated?" |
 
@@ -176,6 +179,26 @@ New, for mansion layouts only:
   - Corridors are 20 wide with no closets yet.
   - Corridor hiding spots are counted by the validator but not built.
   - Furniture is the old 40x40 sets squeezed or stretched; the hall's own furniture is sparse.
+
+### M3 as built (2026-10-04, builds `2026-10-04.6` to `.9`)
+- **Strategy: `Logic/NavGraph`** (pure, specs in `NavGraph.spec`). The house as a graph in studs:
+  - an approach node 3.5 studs inside each doorway, the doorway itself, each lane's foot on the room's clear middle, the middle;
+  - the hall and stairwells from `Logic/TallRooms` (the ring round the grand stair, the stair, the gallery's U, the stairwell's flights and landings; the builder reads the same numbers);
+  - routes (Dijkstra; closed doors, Phantom seams and lit Lanterns cost or are avoided; an optional cost per node), distances from a point, `separation` (walking distance between floors by way of the nearest climb), a point halfway up a flight joins both its ends.
+  - `Logic/RoomFit` keeps solid furniture out of a room's middle (beyond the wall band) and lays a long piece along a wall rather than out from it, so routes are always clear. The spec fits every room of 60 houses and checks every route through it.
+- **Footwork: `Stalker/Walker`** (replaces `Navigator`, used by The Guest and the Companion). Each stretch inside a room is planned on Roblox's navmesh in the background and re-planned when blocked; doorways stay straight walks (doors still cost him 1.5-3 s); a plan that fails or takes over 1.5 s falls back to the graph's own way. Arrival is checked in 3D. The stuck ladder re-plans, side-steps, nudges only when nobody could see and only into clear space, then routes again: never through anything.
+- **No phasing: `Stalker/Clearance`.** A body-sized sweep (railings found by tag, since queries can't see them) for every move that isn't a plain walk: the yank and withdraw glides, the lunge dash, stealth steps, side-steps, nudges and escape points. `Body` puts him back if he ever crosses a wall between two ticks (`GuestPhase`).
+- **Smart retreat: `Logic/RetreatPlan` + `Stalker/Retreat`.** He backs out by the doorway, stair or gallery joint in reach that leaves him furthest from everyone, that he reaches first, that isn't a dead end and whose way doesn't pass anyone; still facing you; re-planning when you close in, when a wall comes up behind him or when he arrives; sticking to his choice unless a new one is clearly better; holding your stare when cornered. The over-the-shoulder glance in the plan was dropped: the owner's rule is that he backs away "and not look away".
+- **Aware:** sneaking moves prefer ways nobody is looking at (`Config.Nav.SeenCost`); in a chase he runs for where you'll be in 0.7 s (`Config.Guest.ChaseLead`); every distance to a player is a walking distance (someone on the other floor is a staircase away); arrivals, escape points, search spots and the flank spot can be upstairs and must fit his body with floor under it.
+- **Both floors elsewhere:** the Companion walks with the same walker (stairs, gallery, doors, revives on either floor); hearing and company follow the owner's two decisions above; client phantoms and scares stand on their storey's floor; the Case File tags stairwells and draws the hall upstairs as its gallery; dropped tools land on the floor under them.
+- **Checked in Studio (one client):**
+  - `navtest fast` (the Guest tours every room and both storeys of the hall and each stairwell, nudges off): seeds 61 (24 legs), 1800820264 (21) and 7 (21), and the old house (15): 0 stuck, 0 falls, 0 phases. Seed 61's first tour timed out one leg behind three closed doors; traced with `navtest room 6` it arrived, and the timeout now allows for doors.
+  - `navtest retreat 16` (back-aways from doorways, corners and the gallery, from a stand-in player 6 studs away): seed 61 and seed 7, 0 phases; seed 7 with wall contact measured at his reach (1.4 studs): 0 contacts, 10.9 studs gained on average; corners held.
+  - Forced hunts on seed 7 with the player on the gallery: he climbed the grand stair, went round the gallery to the player and held under the stare; his retreat went down the stair without dithering (a mid-stair dither was found and fixed with the flight joins and the stick-to-it rule).
+  - The Companion followed up the grand stair and round the gallery, and revived the player after a down upstairs and downstairs.
+  - Gate A still holds: parts 2151, hash 1550694282.
+- **Not checked yet:** 3 clients (TC-50), how the retreat and the chase feel to a player (TC-47, TC-48), hearing through floors by ear, the Case File by Tab, the frame rate with navmesh plans on a real machine.
+- **For M4/M5:** the bare-room mode (deferred: the furniture spec covers what it was for); corridor closets; retune `SeenCost`, `ChaseLead`, the retreat weights and `FloorNoiseScale` after a playtest; `BeliefMap` still spreads by doorway hops, so a stairwell counts as one step.
 
 ### M2 Gate A baseline (taken 2026-10-04)
 Build `2026-10-04.3`, old mode, F2 `seed 1800820264` then `start`: 15 rooms on the first attempt, matching `lune run tools/plan 1800820264`. Running `tools/studio/partdump.luau` through `execute_luau` (Server) gave **parts 2151, hash 1550694282** on two fresh runs. After the builder is rewritten for rectangles, the old mode must give the same two numbers. If it doesn't, change the script to return the differing lines.
