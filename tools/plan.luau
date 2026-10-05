@@ -123,8 +123,10 @@ if process.args[3] == "locks" then
 				from = "from the " .. puzzle.kind .. " in " .. named(puzzle.room)
 			else
 				local rooms = {}
-				for _, room in LockPlanner.producerRooms(plan, token) do
-					table.insert(rooms, named(room))
+				for _, need in lock.needs do
+					for _, room in LockPlanner.producerRooms(plan, plan.tokens[need]) do
+						table.insert(rooms, named(room))
+					end
 				end
 				from = "kept in " .. table.concat(rooms, " and ")
 			end
@@ -141,6 +143,35 @@ if process.args[3] == "locks" then
 	end
 	table.sort(bolts)
 	print("  bolts (shortcuts, opened from inside): " .. (#bolts > 0 and table.concat(bolts, ", ") or "none"))
+	-- The adventure the doors were laid for (Logic/Wings, docs/plans/level-design.md 5.3).
+	local wings = layout.wings
+	if wings and plan.stats.wings then
+		local lines = {}
+		local zero = wings.beats[0] or {}
+		if zero.core then
+			table.insert(lines, "region 0 built round a loop of " .. zero.core .. " rooms")
+		end
+		for _, r in wings.order do
+			local beat = wings.beats[r]
+			local parts = {}
+			if beat.backtrack then
+				table.insert(parts, "backtrack (its near door is bolted; in from another region)")
+			end
+			if beat.parallel then
+				table.insert(parts, "opens side by side with the one before")
+			end
+			if beat.loop then
+				table.insert(parts, "a loop inside (" .. beat.loop .. ")")
+			end
+			if beat.shortcut then
+				table.insert(parts, "shortcut home " .. beat.shortcut)
+			end
+			table.insert(lines, "region " .. r .. ": " .. (#parts > 0 and table.concat(parts, "; ") or "plain"))
+		end
+		print("  the adventure: " .. table.concat(lines, "\n                 "))
+	elseif layout.wings then
+		print("  (planned as wings, but the planner grew its own regions)")
+	end
 	local heirlooms = {}
 	for _, id in plan.finale.heirlooms do
 		table.insert(heirlooms, id .. " in " .. named(LockPlanner.tokenRoom(plan, plan.tokens[id])))

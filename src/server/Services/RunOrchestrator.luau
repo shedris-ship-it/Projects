@@ -166,7 +166,12 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- The mansion is sized for the squad; the old house never changes.
 		local houseConfig, progression = Config.Level, Config.Progression
 		if mansion then
-			houseConfig, progression = HouseSize.config(Config.Mansion, Config.Progression, self.run.squad)
+			houseConfig, progression = HouseSize.config(
+				Config.Mansion,
+				Config.Progression,
+				self.run.squad,
+				difficultyName == "Hard" and 1 or 0
+			)
 			layout = MansionGen.generate(seed, Rooms.Mansion, houseConfig)
 		else
 			layout = LevelGraph.generate(seed, Rooms.List, Config.Level)

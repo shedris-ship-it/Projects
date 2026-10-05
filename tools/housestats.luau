@@ -43,6 +43,9 @@ for seed = 1, count do
 		shortcut = design.ShortcutStuds,
 		purposes = RoomPurpose.of(layout, plan, Rooms.MansionById, leads),
 	})
+	-- How many houses were planned as wings (Logic/Wings) and kept them.
+	m.wingsPlanned = layout.wings and 1 or 0
+	m.wingsKept = plan.stats.wings and 1 or 0
 	for key, value in m do
 		if type(value) == "number" then
 			values[key] = values[key] or {}

@@ -37,6 +37,11 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("a door with two keyholes says it needs two keys", function()
+		local line = Objectives.line({ places = 3, placesLeft = 3, locked = "Study", lockedTwo = true })
+		check.truthy(string.find(line, "The Study door is locked. It needs two keys.", 1, true) ~= nil, line)
+	end)
+
 	test("once the dinner is served, only the way out", function()
 		check.equal(
 			Objectives.line({ served = true, places = 3, placesLeft = 0, locked = "Den" }),

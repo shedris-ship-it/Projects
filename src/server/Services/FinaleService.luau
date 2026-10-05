@@ -63,13 +63,14 @@ function FinaleService:Start()
 		if self.plan and entry and lock.kind ~= "bolt" then
 			local inside = lock.inside or entry.seam.b
 			self.facts.locked = self.World:Room(inside).name
+			self.facts.lockedTwo = lock.kind == "double" or nil
 			self.facts.lockedSeam = seamId
 			self:_publish()
 		end
 	end)
 	self.Locks.Unlocked:Connect(function(seamId)
 		if self.facts.lockedSeam == seamId then
-			self.facts.locked, self.facts.lockedSeam = nil, nil
+			self.facts.locked, self.facts.lockedSeam, self.facts.lockedTwo = nil, nil, nil
 			self:_publish()
 		end
 	end)

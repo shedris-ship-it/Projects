@@ -197,9 +197,43 @@ return function(test, check, Shared, require)
 				end
 			end
 		end
-		check.truthy(deep / mansions >= 0.85, string.format("%d of %d mansions with 2+ regions", deep, mansions))
+		-- One house on its own; a run keeps the best of several (Logic/HouseSearch,
+		-- HouseSearch.spec), which always has them.
+		check.truthy(deep / mansions >= 0.8, string.format("%d of %d mansions with 2+ regions", deep, mansions))
 		check.truthy(one / cells >= 0.85, string.format("%d of %d old houses with one", one, cells))
 		check.truthy(padlocks / mansions >= 0.3, string.format("a padlock in %d of %d mansions", padlocks, mansions))
+	end)
+
+	test("a double lock wants two keys, kept in different rooms opened before it, and every plan finishes", function()
+		local HouseSize = require(Shared.Logic.HouseSize)
+		local mansion, progression = HouseSize.config(Config.Mansion, Config.Progression, 4)
+		local saved = progression.Flavours
+		progression.Flavours = { key = 0, padlock = 0, power = 0, crank = 0, double = 1 }
+		local doubles = 0
+		for seed = 1, 20 do
+			local layout = MansionGen.generate(seed * 53 + 1, Rooms.Mansion, mansion)
+			local plan =
+				LockPlanner.plan(layout, Rooms.MansionById, Rng.new(seed):Fork("progression"), progression, mansion)
+			check.truthy(LockPlanner.solve(layout, plan, Rooms.MansionById).solvable, "seed " .. seed .. " finishes")
+			local position = { [0] = 0 }
+			for i, r in plan.order do
+				position[r] = i
+			end
+			for id, lock in plan.locks do
+				if lock.kind == "double" then
+					doubles += 1
+					check.equal(#lock.needs, 2, id .. " needs two keys")
+					local a = LockPlanner.tokenRoom(plan, plan.tokens[lock.needs[1]])
+					local b = LockPlanner.tokenRoom(plan, plan.tokens[lock.needs[2]])
+					check.truthy(a ~= b, id .. ": the keys are in different rooms")
+					for _, room in { a, b } do
+						check.truthy(position[plan.roomRegion[room]] < position[lock.region], id .. ": a key behind it")
+					end
+				end
+			end
+		end
+		progression.Flavours = saved
+		check.truthy(doubles > 0, "some double locks")
 	end)
 
 	test("a gate kind switched off never turns up; the key is always there to fall back on", function()

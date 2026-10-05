@@ -12,16 +12,28 @@ function HouseSize.clamp(squad: number?, bySquad): number
 end
 
 -- The run's configs for a squad: (mansion config, progression config).
-function HouseSize.config(mansion, progression, squad: number?)
-	local size = mansion.BySquad[HouseSize.clamp(squad, mansion.BySquad)]
+-- `extra` adds regions (Hard). The mansion's own copy carries the squad
+-- size and the number of regions, for its wings (Logic/Wings).
+function HouseSize.config(mansion, progression, squad: number?, extra: number?)
+	local clamped = HouseSize.clamp(squad, mansion.BySquad)
+	local size = mansion.BySquad[clamped]
+	local regions = size.regions + (extra or 0)
 	local m = table.clone(mansion)
 	m.RoomCount = size.rooms
+	m.Squad = clamped
+	m.Regions = regions
 	for key, value in size.mansion or {} do
 		m[key] = value
 	end
 	local p = table.clone(progression)
-	p.Regions = { { upTo = math.huge, count = size.regions } }
+	p.Regions = { { upTo = math.huge, count = regions } }
 	p.FinaleItems = size.heirlooms
+	if size.flavours then
+		p.Flavours = table.clone(progression.Flavours)
+		for kind, weight in size.flavours do
+			p.Flavours[kind] = weight
+		end
+	end
 	return m, p
 end
 

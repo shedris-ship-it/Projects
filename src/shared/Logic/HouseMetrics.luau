@@ -377,10 +377,12 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 
 	-- Shortcuts: what each region's best bolt saves on the way back to the
 	-- table from its farthest room, once the rest of the house before it is
-	-- open.
+	-- open. Only regions of four rooms or more are expected to have one (a
+	-- wing of three is never far from its own door).
 	local shortcut = opts.shortcut or 60
 	m.shortcutRegions = 0
 	m.shortcuts = {}
+	local expected = 0
 	for _, r in plan.order do
 		local state = {}
 		local bolts = {}
@@ -414,11 +416,14 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 			end
 		end
 		m.shortcuts[r] = best
-		if best >= shortcut then
-			m.shortcutRegions += 1
+		if #plan.regions[r].rooms >= 4 then
+			expected += 1
+			if best >= shortcut then
+				m.shortcutRegions += 1
+			end
 		end
 	end
-	m.shortcutShare = #plan.order > 0 and m.shortcutRegions / #plan.order or nil
+	m.shortcutShare = expected > 0 and m.shortcutRegions / expected or nil
 
 	-- Every stage, once its bolts are open: a loop to run, no deep dead end,
 	-- a hiding spot not far from any room.

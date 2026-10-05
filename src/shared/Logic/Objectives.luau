@@ -6,7 +6,7 @@
 --   served: the dinner is served (the run out)
 --   places, placesLeft: places laid at the table, and how many are empty
 --   locked: the name of the room behind the last locked door someone tried
---     and couldn't open (nil once it's open)
+--     and couldn't open (nil once it's open); lockedTwo: it has two keyholes
 --   stations: the puzzles and locked cases someone has been near, in the
 --     order they were first seen: { { kind, room, solved } }. The newest one
 --     not yet dealt with is mentioned.
@@ -63,6 +63,9 @@ function Objectives.line(facts): string
 	end
 	if facts.locked then
 		table.insert(parts, "The " .. facts.locked .. " door is locked.")
+		if facts.lockedTwo then
+			table.insert(parts, "It needs two keys.")
+		end
 	end
 	local stations = facts.stations or {}
 	for i = #stations, 1, -1 do

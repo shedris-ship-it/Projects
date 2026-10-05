@@ -181,6 +181,10 @@ local function plate(door, lock)
 			lamp.Size = Vector3.new(0.16, 0.16, 0.16)
 			lamp.CFrame = face * CFrame.new(0, 0.85, side * 0.17)
 			lamp.Parent = folder
+		elseif lock.kind == "double" then
+			-- Two keyholes, one above the other.
+			p.Size = Vector3.new(0.3, 1.3, 0.05)
+			p.CFrame = face * CFrame.new(0, 0.6, side * 0.03)
 		else
 			p.Size = Vector3.new(0.3, 0.6, 0.05)
 			p.CFrame = face * CFrame.new(0, 0.6, side * 0.03)
@@ -373,6 +377,35 @@ function LockService:_try(door, player: Player?)
 		else
 			self:_rattle(door)
 			notify(player, "Locked. It needs a key.")
+		end
+		return
+	elseif lock.kind == "double" then
+		-- Two keyholes: each key turns in its own, whoever holds it; the
+		-- second opens it (docs/plans/level-design.md section 5.3).
+		entry.turned = entry.turned or {}
+		local turnedNow = false
+		for _, token in lock.needs do
+			if not entry.turned[token] and self:HasKey(player, token) then
+				self.rings[player][token] = nil
+				entry.turned[token] = true
+				turnedNow = true
+			end
+		end
+		if turnedNow then
+			self:_publishRing(player)
+		end
+		local all = true
+		for _, token in lock.needs do
+			all = all and entry.turned[token] == true
+		end
+		if all then
+			self:Unlock(door.lockId, player, "The second key turns. The lock gives.")
+		elseif turnedNow then
+			Sfx.play("DoorLatch", door.position, 0.45, 1.2)
+			notify(player, "One key turns. The other keyhole is still locked.")
+		else
+			self:_rattle(door)
+			notify(player, "Two keyholes. It needs two keys.")
 		end
 		return
 	elseif lock.kind == "padlock" then

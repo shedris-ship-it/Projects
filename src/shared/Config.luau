@@ -167,8 +167,9 @@ Config.Mansion = {
 			heirlooms = { 2, 3 },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
 		},
-		{ rooms = { 19, 22 }, regions = 3, heirlooms = { 3, 3 } },
-		{ rooms = { 21, 24 }, regions = 3, heirlooms = { 3, 3 } },
+		-- Three or four: one door may want two keys from two far rooms.
+		{ rooms = { 19, 22 }, regions = 3, heirlooms = { 3, 3 }, flavours = { double = 1.5 } },
+		{ rooms = { 21, 24 }, regions = 3, heirlooms = { 3, 3 }, flavours = { double = 1.5 } },
 	},
 	Lattice = 10,
 	FloorPitch = 11, -- WallHeight plus a 1-stud floor
@@ -194,6 +195,23 @@ Config.Mansion = {
 	LongLoopStuds = 200,
 	ExtraEdges = { 3, 5 },
 	MaxExtraEdges = 8,
+	-- The adventure decides the doors (Logic/Wings; docs/plans/level-design.md
+	-- section 5.3). Regions comes from the squad (Logic/HouseSize), else from
+	-- the room count; Stage is Config.Progression (set below), whose
+	-- region-0 and dead-end rules every kept partition already passes.
+	Wings = {
+		MinWing = 3, -- rooms in a wing, at least
+		MaxWing = 7,
+		R0Share = { 0.25, 0.4 }, -- of the house open from the start
+		Tries = 4, -- partitions tried for each number of wings, best first
+		Cores = 3, -- loops region 0 may be built round, tried (Wings.coreLoops)
+		CoreMax = 7, -- rooms in region 0's loop, at most
+		NearKey = 0.7, -- a wing's key lies in the region opened just before it, this often
+		ParallelFrom = 3, -- squads this big get two wings opening side by side
+		BacktrackChance = 0.4, -- a wing is entered from an older region, its near door bolted
+		ShortcutStuds = 60, -- a doorway home must save this much walking to be added
+		KeyStuds = { 40, 300 }, -- walking studs from a key to its door: never closer, rarely further
+	},
 	LoopLength = { 4, 8 }, -- (doc)
 	MinLoops = 2, -- (doc)
 	MaxDeadEndChain = 2, -- (doc)
@@ -699,7 +717,7 @@ Config.Progression = {
 	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
 	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2, power = 2, crank = 1 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
+	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
 	Enabled = {
 		key = true,
@@ -709,6 +727,7 @@ Config.Progression = {
 		musicbox = true,
 		crank = true,
 		dumbwaiter = true,
+		double = true,
 	},
 	Keepers = { container = 4, safe = 2, musicbox = 3, dumbwaiter = 2 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
@@ -732,7 +751,7 @@ Config.LevelDesign = {
 		r0Share = { band = { 0.25, 0.4 }, weight = 3, scale = 0.05 }, -- of the house open from the start
 		minRegion = { band = { 3, 99 }, weight = 4 }, -- rooms in the smallest region after the first
 		maxRegion = { band = { 0, 8 }, weight = 2 },
-		shortcutShare = { band = { 0.99, 1 }, weight = 3, scale = 0.34 }, -- regions with a real shortcut home
+		shortcutShare = { band = { 0.99, 1 }, weight = 3, scale = 0.34 }, -- regions of 4+ rooms with a real shortcut home
 		returns = { band = { 1, 3 }, weight = 2 }, -- trips back to an older region to open a door
 		stageLoop = { band = { 100, math.huge }, weight = 3, scale = 20 }, -- the shortest "longest loop" of any stage
 		deadEnd = { band = { 0, 3 }, weight = 3 },
@@ -754,6 +773,8 @@ Config.LevelDesign = {
 		},
 	},
 }
+
+Config.Mansion.Wings.Stage = Config.Progression
 
 -- How keys and heirlooms are found (R2c "leads, not rummaging"; Logic/Leads,
 -- Services/ItemService): a note that says where, a keepsake box, a locked

@@ -26,6 +26,7 @@ local DOORS = {
 	door = { color = Color3.fromRGB(150, 140, 120) },
 	unknown = { color = Color3.fromRGB(150, 140, 120) },
 	key = { color = Color3.fromRGB(196, 74, 60), tag = "KEY" },
+	double = { color = Color3.fromRGB(196, 74, 60), tag = "2 KEYS" },
 	padlock = { color = Color3.fromRGB(214, 150, 60), tag = "CODE" },
 	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
 	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },

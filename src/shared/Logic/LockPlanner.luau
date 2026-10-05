@@ -170,6 +170,7 @@ local function context(layout, templatesById, config)
 		offers = offers,
 		bare = bare,
 		corridor = corridor,
+		walker = mansion and config and MansionHouse.walker(layout.rooms, layout.seams, config) or nil,
 		kept = {}, -- rooms something is kept in so far (an attempt's)
 		start = layout.start,
 		dining = layout.deliberation,
@@ -251,6 +252,7 @@ LockPlanner.Keepers = {
 --   puzzle     the puzzle that makes the token, standing in a room `where` allows
 --   label      the token's label, from the name of the room behind the gate
 --   side       worked from its outer side (a crank), with no token
+--   count      tokens it needs (the double lock: two keys, kept far apart)
 --   available  (ctx, gate seam) -> boolean, for kinds that need a particular doorway
 LockPlanner.Gates = {
 	{
@@ -282,6 +284,17 @@ LockPlanner.Gates = {
 	-- A heavy shutter raised by a crank on its outer side (Services/
 	-- CrankService): nothing to find, two people (or a slow, loud ratchet).
 	{ id = "crank", side = true },
+	-- Two keyholes, two keys kept far apart (docs/plans/level-design.md
+	-- section 5.3): a squad of three or four splits up for them. Its weight
+	-- comes from the squad's size (Config.Mansion.BySquad).
+	{
+		id = "double",
+		token = "key",
+		count = 2,
+		label = function(name)
+			return name .. " key"
+		end,
+	},
 }
 LockPlanner.GateById = {}
 for _, gate in LockPlanner.Gates do
@@ -495,8 +508,18 @@ end
 -- keep it in, never the dining room. In the mansion, a room with no reason
 -- of its own to go in comes first (what's kept there becomes its reason),
 -- one already keeping something comes last, and an heirloom is never kept
--- in a corridor (a key may hang on a rack there).
-local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boolean }?, heirloom: boolean?)
+-- in a corridor (a key may hang on a rack there). `walk` (walking studs from
+-- the door it opens, with `band`) sends a key the long way round: never
+-- right by its door, best a good walk away (docs/plans/level-design.md 5.3).
+local function keepingRoom(
+	ctx,
+	rng,
+	rooms: { number },
+	avoid: { [number]: boolean }?,
+	heirloom: boolean?,
+	walk: { [number]: number }?,
+	band: { number }?
+)
 	local candidates = {}
 	for _, id in rooms do
 		if id ~= ctx.dining and not (avoid and avoid[id]) and not (heirloom and ctx.corridor[id]) then
@@ -509,6 +532,16 @@ local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boole
 			end
 			if ctx.mansion and ctx.kept[id] then
 				weight *= 0.4
+			end
+			if walk and band then
+				local studs = walk[id] or math.huge
+				if studs < band[1] then
+					weight *= 0.1
+				elseif studs > band[2] then
+					weight *= 0.4
+				else
+					weight *= 1 + studs / 100
+				end
 			end
 			table.insert(candidates, { id = id, weight = weight })
 		end
@@ -523,11 +556,19 @@ local function keepingRoom(ctx, rng, rooms: { number }, avoid: { [number]: boole
 	end).id
 end
 
-local function attempt(ctx, rng, cfg, k: number)
+-- One plan. Its regions are grown here, or, for a mansion planned as wings
+-- (Logic/Wings, docs/plans/level-design.md section 5.3), taken from those:
+-- the regions, the order they open in, each one's gate and where its key
+-- is kept; only what each lock is and what keeps each heirloom is drawn.
+local function attempt(ctx, rng, cfg, k: number, wings)
 	ctx.kept = {}
-	local start = growStart(ctx, rng, cfg)
-	local roomRegion, count = growRegions(ctx, rng, start, k)
-	local regions = {}
+	local regions, roomRegion, count = {}, nil, nil
+	if wings then
+		roomRegion, count = table.clone(wings.roomRegion), #wings.order
+	else
+		local start = growStart(ctx, rng, cfg)
+		roomRegion, count = growRegions(ctx, rng, start, k)
+	end
 	for r = 0, count do
 		regions[r] = { rooms = {} }
 	end
@@ -539,6 +580,12 @@ local function attempt(ctx, rng, cfg, k: number)
 	local neighbours = regionNeighbours(ctx, roomRegion)
 	local position = { [0] = 0 }
 	local order = {}
+	if wings then
+		for i, r in wings.order do
+			order[i] = r
+			position[r] = i
+		end
+	end
 	while #order < count do
 		local frontier = {}
 		for r = 1, count do
@@ -585,27 +632,51 @@ local function attempt(ctx, rng, cfg, k: number)
 		if #boundary == 0 then
 			return nil
 		end
-		-- One gate: usually from the region just opened, sometimes from an
-		-- older one (backtracking), a doorway with a door by preference.
-		local pool = #recent > 0 and recent or older
-		if #older > 0 and #recent > 0 and rng:Chance(cfg.BacktrackChance) then
-			pool = older
-			plan.stats.backtracks += 1
+		local gate
+		if wings then
+			gate = ctx.seamById[wings.gates[r]]
+			if gate == nil then
+				return nil
+			end
+			if wings.beats[r] and wings.beats[r].backtrack then
+				plan.stats.backtracks += 1
+			end
+		else
+			-- One gate: usually from the region just opened, sometimes from an
+			-- older one (backtracking), a doorway with a door by preference.
+			local pool = #recent > 0 and recent or older
+			if #older > 0 and #recent > 0 and rng:Chance(cfg.BacktrackChance) then
+				pool = older
+				plan.stats.backtracks += 1
+			end
+			gate = rng:WeightedPick(pool, function(seam)
+				return seam.door and cfg.DoorWeight or 1
+			end)
 		end
-		local gate = rng:WeightedPick(pool, function(seam)
-			return seam.door and cfg.DoorWeight or 1
-		end)
 		local inside = roomRegion[gate.a] == r and gate.a or gate.b
 		regions[r].gate = gate.id
 		-- What opens it, made somewhere already open (the region just before by
-		-- preference).
+		-- preference; as the wings planned it).
 		local earlier = {}
 		for _, id in ctx.ids do
 			if position[roomRegion[id]] < index then
 				table.insert(earlier, id)
 			end
 		end
-		local nearRooms = rng:Chance(cfg.NearProducer) and regions[previous].rooms or earlier
+		local nearRooms, walk
+		if wings then
+			local keyRegion = wings.keyRegion[r]
+			nearRooms = keyRegion and regions[keyRegion].rooms or earlier
+			-- Walking studs from the door, over what's open by now.
+			local outer = inside == gate.a and gate.b or gate.a
+			walk = ctx.walker(outer, function(seam)
+				return seam.connected == true
+					and position[roomRegion[seam.a]] < index
+					and position[roomRegion[seam.b]] < index
+			end)
+		else
+			nearRooms = rng:Chance(cfg.NearProducer) and regions[previous].rooms or earlier
+		end
 		-- The kinds this gate could be: the key always, and every other kind
 		-- switched on that fits here (its puzzle has somewhere already open to
 		-- stand; one of each puzzle a house).
@@ -649,7 +720,42 @@ local function attempt(ctx, rng, cfg, k: number)
 		end
 		local kind = choice.gate
 		local needs = nil
-		if kind.token then
+		if kind.token and kind.count then
+			-- Several of one token, each kept somewhere else: the second a long
+			-- walk from the first.
+			needs = {}
+			local first = nil
+			for n = 1, kind.count do
+				counts[kind.token] = (counts[kind.token] or 0) + 1
+				local token = kind.token .. ":" .. counts[kind.token]
+				local apart = first
+						and ctx.walker
+						and ctx.walker(first, function(seam)
+							return seam.connected == true
+								and position[roomRegion[seam.a]] < index
+								and position[roomRegion[seam.b]] < index
+						end)
+					or walk
+				local room = keepingRoom(
+					ctx,
+					rng,
+					n == 1 and nearRooms or earlier,
+					first and { [first] = true } or nil,
+					nil,
+					apart,
+					wings and wings.keyStuds
+				)
+				first = first or room
+				ctx.kept[room] = true
+				plan.tokens[token] = {
+					kind = kind.token,
+					opens = gate.id,
+					label = kind.label(roomName(ctx, inside)) .. " (one of " .. kind.count .. ")",
+					producer = { kind = "container", room = room },
+				}
+				table.insert(needs, token)
+			end
+		elseif kind.token then
 			counts[kind.token] = (counts[kind.token] or 0) + 1
 			local token = kind.token .. ":" .. counts[kind.token]
 			local producer
@@ -661,7 +767,10 @@ local function attempt(ctx, rng, cfg, k: number)
 				usedPuzzles[kind.puzzle] = true
 				producer = { kind = "puzzle", id = puzzleId }
 			else
-				producer = { kind = "container", room = keepingRoom(ctx, rng, nearRooms) }
+				producer = {
+					kind = "container",
+					room = keepingRoom(ctx, rng, nearRooms, nil, nil, walk, wings and wings.keyStuds),
+				}
 			end
 			for _, room in LockPlanner.producerRooms(plan, { producer = producer }) do
 				ctx.kept[room] = true
@@ -932,15 +1041,14 @@ end
 
 -- Checking ---------------------------------------------------------------------------
 
--- The problems with a plan, or an empty list. `config` is the house's
--- (Config.Level or Config.Mansion), for walking distances.
-function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
+-- The shape of a plan's regions, whatever is behind its locks: each region
+-- holds together; region 0 has somewhere to run round and somewhere to hide;
+-- at every stage no dead end runs too deep, and a new region stays within
+-- reach of its gate. Logic/MansionGen checks a mansion's wings with this
+-- before keeping them (docs/plans/level-design.md section 5.3).
+function LockPlanner.checkShape(layout, plan, templatesById, cfg, config): { string }
 	local ctx = context(layout, templatesById, config)
 	local problems = {}
-	local result = LockPlanner.solve(layout, plan, templatesById)
-	if not result.solvable then
-		table.insert(problems, result.tableSet and "no way out after the dinner" or "the table can't be set")
-	end
 	-- Each region holds together on its own.
 	for r = 0, #plan.order do
 		local rooms = plan.regions[r].rooms
@@ -950,28 +1058,6 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 		end
 		if #rooms > 0 and Graph.isConnected(Graph.adjacency(rooms, ctx.edges), rooms) == false then
 			table.insert(problems, "region " .. r .. " is in pieces")
-		end
-	end
-	-- What opens a gate is made before it.
-	local position = { [0] = 0 }
-	for i, r in plan.order do
-		position[r] = i
-	end
-	for _, seamId in sortedKeys(plan.locks) do
-		local lock = plan.locks[seamId]
-		for _, need in lock.needs or {} do
-			local token = plan.tokens[need]
-			local rooms = token and LockPlanner.producerRooms(plan, token) or {}
-			local behind = #rooms == 0
-			for _, room in rooms do
-				behind = behind or position[plan.roomRegion[room]] >= position[lock.region]
-			end
-			if behind then
-				table.insert(problems, seamId .. " is opened by something behind it")
-			end
-		end
-		if lock.side and lock.kind ~= "bolt" and position[plan.roomRegion[lock.side]] >= position[lock.region] then
-			table.insert(problems, seamId .. " is worked from behind it")
 		end
 	end
 	-- Region 0: somewhere to run round, and somewhere to hide.
@@ -1060,6 +1146,42 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 	return problems
 end
 
+-- The problems with a plan, or an empty list. `config` is the house's
+-- (Config.Level or Config.Mansion), for walking distances.
+function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
+	local problems = {}
+	local result = LockPlanner.solve(layout, plan, templatesById)
+	if not result.solvable then
+		table.insert(problems, result.tableSet and "no way out after the dinner" or "the table can't be set")
+	end
+	-- What opens a gate is made before it.
+	local position = { [0] = 0 }
+	for i, r in plan.order do
+		position[r] = i
+	end
+	for _, seamId in sortedKeys(plan.locks) do
+		local lock = plan.locks[seamId]
+		for _, need in lock.needs or {} do
+			local token = plan.tokens[need]
+			local rooms = token and LockPlanner.producerRooms(plan, token) or {}
+			local behind = #rooms == 0
+			for _, room in rooms do
+				behind = behind or position[plan.roomRegion[room]] >= position[lock.region]
+			end
+			if behind then
+				table.insert(problems, seamId .. " is opened by something behind it")
+			end
+		end
+		if lock.side and lock.kind ~= "bolt" and position[plan.roomRegion[lock.side]] >= position[lock.region] then
+			table.insert(problems, seamId .. " is worked from behind it")
+		end
+	end
+	for _, problem in LockPlanner.checkShape(layout, plan, templatesById, cfg, config) do
+		table.insert(problems, problem)
+	end
+	return problems
+end
+
 -- The locked seams' ids, sorted.
 function LockPlanner.lockIds(plan): { string }
 	return sortedKeys(plan.locks)
@@ -1084,6 +1206,33 @@ function LockPlanner.plan(layout, templatesById, rng, cfg, config, extra: number
 	local tries = 0
 	local lastProblems = {}
 	local rejected = {} -- why attempts failed, for tools/lockstats
+	-- A mansion planned as wings (Logic/Wings) keeps its regions, order and
+	-- gates; only the locks' kinds and the keepers are drawn. Should none of
+	-- those draws pass (or the wings be more than this plan wants), the
+	-- regions are grown here as for any other house.
+	local wings = layout.wings
+	if wings and #wings.order > 0 and #wings.order <= target then
+		for i = 1, cfg.Attempts do
+			tries += 1
+			local plan = attempt(ctx, rng:Fork("wings " .. i), cfg, #wings.order, wings)
+			if plan then
+				local problems = LockPlanner.check(layout, plan, templatesById, cfg, config)
+				if #problems == 0 then
+					plan.stats.attempts = tries
+					plan.stats.rejected = rejected
+					plan.stats.wings = true
+					return plan
+				end
+				for _, problem in problems do
+					local key = "wings: " .. string.gsub(problem, "%d+", "#")
+					rejected[key] = (rejected[key] or 0) + 1
+				end
+				lastProblems = problems
+			else
+				rejected["wings: no attempt"] = (rejected["wings: no attempt"] or 0) + 1
+			end
+		end
+	end
 	for k = target, 0, -1 do
 		for i = 1, (k == 0 and 1 or cfg.Attempts) do
 			tries += 1

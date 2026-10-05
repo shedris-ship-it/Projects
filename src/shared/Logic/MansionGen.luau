@@ -14,16 +14,20 @@
 --   5. General rooms packed against walls, ground floor first; upstairs they
 --      stand on the ground floor's footprint.
 --   6. Doors: the tree that joined every room, the doors that make the upper
---      floor one piece (each closes a loop through two stairs), then extra
---      loops that make sense and keep the fairness contract.
+--      floor one piece (each closes a loop through two stairs), then the
+--      adventure's (Logic/Wings: wings, a loop in each, shortcuts, the
+--      backtrack; docs/plans/level-design.md section 5.3), then extra loops
+--      that make sense and keep the fairness contract.
 --   7. Roles, Lantern rooms and window orientation; validate; retry the next
 --      attempt, then fall back to an authored mansion.
 
 local Graph = require(script.Parent.Graph)
 local LayoutValidator = require(script.Parent.LayoutValidator)
 local LevelGraph = require(script.Parent.LevelGraph)
+local LockPlanner = require(script.Parent.LockPlanner)
 local MansionHouse = require(script.Parent.MansionHouse)
 local RoomRects = require(script.Parent.RoomRects)
+local Wings = require(script.Parent.Wings)
 local Rng = require(script.Parent.Parent.Lib.Rng)
 
 local MansionGen = {}
@@ -935,7 +939,9 @@ function Builder:_doors(seams)
 		add({ pick.a, pick.b }, 1)
 	end
 
-	-- Extra loops: pairs that make sense together are likelier.
+	-- Extra loops: pairs that make sense together are likelier; with wings,
+	-- inside a wing rather than across into another (a doorway between two
+	-- wings is a bolt).
 	local adjacent = {}
 	for _, seam in seams do
 		if mayJoin(seam) then
@@ -946,33 +952,132 @@ function Builder:_doors(seams)
 	for _, room in house.rooms do
 		table.insert(rooms, room)
 	end
-	local extra = LevelGraph.addLoops(rng, rooms, adjacent, self.edges, config, {
-		accept = accept,
-		weight = function(pair)
-			local seam = seamByPair[MansionHouse.pairKey(pair[1], pair[2])]
-			local a = MansionHouse.zoneOf(house.byId[seam.a], seam.floor)
-			local b = MansionHouse.zoneOf(house.byId[seam.b], seam.floor)
-			if a == b and a ~= "service" then
-				return 2
-			end
-			if (a == "bath" or b == "bath") or a == b then
-				return 1.5
-			end
-			return 1
-		end,
-	})
-	for _, edge in self.edges do
-		local key = MansionHouse.pairKey(edge[1], edge[2])
-		edgeSet[key] = true
+	local function finish(loopRng, wings, beats: number)
+		local loopConfig = config
+		if beats > 0 then
+			loopConfig = table.clone(config)
+			loopConfig.ExtraEdges = {
+				math.max(0, config.ExtraEdges[1] - beats),
+				math.max(0, config.ExtraEdges[2] - beats),
+			}
+		end
+		local extra = LevelGraph.addLoops(loopRng, rooms, adjacent, self.edges, loopConfig, {
+			accept = accept,
+			weight = function(pair)
+				local seam = seamByPair[MansionHouse.pairKey(pair[1], pair[2])]
+				local a = MansionHouse.zoneOf(house.byId[seam.a], seam.floor)
+				local b = MansionHouse.zoneOf(house.byId[seam.b], seam.floor)
+				local w = 1
+				if a == b and a ~= "service" then
+					w = 2
+				elseif (a == "bath" or b == "bath") or a == b then
+					w = 1.5
+				end
+				if wings then
+					w *= wings.roomRegion[pair[1]] == wings.roomRegion[pair[2]] and 3 or 0.4
+				end
+				return w
+			end,
+		})
+		table.clear(edgeSet)
+		for _, edge in self.edges do
+			edgeSet[MansionHouse.pairKey(edge[1], edge[2])] = true
+		end
+		local doorRng = self.rng:Fork("door slabs")
+		for _, seam in seams do
+			seam.from, seam.to = nil, nil
+			seam.connected = edgeSet[MansionHouse.pairKey(seam.a, seam.b)] == true
+			seam.door = seam.connected and doorRng:Chance(config.DoorChance) or false
+		end
+		return extra
 	end
 
-	local doorRng = self.rng:Fork("door slabs")
-	for _, seam in seams do
-		seam.from, seam.to = nil, nil
-		seam.connected = edgeSet[MansionHouse.pairKey(seam.a, seam.b)] == true
-		seam.door = seam.connected and doorRng:Chance(config.DoorChance) or false
+	-- The adventure (Logic/Wings): wings cut from the tree of doors so far, a
+	-- loop in each, shortcuts and the backtrack, each tried partition checked
+	-- the way the lock planner will check it; the first that holds is kept.
+	local wcfg = config.Wings
+	if wcfg then
+		local base = table.clone(self.edges)
+		local wctx = {
+			ids = ids,
+			byId = house.byId,
+			seams = seams,
+			seamByPair = seamByPair,
+			edges = self.edges,
+			edgeSet = {},
+			start = start,
+			dining = deliberation,
+			rng = self.rng:Fork("wings"),
+			cfg = wcfg,
+			config = config,
+			stage = wcfg.Stage,
+			squad = config.Squad,
+			mayJoin = mayJoin,
+			accept = accept,
+			keepsTable = function(pair, edges)
+				local trial = table.clone(edges)
+				table.insert(trial, pair)
+				return tableOnPath(ids, trial, start, exit, deliberation, config.MinExitRooms)
+			end,
+			walk = MansionHouse.walker(house.rooms, seams, config),
+		}
+		local tree = Wings.tree(ids, base, start)
+		self.wingLog = {}
+		local layoutLike =
+			{ mode = "Mansion", rooms = house.rooms, seams = seams, start = start, deliberation = deliberation }
+		local k = config.Regions or LockPlanner.regionCount(#ids, wcfg.Stage)
+		-- Region 0's loop: the first few that could be closed.
+		for _, edge in base do
+			wctx.edgeSet[MansionHouse.pairKey(edge[1], edge[2])] = true
+		end
+		local cores = Wings.coreLoops(wctx)
+		for want = k, 1, -1 do
+			local tries = {}
+			-- (With no loop to build on, region 0 is tried as it falls.)
+			for c = 1, math.max(1, math.min(wcfg.Cores, #cores)) do
+				local core = cores[c]
+				local partitions = Wings.partitions(wctx, tree, want, core and core.rooms)
+				for t = 1, math.min(wcfg.Tries, #partitions) do
+					table.insert(tries, { core = core, partition = partitions[t] })
+				end
+			end
+			table.sort(tries, function(a, b)
+				return a.partition.score > b.partition.score
+			end)
+			if #tries == 0 then
+				table.insert(
+					self.wingLog,
+					("%d wings: no way to cut them (%d loops for region 0)"):format(want, #cores)
+				)
+			end
+			for t = 1, math.min(wcfg.Tries, #tries) do
+				self.edges = table.clone(base)
+				wctx.edges = self.edges
+				table.clear(wctx.edgeSet)
+				for _, edge in self.edges do
+					wctx.edgeSet[MansionHouse.pairKey(edge[1], edge[2])] = true
+				end
+				local wings = Wings.realise(wctx, tree, tries[t].partition, tries[t].core)
+				if not wings then
+					table.insert(self.wingLog, ("%d wings, try %d: region 0's loop can't be closed"):format(want, t))
+					continue
+				end
+				local beats = #self.edges - #base
+				local extra = finish(rng:Fork("loops " .. want .. ":" .. t), wings, beats)
+				local problems =
+					LockPlanner.checkShape(layoutLike, Wings.skeleton(wings, seams), self.p.byId, wcfg.Stage, config)
+				if #problems == 0 then
+					self.wings = wings
+					return extra
+				end
+				-- Why each partition was turned down (tools/plan, tools/mansionstats).
+				table.insert(self.wingLog, ("%d wings, try %d: %s"):format(want, t, table.concat(problems, "; ")))
+			end
+		end
+		-- No wings held: the plain house, its regions grown by the planner.
+		self.edges = base
 	end
-	return extra
+	return finish(rng, nil, 0)
 end
 
 -- Windows look outside: turn each room with windows (keeping its footprint)
@@ -1052,6 +1157,8 @@ function MansionGen.attempt(rng, templates, config)
 		extraEdges = extra,
 		frontDoor = builder.frontDoor,
 		exitDoor = exitDoor,
+		wings = builder.wings,
+		wingLog = builder.wingLog,
 	}
 end
 

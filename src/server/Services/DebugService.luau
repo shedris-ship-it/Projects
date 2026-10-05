@@ -57,7 +57,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
-	"locks (the locks to Output) · unlock <seam|all> · give <token> · items · solve [puzzle] (the one you're at, or the computer)",
+	"locks (the locks to Output) · unlock <seam|all> · try <seam> (as if you pressed on it) · give <token> · items · solve [puzzle]",
 	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
 	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|scan]",
 }, "\n")
@@ -171,6 +171,17 @@ function DebugService:Run(player: Player, text: string)
 				player,
 				services.LockService:Unlock(target, player, nil) and ("unlocked " .. target) or "no such lock"
 			)
+		end
+	elseif command == "try" then
+		-- Press on a locked door from wherever you are, with whatever you hold
+		-- (a key turns, a double lock takes one key at a time).
+		local target = args[2] or ""
+		local entry = services.LockService.locks[target]
+		if entry and not entry.open then
+			services.LockService:_try(entry.door, player)
+			reply(player, target .. (entry.open and " opened" or " still locked"))
+		else
+			reply(player, entry and (target .. " is already open") or "no such lock")
 		end
 	elseif command == "give" then
 		-- A key onto your ring, or an heirloom at your feet.

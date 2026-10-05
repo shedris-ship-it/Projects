@@ -328,4 +328,82 @@ function MansionHouse.routeStuds(ids: { number }, seamByPair, config, closed: bo
 	return total
 end
 
+-- Walking distances over a finished or half-made house, for the generator's
+-- choices (Logic/Wings): door to door inside each room as routeStuds counts
+-- it, from a room's middle to its doors, a flight of stairs wherever the way
+-- changes floor. Returns distancesFrom(roomId, passable(seam) -> boolean) ->
+-- { [room id] = studs to its middle }. Rough beside Logic/NavGraph, but
+-- needs no build; Logic/HouseMetrics measures the real thing.
+function MansionHouse.walker(rooms, seams, config)
+	local byId = {}
+	for _, room in rooms do
+		byId[room.id] = room
+	end
+	-- Each room's doors, with their points.
+	local doorsOf = {}
+	for _, seam in seams do
+		local x, z = RoomRects.doorPoint(seam.dir, seam.line, seam.along)
+		local door = { seam = seam, x = x, z = z, floor = seam.floor or 0 }
+		for _, id in { seam.a, seam.b } do
+			doorsOf[id] = doorsOf[id] or {}
+			table.insert(doorsOf[id], door)
+		end
+	end
+	local stair = config.StairStuds
+	-- A room's middle is on its own storey (the ground floor for a tall room).
+	local function toMiddle(room, door): number
+		local cx, cz = RoomRects.center(room)
+		local storey = room.tall and 0 or (room.floor or 0)
+		return math.abs(cx - door.x) + math.abs(cz - door.z) + (door.floor ~= storey and stair or 0)
+	end
+	return function(from: number, passable: (any) -> boolean): { [number]: number }
+		-- Dijkstra over doors (keyed by seam id), seeded from the room's middle.
+		local dist, done = {}, {}
+		local out = { [from] = 0 }
+		for _, door in doorsOf[from] or {} do
+			if passable(door.seam) then
+				local d = toMiddle(byId[from], door)
+				if dist[door.seam.id] == nil or d < dist[door.seam.id].d then
+					dist[door.seam.id] = { d = d, door = door }
+				end
+			end
+		end
+		while true do
+			local best, bestEntry = nil, nil
+			for id, entry in dist do
+				if
+					not done[id]
+					and (bestEntry == nil or entry.d < bestEntry.d or (entry.d == bestEntry.d and id < best))
+				then
+					best, bestEntry = id, entry
+				end
+			end
+			if not best then
+				break
+			end
+			done[best] = true
+			local door = bestEntry.door
+			for _, id in { door.seam.a, door.seam.b } do
+				local room = byId[id]
+				local middle = bestEntry.d + toMiddle(room, door)
+				if out[id] == nil or middle < out[id] then
+					out[id] = middle
+				end
+				for _, other in doorsOf[id] or {} do
+					if not done[other.seam.id] and passable(other.seam) then
+						local d = bestEntry.d
+							+ math.abs(door.x - other.x)
+							+ math.abs(door.z - other.z)
+							+ (door.floor ~= other.floor and stair or 0)
+						if dist[other.seam.id] == nil or d < dist[other.seam.id].d then
+							dist[other.seam.id] = { d = d, door = other }
+						end
+					end
+				end
+			end
+		end
+		return out
+	end
+end
+
 return MansionHouse
