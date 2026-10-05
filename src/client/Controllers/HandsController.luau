@@ -1,13 +1,15 @@
 -- Your hands on the house (docs/plans/gameplay-rework.md section 4.5), the
--- Amnesia way: hold the left mouse button (RT on a gamepad) on a door and
--- your hand takes hold of it. Your view stays put while you hold it, and
+-- Amnesia way: hold the left mouse button (RT on a gamepad) on a door (or a
+-- drawer, a cupboard door, a chest's lid) and your hand takes hold of it. Your view stays put while you hold it, and
 -- moving the mouse moves your hand: sideways for left and right, up for away
--- from you and down for towards you (the right stick on a gamepad). The door
+-- from you and down for towards you (the right stick on a gamepad). A door
 -- turns about its hinge to follow your hand, so pushing and pulling from
--- either side just work. Let go of the button and you let go of the door.
+-- either side just work; a drawer comes out as far as you pull; a lid lifts
+-- as you push your hand away. Let go of the button and you let go.
 --
 -- The server decides (Services/HandsService checks reach and line of sight;
--- DoorService turns the door at its own rate and stops it against The Guest).
+-- DoorService and FurnitureService move it at its own rate, and a door stops
+-- against The Guest).
 -- This only says where your hand wants the door, and moves your own copy at
 -- once so it feels like your hand, not a round trip (Config.Hands.PredictDrag).
 -- Grabbing anything puts your hands in your hands: slot 4, torch clipped on.
@@ -31,11 +33,11 @@ local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Inventory = require(Shared.Logic.Inventory)
+local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 
 local H = Config.Hands
-local D = Config.Doors
 local PA = Constants.PlayerAttributes
 
 local player = Players.LocalPlayer
@@ -102,43 +104,82 @@ local function flat(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
--- What's in front of your eye within reach.
+-- What's in front of your eye within reach, looking past invisible helpers
+-- (a hiding spot's prompt anchor, a window's light pane).
 function HandsController:_aim(): RaycastResult?
 	local camera = Workspace.CurrentCamera
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { player.Character, camera }
-	return Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * H.Reach, params)
+	local ignore = { player.Character, camera }
+	params.FilterDescendantsInstances = ignore
+	for _ = 1, 4 do
+		local hit = Workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * H.Reach, params)
+		if not hit or hit.Instance.Transparency < 0.99 or hit.Instance.CanCollide then
+			return hit
+		end
+		table.insert(ignore, hit.Instance)
+		params.FilterDescendantsInstances = ignore
+	end
+	return nil
 end
 
 -- The small thing you're looking at within reach (its model), or nil.
-function HandsController:_thingOf(hit: RaycastResult?): Model?
-	local model = hit and hit.Instance:FindFirstAncestorWhichIsA("Model")
+-- Small things are forgiving to aim at: looking just past one (into the
+-- drawer it lies in, at the floor beside it) counts, unless you're looking
+-- at the front of a drawer or a door, which your hand takes instead.
+local NEAR = 0.6
+
+local function grabbable(instance: Instance): Model?
+	local model = instance:FindFirstAncestorWhichIsA("Model")
 	while model and not model:GetAttribute("Grab") do
 		model = model:FindFirstAncestorWhichIsA("Model")
 	end
 	return model
 end
 
--- The door you're looking at within reach: its slab and the point you'd take
--- hold of, or nil.
-function HandsController:_aimedDoor(): (BasePart?, Vector3?)
-	local hit = self:_aim()
+function HandsController:_thingOf(hit: RaycastResult?): Model?
 	if not hit then
-		return nil, nil
+		return nil
 	end
-	local model = hit.Instance:FindFirstAncestorWhichIsA("Model")
-	local slab = model and model.Name == "Door" and model.PrimaryPart
-	if not slab or not slab:GetAttribute("Hinge") or not slab:GetAttribute("Shut") then
-		return nil, nil
+	local model = grabbable(hit.Instance)
+	if model then
+		return model
 	end
-	return slab, hit.Position
+	local piece = hit.Instance:FindFirstAncestorWhichIsA("Model")
+	if piece and piece.PrimaryPart == hit.Instance and hit.Instance:GetAttribute("Joint") then
+		return nil
+	end
+	local best, nearest = nil, NEAR
+	for _, part in Workspace:GetPartBoundsInRadius(hit.Position, NEAR) do
+		local thing = grabbable(part)
+		local distance = (part.Position - hit.Position).Magnitude
+		if thing and distance < nearest then
+			best, nearest = thing, distance
+		end
+	end
+	return best
+end
+
+-- The main part of the door, drawer, cupboard door or lid this belongs to, if
+-- your hands can take hold of it (the server gave it an id).
+function HandsController:_pieceOf(instance: Instance): BasePart?
+	local model = instance:FindFirstAncestorWhichIsA("Model")
+	while model do
+		local primary = model.PrimaryPart
+		if primary and primary:GetAttribute("Joint") and primary:GetAttribute(Constants.Attributes.CId) then
+			return primary
+		end
+		if model:GetAttribute("Grab") then
+			return nil
+		end
+		model = model:FindFirstAncestorWhichIsA("Model")
+	end
+	return nil
 end
 
 -- Something your hands could take hold of here (FocusMarkers asks).
 function HandsController:CanDrag(instance: Instance): boolean
-	local model = instance:FindFirstAncestorWhichIsA("Model") or instance
-	return model.Name == "Door" and model.PrimaryPart ~= nil and model.PrimaryPart:GetAttribute("Hinge") ~= nil
+	return self:_pieceOf(instance) ~= nil
 end
 
 function HandsController:_active(): boolean
@@ -149,42 +190,51 @@ function HandsController:_begin(): boolean
 	if not self:_active() or self.drag or self.carry then
 		return false
 	end
-	local slab, point = self:_aimedDoor()
-	if not slab or not point then
+	local hit = self:_aim()
+	if self:_thingOf(hit) then
 		return self:_pickUp()
 	end
-	local hinge: Vector3 = slab:GetAttribute("Hinge")
-	local shut: CFrame = slab:GetAttribute("Shut")
-	local model = slab.Parent :: Model
-	-- Where you took hold of it, on the slab, and where that point sits when
-	-- the door is shut (the angle is measured from there).
-	local onSlab = slab.CFrame:PointToObjectSpace(point)
-	local grabShut = shut:PointToWorldSpace(onSlab) - hinge
+	local primary = hit and self:_pieceOf(hit.Instance)
+	local joint = primary and Joint.read(primary)
+	if not hit or not primary or not joint then
+		return false
+	end
+	local point = hit.Position
+	local model = primary.Parent :: Model
 	local parts, offsets = {}, {}
-	for _, p in model:GetChildren() do
+	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
 			table.insert(parts, p)
-			table.insert(offsets, slab.CFrame:ToObjectSpace(p.CFrame))
+			table.insert(offsets, primary.CFrame:ToObjectSpace(p.CFrame))
 		end
 	end
-	local angle = Articulation.flatAngle(
-		{ x = shut.LookVector.X, z = shut.LookVector.Z },
-		{ x = slab.CFrame.LookVector.X, z = slab.CFrame.LookVector.Z }
-	)
+	local value = math.clamp(Joint.valueOf(joint, primary.CFrame), 0, joint.max)
+	-- Where you took hold of it, on the part, and where that point sits when
+	-- it's shut (a door's angle is measured from there).
+	local onPart = primary.CFrame:PointToObjectSpace(point)
+	local grabShut = joint.shut:PointToWorldSpace(onPart) - joint.hinge
+	-- A lid lifts along the arc its edge makes: how far that edge is from the hinge.
+	local across = grabShut - joint.axis * grabShut:Dot(joint.axis)
+	local look = Workspace.CurrentCamera.CFrame.LookVector
+	local forward = flat(look)
 	self.drag = {
-		id = slab:GetAttribute(Constants.Attributes.CId),
-		slab = slab,
-		hinge = hinge,
-		shut = shut,
-		onSlab = onSlab,
+		id = primary:GetAttribute(Constants.Attributes.CId),
+		primary = primary,
+		joint = joint,
+		upright = Joint.upright(joint),
+		onPart = onPart,
 		grabShut = { x = grabShut.X, z = grabShut.Z },
+		radius = math.max(0.5, across.Magnitude),
 		parts = parts,
 		offsets = offsets,
 		hand = point,
-		angle = math.clamp(angle, 0, D.OpenAngle),
-		target = math.clamp(angle, 0, D.OpenAngle),
-		look = Workspace.CurrentCamera.CFrame.LookVector,
-		state = { min = 0, max = D.OpenAngle },
+		start = point,
+		startValue = value,
+		value = value,
+		target = value,
+		look = look,
+		forward = forward.Magnitude > 1e-3 and forward.Unit or Vector3.new(0, 0, -1),
+		state = { min = 0, max = joint.max },
 	}
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
@@ -208,24 +258,38 @@ function HandsController:_finish()
 	ContextActionService:UnbindAction("ConsensusDragStick")
 	-- Our copy goes back to the server's once it has settled.
 	task.delay(0.5, function()
-		if self.drag and self.drag.slab == drag.slab then
+		if self.drag and self.drag.primary == drag.primary then
 			return
 		end
-		local angle = drag.slab:GetAttribute("Angle")
-		if typeof(angle) == "number" and drag.slab.Parent then
-			self:_pose(drag, angle)
+		local value = drag.primary:GetAttribute("Value")
+		if typeof(value) == "number" and drag.primary.Parent then
+			self:_pose(drag, value)
 		end
 	end)
 end
 
--- Put our copy of the door at an angle.
-function HandsController:_pose(drag, degrees: number)
-	local slab = CFrame.new(drag.hinge) * CFrame.Angles(0, math.rad(degrees), 0) * CFrame.new(-drag.hinge) * drag.shut
+-- Put our copy of it at a value.
+function HandsController:_pose(drag, value: number)
+	local at = Joint.pose(drag.joint, value)
 	local cframes = table.create(#drag.parts)
 	for i, offset in drag.offsets do
-		cframes[i] = slab * offset
+		cframes[i] = at * offset
 	end
 	Workspace:BulkMoveTo(drag.parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+end
+
+-- Where your hand wants it: a door turns to point at your hand, a drawer
+-- follows your hand straight out, a lid lifts as your hand moves away.
+function HandsController:_target(drag, hand: Vector3): number
+	local joint = drag.joint
+	if drag.upright then
+		local fromHinge = hand - joint.hinge
+		return Articulation.hingeTarget(drag.state, drag.grabShut, { x = fromHinge.X, z = fromHinge.Z }, joint.sign)
+	elseif joint.kind == "slide" then
+		return Articulation.alongTarget(drag.state, drag.startValue, (hand - drag.start):Dot(joint.axis))
+	end
+	local away = (hand - drag.start):Dot(drag.forward)
+	return Articulation.alongTarget(drag.state, drag.startValue, math.deg(away / drag.radius))
 end
 
 function HandsController:_update(dt: number)
@@ -240,7 +304,7 @@ function HandsController:_update(dt: number)
 	end
 	local camera = Workspace.CurrentCamera
 	local eye = camera.CFrame.Position
-	if not self:_active() or not drag.slab.Parent or (drag.slab.Position - eye).Magnitude > H.DragReach + 1 then
+	if not self:_active() or not drag.primary.Parent or (drag.primary.Position - eye).Magnitude > H.DragReach + 1 then
 		self:_finish()
 		return
 	end
@@ -249,45 +313,40 @@ function HandsController:_update(dt: number)
 	camera.CFrame = CFrame.lookAt(eye, eye + drag.look)
 
 	-- Move the hand.
-	local forward = flat(drag.look)
-	forward = forward.Magnitude > 1e-3 and forward.Unit or Vector3.new(0, 0, -1)
+	local forward = drag.forward
 	local right = Vector3.new(-forward.Z, 0, forward.X)
 	local delta = self.mouseDelta
 	self.mouseDelta = Vector2.zero
 	local hand = drag.hand
 		+ right * (delta.X * H.DragSensitivity + self.stick.X * H.DragStickSpeed * dt)
 		+ forward * (-delta.Y * H.DragSensitivity + self.stick.Y * H.DragStickSpeed * dt)
-	-- A door that won't follow (shut, against something) keeps your hand close.
-	local slabNow = CFrame.new(drag.hinge)
-		* CFrame.Angles(0, math.rad(drag.angle), 0)
-		* CFrame.new(-drag.hinge)
-		* drag.shut
-	local grabNow = slabNow:PointToWorldSpace(drag.onSlab)
+	-- Something that won't follow (shut, against something) keeps your hand close.
+	local grabNow = Joint.pose(drag.joint, drag.value):PointToWorldSpace(drag.onPart)
 	local reach = flat(hand - grabNow)
 	if reach.Magnitude > H.DragStretch then
 		hand = grabNow + reach.Unit * H.DragStretch + Vector3.new(0, hand.Y - grabNow.Y, 0)
 	end
 	drag.hand = hand
-	local fromHinge = hand - drag.hinge
-	drag.target = Articulation.hingeTarget(drag.state, drag.grabShut, { x = fromHinge.X, z = fromHinge.Z })
+	drag.target = self:_target(drag, hand)
 
 	local now = os.clock()
 	if now - self.sentAt >= 1 / H.DragSendHz then
 		self.sentAt = now
 		Net.get("Drag"):FireServer(drag.id, drag.target)
 	end
-	-- Our own copy follows at the door's own rate (the server's catches up).
+	-- Our own copy follows at its own rate (the server's catches up).
 	if H.PredictDrag then
-		local step = D.SwingRate * dt
-		local gap = drag.target - drag.angle
-		drag.angle = math.abs(gap) <= step and drag.target or drag.angle + math.sign(gap) * step
-		if drag.angle <= D.LatchAngle and drag.target <= D.LatchAngle then
-			drag.angle = 0
+		local joint = drag.joint
+		local step = joint.rate * dt
+		local gap = drag.target - drag.value
+		drag.value = math.abs(gap) <= step and drag.target or drag.value + math.sign(gap) * step
+		if drag.value <= joint.latch and drag.target <= joint.latch then
+			drag.value = 0
 		end
-		self:_pose(drag, drag.angle)
+		self:_pose(drag, drag.value)
 	else
-		local angle = drag.slab:GetAttribute("Angle")
-		drag.angle = typeof(angle) == "number" and angle or drag.angle
+		local value = drag.primary:GetAttribute("Value")
+		drag.value = typeof(value) == "number" and value or drag.value
 	end
 end
 
@@ -417,9 +476,12 @@ end
 -- over a second, then let go, through the same code as the mouse.
 function HandsController:DebugDrag(right: number, away: number): string
 	if not self:_begin() then
-		return "no door within reach where you're looking"
+		return "nothing within reach to take hold of where you're looking"
 	end
 	local drag = self.drag
+	if not drag then
+		return "picked up what you're looking at instead"
+	end
 	task.spawn(function()
 		local started = os.clock()
 		local moved = 0

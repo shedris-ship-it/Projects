@@ -9,6 +9,7 @@
 
 local ClockFace = require(script.Parent.Parent.Logic.ClockFace)
 local Config = require(script.Parent.Parent.Config)
+local Joint = require(script.Parent.Parent.Lib.Joint)
 local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
 local Tells = require(script.Parent.Parent.Data.Tells)
@@ -268,6 +269,133 @@ local function trim(model, name, size, cframe, color, shape)
 	})
 end
 
+-- Furniture that opens (docs/plans/gameplay-rework.md section 4.5). Each
+-- drawer, door and lid is its own model (Drawer1, DoorL, Lid...) whose main
+-- part carries the joint (Lib/Joint) Services/FurnitureService moves it by,
+-- plus `Group` (the space it opens onto: a wardrobe's two doors open one),
+-- `Spot` (where something kept in there lies; the server only puts it there
+-- the first time it's opened) and `Label`.
+local F = Config.Furniture
+local INSIDE_DARK = Color3.fromRGB(26, 22, 18)
+
+local function piece(model: Instance, name: string): Model
+	local m = Instance.new("Model")
+	m.Name = name
+	m.Parent = model
+	return m
+end
+
+local function opens(m: Model, primary: BasePart, joint, o)
+	m.PrimaryPart = primary
+	joint.shut = primary.CFrame
+	Joint.write(primary, joint)
+	primary:SetAttribute("Group", o.group or m.Name)
+	primary:SetAttribute("Spot", o.spot)
+	primary:SetAttribute("Label", o.label)
+end
+
+-- A drawer pulls straight out of the front (+Z).
+local function slides(m: Model, primary: BasePart, cf: CFrame, o)
+	opens(m, primary, {
+		kind = "slide",
+		hinge = primary.Position,
+		axis = cf:VectorToWorldSpace(Vector3.zAxis),
+		sign = 1,
+		max = o.max,
+		rate = F.DrawerRate,
+		latch = F.DrawerLatch,
+	}, o)
+end
+
+-- A door turning on its hinge (`at`, in the prop's frame). `sign` -1 for a
+-- door hinged on its left as you face it.
+local function swings(m: Model, primary: BasePart, cf: CFrame, at: Vector3, sign: number, o)
+	opens(m, primary, {
+		kind = "hinge",
+		hinge = cf:PointToWorldSpace(at),
+		axis = o.axis and cf:VectorToWorldSpace(o.axis) or Vector3.yAxis,
+		sign = sign,
+		max = o.max or F.DoorOpen,
+		rate = o.rate or F.DoorRate,
+		latch = F.DoorLatch,
+	}, o)
+end
+
+-- The box behind a drawer's front, hidden inside the body while it's shut.
+-- o: { width, height, depth, y (the front's middle), front (z of the front's
+-- back face), color, material }. Returns where something kept in it lies:
+-- well back from the front, so it shows over the front from where you stand
+-- once the drawer is pulled out.
+local function tray(drawer: Model, cf: CFrame, o): CFrame
+	local back = o.front - o.depth
+	local mid = (o.front + back) / 2
+	local floor = o.y - o.height / 2
+	local flat = { collide = false, castShadow = false }
+	part(
+		drawer,
+		"TrayFloor",
+		Vector3.new(o.width, 0.08, o.depth),
+		cf * CFrame.new(0, floor + 0.04, mid),
+		o.color,
+		o.material,
+		flat
+	)
+	for _, sx in { -1, 1 } do
+		part(
+			drawer,
+			"TraySide",
+			Vector3.new(0.08, o.height - 0.08, o.depth),
+			cf * CFrame.new(sx * (o.width / 2 - 0.04), o.y + 0.04, mid),
+			o.color,
+			o.material,
+			flat
+		)
+	end
+	part(
+		drawer,
+		"TrayBack",
+		Vector3.new(o.width - 0.16, o.height - 0.08, 0.08),
+		cf * CFrame.new(0, o.y + 0.04, back + 0.04),
+		o.color,
+		o.material,
+		flat
+	)
+	return cf * CFrame.new(0, floor + 0.08, o.front - math.min(1, o.depth * 0.45))
+end
+
+-- The dark gap a drawer leaves in the body when it's out (hidden behind the
+-- drawer's front while it's shut).
+local function drawerSlot(model: Instance, cf: CFrame, x: number, y: number, z: number, w: number, h: number)
+	part(
+		model,
+		"Slot",
+		Vector3.new(w, h, 0.01),
+		cf * CFrame.new(x, y, z),
+		INSIDE_DARK,
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false }
+	)
+end
+
+-- A cupboard's body with nothing in front: two sides, a top, a plinth and a
+-- dark back, so an opened door shows a space with something in it.
+local function carcass(model: Instance, cf: CFrame, size: Vector3, color, material, plinth: number, top: number, back)
+	local w, h, d = size.X, size.Y, size.Z
+	for _, sx in { -1, 1 } do
+		part(model, "Side", Vector3.new(0.2, h, d), cf * CFrame.new(sx * (w / 2 - 0.1), h / 2, 0), color, material)
+	end
+	part(model, "Top", Vector3.new(w - 0.4, top, d), cf * CFrame.new(0, h - top / 2, 0), color, material)
+	part(model, "Plinth", Vector3.new(w - 0.4, plinth, d), cf * CFrame.new(0, plinth / 2, 0), color, material)
+	part(
+		model,
+		"Back",
+		Vector3.new(w - 0.4, h - plinth - top, 0.2),
+		cf * CFrame.new(0, plinth + (h - plinth - top) / 2, -d / 2 + 0.1),
+		back or shade(color, 0.45),
+		material
+	)
+end
+
 local function legs(model, cf, w, d, h, color, material, inset)
 	inset = inset or 0.4
 	for _, sx in { -1, 1 } do
@@ -361,61 +489,101 @@ function builders.Bed(model, cf, size, color, material)
 	end
 end
 
-local function cupboard(model, cf, size, color, material)
+-- Two doors hinged at the outer edges over a hollow body. A wardrobe has a
+-- hat shelf and a rail; a cabinet two shelves.
+local function cupboard(model, cf, size, color, material, label: string, fit)
 	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
+	carcass(model, cf, size, color, material, 0.4, 0.3)
+	fit(model, cf, w, h, d)
+	local face = d / 2 + 0.155 -- the doors' front face
 	for _, sx in { -1, 1 } do
-		part(
-			model,
+		local door = piece(model, sx < 0 and "DoorL" or "DoorR")
+		local leaf = part(
+			door,
 			"Door",
-			Vector3.new(w / 2 - 0.3, h - 0.8, 0.15),
-			cf * CFrame.new(sx * w / 4, h / 2, d / 2 + 0.05),
+			Vector3.new(w / 2 - 0.03, h - 0.6, 0.15),
+			cf * CFrame.new(sx * (w / 4 + 0.015), h / 2, d / 2 + 0.08),
 			shade(color, 1.12),
 			material
 		)
 		part(
-			model,
+			door,
 			"Handle",
 			Vector3.new(0.15, 1, 0.2),
-			cf * CFrame.new(sx * 0.35, h / 2, d / 2 + 0.2),
+			cf * CFrame.new(sx * 0.35, h / 2, face + 0.095),
 			Color3.fromRGB(180, 160, 110),
-			PropFactory.material("Metal")
+			PropFactory.material("Metal"),
+			{ collide = false }
 		)
+		swings(door, leaf, cf, Vector3.new(sx * w / 2, 0, face), sx < 0 and -1 or 1, {
+			group = "Main",
+			spot = cf * CFrame.new(0, 0.4, 0.2),
+			label = label,
+		})
 	end
 end
-builders.Wardrobe = cupboard
-builders.Cabinet = cupboard
+
+function builders.Wardrobe(model, cf, size, color, material)
+	cupboard(model, cf, size, color, material, "Wardrobe", function(m, at, w, h, d)
+		part(m, "Shelf", Vector3.new(w - 0.4, 0.12, d - 0.5), at * CFrame.new(0, h - 2, 0.05), color, material)
+		trim(m, "Rail", Vector3.new(w - 0.4, 0.12, 0.12), at * CFrame.new(0, h - 2.5, -0.1), nil, CYL)
+	end)
+end
+
+function builders.Cabinet(model, cf, size, color, material)
+	cupboard(model, cf, size, color, material, "Cabinet", function(m, at, w, h, d)
+		for _, k in { 1 / 3, 2 / 3 } do
+			part(
+				m,
+				"Shelf",
+				Vector3.new(w - 0.4, 0.12, d - 0.3),
+				at * CFrame.new(0, 0.4 + (h - 0.7) * k, 0.05),
+				color,
+				material
+			)
+		end
+	end)
+end
 
 function builders.Locker(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
-	part(
-		model,
+	carcass(model, cf, size, color, material, 0.2, 0.2, Color3.fromRGB(40, 44, 46))
+	trim(model, "Hook", Vector3.new(0.12, 0.12, 0.5), cf * CFrame.new(0, h - 1.2, -d / 2 + 0.45))
+	local face = d / 2 + 0.125
+	local door = piece(model, "Door")
+	local leaf = part(
+		door,
 		"Door",
-		Vector3.new(w - 0.3, h - 0.4, 0.12),
-		cf * CFrame.new(0, h / 2, d / 2 + 0.04),
+		Vector3.new(w - 0.06, h - 0.3, 0.12),
+		cf * CFrame.new(0, h / 2, d / 2 + 0.065),
 		shade(color, 1.1),
 		material
 	)
 	for i = 1, 4 do
 		part(
-			model,
+			door,
 			"Vent",
 			Vector3.new(w - 1, 0.1, 0.05),
-			cf * CFrame.new(0, h - 1 - i * 0.35, d / 2 + 0.12),
+			cf * CFrame.new(0, h - 1 - i * 0.35, face + 0.015),
 			Color3.fromRGB(20, 20, 22),
 			material,
-			{ castShadow = false }
+			{ castShadow = false, collide = false }
 		)
 	end
 	part(
-		model,
+		door,
 		"Handle",
 		Vector3.new(0.15, 0.8, 0.2),
-		cf * CFrame.new(w / 2 - 0.5, h / 2, d / 2 + 0.15),
+		cf * CFrame.new(w / 2 - 0.5, h / 2, face + 0.1),
 		Color3.fromRGB(160, 160, 160),
-		material
+		material,
+		{ collide = false }
 	)
+	swings(door, leaf, cf, Vector3.new(-w / 2, 0, face), -1, {
+		group = "Main",
+		spot = cf * CFrame.new(0, 0.2, 0.1),
+		label = "Locker",
+	})
 end
 
 function builders.Table(model, cf, size, color, material)
@@ -428,11 +596,12 @@ builders.DiningTable = builders.Table
 function builders.Desk(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
+	local x = w / 2 - 1.2
 	part(
 		model,
-		"Drawers",
+		"Pedestal",
 		Vector3.new(2.2, h - 0.3, d - 0.2),
-		cf * CFrame.new(w / 2 - 1.2, (h - 0.3) / 2, 0),
+		cf * CFrame.new(x, (h - 0.3) / 2, 0),
 		shade(color, 0.9),
 		material
 	)
@@ -444,6 +613,33 @@ function builders.Desk(model, cf, size, color, material)
 		shade(color, 0.9),
 		material
 	)
+	-- Two drawers in the pedestal: a deep one under a shallow one.
+	local face = (d - 0.2) / 2
+	for i, span in { { 0.15, 1.95 }, { 2.05, h - 0.4 } } do
+		local y, fh = (span[1] + span[2]) / 2, span[2] - span[1]
+		local drawer = piece(model, "Drawer" .. i)
+		local front = part(
+			drawer,
+			"Front",
+			Vector3.new(2, fh, 0.1),
+			cf * CFrame.new(x, y, face + 0.03),
+			shade(color, 1.05),
+			material,
+			{ castShadow = false, collide = false }
+		)
+		trim(drawer, "Pull", Vector3.new(0.6, 0.12, 0.14), cf * CFrame.new(x, y + fh / 2 - 0.25, face + 0.14))
+		drawerSlot(model, cf, x, y, face + 0.025, 1.9, fh - 0.1)
+		local spot = tray(drawer, cf * CFrame.new(x, 0, 0), {
+			width = 1.7,
+			height = fh - 0.25,
+			depth = d - 0.6,
+			y = y,
+			front = face - 0.02,
+			color = shade(color, 1.3),
+			material = material,
+		})
+		slides(drawer, front, cf, { max = math.min(d - 0.9, 2), spot = spot, label = "Drawer" })
+	end
 end
 
 function builders.Curtain(model, cf, size, color, material)
@@ -658,23 +854,62 @@ function builders.Counter(model, cf, size, color, material)
 	local woodMat = PropFactory.material("Wood")
 	local metal = PropFactory.material("Metal")
 	local flat = { collide = false, castShadow = false }
-	part(model, "Cabinets", Vector3.new(w, h - 0.3, d - 0.2), cf * CFrame.new(0, (h - 0.3) / 2, -0.1), wood, woodMat)
-	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
-	-- Doors with handles along the front.
-	local n = math.clamp(math.floor(w / 1.8), 2, 5)
-	local dw = w / n
-	for i = 0, n - 1 do
-		local x = -w / 2 + dw * (i + 0.5)
+	-- Hollow cupboards under the top, a bay behind each door: the ends, a
+	-- plinth, a dark back and a divider between bays.
+	local body = h - 0.3
+	local face = d / 2 - 0.2 -- the cupboards' front, behind the doors
+	for _, sx in { -1, 1 } do
 		part(
 			model,
+			"End",
+			Vector3.new(0.15, body, d - 0.2),
+			cf * CFrame.new(sx * (w / 2 - 0.075), body / 2, -0.1),
+			wood,
+			woodMat
+		)
+	end
+	part(model, "Plinth", Vector3.new(w - 0.3, 0.35, d - 0.2), cf * CFrame.new(0, 0.175, -0.1), wood, woodMat)
+	part(
+		model,
+		"Back",
+		Vector3.new(w - 0.3, body - 0.35, 0.15),
+		cf * CFrame.new(0, 0.35 + (body - 0.35) / 2, -d / 2 + 0.075),
+		shade(wood, 0.4),
+		woodMat
+	)
+	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
+	local n = math.clamp(math.floor(w / 1.8), 2, 5)
+	local dw = w / n
+	for i = 1, n - 1 do
+		part(
+			model,
+			"Divider",
+			Vector3.new(0.1, body - 0.35, d - 0.35),
+			cf * CFrame.new(-w / 2 + dw * i, 0.35 + (body - 0.35) / 2, -0.025),
+			wood,
+			woodMat
+		)
+	end
+	-- A door over each bay, every one hinged on its left, so two open side by
+	-- side never meet.
+	for i = 0, n - 1 do
+		local x = -w / 2 + dw * (i + 0.5)
+		local door = piece(model, "Door" .. (i + 1))
+		local leaf = part(
+			door,
 			"Door",
-			Vector3.new(dw - 0.14, h - 1.2, 0.1),
-			cf * CFrame.new(x, (h - 0.3) / 2 + 0.15, d / 2 - 0.15),
+			Vector3.new(dw - 0.14, body - 0.41, 0.1),
+			cf * CFrame.new(x, 0.38 + (body - 0.41) / 2, face + 0.05),
 			shade(wood, 1.1),
 			woodMat,
 			{ castShadow = false }
 		)
-		trim(model, "Handle", Vector3.new(0.12, 0.5, 0.14), cf * CFrame.new(x + dw * 0.3, h - 1.1, d / 2 - 0.02))
+		trim(door, "Handle", Vector3.new(0.12, 0.5, 0.14), cf * CFrame.new(x + dw * 0.3, h - 1.1, d / 2 - 0.02))
+		swings(door, leaf, cf, Vector3.new(x - (dw - 0.14) / 2, 0, face + 0.1), -1, {
+			max = F.CounterOpen,
+			spot = cf * CFrame.new(x, 0.35, -0.2),
+			label = "Cupboard",
+		})
 	end
 	-- A tiled strip up the wall behind.
 	part(
@@ -711,49 +946,83 @@ function builders.Counter(model, cf, size, color, material)
 	end
 end
 
+-- A hollow, white-lined fridge: a freezer over the fridge, each behind its
+-- own door hinged on the left, each lit inside while its door is open
+-- (Services/FurnitureService turns the `Lamp` on).
 function builders.Fridge(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
 	local split = h * 0.62
-	part(
-		model,
-		"Split",
-		Vector3.new(w - 0.2, 0.1, 0.05),
-		cf * CFrame.new(0, split, d / 2 + 0.02),
-		Color3.fromRGB(120, 120, 120),
-		material
-	)
-	-- Two doors, a hair proud of the body, with tall handles.
-	part(
-		model,
-		"DoorTop",
-		Vector3.new(w - 0.15, h - split - 0.2, 0.1),
-		cf * CFrame.new(0, split + (h - split) / 2 + 0.05, d / 2 + 0.04),
-		shade(color, 1.04),
-		material,
-		{ castShadow = false }
-	)
-	part(
-		model,
-		"DoorBottom",
-		Vector3.new(w - 0.15, split - 0.35, 0.1),
-		cf * CFrame.new(0, (split - 0.2) / 2 + 0.2, d / 2 + 0.04),
-		shade(color, 1.04),
-		material,
-		{ castShadow = false }
-	)
-	trim(model, "Handle", Vector3.new(0.2, 1.4, 0.3), cf * CFrame.new(w / 2 - 0.5, split + 1.2, d / 2 + 0.2))
-	trim(model, "Handle", Vector3.new(0.2, 2, 0.3), cf * CFrame.new(w / 2 - 0.5, split - 1.4, d / 2 + 0.2))
-	trim(model, "Badge", Vector3.new(0.9, 0.22, 0.04), cf * CFrame.new(-0.2, split + 2.2, d / 2 + 0.1))
-	part(
-		model,
-		"Kick",
-		Vector3.new(w - 0.3, 0.3, d - 0.3),
-		cf * CFrame.new(0, 0.15, 0),
-		Color3.fromRGB(50, 50, 52),
-		PropFactory.material("SmoothPlastic"),
-		{ collide = false, castShadow = false }
-	)
+	local lining = Color3.fromRGB(226, 230, 228)
+	carcass(model, cf, size, color, material, 0.35, 0.25, lining)
+	part(model, "Split", Vector3.new(w - 0.4, 0.2, d), cf * CFrame.new(0, split, 0), lining, material)
+	local glass = { castShadow = false, transparency = 0.4 }
+	for _, y in { 0.35 + (split - 0.45) / 3, 0.35 + (split - 0.45) * 2 / 3, split + (h - 0.25 - split) / 2 } do
+		part(
+			model,
+			"Rack",
+			Vector3.new(w - 0.45, 0.06, d - 0.6),
+			cf * CFrame.new(0, y, -0.1),
+			Color3.fromRGB(200, 214, 220),
+			PropFactory.material("Glass"),
+			glass
+		)
+	end
+	local face = d / 2 + 0.11
+	local hinge = -(w - 0.15) / 2
+	local compartments = {
+		{
+			name = "DoorTop",
+			group = "Freezer",
+			size = Vector3.new(w - 0.15, h - split - 0.2, 0.1),
+			y = split + (h - split) / 2 + 0.05,
+			floor = split + 0.1,
+			top = h - 0.25,
+		},
+		{
+			name = "DoorBottom",
+			group = "Fridge",
+			size = Vector3.new(w - 0.15, split - 0.35, 0.1),
+			y = (split - 0.2) / 2 + 0.2,
+			floor = 0.35,
+			top = split - 0.1,
+		},
+	}
+	for _, c in compartments do
+		local door = piece(model, c.name)
+		local leaf = part(door, "Door", c.size, cf * CFrame.new(0, c.y, d / 2 + 0.06), shade(color, 1.04), material, {
+			castShadow = false,
+		})
+		local long = c.group == "Fridge" and 2 or 1.4
+		local handleY = c.group == "Fridge" and split - 1.4 or split + 1.2
+		trim(door, "Handle", Vector3.new(0.2, long, 0.3), cf * CFrame.new(w / 2 - 0.5, handleY, face + 0.1))
+		if c.group == "Freezer" then
+			trim(door, "Badge", Vector3.new(0.9, 0.22, 0.04), cf * CFrame.new(-0.2, split + 2.2, face + 0.02))
+		end
+		swings(door, leaf, cf, Vector3.new(hinge, 0, face), -1, {
+			group = c.group,
+			spot = cf * CFrame.new(0, c.floor, 0.4),
+			label = c.group == "Fridge" and "Fridge" or "Freezer",
+		})
+		-- The light inside, off until the door opens.
+		local lamp = part(
+			model,
+			"Lamp",
+			Vector3.new(0.4, 0.1, 0.4),
+			cf * CFrame.new(0, c.top - 0.1, -d / 2 + 0.6),
+			Color3.fromRGB(240, 244, 240),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, castShadow = false, query = false }
+		)
+		lamp:SetAttribute("Group", c.group)
+		local light = Instance.new("PointLight")
+		light.Name = "FridgeLight"
+		light.Range = 5
+		light.Brightness = 0.9
+		light.Color = Color3.fromRGB(226, 236, 255)
+		light.Shadows = false
+		light.Enabled = false
+		light.Parent = lamp
+	end
 end
 
 function builders.Stove(model, cf, size, color, material)
@@ -1173,18 +1442,19 @@ function builders.Dresser(model, cf, size, color, material)
 	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
 	for i = 1, 3 do
 		local y = (i - 0.5) * h / 3
-		part(
-			model,
-			"Drawer",
+		local drawer = piece(model, "Drawer" .. i)
+		local front = part(
+			drawer,
+			"Front",
 			Vector3.new(w - 0.5, h / 3 - 0.3, 0.1),
 			cf * CFrame.new(0, y, d / 2 + 0.03),
 			shade(color, 1.1),
 			material,
-			{ castShadow = false }
+			{ castShadow = false, collide = false }
 		)
 		for _, sx in { -1, 1 } do
 			trim(
-				model,
+				drawer,
 				"Knob",
 				Vector3.new(0.14, 0.3, 0.3),
 				cf * CFrame.new(sx * w * 0.2, y, d / 2 + 0.12) * ALONG_Z,
@@ -1192,6 +1462,17 @@ function builders.Dresser(model, cf, size, color, material)
 				CYL
 			)
 		end
+		drawerSlot(model, cf, 0, y, d / 2 + 0.025, w - 0.6, h / 3 - 0.4)
+		local spot = tray(drawer, cf, {
+			width = w - 0.8,
+			height = h / 3 - 0.5,
+			depth = d - 0.5,
+			y = y,
+			front = d / 2 - 0.02,
+			color = shade(color, 1.3),
+			material = material,
+		})
+		slides(drawer, front, cf, { max = d - 0.8, spot = spot, label = "Drawer" })
 	end
 end
 
@@ -1320,18 +1601,60 @@ function builders.WaterHeater(model, cf, size, color, material)
 	)
 end
 
+-- A hollow box with a lid that lifts on hinges along its back edge.
 function builders.Chest(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
-	part(model, "Box", Vector3.new(w, h - 0.6, d), cf * CFrame.new(0, (h - 0.6) / 2, 0), color, material)
-	part(model, "Lid", Vector3.new(w + 0.1, 0.6, d + 0.1), cf * CFrame.new(0, h - 0.3, 0), shade(color, 0.85), material)
+	local wall = h - 0.9 -- the box's walls stand on its 0.3 floor, under the 0.6 lid
+	part(model, "Floor", Vector3.new(w, 0.3, d), cf * CFrame.new(0, 0.15, 0), shade(color, 0.6), material)
+	for _, sz in { -1, 1 } do
+		part(
+			model,
+			"Wall",
+			Vector3.new(w, wall, 0.25),
+			cf * CFrame.new(0, 0.3 + wall / 2, sz * (d / 2 - 0.125)),
+			color,
+			material
+		)
+	end
+	for _, sx in { -1, 1 } do
+		part(
+			model,
+			"End",
+			Vector3.new(0.25, wall, d - 0.5),
+			cf * CFrame.new(sx * (w / 2 - 0.125), 0.3 + wall / 2, 0),
+			color,
+			material
+		)
+	end
+	-- Flush with the back, so it can stand up against a wall behind it.
+	local lid = piece(model, "Lid")
+	local board = part(
+		lid,
+		"Lid",
+		Vector3.new(w + 0.1, 0.6, d + 0.05),
+		cf * CFrame.new(0, h - 0.3, 0.025),
+		shade(color, 0.85),
+		material
+	)
 	part(
-		model,
+		lid,
 		"Latch",
 		Vector3.new(0.5, 0.6, 0.1),
 		cf * CFrame.new(0, h - 0.6, d / 2 + 0.06),
 		Color3.fromRGB(170, 150, 90),
-		PropFactory.material("Metal")
+		PropFactory.material("Metal"),
+		{ collide = false }
 	)
+	-- Hinged along its top back edge. Turning about +X lowers the front, so
+	-- it opens the other way.
+	swings(lid, board, cf, Vector3.new(0, h, -d / 2), -1, {
+		axis = Vector3.xAxis,
+		max = F.LidOpen,
+		rate = F.LidRate,
+		group = "Main",
+		spot = cf * CFrame.new(0, 0.3, 0),
+		label = "Chest",
+	})
 end
 
 function builders.Mannequin(model, cf, _size, color, material)

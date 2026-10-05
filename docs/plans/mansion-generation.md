@@ -203,7 +203,7 @@ New, for mansion layouts only:
 - **For M4/M5:** the bare-room mode (deferred: the furniture spec covers what it was for); corridor closets; retune `SeenCost`, `ChaseLead`, the retreat weights and `FloorNoiseScale` after a playtest; `BeliefMap` still spreads by doorway hops, so a stairwell counts as one step.
 
 ### M2 Gate A baseline (taken 2026-10-04)
-Build `2026-10-04.3`, old mode, F2 `seed 1800820264` then `start`: 15 rooms on the first attempt, matching `lune run tools/plan 1800820264`. Running `tools/studio/partdump.luau` through `execute_luau` (Server) gave **parts 2151, hash 1550694282** on two fresh runs. After the builder is rewritten for rectangles, the old mode must give the same two numbers. If it doesn't, change the script to return the differing lines.
+Build `2026-10-04.3`, old mode, F2 `seed 1800820264` then `start`: 15 rooms on the first attempt, matching `lune run tools/plan 1800820264`. Running `tools/studio/partdump.luau` through `execute_luau` (Server) gave **parts 2151, hash 1550694282** on two fresh runs. (Re-baselined on 2026-10-05 with the owner's OK, when the gameplay rework gave furniture drawers and doors: **parts 2272, hash 1308511249**, F2 `layout cells` first.) After the builder is rewritten for rectangles, the old mode must give the same two numbers. If it doesn't, change the script to return the differing lines.
 
 ## 6. Risks
 - **Stairs are new for everything that moves.** The Guest and the Companion use `Humanoid` movement, so walkable ramps are the safe base. `Navigator` needs waypoints with height. Noise and sight across floors need rules.

@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
+local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
 local Rng = require(Shared.Lib.Rng)
@@ -321,13 +322,18 @@ function Ritual:_tryUnlock(player: Player)
 		self.text = "The strongbox opens. Whatever was in it is gone."
 		self.box.lock.Color = Color3.fromRGB(180, 230, 255)
 		self.box.glow.Color = Color3.fromRGB(180, 230, 255)
+		-- The lid is a piece on its hinge (World/PropFactory, Lib/Joint).
 		local lid = self.box.model:FindFirstChild("Lid")
-		if lid then
-			TweenService:Create(
-				lid,
-				TweenInfo.new(1),
-				{ CFrame = lid.CFrame * CFrame.new(0, 0.6, -1) * CFrame.Angles(math.rad(-70), 0, 0) }
-			):Play()
+		local primary = lid and lid:IsA("Model") and lid.PrimaryPart
+		local joint = primary and Joint.read(primary)
+		if primary and joint then
+			local open = Joint.pose(joint, 70)
+			for _, p in lid:GetDescendants() do
+				if p:IsA("BasePart") then
+					TweenService:Create(p, TweenInfo.new(1), { CFrame = open * primary.CFrame:ToObjectSpace(p.CFrame) })
+						:Play()
+				end
+			end
 		end
 		self.Completed:Fire()
 	else

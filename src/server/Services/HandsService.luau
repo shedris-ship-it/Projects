@@ -1,7 +1,8 @@
 -- Your hands (docs/plans/gameplay-rework.md section 4): what a player's bare
 -- hands may take hold of, checked here on the server.
---   * Doors, dragged Amnesia-style (Controllers/HandsController streams where
---     the hand wants the door; DoorService turns it).
+--   * Doors, drawers, cupboard doors and lids, dragged Amnesia-style
+--     (Controllers/HandsController streams where the hand wants it; DoorService
+--     or FurnitureService moves it).
 --   * Small things (Data/Physical: mugs, books, the telephone, chairs...):
 --     carried at arm's length and thrown. Each one stays anchored until it's
 --     first grabbed, so the house builds the same every time and nothing
@@ -48,11 +49,13 @@ function HandsService:Init(services)
 	self.services = services
 	self.World = services.WorldService
 	self.Doors = services.DoorService
+	self.Furniture = services.FurnitureService
 	self.PlayerState = services.PlayerStateService
 	self.Witness = services.WitnessService
 	self.Noise = services.NoiseService
 	self.Tools = services.ToolService
 	self.things = {} -- id -> thing
+	self.count = 0
 	self.awake = {} -- thing -> true while unanchored
 	self.held = {} -- player -> thing
 end
@@ -79,6 +82,7 @@ function HandsService:Start()
 	end)
 	self.World.Cleared:Connect(function()
 		table.clear(self.things)
+		self.count = 0
 		table.clear(self.awake)
 		table.clear(self.held)
 	end)
@@ -116,62 +120,70 @@ function HandsService:_drag(player: Player, id: string, value: number)
 		return
 	end
 	local door = world.doors[id]
-	if not door or not door.slab.Parent then
+	if door and door.slab.Parent then
+		if self:_canReach(player, door.slab.Position, H.DragReach, door.model) then
+			self.Doors:Drag(door, value, player)
+		end
 		return
 	end
-	if not self:_canReach(player, door.slab.Position, H.DragReach, door.model) then
-		return
+	local piece = self.Furniture:Piece(id)
+	if piece and piece.primary.Parent then
+		if self:_canReach(player, piece.primary.Position, H.DragReach, piece.prop.model) then
+			self.Furniture:Drag(piece, value, player)
+		end
 	end
-	self.Doors:Drag(door, value, player)
 end
 
 -- Small things ----------------------------------------------------------------
 
--- Give every small thing in the new house an id, and make it something your
--- hand can find (queries on; it still doesn't collide while it sleeps). The
--- class and label ride on the model for the client.
-function HandsService:_register(world)
-	local count = 0
-	local function add(model: Model, info)
-		if model:GetAttribute("Grab") then
-			return
-		end
-		local parts = {}
-		for _, p in model:GetDescendants() do
-			if p:IsA("BasePart") then
-				p.CanQuery = true
-				table.insert(parts, p)
-			end
-		end
-		if #parts == 0 then
-			return
-		end
-		count += 1
-		local id = "thing:" .. count
-		model:SetAttribute("Grab", id)
-		model:SetAttribute("Label", info.label)
-		model:SetAttribute("Class", info.class)
-		CollectionService:AddTag(model, Constants.Tags.Grabbable)
-		self.things[id] = {
-			id = id,
-			model = model,
-			parts = parts,
-			class = Physical.Classes[info.class],
-			home = model:GetPivot(),
-			state = "rest",
-		}
+-- Make a small thing something your hand can find and carry: an id, queries
+-- on (it still doesn't collide while it sleeps), the class and label on the
+-- model for the client. FurnitureService adds what it finds in drawers.
+function HandsService:AddThing(model: Model, info)
+	if model:GetAttribute("Grab") then
+		return nil
 	end
+	local parts = {}
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			p.CanQuery = true
+			table.insert(parts, p)
+		end
+	end
+	if #parts == 0 or not Physical.Classes[info.class] then
+		return nil
+	end
+	self.count += 1
+	local id = "thing:" .. self.count
+	model:SetAttribute("Grab", id)
+	model:SetAttribute("Label", info.label)
+	model:SetAttribute("Class", info.class)
+	CollectionService:AddTag(model, Constants.Tags.Grabbable)
+	local thing = {
+		id = id,
+		model = model,
+		parts = parts,
+		class = Physical.Classes[info.class],
+		home = model:GetPivot(),
+		state = "rest",
+	}
+	self.things[id] = thing
+	return thing
+end
+
+-- Every small thing in the new house.
+function HandsService:_register(world)
 	-- The house's own furniture by kind (not a clue built like a chair).
 	for _, prop in world.props or {} do
 		local info = Physical.Furniture[prop.kind]
 		if info and prop.model.Parent then
-			add(prop.model, info)
+			self:AddThing(prop.model, info)
 		end
 	end
 	for _, d in self.World.folder:GetDescendants() do
 		local info = d:IsA("Model") and Physical.Dressing[d.Name]
 		if info then
-			add(d, info)
+			self:AddThing(d, info)
 		end
 	end
 	world.things = self.things
@@ -218,6 +230,7 @@ end
 
 function HandsService:_wake(thing)
 	self:_prepare(thing)
+	thing.rides = nil -- out of its drawer for good (FurnitureService)
 	for _, p in thing.parts do
 		p.Anchored = false
 	end

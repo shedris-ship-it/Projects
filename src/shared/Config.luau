@@ -644,6 +644,26 @@ Config.Doors = {
 	SlamRate = 520,
 }
 
+-- Drawers, cupboard doors and lids (docs/plans/gameplay-rework.md section
+-- 4.5): built as pieces by World/PropFactory, moved by Services/
+-- FurnitureService, dragged like doors.
+Config.Furniture = {
+	DoorOpen = 105, -- degrees a wardrobe, cabinet, locker or fridge door opens
+	CounterOpen = 100, -- a kitchen cupboard door, so the next one along still opens
+	LidOpen = 95, -- a chest's lid, just past upright
+	DoorRate = 240, -- degrees a second
+	LidRate = 160,
+	DrawerRate = 6, -- studs a second
+	DoorLatch = 3, -- degrees: pushed back within this of shut, it clicks shut
+	DrawerLatch = 0.06, -- studs
+	SolidBelow = 15, -- degrees: a door is solid only this near shut, so nobody walks through a shut one and an opening one never shoves anyone
+	FillAt = 0.5, -- opened this fraction of the way, whatever is kept inside is put there (never sent to clients before)
+	JunkChance = 0.55, -- a drawer or cupboard holds some odd small thing this often (keys and items come with R2a)
+	NoiseSpeed = 0.8, -- moved faster than this fraction of its rate: heard (a drawer slammed shut)
+	NoiseRadius = 12,
+	ClearStep = 8, -- degrees per step (a tenth of a stud for drawers) when finding how far it opens before it would hit something
+}
+
 -- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch
 -- clipped to your shirt while you hold anything but it.
 Config.Hands = {

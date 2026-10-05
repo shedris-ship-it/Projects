@@ -7,7 +7,10 @@
 -- It hashes every part under Workspace.ConsensusLevel (size, position,
 -- rotation, collision, material), leaving out characters (the Companion
 -- walks, so its limbs move). Baseline on build 2026-10-04.3, the same on two
--- fresh runs: parts 2151, hash 1550694282.
+-- fresh runs: parts 2151, hash 1550694282. Re-baselined with the owner's OK
+-- when furniture gained drawers and doors (gameplay rework R1a.5, build
+-- 2026-10-05.1, two fresh runs with `layout cells`): parts 2272, hash
+-- 1308511249. Run it before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")
 if not level then

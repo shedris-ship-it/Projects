@@ -96,13 +96,15 @@ local Props = {
 		material = "SmoothPlastic",
 	},
 	TVStand = { size = { 6, 3, 2 }, light = "tv", color = { 50, 40, 34 }, material = "Wood" },
-	Dresser = { size = { 6, 4.5, 2.5 }, top = true, color = { 112, 82, 58 }, material = "Wood" },
+	-- Chest-high to a player (eye 4.5), so you can see into its top drawer.
+	Dresser = { size = { 6, 3.6, 2.5 }, top = true, color = { 112, 82, 58 }, material = "Wood" },
 	Plant = { size = { 2, 5, 2 }, reach = 1, color = { 54, 80, 50 }, material = "Grass" },
 	GrandfatherClock = { size = { 2.5, 8, 2 }, color = { 70, 44, 30 }, material = "Wood" },
 	CoatRack = { size = { 2, 7, 2 }, color = { 60, 44, 34 }, material = "Wood" },
 	Bench = { size = { 8, 2.5, 2.5 }, top = true, color = { 96, 74, 54 }, material = "Wood" },
 	WaterHeater = { size = { 3, 7, 3 }, color = { 190, 190, 184 }, material = "Metal" },
-	Chest = { size = { 5, 3, 3 }, top = true, color = { 86, 58, 38 }, material = "Wood" },
+	-- No `top`: its lid opens (World/PropFactory), and nothing should float.
+	Chest = { size = { 5, 3, 3 }, color = { 86, 58, 38 }, material = "Wood" },
 	Mannequin = { size = { 2, 6.5, 2 }, color = { 214, 200, 180 }, material = "SmoothPlastic" },
 	FloorLamp = { size = { 1.5, 6, 1.5 }, light = "lamp", color = { 40, 36, 30 }, material = "Metal" },
 	Shrine = { size = { 3, 4, 3 }, color = { 70, 60, 48 }, material = "Wood" },

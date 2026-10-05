@@ -65,7 +65,8 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
 | Witness (hold) | **Q** | LB | Witness button |
 | Use the tool in your hands | **R** | RB | Tool button |
 | Choose a slot (1 the flashlight, 2 and 3 found tools, 4 your bare hands; the torch clips to your shirt in 2 to 4) | **1 2 3 4** or mouse wheel | D-pad down (next) | Tap a slot |
-| Drag a door, or pick something up (your hands) | hold **left mouse** | hold RT (right stick moves your hand) | none yet |
+| Drag a door, drawer, cupboard door or lid, or pick something up (your hands) | hold **left mouse** | hold RT (right stick moves your hand) | none yet |
+| Open or shut a door, drawer, cupboard or chest | **E** | X (the prompt) | Tap the prompt |
 | Throw what you carry / bring it nearer or further | **right mouse** / mouse wheel | LT | none yet |
 | Put the tool in your hands down | **X** | none | none |
 | Flashlight | **F** | D-pad up | Light button |
@@ -110,7 +111,8 @@ guest arrive (knock now) · guest move <Peek|DoorwayStand|CreepBehind|ShadowBehi
 layout cells|mansion|default (the next run's house) · plan (prints the house plan to Output) · where (your room and floor, and his)
 navtest [fast] (the Guest walks every room; results in Output) · navtest room <id> [fast] (one room, traced) · navtest retreat [n] (back-aways from awkward spots)
 block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100>
-drag <right> <away> (your hand on the door you're looking at, in studs: Studio's input tool can't move a locked mouse)
+drag <right> <away> (your hand on the door or drawer you're looking at, in studs: Studio's input tool can't move a locked mouse)
+furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)
 stun [seconds] (as if hit by a throw) · throwat (throw what you carry, or the nearest thing, at him) · lure [radius] (a noise nobody made, where you look)
 ```
 

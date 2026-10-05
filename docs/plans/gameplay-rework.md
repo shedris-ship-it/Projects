@@ -1,6 +1,6 @@
 # The gameplay rework: a hands-on haunted mansion
 
-Status (2026-10-05): **R0 done; R1a done except R1a.5 (drawers and cabinet doors), which waits on the owner's OK to re-baseline Gate A** (see "R1a as built" in section 9). This replaces the core loop of [`DesignDoc.md`](../DesignDoc.md) sections 1–4 and 6: no more evidence, Case Board, verdict or rituals. The Guest (section 5), Drift, the mansion generator ([`mansion-generation.md`](mansion-generation.md)) and the art direction ([`ART.md`](../ART.md)) stay. The work runs in four halves, **R1a → R2a → R1b → R2b** (section 9), so the new loop is playable about halfway through, with R3 (the living house) and R4 (variety) after it.
+Status (2026-10-05): **R0 and R1a done** (see "R1a as built" in section 9; Gate A re-baselined with the owner's OK). **Next: every piece of furniture by weight** (the owner's request of 2026-10-05, section 4.6, pulled forward from R1b), then R2a. This replaces the core loop of [`DesignDoc.md`](../DesignDoc.md) sections 1–4 and 6: no more evidence, Case Board, verdict or rituals. The Guest (section 5), Drift, the mansion generator ([`mansion-generation.md`](mansion-generation.md)) and the art direction ([`ART.md`](../ART.md)) stay. The work runs in four halves, **R1a → R2a → R1b → R2b** (section 9), so the new loop is playable about halfway through, with R3 (the living house) and R4 (variety) after it.
 
 ## 1. Why
 
@@ -26,6 +26,7 @@ The owner played the slice and found the loop a chore (2026-10-04): "instead of 
 | Pressure | **Keep Drift, retuned.** Time, noise and splitting up raise it; progress lowers it. A squad that keeps making progress never collapses. |
 | First puzzles | **All four:** the home computer (a Fallout terminal), the breaker panel, the safe by ear, the music box melody. |
 | Torch | Slot 1 is the full beam. **In any other slot it clips to your shirt**: a weak, short light that points where your body faces. |
+| Furniture | **All of it is physical, with varying weights** (2026-10-05): light pieces are carried like small things, the rest are pushed, and the heaviest need friends (section 4.6). |
 
 Defaults Claude chose, open to the owner:
 - The Guest can pass a locked door only between hunts, unseen, with nobody within 25 studs, and with a loud unlock click. **During a hunt a lock is a wall for him too**, so chases stay inside the part of the house the squad can reach.
@@ -101,18 +102,25 @@ Physics hinges fling client-simulated characters and blur the Guest's door logic
 - **Holding a door shut** against him counts as braced: he bangs every 1.2 s, then it jolts out of your hands. The B Brace prompt stays for touch and gamepad.
 - **A door swinging into his body stops dead.** The server knows where he is; it's a cheap, strong scare.
 - Your view is frozen while dragging (ContextActionService sinks mouse look; fallback: a pinned Scriptable camera). The dragging client predicts its own copy of the door each frame (fallback: no prediction; a round trip of lag reads as weight).
-- Furniture uses the same logic. PropFactory builds each moving piece as a named sub-model (`Drawer1..n`, `DoorL`, `DoorR`, `Slider1`, `Slider2`), keeping the "find by child name" convention. **Container contents stay on the server**; an item is created inside a drawer only once it is more than half open.
+- Furniture uses the same logic. PropFactory builds each moving piece as a named sub-model (`Drawer1..n`, `DoorL`, `DoorR`, `Door1..n`, `DoorTop`, `Lid`) whose main part carries its joint (`Lib/Joint`), keeping the "find by child name" convention. **Container contents stay on the server**; an item is created inside a drawer only once it is more than half open.
 
-### 4.6 Heavy push
-| Piece | Pushers needed |
+### 4.6 Every piece of furniture, by weight
+The owner asked for the physics to cover all furniture, with varying weights (2026-10-05). Each furniture kind gets a weight in `Data/Physical.Furniture`, counted in people: 1 is what one player moves at full speed.
+
+| How it moves | Kinds (weight) |
 | --- | --- |
-| Bed, Closet, Wardrobe, Sofa, Shelf, Fridge | 2 |
-| Dresser | 1 (slow) |
-| Piano | can't be moved |
+| Carried, like small things (a class, section 4.3) | Chair, Plant, CoatRack, FloorLamp (still lit in your hands), Boxes, Mannequin |
+| Pushed alone | Crib 0.7, Armchair 0.8, Bench 0.8, TVStand 0.9, Table 1, Chest 1, Desk 1.1, Dresser 1.3 (slowly), Locker 1.4 (slowly) |
+| Pushed by two | GrandfatherClock 1.6, Washer 1.6, Sofa 1.8, Shelf 1.8, DiningTable 1.8, Bed 2, Cabinet 2, Workbench 2, Wardrobe 2.2, Fridge 2.4 |
+| Takes the squad | Piano 3.5 |
+| Fixed (built in or plumbed) | Counter, Sink, Toilet, Bathtub, Stove, WaterHeater, Car, Curtain, Rug, Shrine |
 
-- Hold the mouse on a heavy piece to push. The client sends `Push(direction)` at 10 Hz and your walk slows.
-- `Logic/Push.speed(n, needed)`: with fewer pushers than needed it creeps (0.25 studs/s) and scrapes loudly (noise 12). At the count or more, up to 2.2 studs/s. Pushers are players who pushed in the last 0.3 s, within 4.5 studs and facing it; solo, the Companion helps as one.
-- The server moves it at 15 Hz and sweeps every step with a Blockcast: door jambs stop it, so a bed can't go through a doorway, and it never crushes a player or the Guest. Pieces slide only; turning them can come later.
+- Hold the mouse on a pushable piece and walk: you push it. The client sends `Push(direction)` at 10 Hz and your walk slows by its weight.
+- `Logic/Push.speed(strength, weight)` (pure, with a spec). Strength is the players who pushed it in the last 0.3 s, within 4.5 studs and facing it; solo, the Companion helps as one. Below three quarters of its weight it only creeps (0.25 studs/s) and scrapes loudly; from there it speeds up to 2.2 studs/s at full strength. So a bed creeps for one and moves for two, a dresser moves slowly for one, and the piano wants three or four.
+- Scraping is noise with the pushers as its source, louder for heavier pieces.
+- The server moves it at 15 Hz and sweeps every step against the house (walls, door jambs, other furniture, players, the Guest): a bed can't go through a doorway, and nothing is ever crushed. Pieces slide only; turning them can come later.
+- **What moves with it:** its drawers and doors (their joints are rewritten), what's kept inside, things standing on top, its light, and its hiding spot.
+- **Until barricades land (R1b),** pushes stay out of doorway lanes and room middles (RoomFit's clear boxes), so the Guest's graph never breaks. Barricades then open the lanes to heavy pieces.
 
 ### 4.7 Barricades
 - `Logic/Barricade` (pure, with a spec) reuses RoomFit's doorway lane (exported as `RoomFit.laneBox`). A heavy piece covering at least 40% of a lane's width in the first 5 studs from the wall makes `seam.barricade = { prop, side, weight }`.
@@ -313,18 +321,21 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 7. The dinner, v1: `FinaleService`, the table, the set piece, the finale cut, the front door as the exit, `Logic/Objectives` and the objective line.
 8. Docs, TCs and the playtest request.
 
+**R1a, added (the owner's request of 2026-10-05, pulled forward from R1b.4)**
+10. Every piece of furniture by weight (section 4.6): weights in `Data/Physical`, the light pieces carried, `Logic/Push` (spec), pushing on the server with the sweep, what rides along, the keep-clear rule, Companion help, the `Push` remote, F2 `push`.
+
 **R1b: world physics**
 1. `DecorService` (portraits, decor clocks and radios out of `AnomalyService`), `Data/ClockTimes`, the `RadioSignal` fix.
 2. Interactables, `Logic/SwitchSpots`, switches, circuits and `IsLit`, the radio playing while carried.
 3. Walk-in closets.
-4. Heavy push, with Companion help, F2 `push`.
+4. (Moved to R1a.10: furniture by weight.)
 5. Barricades, the shove, the stuck-ladder rung, squeeze past, F2 `barricade`, `navtest barricade`.
 6. Docs and TCs.
 
 **R2b: puzzles, retune, retirements**
 1. Breaker. 2. Safe. 3. Music box and piano. 4. Notes and the note reader. 5. The map (`MapService`, doorways in the layout snapshot, the Map tab with locks, bolts, items and key drops). 6. The Drift and Director retune, `survivedHunts`, the Dossier's progress section. 7. **Escape becomes the default.** 8. Retire Verdict and the Case Board. 9. Retire anomalies, evidence, rituals, the Camera and Plumb Line, the Phantom twist; `PerceptionPlanner` becomes atmosphere only. 10. Retire Witness windows, anchoring and Focus (section 11). 11. Docs.
 
-### R1a as built (2026-10-04/05, builds `2026-10-04.11` to `.17`)
+### R1a as built (2026-10-04/05, builds `2026-10-04.11` to `2026-10-05.1`)
 - **R1a.1 passage model:** `WorldService:SeamCost(seam, who)` for `player`, `guest`, `guestHunt` and `guestRetreat`; `NavGraph.search` treats a nil door cost as blocked (spec); `Route{who}`, `NavDistances{who}`; `MarkPassageChanged` and `passageVersion`; `Walker:Unreachable()` (he stands rather than walk at a wall, re-routes when a seam on his way changes, looks again once a second); hunt inspections only from where he stands; the Prop, Held and Heavy collision groups; F2 `block`. Studio: navtest fast on seeds 61, 1800820264 and 7: 0 failed, 0 phases; a blocked doorway gives NO WAY.
 - **R1a.2 four slots:** `Logic/Inventory` (spec), the clip light (`Config.Hands.ClipLight`, `PA.TorchClipped`), hotbar, HUD. Bare hands draw nothing on screen (two primitive hands read as bricks). Fixed: Radio static that never stopped.
 - **R1a.3 door angles:** `Logic/Articulation` (spec), DoorService stepping and `BulkMoveTo`, ajar doors quicker for him, F2 `door`.
@@ -333,7 +344,7 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 - **R1a.7 stun:** the hit test on each step's path, `StalkerService:Stun`, the Stagger pose, `StalkRules` "stunned" (spec), F2 `stun`, `throwat`. Studio: 1.8 s, then 0.9 s for a repeat.
 - **R1a.8 lures:** Perception keeps sourceless impact and lure noises; the Investigate move and tactic; wariness after repeats; F2 `lure`. Not done: things clattering as he passes.
 - **Not checked yet:** the feel of dragging with a real mouse; holding a door against him in a hunt; a door stopping against him; two clients watching a carried thing (TC-51 to TC-58).
-- **R1a.5 (drawers, wardrobe and cabinet doors as sub-models, containers):** adds parts to furniture, so the old house's Gate A part hash changes. Waiting on the owner's OK to re-baseline it.
+- **R1a.5 furniture that opens (build `2026-10-05.1`):** dressers and desks have drawers; wardrobes, cabinets, lockers, kitchen cupboards and the fridge have hinged doors over hollow insides; chests have a lid (`World/PropFactory`, `Lib/Joint`, `Services/FurnitureService`, `Config.Furniture`). Dragged by hand like doors, or E. Each learns at build how far it opens before hitting a wall. The first time one is opened half way, the server puts what's kept inside there: an odd small thing from `World/Junk` about half the time, carried and thrown like any other; R2a's items arrive through `FurnitureService.Filler`. Things in a drawer ride it in and out. Hiding in a wardrobe or locker pulls its doors shut, and leaving (or being found) swings them open. The fridge lights inside. Small things are forgiving to aim at (looking just past one picks it up), and the dresser is now 3.6 high so you can see into its top drawer. Studio, old house and mansion seed 61: clean consoles; drawers, doors and lids by hand and by E; a pill bottle taken out of a top drawer; hiding shuts the wardrobe. **Gate A re-baselined (owner's OK, 2026-10-05):** the old house is now parts 2272, hash 1308511249 (two fresh runs).
 
 ## 10. Later: the living house (R3) and variety (R4)
 **R3.**
@@ -370,7 +381,7 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 4. **Fairness shrinks with locks.** Fewer loops are open early, so the stage checks matter, and the R2a playtest must say whether chases in region 0 feel fair.
 5. **Solo play.** The Companion helps push; the breaker has a wiring diagram; the music box has a visual hint.
 6. **Performance.** Props re-anchor once asleep; `BulkMoveTo` runs only while something moves; at most 4 held props are validated per Heartbeat; the R3 validator runs throttled.
-7. **Tests and Gate A.** The planner is nested, so the golden and Mansion hashes hold. The old house's Gate A part hash changes once props gain drawers and closets: ask the owner before re-baselining it.
+7. **Tests and Gate A.** The planner is nested, so the golden and Mansion hashes hold. The old house's Gate A part hash changed when props gained drawers and doors; the owner OK'd the new baseline (2026-10-05: parts 2272, hash 1308511249). Ask again before the next re-baseline (walk-in closets will need one).
 8. **Scope.** About 35 commits for R1 and R2. The `Loop` flag keeps the game playable throughout.
 9. **Determinism.** The plan and puzzle answers come from the seed; shifts and events depend on players and are logged through Telemetry.
 10. **Content and accessibility.** Notes stay within the Moderate rating. Two of the four puzzles are about sound; the visual hints matter.
@@ -379,7 +390,7 @@ The evidence events go (WrongVerdict, EvidenceConfirmed, EvidencePhotographed, A
 - A carried prop and a dragged door look the same on two clients; a carried thing never flings its holder.
 - A throw stuns him once, briefly; a second throw within a minute is shorter.
 - A flush, a thrown bottle or a radio left on draws him to it.
-- Two players push a bed together; one alone only creeps it.
+- Two players push a bed together; one alone only creeps it; a dresser moves slowly for one.
 - A bed in a doorway holds him for a few seconds of banging in a hunt, then he shoves it clear.
 - Hiding in a closet by shutting the doors from inside; he slides them open.
 - A key drops where its holder goes down; a teammate can pick it up.

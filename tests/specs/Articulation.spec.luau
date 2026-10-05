@@ -116,6 +116,21 @@ return function(test, check, Shared, require)
 		check.equal(Articulation.hingeTarget(d, grab, turned(grab, 140)), 100, "or past fully open")
 	end)
 
+	test("a door that opens the other way (a cupboard's left door) follows the hand too", function()
+		local d = door()
+		local grab = { x = 2, z = 0 }
+		check.near(Articulation.hingeTarget(d, grab, turned(grab, -70), -1), 70, 1e-6, "turning the other way opens it")
+		check.equal(Articulation.hingeTarget(d, grab, turned(grab, 30), -1), 0, "turning its way shuts it")
+	end)
+
+	test("drawers and lids follow how far your hand has moved since you took hold", function()
+		local drawer = Articulation.new({ max = 1.7, rate = 6, latchAt = 0.06 })
+		check.near(Articulation.alongTarget(drawer, 0, 0.8), 0.8, 1e-9, "pulled out")
+		check.near(Articulation.alongTarget(drawer, 1, -0.4), 0.6, 1e-9, "pushed part way back")
+		check.equal(Articulation.alongTarget(drawer, 0.5, 4), 1.7, "no further than it goes")
+		check.equal(Articulation.alongTarget(drawer, 0.5, -4), 0, "or further in than shut")
+	end)
+
 	test("a body in the swing stops the door just short of it", function()
 		local shut = { x = -6, z = 0 }
 		local body = turned({ x = -3, z = 0 }, 60)

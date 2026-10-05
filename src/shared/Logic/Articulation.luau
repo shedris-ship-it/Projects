@@ -1,4 +1,4 @@
--- Things that swing or slide: doors now, drawers and wardrobe doors next
+-- Things that swing or slide: doors, drawers, cupboard doors and lids
 -- (docs/plans/gameplay-rework.md section 4.5). They are driven by the server,
 -- not by physics: a physical hinge would fling the client-simulated
 -- characters it touches and blur the one fact The Guest's code needs (can I
@@ -96,9 +96,17 @@ end
 -- The Amnesia mapping: the angle the hinge must turn to so the point you
 -- grabbed (`grab`: where it sits when the door is shut) lies towards your
 -- hand (`hand`, where your hand is now), clamped to the door's range.
--- Push or pull, from either side, falls out of the geometry.
-function Articulation.hingeTarget(state, grab, hand): number
-	return math.clamp(Articulation.flatAngle(grab, hand), state.min, state.max)
+-- Push or pull, from either side, falls out of the geometry. `sign` is -1
+-- for a door that opens by turning the other way (a cupboard's left door).
+function Articulation.hingeTarget(state, grab, hand, sign: number?): number
+	return math.clamp(Articulation.flatAngle(grab, hand) * (sign or 1), state.min, state.max)
+end
+
+-- The same for things your hand moves straight (a drawer: studs pulled out
+-- along it) or lifts (a lid: degrees of arc): where it was when you took
+-- hold, plus how far your hand has moved since, clamped to its range.
+function Articulation.alongTarget(state, start: number, moved: number): number
+	return math.clamp(start + moved, state.min, state.max)
 end
 
 -- A body standing in the swing: the swing from `from` to `to` (degrees) of a

@@ -15,8 +15,8 @@ local Signal = require(Shared.Lib.Signal)
 local PA = Constants.PlayerAttributes
 
 local HidingService = {
-	Entered = Signal.new(),
-	Left = Signal.new(),
+	Entered = Signal.new(), -- (player, spot)
+	Left = Signal.new(), -- (player, spot, forced): forced when found or pulled out
 }
 
 local hidden: { [Player]: any } = {} -- player -> { spot, breath, holding, gaspUntil, lastBreathNoise }
@@ -159,7 +159,7 @@ function HidingService:Leave(player: Player, silent: boolean?)
 	if not silent then
 		self.Noise:Emit(spot.frontPosition, spot.noise, player, "hide")
 	end
-	self.Left:Fire(player, spot)
+	self.Left:Fire(player, spot, silent == true)
 end
 
 function HidingService:ForceLeave(player: Player)

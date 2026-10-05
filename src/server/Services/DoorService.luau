@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Joint = require(Shared.Lib.Joint)
 local Sfx = require(Shared.Lib.Sfx)
 
 local D = Config.Doors
@@ -73,9 +74,18 @@ function DoorService:_setup(door)
 	})
 	door.open = Articulation.passable(door.state)
 	-- What a dragging client needs to turn its own copy (Controllers/HandsController).
-	door.slab:SetAttribute("Hinge", door.hinge)
-	door.slab:SetAttribute("Shut", door.closedCFrame)
-	door.slab:SetAttribute("Angle", door.state.value)
+	door.joint = {
+		kind = "hinge",
+		hinge = door.hinge,
+		axis = Vector3.yAxis,
+		sign = 1,
+		shut = door.closedCFrame,
+		max = D.OpenAngle,
+		rate = D.SwingRate,
+		latch = D.LatchAngle,
+	}
+	Joint.write(door.slab, door.joint)
+	door.slab:SetAttribute("Value", door.state.value)
 	door.holder, door.heldUntil, door.forcedUntil = nil, 0, 0
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -126,14 +136,8 @@ function DoorService:_setup(door)
 	door.bracePrompt = brace
 end
 
--- Where the slab is at an angle: turned about the hinge from shut.
-local function slabAt(door, degrees: number): CFrame
-	local hinge = door.hinge
-	return CFrame.new(hinge) * CFrame.Angles(0, math.rad(degrees), 0) * CFrame.new(-hinge) * door.closedCFrame
-end
-
 function DoorService:_place(door)
-	local slab = slabAt(door, door.state.value)
+	local slab = Joint.pose(door.joint, door.state.value)
 	local cframes = table.create(#door.parts)
 	for i, offset in door.offsets do
 		cframes[i] = slab * offset
@@ -211,7 +215,7 @@ function DoorService:_step(door, dt: number)
 		self.moving[door] = nil
 		door.slamRate = nil
 		door.byGuest = nil
-		door.slab:SetAttribute("Angle", math.round(state.value * 10) / 10)
+		door.slab:SetAttribute("Value", math.round(state.value * 10) / 10)
 	end
 end
 

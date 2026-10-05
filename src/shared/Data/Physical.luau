@@ -52,6 +52,13 @@ local Dressing = {
 	Books = { class = "medium", label = "Books" },
 	Vase = { class = "medium", label = "Vase" },
 	Telephone = { class = "medium", label = "Telephone" },
+	-- Kept in drawers and cupboards (World/Junk).
+	Cassette = { class = "light", label = "Cassette tape" },
+	Matchbox = { class = "light", label = "Matches" },
+	Letters = { class = "light", label = "Letters" },
+	Candle = { class = "light", label = "Candle" },
+	Spool = { class = "light", label = "Thread" },
+	PillBottle = { class = "light", label = "Pill bottle" },
 }
 
 local Furniture = {
