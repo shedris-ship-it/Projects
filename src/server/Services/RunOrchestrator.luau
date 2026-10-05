@@ -179,8 +179,10 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		)
 		layout.progression = plan
 		for _, seam in layout.seams do
-			if plan.locks[seam.id] then
-				seam.door = true
+			local lock = plan.locks[seam.id]
+			if lock then
+				-- A crank door is a shutter in an open doorway (Services/CrankService).
+				seam.door = lock.kind ~= "crank"
 			end
 		end
 		print(
@@ -203,6 +205,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- Toilets, taps, TVs, radios and every room's light switch.
 		services.InteractService:Begin()
 		services.LockService:Begin(plan)
+		services.CrankService:Begin(plan)
 		-- How each key and heirloom is found (Logic/Leads): its own fork.
 		local templates = mansion and Rooms.MansionById or Rooms.ById
 		local leads = Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)

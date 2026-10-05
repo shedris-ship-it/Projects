@@ -677,9 +677,9 @@ Config.Progression = {
 	BacktrackChance = 0.35, -- a gate leads from an older region instead of the newest
 	NearProducer = 0.7, -- a gate's key lies in the region just before it, this often
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2, power = 2 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
+	Flavours = { key = 3, padlock = 2, power = 2, crank = 1 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
-	Enabled = { key = true, padlock = true, power = true, safe = true, musicbox = true },
+	Enabled = { key = true, padlock = true, power = true, safe = true, musicbox = true, crank = true },
 	Keepers = { container = 4, safe = 2, musicbox = 3 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
 	FinaleItems = { 2, 3 }, -- heirlooms to lay at the table
@@ -744,6 +744,22 @@ Config.MusicBox = {
 	CarriedEvery = 7, -- carried, it plays its tune again this often
 	LureEvery = 3,
 	DiscordNoise = 35, -- (doc) a wrong note on the piano
+}
+
+-- Crank doors (R2c; Services/CrankService): a roller shutter on a crank.
+Config.Crank = {
+	Max = 7.6, -- studs its bottom edge rises (rolled up into the box over the doorway)
+	OpenAt = 6.5, -- passable from here up
+	ShutAt = 5.5, -- and shut again below here
+	CrankRate = 2, -- studs a second, held at the crank
+	RatchetRate = 0.6, -- with the ratchet set, or heaved from the inside
+	FallRate = 6, -- let go (without the ratchet), it drops this fast
+	ClickEvery = 0.5, -- the ratchet's teeth
+	ClickNoise = 25,
+	SlamNoise = 20, -- it hits the floor: heard, from nobody
+	Reach = 6, -- studs from the crank or the latch to work it
+	Beside = 3.5, -- the crank this far past the door's edge (about 7 studs from the doorway's middle)
+	Clearance = 1.6, -- anyone this close to the doorway's line stops it dropping
 }
 
 -- The map (Services/MapService, UI/Map): what counts as seen.

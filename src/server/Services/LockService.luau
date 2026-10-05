@@ -84,6 +84,9 @@ function LockService:Start()
 		elapsed += dt
 		if elapsed >= 0.5 then
 			elapsed = 0
+			if self.plan then
+				self:_updateReach()
+			end
 			self:_checkRegions()
 		end
 	end)
@@ -111,6 +114,7 @@ function LockService:_checkRegions()
 			end
 			self.services.DriftService:Apply("RegionEntered")
 			self.RegionEntered:Fire(region, player, rooms)
+			self:_updateReach()
 		end
 	end
 end
@@ -198,7 +202,11 @@ function LockService:Begin(plan)
 	for seamId, lock in plan.locks do
 		local seam = self.World.World.seams[seamId]
 		local door = seam and seam.door
-		if door then
+		if lock.kind == "crank" then
+			-- A heavy shutter on a crank, not a door with a lock (Services/
+			-- CrankService builds and runs it).
+			continue
+		elseif door then
 			self.Doors:SetLocked(door, true)
 			local entry = { lock = lock, door = door, seam = seam, open = false }
 			door.lockId = seamId
@@ -213,19 +221,31 @@ function LockService:Begin(plan)
 	self:_updateReach()
 end
 
--- Rooms the squad can walk to now (from the start, through every doorway
--- that isn't locked).
+-- Rooms the squad can walk to now: from the start and from wherever a
+-- living player is, through every doorway that isn't locked. A crank door
+-- counts as passable once it has been raised (someone may have gone through
+-- and let it drop: they're still on the far side, and it can be raised again).
 function LockService:_updateReach()
 	table.clear(self.reach)
 	local world = self.World.World
 	local start = world.layout.start
 	self.reach[start] = true
 	local queue, head = { start }, 1
+	for _, player in self.PlayerState:LivingPlayers() do
+		local position = self.PlayerState:Position(player)
+		local room = position and self.World:RoomAt(position)
+		if room and not self.reach[room] then
+			self.reach[room] = true
+			table.insert(queue, room)
+		end
+	end
+	local cranks = self.services.CrankService
 	while head <= #queue do
 		local room = queue[head]
 		head += 1
 		for _, seam in world.seams do
-			if seam.connected and not (seam.door and seam.door.locked) then
+			local shut = (seam.door and seam.door.locked) or (cranks and cranks:Shut(seam.id))
+			if seam.connected and not shut then
 				local other = (seam.a == room and seam.b) or (seam.b == room and seam.a) or nil
 				if other and not self.reach[other] then
 					self.reach[other] = true

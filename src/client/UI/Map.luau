@@ -29,6 +29,7 @@ local DOORS = {
 	padlock = { color = Color3.fromRGB(214, 150, 60), tag = "CODE" },
 	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
 	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },
+	crank = { color = Color3.fromRGB(180, 150, 120), tag = "CRANK" },
 }
 local MARKS = {
 	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },
@@ -36,6 +37,7 @@ local MARKS = {
 	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
 	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
 	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
+	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
 }
 
 function Map.new(ctx)
@@ -320,13 +322,16 @@ function Map:_renderMap()
 		end
 		self:_dot(canvas, x, y, 10, Ui.Theme.accent, "you")
 	end
-	Ui.label("Diamonds: doorways.  KEY, CODE, BOLT, POWER: locks.  note: read here.  At the table: places set.", {
-		Position = UDim2.fromOffset(0, height * scale + 26),
-		Size = UDim2.fromOffset(width * scale, 18),
-		TextSize = 12,
-		TextColor3 = Ui.Theme.textDim,
-		Parent = canvas,
-	})
+	Ui.label(
+		"Diamonds: doorways.  KEY, CODE, BOLT, POWER, CRANK: locks.  note: read here.  At the table: places set.",
+		{
+			Position = UDim2.fromOffset(0, height * scale + 26),
+			Size = UDim2.fromOffset(width * scale, 18),
+			TextSize = 12,
+			TextColor3 = Ui.Theme.textDim,
+			Parent = canvas,
+		}
+	)
 end
 
 function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, maxX, gap)

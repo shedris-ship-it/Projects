@@ -269,11 +269,30 @@ function WorldService:SeamCost(seamId: string, who: string?): number?
 	if door and door.locked then
 		return nil
 	end
+	-- Something else shut across it (a crank door down: Services/CrankService).
+	if seam.blocks and next(seam.blocks) then
+		return nil
+	end
 	if door and not door.open and who ~= "guestRetreat" then
 		local ajar = door.state and not door.state.latched
 		return ajar and Config.Nav.DoorCost / 2 or Config.Nav.DoorCost
 	end
 	return 0
+end
+
+-- Shut a doorway to everyone for a reason of its own (`cause`: a crank door
+-- down), or open it again. Walkers re-route.
+function WorldService:SetSeamBlocked(seamId: string, cause: string, blocked: boolean)
+	local seam = self.World and self.World.seams[seamId]
+	if not seam then
+		return
+	end
+	seam.blocks = seam.blocks or {}
+	if (seam.blocks[cause] == true) == blocked then
+		return
+	end
+	seam.blocks[cause] = blocked or nil
+	self:MarkPassageChanged(seamId, cause)
 end
 
 -- F2 `block <room> <room>`: shut a doorway to everyone, for testing what the

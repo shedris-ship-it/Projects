@@ -175,7 +175,10 @@ function MapService:State()
 		local entry = self.Locks.locks[id]
 		local kind = "door"
 		local label = nil
-		if entry and not entry.open and not door.open then
+		local crank = self.services.CrankService:Get(id)
+		if crank and not crank.latched and crank.blocked then
+			kind = "crank"
+		elseif entry and not entry.open and not door.open then
 			if door.known then
 				kind = entry.lock.kind
 				if kind ~= "bolt" then

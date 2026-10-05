@@ -243,6 +243,9 @@ LockPlanner.Gates = {
 			return "Power for the " .. name .. " door"
 		end,
 	},
+	-- A heavy shutter raised by a crank on its outer side (Services/
+	-- CrankService): nothing to find, two people (or a slow, loud ratchet).
+	{ id = "crank", side = true },
 }
 LockPlanner.GateById = {}
 for _, gate in LockPlanner.Gates do

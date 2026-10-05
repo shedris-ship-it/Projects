@@ -137,6 +137,18 @@ function FinaleService:_stations()
 			})
 		end
 	end
+	-- A crank door's shutter, until it's latched open.
+	for _, crank in self.services.CrankService.cranks do
+		if crank.crankAt then
+			table.insert(list, {
+				id = "crank:" .. crank.id,
+				kind = "crank",
+				position = crank.crankAt,
+				room = crank.outer,
+				solved = crank.latched,
+			})
+		end
+	end
 	-- A case with something of his in it (one with a porcelain figure isn't
 	-- worth a line: you can see what's in it).
 	for _, case in self.Items.cases do
@@ -529,7 +541,9 @@ function FinaleService:Serve()
 		if not self.plan then
 			return
 		end
-		-- The way back to the hall seals; everything else springs open.
+		-- The way back to the hall seals; everything else springs open (the
+		-- crank doors roll up and latch).
+		self.services.CrankService:LatchAll()
 		local cut = {}
 		for _, seamId in self.plan.finale.cut do
 			cut[seamId] = true

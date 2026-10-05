@@ -33,6 +33,9 @@ Objectives.Stations = {
 	musicbox = function(room: string)
 		return "The piano in the " .. room .. " is waiting for a tune."
 	end,
+	crank = function(room: string)
+		return "A shutter in the " .. room .. " won't stay up on its own."
+	end,
 }
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }

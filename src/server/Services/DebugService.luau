@@ -183,6 +183,38 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "solve" then
 		reply(player, services.PuzzleService:DebugSolve(player, args[2]))
+	elseif command == "crank" then
+		-- The crank doors; `crank up` rolls up and latches the nearest.
+		local cranks = services.CrankService
+		local position = services.PlayerStateService:Position(player)
+		local lines, nearest, best = {}, nil, math.huge
+		for id, crank in cranks.cranks do
+			table.insert(
+				lines,
+				string.format(
+					"%s: %.1f up%s%s, crank in room %d",
+					id,
+					crank.height,
+					crank.latched and ", latched" or "",
+					crank.ratchet and ", ratchet set" or "",
+					crank.outer
+				)
+			)
+			local d = position and crank.crankAt and (crank.crankAt - position).Magnitude or math.huge
+			if d < best then
+				nearest, best = crank, d
+			end
+		end
+		if args[2] == "up" and nearest then
+			cranks:Latch(nearest)
+			reply(player, "latched " .. nearest.id)
+		elseif args[2] == "go" and nearest then
+			services.PlayerStateService:MarkTeleport(player)
+			player.Character:PivotTo(CFrame.new(nearest.crankAt + nearest.wheelAt.LookVector * 3))
+			reply(player, "at the crank of " .. nearest.id)
+		else
+			reply(player, #lines > 0 and table.concat(lines, "\n") or "no crank doors in this house")
+		end
 	elseif command == "switch" then
 		-- Flip the light switch of the room you're in; `switch list` counts them.
 		local interact = services.InteractService
