@@ -22,6 +22,18 @@ local Props = {
 		color = { 92, 64, 44 },
 		material = "Wood",
 	},
+	-- A walk-in closet (gameplay rework 4.8): walk in, slide its mirrored
+	-- doors shut, and you're hidden (no teleport: Services/HidingService's
+	-- physical spots). Built in.
+	Closet = {
+		size = { 6, 9, 4 },
+		hide = "closet",
+		physical = true,
+		capacity = 2,
+		noise = 6,
+		color = { 214, 208, 194 },
+		material = "Wood",
+	},
 	Cabinet = {
 		size = { 6, 8, 3 },
 		hide = "wardrobe",

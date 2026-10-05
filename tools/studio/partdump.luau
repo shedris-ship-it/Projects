@@ -13,8 +13,10 @@
 -- 1308511249. Re-baselined with the owner's OK when the clue loop retired
 -- (R2c.1, build 2026-10-05.6, the escape is the only loop and run content is
 -- left out; two fresh runs with `seed 1800820264`, `layout cells`): parts
--- 2134, hash 191543809. F2 `gatea` runs the same (World/PartDump). Run it
--- before opening anything: an opened drawer moves parts.
+-- 2134, hash 191543809. Re-baselined with the owner's OK when bedrooms got
+-- walk-in closets (R2c.9a, build 2026-10-05.20, two fresh runs, same seed and
+-- layout): parts 2134, hash 1322547804. F2 `gatea` runs the same (World/
+-- PartDump). Run it before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")
 if not level then

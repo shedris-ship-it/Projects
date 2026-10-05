@@ -2,6 +2,11 @@
 -- curtains and tables. Capacity 1-2, a peek view, a noise value, spot heat
 -- that the stalker learns from, and a hold-breath meter. You can't slip into
 -- a spot while the stalker has direct line of sight to you.
+--
+-- Walk-in closets (gameplay rework 4.8) are physical spots: no prompt, no
+-- teleport, no invisibility. You're hidden while you stand inside with both
+-- its sliding doors shut, and not the moment you step out or a door opens.
+-- His inspection slides the doors open.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -39,6 +44,7 @@ function HidingService:Start()
 		for player in table.clone(hidden) do
 			self:ForceLeave(player)
 		end
+		self.physical = {}
 	end)
 	Net.onServer("LeaveHiding", { interval = 0.3, types = {} }, function(player)
 		self:Leave(player)
@@ -59,6 +65,11 @@ local function notify(player, text, kind)
 end
 
 function HidingService:_setup(spot)
+	if spot.physical then
+		self.physical = self.physical or {}
+		table.insert(self.physical, spot)
+		return
+	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "HidePrompt"
 	prompt.ActionText = "Hide"
@@ -145,7 +156,13 @@ function HidingService:Leave(player: Player, silent: boolean?)
 	spot.anchor:SetAttribute("Occupied", #spot.occupants)
 	player:SetAttribute(PA.Hidden, nil)
 	player:SetAttribute("HidePeek", nil)
+	player:SetAttribute("HidePhysical", nil)
 	player:SetAttribute("Breath", nil)
+	if spot.physical then
+		-- You were standing there all along: nothing to undo.
+		self.Left:Fire(player, spot, silent == true)
+		return
+	end
 	local character = player.Character
 	local root = self.PlayerState:Root(player)
 	if character then
@@ -176,7 +193,11 @@ function HidingService:SpotOf(player: Player)
 end
 
 -- Called by the stalker when it inspects a spot. Returns the players found.
+-- A closet's doors slide open on whoever is inside.
 function HidingService:Inspect(spot): { Player }
+	if spot.physical then
+		self:_slideOpen(spot)
+	end
 	local found = table.clone(spot.occupants)
 	for _, player in found do
 		self:ForceLeave(player)
@@ -184,7 +205,75 @@ function HidingService:Inspect(spot): { Player }
 	return found
 end
 
+-- A closet's doors (FurnitureService pieces of its model).
+function HidingService:_doors(spot)
+	if spot.doors and #spot.doors > 0 then
+		return spot.doors
+	end
+	local list = {}
+	local furniture = self.services.FurnitureService
+	for _, piece in furniture and furniture.pieces or {} do
+		if piece.prop.model == spot.model then
+			table.insert(list, piece)
+		end
+	end
+	spot.doors = list
+	return list
+end
+
+function HidingService:_slideOpen(spot)
+	local furniture = self.services.FurnitureService
+	for _, piece in self:_doors(spot) do
+		furniture:SetOpen(piece, true, true)
+	end
+end
+
+-- Walk-in closets: who stands inside with both doors shut is hidden; who
+-- steps out, or opens a door, isn't.
+function HidingService:_physical()
+	for _, spot in self.physical or {} do
+		if spot.model.Parent and spot.interior then
+			local shut = true
+			for _, piece in self:_doors(spot) do
+				shut = shut and piece.state.value < 0.3
+			end
+			local box, size = spot.interior.cframe, spot.interior.size / 2
+			for _, player in self.PlayerState:ActivePlayers() do
+				local root = self.PlayerState:Root(player)
+				local inside = false
+				if root then
+					local p = box:PointToObjectSpace(root.Position)
+					inside = math.abs(p.X) <= size.X and math.abs(p.Y) <= size.Y and math.abs(p.Z) <= size.Z
+				end
+				local state = hidden[player]
+				if inside and shut and not state and #spot.occupants < spot.capacity then
+					table.insert(spot.occupants, player)
+					spot.heat += 1
+					hidden[player] = {
+						spot = spot,
+						breath = Config.Player.BreathMax,
+						holding = false,
+						gaspUntil = 0,
+						lastBreathNoise = 0,
+					}
+					player:SetAttribute("HidePhysical", true)
+					player:SetAttribute(PA.Hidden, spot.id)
+					player:SetAttribute("Breath", 1)
+					spot.anchor:SetAttribute("Occupied", #spot.occupants)
+					if self.SquadProfile then
+						self.SquadProfile:RecordHide(spot, os.clock())
+					end
+					self.Entered:Fire(player, spot)
+				elseif state and state.spot == spot and (not inside or not shut) then
+					self:Leave(player, true)
+				end
+			end
+		end
+	end
+end
+
 function HidingService:_tick(dt: number)
+	self:_physical()
 	local stalker = self.services.StalkerService
 	local stalkerPos = stalker and stalker:GetPosition()
 	-- He's always somewhere in the house now; he's only a danger to someone

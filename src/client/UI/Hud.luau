@@ -139,7 +139,7 @@ function Hud.new(ctx)
 		Visible = false,
 		Parent = gui,
 	})
-	Ui.label("Hold SPACE to hold your breath · E to leave", {
+	self.hideHint = Ui.label("Hold SPACE to hold your breath · E to leave", {
 		Size = UDim2.new(1, 0, 0, 18),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 13,
@@ -293,6 +293,10 @@ function Hud:Update()
 	self.hide.Visible = hidden
 	if hidden then
 		self.breathFill.Size = UDim2.fromScale(player:GetAttribute("Breath") or 1, 1)
+		-- In a walk-in closet you get out by sliding a door yourself.
+		self.hideHint.Text = player:GetAttribute("HidePhysical")
+				and "Hold SPACE to hold your breath · slide a door to get out"
+			or "Hold SPACE to hold your breath · E to leave"
 		self.hideDanger.Visible = player:GetAttribute("HideDanger") == true
 	end
 

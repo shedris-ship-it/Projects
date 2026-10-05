@@ -56,6 +56,7 @@ return function(test, check, Shared, require)
 			Curtain = true,
 			Rug = true,
 			Shrine = true,
+			Closet = true,
 		}
 		for kind in Props.Kinds do
 			local info = Physical.Furniture[kind]

@@ -412,7 +412,22 @@ function LevelBuilder.furnish(world, ctx)
 					peekCFrame = CFrame.lookAt(peekPos, peekPos + frontDir),
 					frontPosition = cf:PointToWorldSpace(Vector3.new(0, 0, d / 2 + 2.6)),
 					label = prop.kind,
+					-- A walk-in closet: hidden by standing inside with its doors
+					-- shut (Services/HidingService), not by a prompt.
+					physical = kind.physical,
+					interior = kind.physical and {
+						cframe = cf * CFrame.new(0, h / 2, -0.3),
+						size = Vector3.new(w - 0.6, h, d - 0.9),
+					} or nil,
 				}
+				if kind.physical then
+					-- Its mirrors are panes he can show in (Lib/GuestReflection).
+					for _, door in propModel:GetChildren() do
+						if door:GetAttribute("Kind") == "Mirror" then
+							CollectionService:AddTag(door, Tags.Window)
+						end
+					end
+				end
 				anchor:SetAttribute(Attr.CId, spotId)
 				anchor:SetAttribute(Attr.Category, kind.hide)
 				tag(anchor, Tags.HidingSpot)

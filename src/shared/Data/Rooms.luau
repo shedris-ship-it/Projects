@@ -212,7 +212,7 @@ local Rooms = {
 		reverb = "Room",
 		props = {
 			{ id = "bed", kind = "Bed", x = -16, z = -14.5 },
-			{ id = "wardrobe", kind = "Wardrobe", x = 18, z = -10, ry = 270 },
+			{ id = "wardrobe", kind = "Closet", x = 17.5, z = -10, ry = 270 },
 			{ id = "dresser", kind = "Dresser", x = 10, z = 18.25, ry = 180 },
 			{ id = "lamp", kind = "FloorLamp", x = -17, z = -6, key = true },
 			{ id = "chair", kind = "Chair", x = 8, z = 14 },
@@ -237,7 +237,7 @@ local Rooms = {
 		reverb = "Room",
 		props = {
 			{ id = "bed", kind = "Bed", x = 16, z = 14.5 },
-			{ id = "wardrobe", kind = "Wardrobe", x = -10, z = -18 },
+			{ id = "wardrobe", kind = "Closet", x = -10, z = -17.5 },
 			{ id = "toys", kind = "Boxes", x = -16.5, z = 16.5 },
 			{ id = "chest", kind = "Chest", x = -8, z = 18, ry = 180 },
 			{ id = "lamp", kind = "FloorLamp", x = 17, z = -17, key = true },
@@ -285,7 +285,7 @@ local Rooms = {
 		reverb = "Room",
 		props = {
 			{ id = "crib", kind = "Crib", x = 10, z = -18 },
-			{ id = "wardrobe", kind = "Wardrobe", x = -18, z = -10, ry = 90 },
+			{ id = "wardrobe", kind = "Closet", x = -17.5, z = -10, ry = 90 },
 			{ id = "rocker", kind = "Chair", x = -14, z = 14 },
 			{ id = "chest", kind = "Chest", x = 10, z = 18, ry = 180 },
 		},

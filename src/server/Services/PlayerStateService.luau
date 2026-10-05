@@ -231,7 +231,10 @@ end
 -- Active and not hidden in furniture: allowed to use prompts.
 function PlayerStateService:CanAct(player: Player): boolean
 	local record = records[player]
-	return record ~= nil and record.state == States.Active and not player:GetAttribute(PA.Hidden)
+	-- Hidden in a walk-in closet you're only standing there: you can still
+	-- slide its doors, pick things up (Services/HidingService's physical spots).
+	local hidden = player:GetAttribute(PA.Hidden) and not player:GetAttribute("HidePhysical")
+	return record ~= nil and record.state == States.Active and not hidden
 end
 
 -- Call before the server moves a character itself, so the speed check

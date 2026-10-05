@@ -522,6 +522,65 @@ local function cupboard(model, cf, size, color, material, label: string, fit)
 	end
 end
 
+-- A 1988 walk-in closet: a hollow box against the wall, open floor, and two
+-- mirrored doors sliding on two tracks across its front (no swing space
+-- needed). Each door is a piece (Lib/Joint, a slide along the front); its
+-- mirror is a pane The Guest can show in (tagged Window by the builder).
+function builders.Closet(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	local dark = shade(color, 0.35)
+	part(model, "Back", Vector3.new(w, h, 0.2), cf * CFrame.new(0, h / 2, -d / 2 + 0.1), dark, material)
+	for _, sx in { -1, 1 } do
+		part(model, "Side", Vector3.new(0.2, h, d), cf * CFrame.new(sx * (w / 2 - 0.1), h / 2, 0), color, material)
+	end
+	part(model, "Top", Vector3.new(w, 0.2, d), cf * CFrame.new(0, h - 0.1, 0), color, material)
+	-- The header the doors hang from, and a rail and shelf inside.
+	part(model, "Header", Vector3.new(w, 0.6, 0.5), cf * CFrame.new(0, h - 0.5, d / 2 - 0.25), color, material)
+	trim(model, "Rail", Vector3.new(w - 0.6, 0.12, 0.12), cf * CFrame.new(0, h - 1.8, -0.4), nil, CYL)
+	part(model, "Shelf", Vector3.new(w - 0.4, 0.12, d - 1.2), cf * CFrame.new(0, h - 1.3, -0.4), color, material, {
+		collide = false,
+	})
+	local doorH = h - 0.8
+	for i, sx in { -1, 1 } do
+		local door = piece(model, sx < 0 and "DoorL" or "DoorR")
+		-- Two tracks: the left door slides behind the right one.
+		local z = d / 2 - (sx < 0 and 0.32 or 0.14)
+		local leaf = part(
+			door,
+			"Door",
+			Vector3.new(w / 2 + 0.1, doorH, 0.1),
+			cf * CFrame.new(sx * (w / 4 - 0.05), doorH / 2 + 0.05, z),
+			shade(color, 1.05),
+			material
+		)
+		local glass = part(
+			door,
+			"Glass",
+			Vector3.new(w / 2 - 0.4, doorH - 0.6, 0.03),
+			cf * CFrame.new(sx * (w / 4 - 0.05), doorH / 2 + 0.05, z + 0.06),
+			Color3.fromRGB(150, 160, 170),
+			PropFactory.material("Glass"),
+			{ collide = false, castShadow = false }
+		)
+		glass.Reflectance = 0.45
+		door:SetAttribute("Kind", "Mirror")
+		door.PrimaryPart = leaf
+		Joint.write(leaf, {
+			kind = "slide",
+			hinge = leaf.Position,
+			-- Each slides toward the other side, over (or behind) its partner.
+			axis = cf:VectorToWorldSpace(Vector3.new(-sx, 0, 0)),
+			sign = 1,
+			shut = leaf.CFrame,
+			max = w / 2 - 0.4,
+			rate = F.DrawerRate,
+			latch = F.DrawerLatch,
+		})
+		leaf:SetAttribute("Group", "Door" .. i)
+		leaf:SetAttribute("Label", "Closet door")
+	end
+end
+
 function builders.Wardrobe(model, cf, size, color, material)
 	cupboard(model, cf, size, color, material, "Wardrobe", function(m, at, w, h, d)
 		part(m, "Shelf", Vector3.new(w - 0.4, 0.12, d - 0.5), at * CFrame.new(0, h - 2, 0.05), color, material)

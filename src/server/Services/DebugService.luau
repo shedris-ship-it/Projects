@@ -460,6 +460,42 @@ function DebugService:Run(player: Player, text: string)
 			local ok = services.DoorService:SetAngle(door, angle)
 			reply(player, string.format("%s to %d degrees%s", door.id, angle, ok and "" or " (locked: it rattles)"))
 		end
+	elseif command == "piece" then
+		-- The nearest drawer, cupboard door or closet door (or `piece piece:17`):
+		-- toggled (`piece show`: not), and how it stands.
+		local furniture = services.FurnitureService
+		local position = services.PlayerStateService:Position(player)
+		local best, nearest = furniture.pieces[args[2] or ""], math.huge
+		for _, piece in best and {} or furniture.pieces do
+			local d = position and (piece.primary.Position - position).Magnitude or math.huge
+			if d < nearest then
+				best, nearest = piece, d
+			end
+		end
+		if not best then
+			reply(player, "no furniture piece near")
+		else
+			if args[2] ~= "show" then
+				furniture:Toggle(best, player)
+			end
+			task.wait(1)
+			local s = best.state
+			reply(
+				player,
+				string.format(
+					"%s (%s on %s): %s, value %.2f, target %.2f, max %.2f, mode %s%s",
+					best.id,
+					best.label,
+					best.prop.kind or "?",
+					best.joint.kind,
+					s.value,
+					s.target,
+					s.max,
+					tostring(s.mode),
+					s.locked and ", locked" or ""
+				)
+			)
+		end
 	elseif command == "fling" then
 		-- A hand lets go of a door at a speed (degrees a second): it swings on.
 		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)

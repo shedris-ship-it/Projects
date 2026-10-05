@@ -261,9 +261,14 @@ function ActionController:_onHidden(hidden: boolean)
 		audio:PlayUi("Cloth", 0.45, hidden and 0.9 or 1.05)
 		audio:PlayUi("Drawer", 0.3, hidden and 0.85 or 1)
 	end
+	-- In a walk-in closet you're just standing there: your own eyes, and the
+	-- doors to slide open yourself (Services/HidingService's physical spots).
+	local physical = player:GetAttribute("HidePhysical") == true
 	if hidden then
 		peekYaw, peekPitch = 0, 0
-		camera.CameraType = Enum.CameraType.Scriptable
+		if not physical then
+			camera.CameraType = Enum.CameraType.Scriptable
+		end
 		ContextActionService:BindActionAtPriority("ConsensusBreath", function(_, inputState)
 			if inputState == Enum.UserInputState.Begin then
 				Net.get("HoldBreath"):FireServer(true)
@@ -273,13 +278,15 @@ function ActionController:_onHidden(hidden: boolean)
 			return Enum.ContextActionResult.Sink
 		end, true, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Space, Enum.KeyCode.ButtonA)
 		ContextActionService:SetTitle("ConsensusBreath", "Breath")
-		ContextActionService:BindActionAtPriority("ConsensusLeave", function(_, inputState)
-			if inputState == Enum.UserInputState.Begin then
-				Net.get("LeaveHiding"):FireServer()
-			end
-			return Enum.ContextActionResult.Sink
-		end, true, Enum.ContextActionPriority.High.Value, Enum.KeyCode.E, Enum.KeyCode.ButtonB)
-		ContextActionService:SetTitle("ConsensusLeave", "Leave")
+		if not physical then
+			ContextActionService:BindActionAtPriority("ConsensusLeave", function(_, inputState)
+				if inputState == Enum.UserInputState.Begin then
+					Net.get("LeaveHiding"):FireServer()
+				end
+				return Enum.ContextActionResult.Sink
+			end, true, Enum.ContextActionPriority.High.Value, Enum.KeyCode.E, Enum.KeyCode.ButtonB)
+			ContextActionService:SetTitle("ConsensusLeave", "Leave")
+		end
 	else
 		ContextActionService:UnbindAction("ConsensusBreath")
 		ContextActionService:UnbindAction("ConsensusLeave")

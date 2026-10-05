@@ -15,7 +15,7 @@ local HOW_TO = table.concat({
 	"• Your hands: hold the mouse on a door, drawer or small thing to drag or carry it; right click throws. A good hit stuns him for a moment.",
 	"• Drift is the clock. Stalling, splitting up and getting caught raise it; progress calms it. At 100 the house collapses.",
 	"• Something lives here. When one of you watches it, it waits. When two of you watch it together, it can't move: hold the stare and it backs off.",
-	"• Hide (E) in lockers, wardrobes, beds and behind curtains. Hold Space to hold your breath when it's close.",
+	"• Hide (E) in lockers, wardrobes, beds and behind curtains, or walk into a closet and slide its doors shut. Hold Space to hold your breath when it's close.",
 	"• Slot 1 is your torch, 2 and 3 carry what you find, 4 is your bare hands. Holding anything but the torch clips its light to your shirt.",
 	"• Tab shows the map. Talk to each other (voice, Enter to speak, G to ping, C for callouts): it hears you too.",
 }, "\n")
