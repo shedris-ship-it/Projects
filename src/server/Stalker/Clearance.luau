@@ -102,7 +102,9 @@ function Clearance:Reach(from: Vector3, to: Vector3): (Vector3, boolean)
 	local start = from + Vector3.new(0, SWEEP_LIFT, 0)
 	local travel = length
 	local frame = math.abs(delta.Unit.Y) > 0.95 and CFrame.new(start) or CFrame.lookAt(start, start + delta)
-	local result = Workspace:Blockcast(frame, SWEEP, delta, self.params)
+	-- A shapecast can't go further than 1024 studs (a target far off in the
+	-- hub, say): sweep the first stretch, which is all a step needs.
+	local result = Workspace:Blockcast(frame, SWEEP, delta.Unit * math.min(length, 1000), self.params)
 	if result then
 		travel = math.max(0, result.Distance - self.margin)
 	end

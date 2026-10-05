@@ -277,6 +277,10 @@ function LockService:_try(door, player: Player?)
 		end
 		self:_rattle(door)
 		notify(player, "A padlock. It needs a code.")
+	elseif lock.kind == "seal" then
+		self:_rattle(door)
+		notify(player, "It won't move. Not that way.")
+		return
 	end
 	self.Noise:Emit(door.position, 6, player, "door")
 end
@@ -302,8 +306,30 @@ function LockService:Unlock(seamId: string, player: Player?, message: string?)
 	if message then
 		notify(player, message, "good")
 	end
+	-- Getting through a locked door calms the house (a bolt is only a shortcut).
+	if player and entry.lock.kind ~= "bolt" then
+		self.services.DriftService:Apply("LockOpened")
+	end
 	self.Unlocked:Fire(seamId, entry.lock, player)
 	return true
+end
+
+-- The dinner seals a doorway that was never locked (the dining room's door
+-- to the hall): it slams shut and locks for good.
+function LockService:LockSeam(seamId: string)
+	local seam = self.World.World.seams[seamId]
+	local door = seam and seam.door
+	if not door or door.locked then
+		return
+	end
+	self.Doors:SetLocked(door, true)
+	door.lockId = seamId
+	self.Doors:RefreshPrompt(door)
+	self.locks[seamId] = { lock = { kind = "seal" }, door = door, seam = seam, open = false }
+	Sfx.play("DoorSlam", door.position, 1, 0.85)
+	self.Noise:Emit(door.position, 40, nil, "slam")
+	self.World:MarkPassageChanged(seamId, "sealed")
+	self:_updateReach()
 end
 
 -- Every lock in the house (the dinner springs them all).

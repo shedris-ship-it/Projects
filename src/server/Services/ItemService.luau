@@ -143,6 +143,7 @@ function ItemService:_grabbed(player: Player, thing)
 	end
 	if not self.found[token] then
 		self.found[token] = true
+		self.services.DriftService:Apply("ItemFound")
 		self.Found:Fire(player, token, info.kind)
 	end
 	if info.kind == "key" then

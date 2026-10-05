@@ -335,6 +335,17 @@ function StalkerService:StartFinalHunt()
 	self:_beginTelegraph(5)
 end
 
+-- The dinner (Services/FinaleService): he's simply there, at the head of the
+-- table, looking down it.
+function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?)
+	if not self.active or not self.bodyCtl then
+		return
+	end
+	self.bodyCtl:Place(position, lookAt)
+	self.parked = false
+	self.arrived = true
+end
+
 function StalkerService:EndFinalHunt()
 	if not self.active then
 		return

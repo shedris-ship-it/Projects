@@ -57,6 +57,10 @@ end
 
 function VerdictService:SetEnabled(enabled: boolean)
 	self.enabled = enabled
+	-- The escape has no verdict: the table is for the dinner.
+	if self.prompt then
+		self.prompt.Enabled = enabled
+	end
 	if not enabled and self.session then
 		self:_close("cancelled")
 	end

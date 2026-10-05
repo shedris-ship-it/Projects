@@ -240,6 +240,11 @@ function CompanionService:_follow()
 	local distance = services.WorldService:Separation(target, here)
 	local sameFloor = math.abs(target.Y - here.Y) < 6
 	local state = services.PlayerStateService:State(player)
+	-- Out of the house (got out, or Lost): nobody to follow.
+	if state == Constants.PlayerStates.Extracted or state == Constants.PlayerStates.Lost then
+		walker:Stop()
+		return
+	end
 
 	-- Pull a downed Witness back up after a short delay.
 	if state == Constants.PlayerStates.Downed then
