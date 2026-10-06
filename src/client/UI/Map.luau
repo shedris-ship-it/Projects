@@ -301,6 +301,7 @@ function Map:_renderMap()
 				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, left, top, {
 					done = done[room.id] == true,
 					planned = planned[room.id] == true,
+					hint = state.hint == room.id,
 				})
 			end
 		end
@@ -474,6 +475,10 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 	if o.done then
 		-- Bottom right, clear of the name.
 		self:_tick(canvas, x0 + room.w * scale - 16, z0 + room.d * scale - 10)
+	end
+	if o.hint then
+		-- Stuck-assist: the room the objective line points at.
+		self:_ring(canvas, x0 + room.w * scale / 2, z0 + room.d * scale / 2, 30, Ui.Theme.accent)
 	end
 end
 

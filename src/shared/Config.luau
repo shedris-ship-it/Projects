@@ -729,6 +729,15 @@ Config.Pacing = {
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
+-- Stuck-assist (Logic/Assist; Services/FinaleService): help rises with the
+-- danger once the squad has made no progress for a while (the owner's audit
+-- of 2026-10-06; the finish line: never wonder what to do for two minutes).
+Config.Assist = {
+	HintAfter = 150, -- seconds without progress before the objective line says what the plan wants next
+	LampAfter = 240, -- ... and the lights there stutter and the map rings the room
+	LampEvery = 30, -- how often the lights there stutter
+}
+
 -- The house's own scares (Services/HouseEventService; the owner's audit of
 -- 2026-10-06): cards the Director draws by act and Dread, and the change a
 -- squad finds coming back to an old wing.

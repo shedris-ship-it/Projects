@@ -69,6 +69,11 @@ function DriftService:Stalled(): boolean
 	return self.lastProgress ~= nil and os.clock() - self.lastProgress >= Config.Drift.StallGraceSeconds
 end
 
+-- Seconds since the last progress (Logic/Assist reads it).
+function DriftService:SinceProgress(): number
+	return self.lastProgress and os.clock() - self.lastProgress or 0
+end
+
 function DriftService:Stop()
 	self.running = false
 end

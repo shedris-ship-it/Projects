@@ -268,6 +268,8 @@ function MapService:State()
 	end
 	table.sort(state.rooms)
 	state.done = self:_doneRooms()
+	-- Stuck-assist (Services/FinaleService): the room the line points at.
+	state.hint = self.Finale.hintRoom
 	state.plans = {}
 	for storey in self.planStoreys do
 		table.insert(state.plans, storey)

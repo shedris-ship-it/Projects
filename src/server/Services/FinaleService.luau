@@ -26,6 +26,7 @@ local Net = require(Shared.Net)
 local Config = require(Shared.Config)
 local Dinner = require(Shared.Logic.Dinner)
 local Marks = require(Shared.Data.Marks)
+local Assist = require(Shared.Logic.Assist)
 local Objectives = require(Shared.Logic.Objectives)
 local ToolLocks = require(Shared.Logic.ToolLocks)
 local Props = require(Shared.Data.Props)
@@ -150,9 +151,87 @@ function FinaleService:Start()
 		end
 		elapsed = 0
 		self:_lookForStations()
+		self:_assist()
 		-- (A tool picked up or put down changes the line too.)
 		self:_publish()
 	end)
+end
+
+-- Stuck-assist (Logic/Assist, Config.Assist): no progress for HintAfter
+-- seconds and the line says what the plan wants next; after LampAfter the
+-- lights there stutter every LampEvery seconds and the map rings the room
+-- (Services/MapService reads `hintRoom`).
+function FinaleService:_assist()
+	local services = self.services
+	local since = services.DriftService:SinceProgress()
+	if self.served or since < Config.Assist.HintAfter then
+		if self.facts.hint then
+			self.facts.hint = nil
+			self.hintRoom = nil
+			self.hint = nil
+		end
+		return
+	end
+	local hint = Assist.next(self.plan, self:_assistState())
+	if not hint then
+		self.facts.hint, self.hintRoom, self.hint = nil, nil, nil
+		return
+	end
+	local roomName = hint.room and self.Items:RoomPhrase(hint.room) or nil
+	local label = hint.token and string.lower(self.Items:Label(hint.token)) or nil
+	local text = Assist.phrase(hint, roomName, label)
+	if text ~= self.facts.hint then
+		self.facts.hint = text
+		self.hint = hint
+		services.Telemetry:Log("Assist", { kind = hint.kind, room = hint.room, since = math.floor(since) })
+	end
+	local lamp = since >= Config.Assist.LampAfter
+	self.hintRoom = lamp and hint.room or nil
+	if lamp and hint.room and os.clock() >= (self.nextLamp or 0) then
+		self.nextLamp = os.clock() + Config.Assist.LampEvery
+		for _, player in self.PlayerState:RunPlayers() do
+			services.DivergenceService:Scare(player, { kind = "flicker", roomId = hint.room, duration = 2.5 })
+		end
+	end
+end
+
+-- What the squad has, as Logic/Assist reads it.
+function FinaleService:_assistState()
+	local services = self.services
+	local locks = self.Locks
+	local had, opened, set, seams = {}, {}, {}, {}
+	for token in self.Items.found do
+		had[token] = true
+	end
+	for _, held in locks:HeldKeys() do
+		had[held.token] = true
+	end
+	for seamId, entry in locks.locks do
+		if entry.open then
+			opened[seamId] = true
+		end
+		if entry.seam then
+			seams[seamId] = { a = entry.seam.a, b = entry.seam.b }
+		end
+	end
+	local tools = services.ToolService
+	for id, token in self.plan.tokens do
+		if token.kind == "tool" and tools:Holder(token.tool) then
+			had[id] = true
+		elseif token.producer.kind == "puzzle" then
+			local session = self.Puzzles.sessions[token.producer.id]
+			if session and session.state and session.state.solved then
+				had[id] = true
+			end
+		end
+	end
+	for _, place in self.places do
+		if place.token then
+			set[place.token] = true
+			had[place.token] = true
+		end
+	end
+	return { reachable = locks.reach, had = had, opened = opened, set = set, seams = seams }
 end
 
 -- The puzzles and locked cases in the house, for the objective line:

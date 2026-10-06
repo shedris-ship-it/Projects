@@ -17,6 +17,7 @@
 --     newest one not yet dealt with is mentioned (an optional one, the safe
 --     room's fuse box, says so).
 --   tidied: he put an heirloom back where it was kept (until it's found again)
+--   hint: stuck-assist's sentence (Logic/Assist), once the squad has stalled
 -- }
 
 local Marks = require(script.Parent.Parent.Data.Marks)
@@ -149,6 +150,9 @@ function Objectives.line(facts): string
 	end
 	if facts.tidied then
 		table.insert(parts, "Something has been put back where it belongs.")
+	end
+	if facts.hint then
+		table.insert(parts, facts.hint)
 	end
 	return table.concat(parts, " ")
 end
