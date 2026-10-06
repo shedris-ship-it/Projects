@@ -349,14 +349,17 @@ function ActionController:_updateMovement(dt: number)
 	local hands = self.controllers.HandsController
 	local pushing = hands and hands.push
 	local pushSpeed = pushing and pushing.model:GetAttribute("PushSpeed") or (pushing and 0 or nil)
-	humanoid.WalkSpeed = Feel.targetSpeed({
-		downed = state == PS.Downed,
-		hidden = self.state:IsHidden(),
-		hub = state == PS.Lobby,
-		sprinting = sprinting,
-		exhausted = exhausted,
-		pushSpeed = pushSpeed,
-	}, P, Config.Run.DownedCrawlSpeed, Config.Push)
+	-- (F2 `botrun`: the server walks this character and sets its speed.)
+	if not player:GetAttribute(PA.BotDriven) then
+		humanoid.WalkSpeed = Feel.targetSpeed({
+			downed = state == PS.Downed,
+			hidden = self.state:IsHidden(),
+			hub = state == PS.Lobby,
+			sprinting = sprinting,
+			exhausted = exhausted,
+			pushSpeed = pushSpeed,
+		}, P, Config.Run.DownedCrawlSpeed, Config.Push)
+	end
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
 	self.sprinting = sprinting

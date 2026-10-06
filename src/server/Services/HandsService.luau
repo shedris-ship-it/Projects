@@ -339,7 +339,13 @@ function HandsService:Grab(player: Player, id: string)
 	self:_reclaim(thing)
 	self:_wake(thing)
 	self:_setGroup(thing, Groups.Held)
-	thing.root:SetNetworkOwner(player)
+	-- A bot's character is the server's (Services/BotService): the thing is
+	-- carried by the server too, pinned at its head each frame.
+	if player:GetAttribute(Constants.PlayerAttributes.BotDriven) then
+		thing.root:SetNetworkOwner(nil)
+	else
+		thing.root:SetNetworkOwner(player)
+	end
 	local now = os.clock()
 	thing.state = "held"
 	thing.holder = player
@@ -416,6 +422,12 @@ function HandsService:Release(player: Player)
 	self.held[player] = nil
 	thing.holder = nil
 	thing.model:SetAttribute("HeldBy", nil)
+	if thing.serverCarried then
+		thing.serverCarried = nil
+		if thing.root then
+			thing.root.Anchored = false
+		end
+	end
 	if thing.root and thing.root.Parent then
 		self:_setGroup(thing, Groups.Prop)
 		if not self:_keepOwner(player, thing) then
@@ -649,6 +661,9 @@ function HandsService:_checkHeld(player: Player, thing, now: number)
 	if not root or not root.Parent or not head or not self.PlayerState:CanAct(player) then
 		self:Release(player)
 		return
+	end
+	if thing.serverCarried then
+		return -- the server itself moves it (Services/BotService)
 	end
 	local position = root.Position
 	local last = thing.lastValid

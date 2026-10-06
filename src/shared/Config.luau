@@ -731,6 +731,14 @@ Config.Pacing = {
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
+-- The bot (Services/BotService, F2 `botrun`): the loop played on the server
+-- and measured.
+Config.Bot = {
+	WalkSpeed = 8, -- studs a second (a player's walk)
+	SprintSpeed = 19, -- `botrun fast`
+	LegTimeout = 25, -- seconds a leg may take at least (longer legs get longer)
+}
+
 -- Stuck-assist (Logic/Assist; Services/FinaleService): help rises with the
 -- danger once the squad has made no progress for a while (the owner's audit
 -- of 2026-10-06; the finish line: never wonder what to do for two minutes).

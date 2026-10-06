@@ -77,6 +77,9 @@ Constants.PlayerAttributes = {
 	-- Alone, your full beam is holding him frozen (Config.Stare): the battery
 	-- drains faster while it does.
 	BeamHold = "BeamHold",
+	-- F2 `botrun` is driving this character from the server (Services/
+	-- BotService): the client's movement and walk speed stand aside.
+	BotDriven = "BotDriven",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
 	Ready = "Ready",

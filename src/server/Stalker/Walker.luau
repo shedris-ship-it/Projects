@@ -547,7 +547,9 @@ function Walker:Step(now: number): boolean
 			self.pendingDoor = nil
 		elseif now >= self.waitingUntil then
 			local braced = self.agent.opensDoors == "stalker" and self.Doors:IsBraced(door)
-			self.Doors:SetOpen(door, true, nil, braced)
+			-- (A player's body walked by the server, F2 `botrun`: the door
+			-- swings away from them like one opened with E, or it stops on them.)
+			self.Doors:SetOpen(door, true, self.agent.player, braced)
 			self.pendingDoor = nil
 		else
 			if

@@ -57,6 +57,8 @@ local HELP = table.concat({
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · bell [room] · monitor · landmarks · fling <room> <room> <speed>",
 	"event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)",
+	"botrun [fast] [flee|hide] (the bot plays the run with your character; again stops it) · botrun plan (the steps, to Output)",
+	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -125,6 +127,8 @@ end
 -- "no F2" (Logic/RunStats.finishLine).
 local READ_ONLY = {
 	help = true,
+	inspect = true,
+	botrun = true, -- the measuring tool itself (Services/BotService)
 	[""] = true,
 	overlay = true,
 	summary = true,
@@ -152,6 +156,68 @@ local READ_ONLY = {
 	layout = true,
 	squad = true,
 }
+
+local function short(value): string
+	local kind = typeof(value)
+	if kind == "table" then
+		local n = 0
+		for _ in value do
+			n += 1
+		end
+		return string.format("table(%d)", n)
+	elseif kind == "Instance" then
+		return value:GetFullName()
+	elseif kind == "string" then
+		return string.format("%q", value)
+	end
+	return tostring(value)
+end
+
+-- F2 `inspect Service.field.key...`: walks the live services table and
+-- prints what it finds (a table's entries, sorted, at most 80).
+function DebugService:_inspect(path: string?): string
+	if not path or path == "" then
+		local names = {}
+		for name in self.services do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		print("[debug] services: " .. table.concat(names, " "))
+		return string.format("%d services (listed in Output)", #names)
+	end
+	local value = self.services
+	local walked = {}
+	for part in string.gmatch(path, "[^%.]+") do
+		if type(value) ~= "table" then
+			return string.format("%s is %s, not a table", table.concat(walked, "."), short(value))
+		end
+		local nextValue = value[part]
+		if nextValue == nil and tonumber(part) then
+			nextValue = value[tonumber(part)]
+		end
+		if nextValue == nil then
+			return string.format("no %s in %s", part, #walked > 0 and table.concat(walked, ".") or "services")
+		end
+		value = nextValue
+		table.insert(walked, part)
+	end
+	if type(value) ~= "table" then
+		print(string.format("[debug] %s = %s", path, short(value)))
+		return string.format("%s = %s", path, short(value))
+	end
+	local lines = {}
+	for k, v in value do
+		table.insert(lines, string.format("  %s = %s", tostring(k), short(v)))
+	end
+	table.sort(lines)
+	local total = #lines
+	if total > 80 then
+		lines = table.move(lines, 1, 80, 1, {})
+		table.insert(lines, string.format("  ... %d more", total - 80))
+	end
+	print(string.format("[debug] %s (%d entries):\n%s", path, total, table.concat(lines, "\n")))
+	return string.format("%s: %d entries (listed in Output)", path, total)
+end
 
 function DebugService:Run(player: Player, text: string)
 	local services = self.services
@@ -213,6 +279,14 @@ function DebugService:Run(player: Player, text: string)
 			end
 			reply(player, string.format("%s: %s", id, ok and "played" or "nothing to play it on here"))
 		end
+	elseif command == "botrun" then
+		-- The bot (Services/BotService): the loop played and measured.
+		reply(
+			player,
+			services.BotService:Run(player, args, function(text)
+				reply(player, text)
+			end)
+		)
 	elseif command == "summary" then
 		-- The run in numbers so far (Logic/RunStats), to the Output window.
 		local lines = services.RunLogService:SummaryLines()
@@ -542,6 +616,11 @@ function DebugService:Run(player: Player, text: string)
 			print("[debug] house:\n  " .. table.concat(lines, "\n  "))
 			reply(player, string.format("house %d of %d, score %.1f (Output)", found.index, #found.scores, found.score))
 		end
+	elseif command == "inspect" then
+		-- A live service table by dotted path, read-only, to Output (the MCP
+		-- command bar can't see game scripts' tables: its `shared` is its own).
+		local path = string.match(text, "^%s*%S+%s+(.-)%s*$")
+		reply(player, self:_inspect(path))
 	elseif command == "where" then
 		reply(player, services.StalkerService:DebugWhere(player))
 	elseif command == "stun" then
