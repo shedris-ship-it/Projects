@@ -27,9 +27,58 @@ function StalkRules.visibleTo(tier: number, isTarget: boolean): boolean
 	return true
 end
 
--- Two Witnesses (or one with the Companion) always freeze him.
+-- Two watchers always freeze him (alone, a steady full beam counts as the
+-- second: Stalker/Perception adds a "beam" entry to the list).
 function StalkRules.frozen(watchers: number): boolean
 	return watchers >= 2
+end
+
+-- The stare counts only while he is in the light (the owner's audit,
+-- 2026-10-06; Config.Stare): the room he stands in is lit, a watcher's beam
+-- or clip light reaches him, their lit Lantern does, or he is at arm's
+-- length. ctx: distance, roomLit, beamOn, beamAngle (degrees off the
+-- camera's centre), clipOn, clipAngle (degrees off the body's facing),
+-- lanternOn.
+function StalkRules.litFor(ctx, cfg): boolean
+	if not cfg.LitOnly then
+		return true
+	elseif ctx.distance <= cfg.DarkWatchRange then
+		return true
+	elseif ctx.roomLit then
+		return true
+	elseif ctx.beamOn and ctx.distance <= cfg.BeamRange and ctx.beamAngle <= cfg.BeamHalfAngle then
+		return true
+	elseif ctx.clipOn and ctx.distance <= cfg.ClipRange and ctx.clipAngle <= cfg.ClipHalfAngle then
+		return true
+	elseif ctx.lanternOn and ctx.distance <= cfg.LanternRange then
+		return true
+	end
+	return false
+end
+
+-- In a hunt two watchers hold him for HuntHoldSeconds at a time; then he
+-- comes on (slowed while watched) until nobody has watched him for
+-- HoldResetSeconds, which lets them hold him again. state = { held,
+-- spent, unwatched } is kept by the caller. Returns whether he is held now.
+function StalkRules.huntHold(state, frozen: boolean, dt: number, cfg): boolean
+	if frozen then
+		state.unwatched = 0
+		if state.spent then
+			return false
+		end
+		state.held += dt
+		if state.held >= cfg.HuntHoldSeconds then
+			state.spent = true
+			return false
+		end
+		return true
+	end
+	state.unwatched += dt
+	if state.unwatched >= cfg.HoldResetSeconds then
+		state.held = 0
+		state.spent = false
+	end
+	return false
 end
 
 -- May he move closer right now?

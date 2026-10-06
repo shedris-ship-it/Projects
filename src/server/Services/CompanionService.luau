@@ -1,8 +1,9 @@
--- Companion Witness (doc sections 6 and 12): for solo runs, an NPC that
--- counts as a second watcher. It follows you, backs up your stare (two
--- watchers freeze The Guest), lends a hand pushing furniture, and pulls you
--- up if you go down. It keeps a little distance and carries no light, so it reads as a second
--- person searching the house with you, not a lamp at your heels.
+-- The Companion (doc sections 6 and 12): for solo runs, an NPC that follows
+-- you, lends a hand pushing furniture, and pulls you up if you go down. It
+-- keeps a little distance and carries no light, so it reads as a second
+-- person searching the house with you, not a lamp at your heels. Since the
+-- owner's audit (2026-10-06) it no longer counts as a watcher: alone, your
+-- full beam held on him does (Config.Stare), so solo play keeps its threat.
 --
 -- It walks the house the way The Guest does (Stalker/Walker: the house graph,
 -- the navmesh in each room), so it climbs the stairs, goes round the gallery

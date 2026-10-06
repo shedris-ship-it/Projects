@@ -10,12 +10,15 @@
 -- backing away, still watching. Who can see him changes only while they
 -- aren't looking.
 --
--- The observation rule:
+-- The observation rule (Config.Stare since the owner's audit, 2026-10-06):
 --   watched by nobody      -> he moves freely
 --   watched by one player  -> tier 1: he's gone; tier 2: he holds and
 --                             stares; tier 3: he keeps creeping
 --   watched by two or more -> frozen; hold the stare together ~3 s and he
---                             backs away
+--                             backs away. In a hunt the stare only holds him
+--                             a few seconds at a time, and never ends it
+--   A look counts only while he is in that player's light. Alone, a steady
+--   full beam on him counts as the second pair of eyes.
 --
 -- Tiers: 0 Dormant, 1 Watching, 2 Closing, 3 Intruding, 4 Hunting.
 
@@ -185,6 +188,8 @@ function StalkerService:Begin(ctx)
 	self.stunImmuneUntil = 0
 	self.stuns = {} -- when each recent stun landed (repeats are shorter)
 	self.coStare = 0
+	self.hold = { held = 0, spent = false, unwatched = 0 } -- the stare in a hunt (StalkRules.huntHold)
+	self.holdCues = {} -- player -> times told
 	self.visibleTo = {}
 	self.parked = true
 	self.arrived = false
@@ -545,11 +550,21 @@ function StalkerService:DebugState()
 	local last = self.tactician.log[#self.tactician.log]
 	local brain = self.stalk:DebugLines()
 	local target = self.stalk:Target()
+	local watch = self.perception.lastWatch
 	return {
 		mode = self.mode .. (self.arrived and "" or " (not arrived)"),
 		tier = self.tier,
 		final = self.final,
 		watchers = self.watchers and #self.watchers or 0,
+		watch = watch and string.format(
+			"lit %d · dark %d · beam %d · room %s · hold %.1f%s",
+			watch.lit,
+			watch.dark,
+			watch.beams,
+			watch.roomLit and "lit" or "dark",
+			self.hold.held,
+			self.hold.spent and " spent" or ""
+		) or "-",
 		coStare = self.coStare,
 		memories = memories,
 		tactic = hunting and (last and last.tactic or "-") or brain[1],
@@ -998,12 +1013,17 @@ function StalkerService:_update(dt: number)
 		self.services.SquadProfileService:RecordGaze(dt * #playerWatchers)
 	end
 
-	-- Two Witnesses holding the stare together drive him off; not from his
-	-- place at the table, where he only waits (they still freeze him).
+	local mode = self.mode
+	local hunting = mode == Modes.Hunting or mode == Modes.Telegraph
+	-- Two watchers holding the stare together drive him off between hunts;
+	-- not from his place at the table, where he only waits (they still
+	-- freeze him). In a hunt the stare only holds him (below) and never
+	-- ends the chase (Config.Stare.CoStareEndsHunt keeps the old rule).
 	if
 		#watchers >= 2
-		and self.mode ~= Modes.Retreating
-		and self.mode ~= Modes.Departing
+		and (not hunting or Config.Stare.CoStareEndsHunt)
+		and mode ~= Modes.Retreating
+		and mode ~= Modes.Departing
 		and not self:_seatedAtTable()
 	then
 		self.coStare += dt
@@ -1017,7 +1037,13 @@ function StalkerService:_update(dt: number)
 	end
 
 	local frozen = StalkRules.frozen(#watchers)
-	local mode = self.mode
+	-- In a hunt two watchers hold him a few seconds at a time, then he comes
+	-- on, slowed while they still watch, until they lose him for a moment.
+	local held = frozen
+	if hunting then
+		held = StalkRules.huntHold(self.hold, frozen, dt, Config.Stare)
+	end
+	self:_holdCues(held, frozen, hunting, watchers)
 	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
 		-- Something thrown hit him: a moment off balance (Stun). The hunt
 		-- waits for him.
@@ -1027,8 +1053,9 @@ function StalkerService:_update(dt: number)
 		if mode == Modes.Hunting and self.data.endsAt then
 			self.data.endsAt += dt
 		end
-	elseif frozen and mode ~= Modes.Retreating and mode ~= Modes.Departing then
-		-- Two Witnesses lock eyes on him: not a step, and no lunge.
+	elseif held and mode ~= Modes.Retreating and mode ~= Modes.Departing then
+		-- Two watchers lock eyes on him: not a step, and no lunge. A held
+		-- hunt waits too: the stare buys a moment, never the clock.
 		body:CancelSpecial()
 		body:Hold()
 		body:SetPose(Poses.Hold)
@@ -1036,6 +1063,9 @@ function StalkerService:_update(dt: number)
 		if nearest then
 			body:FacePlayer(nearest)
 			body:SetGaze(nearest)
+		end
+		if mode == Modes.Hunting and self.data.endsAt then
+			self.data.endsAt += dt
 		end
 	elseif mode == Modes.Telegraph then
 		self:_updateTelegraph(now)
@@ -1129,6 +1159,7 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
 		self:_forceArrive()
 	end
 	self.mode = Modes.Telegraph
+	self.hold = { held = 0, spent = false, unwatched = 0 }
 	local now = os.clock()
 	self.data = { telegraphUntil = now + duration, startedAt = now }
 	Net.get("HuntState")
@@ -1198,7 +1229,7 @@ function StalkerService:_updateTelegraph(now: number)
 	end
 end
 
-function StalkerService:_runSpeed(_watchers): number
+function StalkerService:_runSpeed(watchers): number
 	local speed = S.SprintSpeedRatio
 		* Config.Player.SprintSpeed
 		* (self.difficulty.StalkerSpeedMultiplier or 1)
@@ -1206,7 +1237,36 @@ function StalkerService:_runSpeed(_watchers): number
 	if self.final then
 		speed *= 0.85
 	end
+	-- Two watchers still on him once the hold is spent: he comes on at about
+	-- a walk (Config.Stare), so the stare is a choice, not a wall.
+	if watchers and StalkRules.frozen(#watchers) then
+		speed *= Config.Stare.HuntWatchedSpeedScale
+	end
 	return speed
+end
+
+-- Tell the watchers what their eyes did, the first times it happens
+-- (Config.Stare.Cues): he stopped in the light; the hold is spent and he
+-- comes on anyway. Captions on the client (Controllers/GuestController).
+function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boolean, watchers)
+	local beam = table.find(watchers, "beam") ~= nil
+	local function tell(kind: string)
+		for _, w in watchers do
+			if typeof(w) == "Instance" then
+				local times = self.holdCues[w] or 0
+				if times < Config.Stare.Cues then
+					self.holdCues[w] = times + 1
+					Net.get("GuestEvent"):FireClient(w, { kind = kind, beam = beam, hunt = hunting })
+				end
+			end
+		end
+	end
+	if held and not self.wasHeld then
+		tell("held")
+	elseif self.wasHeld and not held and frozen and hunting then
+		tell("unheld")
+	end
+	self.wasHeld = held
 end
 
 -- Walking in a hunt: facing where he goes, running pose when fast.

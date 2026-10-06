@@ -69,6 +69,30 @@ Config.Witness = {
 	CoStareSeconds = 3, -- (doc) two players holding a stare make him back away
 }
 
+-- The stare (the owner's audit of 2026-10-06, Finding 3; Logic/StalkRules,
+-- Stalker/Perception): two of you watching him freezes him, but only while
+-- he is in the light, so the dark, the battery and his KillLights matter;
+-- in a hunt the stare holds him for a few seconds at a time and never ends
+-- the chase; alone, a steady full beam stands in for the second pair of
+-- eyes, at a cost in battery. The Companion no longer counts as a watcher.
+Config.Stare = {
+	LitOnly = true, -- off: the old rule, any clear look counts
+	DarkWatchRange = 4, -- at arm's length you see him whatever the light
+	BeamRange = 42, -- the head beam's reach (PlayerStateService: SpotLight range 42, angle 50)
+	BeamHalfAngle = 28, -- degrees off the camera's centre that the beam still lights him
+	ClipRange = 16, -- the torch clipped to your shirt (Config.Hands.ClipLight)
+	ClipHalfAngle = 40, -- ... points where your body faces
+	LanternRange = 22, -- a lit Lantern in your hand lights him this far
+	SoloBeam = true, -- alone (one active player), your full beam on him counts double
+	SoloBeamSeconds = 0.6, -- ... once held steady this long
+	BeamDrainScale = 3, -- and drains the battery this many times faster while it does
+	HuntHoldSeconds = 4, -- in a hunt two watchers hold him this long at a time
+	HoldResetSeconds = 1.5, -- then he comes on until nobody has watched him for this long
+	HuntWatchedSpeedScale = 0.45, -- how fast he comes on while two still watch (about a walk)
+	CoStareEndsHunt = false, -- the old rule: a 3 s co-stare ended a hunt
+	Cues = 2, -- how many times a run each player is told "[it stops in the light]" and the like
+}
+
 Config.Social = {
 	PingCooldown = 0.8,
 	PingLifetime = 7,

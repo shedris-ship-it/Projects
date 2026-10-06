@@ -47,7 +47,7 @@ local function reply(player: Player, text: string)
 end
 
 local HELP = table.concat({
-	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto>",
+	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto> · watch (the stare right now)",
 	"start · end · skip (to Investigation) · resolve (serve the dinner) · summary (the run in numbers, to Output)",
 	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
@@ -130,6 +130,24 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "overlay" then
 		watchers[player] = args[2] ~= "off" or nil
 		reply(player, "overlay " .. (watchers[player] and "on" or "off"))
+	elseif command == "watch" then
+		-- The stare right now: who counts, in what light (Config.Stare).
+		local state = services.StalkerService:DebugState()
+		if not state then
+			reply(player, "no stalker: start a run first")
+		else
+			reply(
+				player,
+				string.format(
+					"%s · tier %d · watchers %d · %s · costare %.1f",
+					state.mode,
+					state.tier,
+					state.watchers,
+					tostring(state.watch),
+					state.coStare
+				)
+			)
+		end
 	elseif command == "summary" then
 		-- The run in numbers so far (Logic/RunStats), to the Output window.
 		local lines = services.RunLogService:SummaryLines()

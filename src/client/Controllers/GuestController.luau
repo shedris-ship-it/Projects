@@ -374,6 +374,11 @@ function GuestController:_event(event)
 	elseif kind == "caught" then
 		audio:PlayFor("Sting", event.position, 0.7, 1, 2)
 		audio:Caption("[a strangled cry]")
+	elseif kind == "held" then
+		-- Your eyes (or your beam, alone) stopped him (Config.Stare).
+		audio:Caption(event.beam and "[caught in your light, it stops]" or "[watched by two of you, it stops]")
+	elseif kind == "unheld" then
+		audio:Caption("[the light isn't enough any more. It comes on]")
 	elseif kind == "catch" then
 		self:_jumpscare()
 	end

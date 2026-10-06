@@ -70,6 +70,9 @@ Constants.PlayerAttributes = {
 	-- The torch is clipped to your shirt (anything but slot 1 in your hands):
 	-- a weak light where your body faces instead of the beam in your hand.
 	TorchClipped = "TorchClipped",
+	-- Alone, your full beam is holding him frozen (Config.Stare): the battery
+	-- drains faster while it does.
+	BeamHold = "BeamHold",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
 	Ready = "Ready",

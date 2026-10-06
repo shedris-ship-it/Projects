@@ -169,6 +169,61 @@ return function(test, check, Shared, require)
 		check.truthy(StalkRules.contact(touching({ sinceContact = G.ContactCooldownPerPlayer + 1 }), G), "later")
 	end)
 
+	test(
+		"the stare counts only in the light: the room, the beam, the clip light, a lantern, or arm's length",
+		function()
+			local cfg = Config.Stare
+			local function lit(overrides)
+				local ctx = {
+					distance = 20,
+					roomLit = false,
+					beamOn = false,
+					beamAngle = 90,
+					clipOn = false,
+					clipAngle = 90,
+					lanternOn = false,
+				}
+				for k, v in overrides or {} do
+					ctx[k] = v
+				end
+				return StalkRules.litFor(ctx, cfg)
+			end
+			check.equal(lit(), false, "a dark room, no light on him")
+			check.truthy(lit({ roomLit = true }), "a lit room")
+			check.truthy(lit({ beamOn = true, beamAngle = 10 }), "in the beam")
+			check.equal(lit({ beamOn = true, beamAngle = 60 }), false, "the beam points elsewhere")
+			check.equal(lit({ beamOn = true, beamAngle = 10, distance = cfg.BeamRange + 5 }), false, "beyond the beam")
+			check.truthy(lit({ clipOn = true, clipAngle = 20, distance = 10 }), "the clip light, close")
+			check.equal(lit({ clipOn = true, clipAngle = 20, distance = 30 }), false, "the clip light is short")
+			check.truthy(lit({ lanternOn = true, distance = 12 }), "a lit lantern in hand")
+			check.truthy(lit({ distance = 3 }), "arm's length in the dark")
+			check.truthy(
+				StalkRules.litFor({ distance = 60 }, { LitOnly = false }),
+				"the old rule when the light is off"
+			)
+		end
+	)
+
+	test("in a hunt two watchers hold him a few seconds at a time, then he comes on until they lose him", function()
+		local cfg = Config.Stare
+		local state = { held = 0, spent = false, unwatched = 0 }
+		local heldFor = 0
+		for _ = 1, 100 do
+			if StalkRules.huntHold(state, true, 0.1, cfg) then
+				heldFor += 0.1
+			end
+		end
+		check.near(heldFor, cfg.HuntHoldSeconds, 0.15, "held for the hold time only")
+		check.truthy(state.spent, "then the hold is spent")
+		check.equal(StalkRules.huntHold(state, true, 0.1, cfg), false, "staring on does nothing more")
+		-- A short break doesn't reset it; losing him for HoldResetSeconds does.
+		StalkRules.huntHold(state, false, cfg.HoldResetSeconds / 2, cfg)
+		check.truthy(state.spent, "a glance away isn't enough")
+		StalkRules.huntHold(state, false, cfg.HoldResetSeconds, cfg)
+		check.equal(state.spent, false, "lost for long enough: they can hold him again")
+		check.truthy(StalkRules.huntHold(state, true, 0.1, cfg), "and do")
+	end)
+
 	test("doorway stand only while he can't attack", function()
 		check.truthy(StalkRules.mayBlockDoorway(2), "tier 2")
 		check.equal(StalkRules.mayBlockDoorway(3), false, "tier 3")

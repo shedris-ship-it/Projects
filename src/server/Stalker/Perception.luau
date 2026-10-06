@@ -11,8 +11,14 @@ local Workspace = game:GetService("Workspace")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local StalkRules = require(Shared.Logic.StalkRules)
 
 local S = Config.Stalker
+local PA = Constants.PlayerAttributes
+
+local function flat(v: Vector3): Vector3
+	return Vector3.new(v.X, 0, v.Z)
+end
 
 local Perception = {}
 Perception.__index = Perception
@@ -33,7 +39,9 @@ function Perception.new(services, body, bodyCtl)
 		-- a radio left on (docs/plans/gameplay-rework.md section 4.9).
 		lures = {}, -- { position, t, radius, checked }
 		followed = {}, -- when he went to check one (too many and he gets wary)
-		watchTime = {}, -- player -> seconds continuously watched
+		watchTime = {}, -- player -> seconds continuously watched (in the light)
+		beamHeld = {}, -- player -> seconds their full beam has held him, alone
+		lastWatch = nil, -- { lit, dark, beams, roomLit } for the overlay
 		visibleList = {}, -- players he can see this tick, nearest first
 		hearingMultiplier = 1,
 		params = params,
@@ -45,6 +53,7 @@ function Perception:Reset()
 	self.lures = {}
 	self.followed = {}
 	self.watchTime = {}
+	self.beamHeld = {}
 	self.visibleList = {}
 end
 
@@ -250,45 +259,99 @@ function Perception:Update(hearingBoost: number?)
 	end
 end
 
--- The observation rule: update continuous watch time per Witness and return
--- the list of watchers (players, plus "companion" if it backs one up).
+-- Is he in this player's light at `point` (Logic/StalkRules.litFor)? Also
+-- answers whether it's their full beam that lights him.
+function Perception:_litFor(player: Player, point: Vector3, roomLit: boolean, cfg): (boolean, boolean)
+	local services = self.services
+	local ps = services.PlayerStateService
+	local view = services.WitnessService:GetView(player)
+	local distance, beamAngle = math.huge, 180
+	if view then
+		local offset = point - view.Position
+		distance = offset.Magnitude
+		if distance > 0.01 then
+			beamAngle = math.deg(math.acos(math.clamp(view.LookVector:Dot(offset.Unit), -1, 1)))
+		end
+	end
+	local clipAngle = 180
+	local root = ps:Root(player)
+	if root then
+		local offset = flat(point - root.Position)
+		local facing = flat(root.CFrame.LookVector)
+		if offset.Magnitude > 0.01 and facing.Magnitude > 0.01 then
+			clipAngle = math.deg(math.acos(math.clamp(facing.Unit:Dot(offset.Unit), -1, 1)))
+		end
+	end
+	local torchOn = ps:FlashlightOn(player)
+	local clipped = services.ToolService:TorchClipped(player)
+	local ctx = {
+		distance = distance,
+		roomLit = roomLit,
+		beamOn = torchOn and not clipped,
+		beamAngle = beamAngle,
+		clipOn = torchOn and clipped,
+		clipAngle = clipAngle,
+		lanternOn = player:GetAttribute("LanternOn") == true,
+	}
+	local beam = ctx.beamOn and distance <= cfg.BeamRange and beamAngle <= cfg.BeamHalfAngle
+	return StalkRules.litFor(ctx, cfg), beam
+end
+
+-- The observation rule: update continuous watch time per player and return
+-- the list of watchers. Since the owner's audit (2026-10-06) a look counts
+-- only while he is in that player's light (Config.Stare: the room, their
+-- beam or clip light, a lit Lantern, or arm's length), and the Companion no
+-- longer counts. Alone, a full beam held steady on him stands in for the
+-- second pair of eyes (a "beam" entry in the list), and the battery pays.
 function Perception:Watchers(dt: number, visibleTo: { [Player]: boolean }): { any }
 	local services = self.services
+	local cfg = Config.Stare
 	-- His head and chest as clients draw them (a peeking head sticks out of
 	-- a doorway while his body is behind the wall).
 	local points = self.bodyCtl and self.bodyCtl:ExposedPoints() or { self.body.root.Position + Vector3.new(0, 1.5, 0) }
-	local torso = points[#points]
 	local ignore = { self.body.model }
+	local roomLit = services.WorldService:IsLit(self.body.root.Position)
+	local active = services.PlayerStateService:ActivePlayers()
+	local alone = #active == 1
 	local watchers = {}
-	for _, player in services.PlayerStateService:ActivePlayers() do
-		local looking = false
+	local lit, dark, beams = 0, 0, 0
+	for _, player in active do
+		local looking, inLight, beam = false, false, false
 		if visibleTo[player] == true then
 			for _, point in points do
 				if services.WitnessService:IsLookingAt(player, point, S.WatchConeDegrees, S.WatchRange, ignore) then
 					looking = true
+					inLight, beam = self:_litFor(player, point, roomLit, cfg)
 					break
 				end
 			end
 		end
-		if looking then
-			self.watchTime[player] = (self.watchTime[player] or 0) + dt
-		else
-			self.watchTime[player] = 0
+		local counts = looking and inLight
+		if looking and not counts then
+			dark += 1
+		elseif counts then
+			lit += 1
 		end
-		if self.watchTime[player] >= S.WatchedAfterSeconds then
+		self.watchTime[player] = counts and (self.watchTime[player] or 0) + dt or 0
+		local watching = self.watchTime[player] >= S.WatchedAfterSeconds
+		if watching then
 			table.insert(watchers, player)
 		end
-	end
-	if #watchers >= 1 then
-		local companion = services.CompanionService
-		if
-			companion
-			and companion:IsPresent()
-			and (companion:CanSee(torso, ignore) or companion:CanSee(points[1], ignore))
-		then
-			table.insert(watchers, "companion")
+		-- Alone: a steady full beam on him counts double, and drains the battery.
+		local holding = alone and cfg.SoloBeam and counts and beam
+		self.beamHeld[player] = holding and (self.beamHeld[player] or 0) + dt or 0
+		local held = watching and self.beamHeld[player] >= cfg.SoloBeamSeconds
+		if held then
+			beams += 1
+		end
+		if (player:GetAttribute(PA.BeamHold) == true) ~= held then
+			player:SetAttribute(PA.BeamHold, held or nil)
 		end
 	end
+	if beams > 0 then
+		table.insert(watchers, "beam")
+	end
+	self.lastWatch = { lit = lit, dark = dark, beams = beams, roomLit = roomLit }
 	return watchers
 end
 

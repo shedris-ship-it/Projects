@@ -138,6 +138,7 @@ function DebugOverlay:Update(dt: number)
 					s.coStare
 				)
 			)
+			table.insert(lines, "watch: " .. tostring(s.watch))
 			table.insert(lines, "director: " .. tostring(s.director))
 			if s.nav then
 				table.insert(lines, "walk: " .. s.nav)
