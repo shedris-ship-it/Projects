@@ -86,6 +86,7 @@ local Dressing = {
 	Printout = { class = "light", label = "Printout" },
 	-- A board pried off a boarded door (docs/plans/level-design.md 11, L3.3).
 	Plank = { class = "medium", label = "Plank" },
+	WindUpToy = { class = "light", label = "Wind-up toy" }, -- a child's room's (Services/ToyService)
 }
 
 -- Every piece of furniture, by prop kind (section 4.6; the owner asked for

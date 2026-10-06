@@ -135,4 +135,43 @@ return function(test, check, Shared, require)
 		-- Most of what's kept in drawers goes where nothing else draws you.
 		check.truthy(filled / kept > 0.5, ("%d of %d kept things fill a room with no reason"):format(filled, kept))
 	end)
+	test("a fixture put there each run: the kettle by the stove, one record player a house", function()
+		local Interactables = require(Shared.Data.Interactables)
+		local mansionCfg = Config.Mansion
+		local records, houses = 0, 0
+		for seed = 1, 12 do
+			local house = MansionGen.generate(seed * 23, Rooms.Mansion, mansionCfg)
+			local base = RoomPurpose.base(house, templates)
+			local order = RoomPurpose.placedRooms(house, templates, "RecordPlayer")
+			local byId = {}
+			for _, r in house.rooms do
+				byId[r.id] = r
+			end
+			-- Best first: by the order of its rooms' kinds.
+			local last = 0
+			for _, id in order do
+				local rank = table.find(Interactables.RecordPlayer.placed.rooms, templates[byId[id].template].id)
+				check.truthy(rank ~= nil and rank >= last, "seed " .. seed .. ": in order")
+				last = rank
+			end
+			local lured = 0
+			for id, entry in base do
+				if table.find(entry.strong, "lure: RecordPlayer") then
+					lured += 1
+					check.equal(id, order[1], "seed " .. seed .. ": in the room it goes in")
+				end
+				local template = templates[byId[id].template]
+				if template and template.id == "kitchen" then
+					check.truthy(
+						table.find(entry.strong, "lure: Kettle") ~= nil,
+						"seed " .. seed .. ": the kitchen's kettle"
+					)
+				end
+			end
+			check.truthy(lured <= 1, "seed " .. seed .. ": one a house")
+			houses += 1
+			records += lured
+		end
+		check.truthy(records > houses / 2, records .. " of " .. houses .. " houses have one")
+	end)
 end

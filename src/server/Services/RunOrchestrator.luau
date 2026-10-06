@@ -253,6 +253,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.DecorService:Begin(rng:Fork("anomaly"))
 		-- Toilets, taps, TVs, radios and every room's light switch.
 		services.InteractService:Begin()
+		-- Wind-up toys in the children's rooms (docs/plans/level-design.md 4).
+		services.ToyService:Begin(rng:Fork("toys"))
 		services.LockService:Begin(plan)
 		-- The crowbar and the bolt cutters where the plan keeps them (L3.3).
 		services.ToolService:PlacePlanned(plan, rng:Fork("planned tools"))

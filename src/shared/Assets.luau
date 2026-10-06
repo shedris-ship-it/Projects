@@ -58,6 +58,15 @@ Assets.Sounds = {
 	LockClick = "rbxassetid://9125343042", -- PSE "Door Lock Button Clicks 1": picking a small lock
 	Flush = "rbxassetid://9120106611", -- PSE "Toilet Flush Two Flushes Gushing Water 1" (R2c interactables)
 	Tap = "rbxassetid://9113368238", -- PSE "Bathroom Faucet Running Water 1": a tap left running, looped
+	-- Rooms' own lures and features (docs/plans/level-design.md section 4,
+	-- L3.6): licensed library audio chosen by its description, not yet heard:
+	-- swap by ear here.
+	KettleWhistle = "rbxassetid://9117259669", -- PSE "Pealess Whistle Referee Fox 40 1": a long burst, looped as the kettle's shriek
+	WashingMachine = "rbxassetid://1839026975", -- APM "Washing Machine OL"
+	Record = "rbxassetid://1835561411", -- APM "Seventies Swing": a record on the player
+	CarHorn = "rbxassetid://9114402468", -- PSE "Ferrari 308 Car Honking Dual Air Horns 6"
+	ServiceBell = "rbxassetid://9125485591", -- PSE "Desk Bell Counter Service Single Ringing Ding 1": a servants' bell
+	ToyWindUp = "rbxassetid://9120219910", -- PSE "Toy Plastic Feet Wind Up 2": wound, then walking
 	MusicBoxNote = "rbxassetid://9117042092", -- PSE "Music Box Swan Lake Single Notes 3": one note, pitched per key
 }
 

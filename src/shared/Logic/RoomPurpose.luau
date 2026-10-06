@@ -31,6 +31,39 @@ local function add(list, label: string)
 	end
 end
 
+-- Whether a template's furniture has a top to put something on.
+local function hasTop(template): boolean
+	for _, prop in template.props or {} do
+		local kind = Props.Kinds[prop.kind]
+		if kind and kind.top then
+			return true
+		end
+	end
+	return false
+end
+
+-- The rooms a fixture put on a top goes in (Data/Interactables `placed.rooms`),
+-- best first: rooms of the first template id in its list, then the next,
+-- each with a top to stand it on. A fixture placed `one` a house goes in the
+-- first (Services/InteractService; Logic/RoomPurpose counts it there).
+function RoomPurpose.placedRooms(layout, templatesById, name: string): { number }
+	local info = Interactables[name]
+	local rooms = table.clone(layout.rooms)
+	table.sort(rooms, function(a, b)
+		return a.id < b.id
+	end)
+	local out = {}
+	for _, templateId in info and info.placed and info.placed.rooms or {} do
+		for _, room in rooms do
+			local template = templatesById[room.template]
+			if template and template.id == templateId and hasTop(template) then
+				table.insert(out, room.id)
+			end
+		end
+	end
+	return out
+end
+
 -- Whether a room is a way between others (a corridor or a stair).
 function RoomPurpose.connector(room, template): boolean
 	return room.corridor == true or room.kind == "stair" or (template ~= nil and template.family == "corridor")
@@ -54,8 +87,25 @@ function RoomPurpose.base(layout, templatesById)
 				add(entry.strong, "lure: " .. prop.kind)
 				entry.lure = true
 			end
+			-- A fixture put on it each run (a kettle on the stove).
+			for name, info in Interactables do
+				if info.placed and info.placed.on == prop.kind then
+					add(entry.strong, "lure: " .. name)
+					entry.lure = true
+				end
+			end
 		end
-		if LockPlanner.offers(template, mansion).hides > 0 then
+		-- A fixture put in rooms like this one (a wind-up toy; a kettle on the
+		-- counter when there's no stove).
+		for name, info in Interactables do
+			local placed = template and info.placed
+			local here = placed and placed.rooms and not placed.one and table.find(placed.rooms, template.id)
+			if here or (placed and placed.room == template.id) then
+				add(entry.strong, "lure: " .. name)
+				entry.lure = true
+			end
+		end
+		if template and LockPlanner.offers(template, mansion).hides > 0 then
 			add(entry.survival, "hide")
 		end
 		if room.lantern then
@@ -95,6 +145,18 @@ function RoomPurpose.base(layout, templatesById)
 		if #cycle >= 4 then
 			for _, id in cycle do
 				add(out[id].route, "loop")
+			end
+		end
+	end
+	-- A fixture one a house (the record player): in the room it goes in.
+	if mansion then
+		for name, info in Interactables do
+			if info.placed and info.placed.one then
+				local first = RoomPurpose.placedRooms(layout, templatesById, name)[1]
+				if first and out[first] then
+					add(out[first].strong, "lure: " .. name)
+					out[first].lure = true
+				end
 			end
 		end
 	end

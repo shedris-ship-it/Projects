@@ -1078,6 +1078,15 @@ Config.Leads = {
 
 -- Fixtures you can work and the lights' wall switches (Services/
 -- InteractService, Data/Interactables, Logic/SwitchSpots).
+-- Wind-up toys (docs/plans/level-design.md section 4, L3.6; Services/ToyService).
+Config.Toys = {
+	WindSeconds = 0.8, -- the hold to wind one
+	WalkSeconds = 15, -- how long it walks
+	Speed = 1.3, -- studs a second
+	NoiseEvery = 2, -- seconds between its ticking being heard
+	Lure = 16, -- studs its ticking carries
+}
+
 Config.Interact = {
 	Reach = 7, -- studs from a fixture or switch to work it
 	SwitchHeight = 4, -- studs above the floor
