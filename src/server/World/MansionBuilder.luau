@@ -15,7 +15,7 @@
 -- clear, walkable point (in the hall it is in front of the staircase).
 --
 -- Stairs are walkable wedge ramps (invisible) under steps you see but can't
--- collide with, so players, The Guest and the Companion walk them smoothly.
+-- collide with, so players, The Guest and the bot walk them smoothly.
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)

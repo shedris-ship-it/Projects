@@ -14,7 +14,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -305,7 +304,7 @@ local function near(self, player: Player, at: Vector3?): boolean
 		and self.PlayerState:CanAct(player)
 end
 
--- Anyone (a player, him, the Companion) standing in the doorway.
+-- Anyone (a player, him) standing in the doorway.
 function CrankService:_occupied(crank): boolean
 	local points = {}
 	for _, player in Players:GetPlayers() do
@@ -318,10 +317,6 @@ function CrankService:_occupied(crank): boolean
 	local guest = stalker and stalker.GetPosition and stalker:GetPosition()
 	if guest then
 		table.insert(points, guest)
-	end
-	local companion = Workspace:FindFirstChild("Companion", true)
-	if companion and companion:IsA("Model") then
-		table.insert(points, companion:GetPivot().Position)
 	end
 	local floor = crank.seam.floorPosition
 	for _, p in points do

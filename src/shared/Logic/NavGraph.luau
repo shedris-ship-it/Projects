@@ -1,6 +1,6 @@
 -- The house as a graph to walk (docs/plans/mansion-generation.md, M3): where
 -- its doorways, stairs and gallery are, and how far apart in studs. This is
--- the strategy for The Guest and the Companion: it picks the way through the
+-- the strategy for The Guest and the bot: it picks the way through the
 -- house and which way round, and Stalker/Walker walks each room on the
 -- navmesh. Pure: no engine calls.
 --

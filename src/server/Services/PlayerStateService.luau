@@ -330,9 +330,19 @@ function PlayerStateService:Down(player: Player)
 		self:MakeLost(player, "caught once too often")
 		return
 	end
-	record.downedUntil = os.clock() + Config.Run.DownedSeconds
+	-- Alone, nobody is coming: a little longer to crawl (Config.Run.SoloDownedSeconds).
+	local solo = #self:RunPlayers() == 1
+	local seconds = solo and (Config.Run.SoloDownedSeconds or Config.Run.DownedSeconds) or Config.Run.DownedSeconds
+	record.downedUntil = os.clock() + seconds
 	self:_setState(player, States.Downed)
-	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + Config.Run.DownedSeconds)
+	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + seconds)
+	-- Smelling salts (Data/Tools): spent now, before the tools fall, and you
+	-- come round in a moment (_tick).
+	record.saltsAt = nil
+	local tools = self.services.ToolService
+	if tools and tools.Consume and tools:Consume(player, "Salts") then
+		record.saltsAt = os.clock()
+	end
 	self:SetFlashlight(player, false)
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
@@ -355,17 +365,10 @@ function PlayerStateService:Down(player: Player)
 		end)
 		record.revivePrompt = prompt
 	end
-	local seconds = Config.Run.DownedSeconds
-	notify(
-		player,
-		string.format(
-			"You're bleeding out. Someone has %d seconds to reach you. (Down %d of %d.)",
-			seconds,
-			record.downs,
-			cap
-		),
-		"danger"
-	)
+	local line = solo
+			and "You're bleeding out. Crawl to the light, or into a hiding place. %d seconds. (Down %d of %d.)"
+		or "You're bleeding out. Someone has %d seconds to reach you. (Down %d of %d.)"
+	notify(player, string.format(line, seconds, record.downs, cap), "danger")
 	for _, other in self:RunPlayers() do
 		if other ~= player then
 			notify(
@@ -406,6 +409,29 @@ function PlayerStateService:Revive(player: Player, rescuer: Player?)
 	end
 	notify(player, rescuer and (rescuer.DisplayName .. " pulled you up.") or "You're back up.", "good")
 	self.Revived:Fire(player, rescuer)
+end
+
+-- Crawled to the light: in a lit Lantern room, or at the mouth of a hiding
+-- place (Config.Run.CrawlReach), a downed player gets up by themself (the
+-- owner's RE save room, 2026-10-06; solo has no partner any more).
+function PlayerStateService:_atTheLight(position: Vector3): boolean
+	local world = self.services.WorldService
+	if world:IsLanternRoom(world:RoomAt(position)) then
+		return true
+	end
+	local reach = Config.Run.CrawlReach or 3
+	for _, spot in world.World and world.World.hidingSpots or {} do
+		local front = spot.frontPosition
+		-- (The mouth is a floor point; the body's position is its middle, 3 studs up.)
+		if
+			front
+			and math.abs(front.Y - position.Y) < 5
+			and (Vector3.new(front.X, 0, front.Z) - Vector3.new(position.X, 0, position.Z)).Magnitude <= reach
+		then
+			return true
+		end
+	end
+	return false
 end
 
 -- Within the moment after a revive when he can't catch you.
@@ -623,9 +649,18 @@ function PlayerStateService:_tick(dt: number)
 		local record = records[player]
 		local pos = positions[player]
 
-		-- Downed timer
+		-- Downed timer; the salts, the light or a hiding place's mouth pull you up first.
 		if record.state == States.Downed and record.downedUntil and now >= record.downedUntil then
 			self:MakeLost(player, "nobody reached them")
+		elseif record.state == States.Downed and pos then
+			if record.saltsAt and now - record.saltsAt >= (Config.Run.SaltsSeconds or 3) then
+				record.saltsAt = nil
+				notify(player, "The salts bring you round.", "good")
+				self:Revive(player, nil)
+			elseif self:_atTheLight(pos) then
+				notify(player, "You crawled to the light.", "good")
+				self:Revive(player, nil)
+			end
 		end
 		if record.graceUntil and now >= record.graceUntil then
 			record.graceUntil = nil

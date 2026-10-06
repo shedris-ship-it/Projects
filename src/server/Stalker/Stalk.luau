@@ -1371,7 +1371,7 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 	return ok
 end
 
--- watchers: players (and "companion") watching him this tick.
+-- watchers: players watching him this tick.
 function Stalk:Update(now: number, dt: number, watchers, tier: number)
 	self:_feed(dt)
 	self:_pickTarget(now)

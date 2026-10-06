@@ -296,7 +296,6 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 			character:PivotTo(world.spawns[((i - 1) % #world.spawns) + 1])
 		end
 	end
-	services.CompanionService:Begin(players, world.spawns[1])
 	services.StalkerService:Begin({
 		archetype = location.stalker,
 		rng = rng:Fork("stalker"),
@@ -532,7 +531,6 @@ function RunOrchestrator:_returnToLobby()
 	local services = self.services
 	local players = self.run and self.run.players or {}
 	services.StalkerService:Stop()
-	services.CompanionService:Stop()
 	services.ToolService:EndRun()
 	for _, player in players do
 		if player.Parent then

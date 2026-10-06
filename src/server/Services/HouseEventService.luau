@@ -251,8 +251,9 @@ function HouseEventService:_phoneRings(pos: Vector3): boolean
 		end
 		answered = true
 		stop()
-		-- He heard you pick up: your position, from the receiver.
+		-- He heard you pick up: your position, from the receiver, and you're told so.
 		services.NoiseService:Emit(phone.position, E.PhoneLure, player, "lure")
+		services.StalkerService:HeardYou(player, phone.position)
 		services.DivergenceService:Scare(player, { kind = "phone", position = phone.position })
 		services.RunLogService:Beat("phoneAnswered", player.DisplayName)
 		services.Telemetry:Log("PhoneAnswered", {}, player)

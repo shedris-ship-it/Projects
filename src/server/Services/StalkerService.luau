@@ -248,6 +248,15 @@ function StalkerService:CanSeePlayer(player: Player): boolean
 	return self.perception:CanSee(player)
 end
 
+-- A sound he can pin on you (the phone picked up): remembered as yours
+-- (Stalk works from what he saw or heard), and you're told he heard.
+function StalkerService:HeardYou(player: Player, position: Vector3)
+	if self.perception and self.arrived then
+		self.perception:_remember(player, position, 1, false)
+	end
+	Net.get("GuestEvent"):FireClient(player, { kind = "heard" })
+end
+
 function StalkerService:IsHunting(): boolean
 	return self.active and (self.mode == Modes.Hunting or self.mode == Modes.Telegraph)
 end

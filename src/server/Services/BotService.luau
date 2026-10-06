@@ -9,8 +9,8 @@
 -- on a few seeds before and after.
 --
 -- The body: the player's HumanoidRootPart is taken by the server for the
--- run (SetNetworkOwner(nil)) and walked by Stalker/Walker the way the
--- Companion once was; the client's movement input does nothing meanwhile
+-- run (SetNetworkOwner(nil)) and walked by Stalker/Walker like the Guest;
+-- the client's movement input does nothing meanwhile
 -- (PA.BotDriven). An heirloom the bot carries is pinned at its head each
 -- Heartbeat (HandsService ServerCarry), since only a client carries what it
 -- picked up itself.
@@ -163,6 +163,7 @@ function BotService:Run(player: Player, args: { string }, report: (string) -> ()
 	self.steps = 0
 	self.cheated = 0
 	self.waits = 0
+	self.crawls = 0
 	self.lines = {}
 	self.carry = nil
 	self.result = nil
@@ -178,8 +179,8 @@ function BotService:Run(player: Player, args: { string }, report: (string) -> ()
 		groundOffset = humanoid.HipHeight + root.Size.Y / 2,
 		group = Constants.CollisionGroups.Players,
 		halfWidth = 1,
-		path = Walker.CompanionPath,
-		opensDoors = "companion",
+		path = Walker.PlayerPath,
+		opensDoors = "player",
 		who = "player",
 		player = player, -- doors swing away from the body (Stalker/Walker)
 	}, Random.new(run.seed or 1))
@@ -275,10 +276,10 @@ function BotService:_main()
 			self.result = over
 			break
 		end
-		-- Downed: wait to be up (the crawl rules are the house's), then go on.
+		-- Downed: crawl to the light like a player would (WP2: a lit Lantern
+		-- room or a hiding place's mouth pulls you up), then go on.
 		if self.PlayerState:State(self.player) == States.Downed then
-			self.walker:Stop()
-			task.wait(0.5)
+			self:_crawl()
 			continue
 		end
 		if self.onHunt ~= "work" and services.StalkerService:IsHunting() then
@@ -561,8 +562,24 @@ function BotService:_walkLeg(target: Vector3, within: number?, maxSeconds: numbe
 					break
 				end
 			end
+			-- Still there: a step back away from him first (standing still is
+			-- safe; walking into him is the contact lunge).
+			local g, p2 = self.services.StalkerService:GetPosition(), self.PlayerState:Position(self.player)
+			if g and p2 and (flat(g) - flat(p2)).Magnitude < B.GiveWay then
+				local away = flat(p2 - g)
+				if away.Magnitude > 0.1 then
+					local back = self:_floor(p2 + away.Unit * 8)
+					if self.World:RoomAt(back) then
+						walker:SetDestination(back, { speed = self.speed, force = true })
+						local stepped = os.clock()
+						while self.active and os.clock() - stepped < 3 and not walker:Arrived() do
+							task.wait(0.25)
+						end
+					end
+				end
+			end
 			walker:SetDestination(target, { speed = self.speed, force = true })
-			began += math.min(2.5, os.clock() - waited) -- waiting for him isn't the leg's time
+			began += math.min(6, os.clock() - waited) -- waiting for him isn't the leg's time
 			continue
 		end
 		-- Close, and no closer for a while (furniture between): near enough
@@ -1073,6 +1090,61 @@ function BotService:_extract(): (boolean, string?)
 	return false, string.format("never reached the door (%.0f studs short)", pos and (pos - target).Magnitude or -1)
 end
 
+-- Down: the nearest hiding place's mouth (or a lit Lantern room's middle),
+-- at crawl speed, until up or Lost. Alone there is nobody else to do it.
+function BotService:_crawl()
+	local services = self.services
+	local here = self.PlayerState:Position(self.player)
+	local world = self.World.World
+	if not here or not world then
+		task.wait(0.5)
+		return
+	end
+	local best, bestDistance = nil, math.huge
+	for _, spot in world.hidingSpots or {} do
+		if spot.frontPosition and math.abs(spot.frontPosition.Y - here.Y) < 6 then
+			local d = self.World:Separation(here, spot.frontPosition)
+			if d < bestDistance then
+				best, bestDistance = spot.frontPosition, d
+			end
+		end
+	end
+	for _, id in self.World:RoomIds() do
+		if self.World:IsLanternRoom(id) then
+			local centre = self.World:Room(id).center
+			local d = self.World:Separation(here, centre)
+			if d < bestDistance then
+				best, bestDistance = centre, d
+			end
+		end
+	end
+	if not best then
+		task.wait(0.5)
+		return
+	end
+	self.crawls = (self.crawls or 0) + 1
+	self:_log(string.format("   down: crawling %.0f studs to the light", bestDistance))
+	local walker = self.walker
+	walker:SetDestination(best, { speed = Config.Run.DownedCrawlSpeed or 3, force = true })
+	local began = os.clock()
+	while self.active and self.PlayerState:State(self.player) == States.Downed and os.clock() - began < 30 do
+		task.wait(0.25)
+		if walker:Arrived() or walker:Unreachable() then
+			-- The mouth itself: a last step straight at it.
+			local humanoid = self.player.Character and self.player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.WalkSpeed = Config.Run.DownedCrawlSpeed or 3
+				humanoid:MoveTo(best)
+			end
+		end
+	end
+	walker:Stop()
+	services.Telemetry:Log("BotCrawl", {
+		studs = math.floor(bestDistance),
+		up = self.PlayerState:State(self.player) == States.Active,
+	})
+end
+
 -- Hunts ------------------------------------------------------------------------------
 
 -- `flee`: away from him, to the reachable room farthest from where he is;
@@ -1136,7 +1208,7 @@ function BotService:_report(reason: string)
 	table.insert(
 		lines,
 		string.format(
-			"botrun %s: %s in %s · %d steps, %d failed, %d with no way, %d stuck points · %d nudges · %d waits for him · %d puzzles solved as if played",
+			"botrun %s: %s in %s · %d steps, %d failed, %d with no way, %d stuck points · %d nudges · %d waits for him · %d crawls · %d puzzles solved as if played",
 			self.fast and "(fast)" or "",
 			reason,
 			clock(elapsed),
@@ -1152,6 +1224,7 @@ function BotService:_report(reason: string)
 			#(self.stuckPoints or {}),
 			self.walkStats and self.walkStats.nudges or 0,
 			self.waits or 0,
+			self.crawls or 0,
 			self.cheated or 0
 		)
 	)
@@ -1178,6 +1251,7 @@ function BotService:_report(reason: string)
 		stuck = #(self.stuckPoints or {}),
 		nudges = self.walkStats and self.walkStats.nudges or 0,
 		waits = self.waits or 0,
+		crawls = self.crawls or 0,
 		cheated = self.cheated,
 		firstDoor = summary and summary.firstDoorAt and math.floor(summary.firstDoorAt) or nil,
 		dinner = summary and summary.servedAt and math.floor(summary.servedAt) or nil,

@@ -1,7 +1,7 @@
 -- The mansion's double-height rooms (docs/plans/mansion-generation.md): the
 -- grand hall, with a gallery round three walls and a staircase up the middle,
 -- and the dog-leg stairwells. Their shape lives here so that what
--- World/MansionBuilder builds and what The Guest and the Companion walk
+-- World/MansionBuilder builds and what The Guest and the bot walk
 -- (Logic/NavGraph) can't drift apart.
 --
 -- Coordinates are in the room's own frame: x east, z south, origin at the

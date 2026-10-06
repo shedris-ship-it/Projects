@@ -19,6 +19,13 @@ return function(test, check, Shared, require)
 		check.truthy(not strained, "moving properly")
 	end)
 
+	test("alone you push for more (Config.Push.SoloStrength): a bed creeps, a dresser moves", function()
+		local alone = Push.speed(1, weight("Bed"), cfg)
+		local solo = Push.speed(cfg.SoloStrength, weight("Bed"), cfg)
+		check.truthy(cfg.SoloStrength > 1 and cfg.SoloStrength < 2, "more than one, less than two")
+		check.truthy(solo >= alone, "never slower alone: " .. solo .. " vs " .. alone)
+	end)
+
 	test("a dresser moves for one, slowly", function()
 		local speed, creeping = Push.speed(1, weight("Dresser"), cfg)
 		check.truthy(not creeping, "it moves")

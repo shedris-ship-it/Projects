@@ -7,7 +7,7 @@
 --
 -- A client holding its mouse on a piece sends which way it walks (`Push`,
 -- 10 a second). The server checks reach and that they face it, adds up
--- everyone pushing it in the last moment (solo, the Companion lends a hand)
+-- everyone pushing it in the last moment (alone, you push for more: Config.Push.SoloStrength)
 -- and slides it along the floor, every step checked against the house:
 -- walls, door jambs, other furniture and anybody standing there stop it, and
 -- it never comes near a point The Guest walks by (a room's middle, a stair's
@@ -64,7 +64,6 @@ function PushService:Init(services)
 	self.Hands = services.HandsService
 	self.PlayerState = services.PlayerStateService
 	self.Noise = services.NoiseService
-	self.Companion = services.CompanionService
 	self.Stalker = services.StalkerService
 	self.pieces = {} -- prop id -> piece
 	self.moving = {} -- piece -> true while someone pushes it (or it coasts)
@@ -343,16 +342,14 @@ function PushService:_gather(piece)
 	end
 end
 
--- Solo, the Companion lends a hand when it's close.
-function PushService:_help(piece): number
-	if #self.PlayerState:RunPlayers() ~= 1 or not self.Companion:IsPresent() then
-		return 0
+-- Alone, you push for more than one (Config.Push.SoloStrength): there is
+-- nobody to help you creep a bed across a doorway (the Companion is gone,
+-- the owner's choice of 2026-10-06).
+function PushService:_strength(count: number): number
+	if count > 0 and #self.PlayerState:RunPlayers() == 1 then
+		return count * (P.SoloStrength or 1)
 	end
-	local at = self.Companion:GetPosition()
-	if at and gap(piece.prop.frame, piece.size, at) <= P.CompanionRange then
-		return 1
-	end
-	return 0
+	return count
 end
 
 -- Moving -----------------------------------------------------------------------------
@@ -366,7 +363,7 @@ function PushService:_step(piece, dt: number)
 		return -- he has it (Shove)
 	end
 	local now = os.clock()
-	local directions, first = {}, nil
+	local directions, first = {}, nil -- (`first` names the scrape's source)
 	for player, push in piece.pushers do
 		if now - push.at > P.Window or not player.Parent then
 			piece.pushers[player] = nil
@@ -387,7 +384,7 @@ function PushService:_step(piece, dt: number)
 	local d = #directions > 0 and Push.direction(directions) or nil
 	local target, creeping = Vector3.zero, false
 	if d then
-		local strength = #directions + (first and self:_help(piece) or 0)
+		local strength = self:_strength(#directions)
 		local speed
 		speed, creeping = Push.speed(strength, piece.weight, P)
 		target = Vector3.new(d.x, 0, d.z) * speed
@@ -854,10 +851,6 @@ function PushService:_bodies(): { Vector3 }
 		if root then
 			table.insert(bodies, root.Position)
 		end
-	end
-	local companion = self.Companion:IsPresent() and self.Companion:GetPosition()
-	if companion then
-		table.insert(bodies, companion)
 	end
 	local guest = self.Stalker:GetPosition()
 	if guest then

@@ -39,6 +39,18 @@ local Tools = {
 		homes = { "Workbench", "Counter", "Table", "Desk" },
 		planned = true,
 	},
+	-- A second wind (docs/progress/2026-10-07-loop/REPORT.md, WP2): spent
+	-- the moment you go down, you come round a few seconds later. Found in
+	-- the safe room (Data/SafeRoom) or a keepsake box in a solo run
+	-- (Config.Solo.SaltsChance), never lying about at random (`special`).
+	{
+		id = "Salts",
+		name = "Smelling salts",
+		description = "Spent the moment you go down: you come round a few seconds later. One use.",
+		color = { 120, 80, 40 },
+		homes = {},
+		special = true,
+	},
 }
 
 local byId = {}
@@ -52,7 +64,7 @@ end
 local ids, supply, homes = {}, {}, {}
 for _, tool in Tools do
 	table.insert(ids, tool.id)
-	if not tool.planned then
+	if not tool.planned and not tool.special then
 		table.insert(supply, tool.id)
 	end
 	homes[tool.id] = tool.homes

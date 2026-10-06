@@ -113,7 +113,7 @@ function WorldService:Build(layout, rng)
 		table.insert(ids, room.id)
 	end
 	self.adjacency = Graph.adjacency(ids, layout.edges)
-	-- The graph The Guest and the Companion walk by (Logic/NavGraph), the
+	-- The graph The Guest and the bot walk by (Logic/NavGraph), the
 	-- servants' passages in it (their hidden doors shut till found).
 	local navOptions = NavGraph.options(Config)
 	navOptions.passages = true
@@ -280,10 +280,10 @@ end
 
 -- The passage model (docs/plans/gameplay-rework.md section 5.1): who may pass
 -- a seam right now, and what it costs them in studs; nil means they can't.
--- Every route and distance the Guest, the Companion and the stalker's map of
+-- Every route and distance the Guest, the bot and the stalker's map of
 -- the squad use comes through here, so locks (R2a), barricades (R1b) and
 -- doors turned to walls (R3) only need adding in this one place. who:
---   "player"        players and the Companion
+--   "player"        players (and the bot)
 --   "guest"         The Guest between hunts
 --   "guestHunt"     The Guest hunting
 --   "guestRetreat"  distances while he backs away: how far, not how slow,
@@ -348,7 +348,7 @@ function WorldService:SetSeamBlocked(seamId: string, cause: string, blocked: boo
 end
 
 -- F2 `block <room> <room>`: shut a doorway to everyone, for testing what the
--- Guest and the Companion do with no way through. nil seam: open them all.
+-- Guest and the bot do with no way through. nil seam: open them all.
 function WorldService:DebugBlock(seamId: string?, blocked: boolean)
 	self.debugBlocked = self.debugBlocked or {}
 	if seamId then

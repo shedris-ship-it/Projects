@@ -11,8 +11,11 @@ local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local VoiceNoise = require(Shared.Logic.VoiceNoise)
+
+local States = Constants.PlayerStates
 
 local V = Config.Voice
 
@@ -41,7 +44,8 @@ function ChatService:_voice(player: Player, level: number)
 	local bucket = VoiceNoise.bucket(math.clamp(level, 0, 1), buckets[player] or 0, V)
 	buckets[player] = bucket
 	local root = self.PlayerState:Root(player)
-	if bucket > 0 and root then
+	-- (An Echo makes no noise he can hear: the Lost are not in the house to him.)
+	if bucket > 0 and root and self.PlayerState:State(player) ~= States.Lost then
 		self.Noise:Emit(root.Position, VoiceNoise.radius(bucket, V), player, "voice")
 	end
 end
@@ -53,7 +57,9 @@ function ChatService:_say(player: Player, raw: string)
 		return
 	end
 	local origin = root.Position
-	self.Noise:Emit(origin, radius, player, "speech")
+	if self.PlayerState:State(player) ~= States.Lost then
+		self.Noise:Emit(origin, radius, player, "speech")
+	end
 
 	-- Roblox requires every shown line to be filtered, per reader.
 	local ok, result = pcall(function()

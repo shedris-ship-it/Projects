@@ -382,6 +382,8 @@ function GuestController:_event(event)
 	elseif kind == "graced" then
 		-- Just pulled up with him right there (Config.Run.ReviveGraceSeconds).
 		audio:Caption("[it lets you get up. Run.]")
+	elseif kind == "heard" then
+		audio:Caption("[he heard you pick up]")
 	elseif kind == "catch" then
 		self:_jumpscare(event.catch)
 	end

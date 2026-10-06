@@ -24,7 +24,7 @@ local function colour(t: { number }): Color3
 	return Color3.fromRGB(t[1], t[2], t[3])
 end
 
--- Paints a character (a player's or the Companion's) in slot `index`.
+-- Paints a character in slot `index`.
 function OutfitService:Apply(character: Model, index: number)
 	for _, child in character:GetChildren() do
 		for _, class in STRAY do

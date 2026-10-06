@@ -54,7 +54,7 @@ end
 --   group       collision group (for sweeps),
 --   halfWidth   how far the body reaches sideways,
 --   path        PathfindingService agent parameters,
---   opensDoors  "stalker" (waits, bangs braced doors) or "companion",
+--   opensDoors  "stalker" (waits, bangs braced doors) or "player" (the bot's body, F2 `botrun`),
 
 --   who         who he walks as, for WorldService:SeamCost (a string, or a
 --               function returning one; "guest" if not given)
@@ -754,7 +754,7 @@ Walker.GuestPath = {
 	WaypointSpacing = 3,
 }
 
-Walker.CompanionPath = {
+Walker.PlayerPath = {
 	AgentRadius = 1.2,
 	AgentHeight = 5,
 	AgentCanJump = false,

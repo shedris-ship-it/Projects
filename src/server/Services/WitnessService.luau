@@ -151,6 +151,8 @@ function WitnessService:HandlePing(player: Player, pingType, position)
 			return
 		end
 		self.PlayerState:MarkEchoHint(player)
+		-- An Echo's job (WP2): a knock on the nearest shut door draws him there.
+		self:_echoKnock(player, root.Position)
 	elseif
 		state ~= Constants.PlayerStates.Active
 		and state ~= Constants.PlayerStates.Downed
@@ -170,6 +172,26 @@ function WitnessService:HandlePing(player: Player, pingType, position)
 		radio = player:GetAttribute(PA.Tool) == "Radio",
 		echo = isEcho,
 	})
+end
+
+-- Lost, you can still knock: the nearest shut door within ten studs sounds
+-- three knocks and he hears a lure there (NoiseService), once a hint.
+function WitnessService:_echoKnock(player: Player, from: Vector3)
+	local world = self.World.World
+	local best, bestDistance = nil, 10
+	for _, door in world and world.doors or {} do
+		if not door.open and door.position then
+			local d = (door.position - from).Magnitude
+			if d < bestDistance then
+				best, bestDistance = door, d
+			end
+		end
+	end
+	if best then
+		self.services.DoorService:Knock(best)
+		self.services.NoiseService:Emit(best.position, 25, nil, "lure")
+		Net.get("Notify"):FireClient(player, "You knock. He heard it.", "warning")
+	end
 end
 
 -- Used by the stalker's FakePing tactic (doc: "Fakes pings to lure players").

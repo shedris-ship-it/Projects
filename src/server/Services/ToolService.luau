@@ -455,12 +455,42 @@ function ToolService:DebugGive(player: Player, toolId: string): string
 			return "in your inventory: " .. toolId
 		end
 	end
+	-- None lying about (the salts, a tool the run didn't place): made from nothing.
+	if inv and Tools.ById[toolId] then
+		local ok, _, swapped = Inventory.pickup(inv, { id = toolId, uid = newUid() })
+		if not ok then
+			return "your hands are full"
+		end
+		self.found[toolId] = true
+		if swapped then
+			self:_putDown(player, swapped)
+		end
+		self:_publish(player)
+		return "in your inventory: " .. toolId .. " (made)"
+	end
 	return "no " .. toolId .. " lying in the house"
 end
 
 -- A tool lying at `cframe` for anyone to take (the safe room's).
 function ToolService:PlaceTool(toolId: string, cframe: CFrame)
 	self:_makePickup({ id = toolId, uid = newUid() }, cframe, 0)
+end
+
+-- Spend a tool from any slot (the salts): gone, not dropped. Whether one was carried.
+function ToolService:Consume(player: Player, toolId: string): boolean
+	local inv = inventories[player]
+	if not inv then
+		return false
+	end
+	for _, slot in Inventory.TOOL_SLOTS do
+		local item = inv.slots[slot]
+		if item and item.id == toolId then
+			Inventory.drop(inv, slot)
+			self:_publish(player)
+			return true
+		end
+	end
+	return false
 end
 
 -- Does this player carry this tool, in any slot?

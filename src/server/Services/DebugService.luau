@@ -19,6 +19,7 @@ local HouseMetrics = require(Shared.Logic.HouseMetrics)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local Tools = require(Shared.Data.Tools)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 local PartDump = require(script.Parent.Parent.World.PartDump)
 
@@ -374,6 +375,19 @@ function DebugService:Run(player: Player, text: string)
 			end
 		end
 		local info = plan and plan.tokens[token]
+		-- Any tool by id (`give tool:Salts`), planned or not (Data/Tools).
+		local toolId = string.match(token, "^tool:(.+)$")
+		if not info and toolId then
+			for id in Tools.ById do
+				if string.lower(id) == toolId then
+					toolId = id
+				end
+			end
+			if Tools.ById[toolId] then
+				reply(player, services.ToolService:DebugGive(player, toolId))
+				return
+			end
+		end
 		if not info then
 			reply(player, "usage: give <token> (key:1, heirloom:2, tool:Crowbar, ...)")
 		elseif info.kind == "key" then

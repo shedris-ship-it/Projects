@@ -87,13 +87,6 @@ function Perception:InSafeRoom(player: Player): boolean
 			company += 1
 		end
 	end
-	local companion = services.CompanionService
-	if companion and companion:IsPresent() then
-		local cpos = companion:GetPosition()
-		if cpos and services.WorldService:RoomAt(cpos) == roomId then
-			company += 1
-		end
-	end
 	-- Alone, your own company is enough (Config.Run.LanternCompany: the
 	-- owner's RE save room, 2026-10-06); with friends it takes two of you.
 	local squad = math.clamp(#services.PlayerStateService:RunPlayers(), 1, 4)

@@ -21,18 +21,23 @@ Config.Run = {
 	-- for a moment, so a revive is never a second catch.
 	DownsBeforeLost = 3,
 	ReviveGraceSeconds = 8,
+	-- Alone there is nobody to pull you up (the Companion is gone, the
+	-- owner's choice of 2026-10-06): you bleed a little longer, and the light
+	-- (a lit Lantern room) or a hiding place's mouth, crawled to, pulls you
+	-- up; smelling salts (Data/Tools) bring you round where you fell.
+	SoloDownedSeconds = 20,
+	CrawlReach = 3, -- studs from a hiding place's mouth
+	SaltsSeconds = 3,
 	-- A lit Lantern room protects you with this much company in it, by the
 	-- size of the squad (index = players in the run): alone, your own company
 	-- is enough (the owner's RE save room, 2026-10-06); with friends it takes two.
 	LanternCompany = { 1, 2, 2, 2 },
-	CompanionReviveSeconds = 6, -- the solo Companion is slower than a friend
 	HeartbeatBpm = 96, -- tempo of Assets.Sounds.Heartbeat at normal speed
 	BleedHeartbeat = { 1, 0.45 }, -- heartbeat speed from just downed to gone
 	ExtractionSeconds = 120,
 	DebriefSeconds = 30,
 	AfkSeconds = 60, -- (doc)
 	EchoHintCooldown = 60, -- (doc) Echoes ping one hint per minute
-	CompanionForSolo = true, -- Companion Witness so a solo player can anchor
 	DownedCrawlSpeed = 3,
 }
 
@@ -84,7 +89,7 @@ Config.Witness = {
 -- he is in the light, so the dark, the battery and his KillLights matter;
 -- in a hunt the stare holds him for a few seconds at a time and never ends
 -- the chase; alone, a steady full beam stands in for the second pair of
--- eyes, at a cost in battery. The Companion no longer counts as a watcher.
+-- eyes, at a cost in battery.
 Config.Stare = {
 	LitOnly = true, -- off: the old rule, any clear look counts
 	DarkWatchRange = 4, -- at arm's length you see him whatever the light
@@ -453,7 +458,7 @@ Config.Mansion = {
 -- Walking the house (docs/plans/mansion-generation.md, M3): the graph that
 -- picks the way (Logic/NavGraph), the walker that follows it on the navmesh
 -- (Stalker/Walker) and the sweeps that keep every move out of the walls
--- (Stalker/Clearance). The Guest and the Companion share all of it.
+-- (Stalker/Clearance). The Guest and the bot (F2 `botrun`) share all of it.
 Config.Nav = {
 	Approach = 3.5, -- studs into a room in front of a doorway
 	Clearance = 1.2, -- half the Guest's width plus a margin: routes keep this far from furniture
@@ -748,6 +753,12 @@ Config.Bot = {
 	SprintSpeed = 19, -- `botrun fast`
 	LegTimeout = 25, -- seconds a leg may take at least (longer legs get longer)
 	GiveWay = 9, -- studs: between hunts it stops and lets him move off rather than walk into him
+}
+
+-- Alone (docs/progress/2026-10-07-loop/REPORT.md, WP2): what the house
+-- leaves a lone player instead of a partner.
+Config.Solo = {
+	SaltsChance = 0.6, -- one keepsake box in the house keeps smelling salts
 }
 
 -- Stuck-assist (Logic/Assist; Services/FinaleService): help rises with the
@@ -1380,7 +1391,7 @@ Config.Push = {
 	SendHz = 10,
 	ScrapeNoise = 7, -- noise radius per unit of weight while it moves
 	ScrapeEvery = 0.8, -- seconds between scrape noises
-	CompanionRange = 10, -- solo, the Companion helps push when this close to it
+	SoloStrength = 1.6, -- alone, you push for this many people's worth (the Companion is gone, 2026-10-06)
 	KeepClear = 1.6, -- never pushed within this of a point The Guest walks by (a room's middle, a doorway)
 	DoorClear = 0.5, -- or into a door's swing
 }
@@ -1584,6 +1595,13 @@ Config.ViewModel = {
 			wrist = { 0.12, -0.28, 0.22 },
 			yaw = 22,
 			tilt = 26,
+		},
+		Salts = {
+			at = { 0.34, -0.3, 1.2 },
+			turn = { -10, 0, 0 },
+			wrist = { 0.1, -0.26, 0.24 },
+			yaw = 20,
+			tilt = 24,
 		},
 		-- The tools for tool locks (docs/plans/level-design.md section 11, L3.3).
 		Crowbar = {

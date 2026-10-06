@@ -270,7 +270,20 @@ local function boltCutters(): Model
 	return model
 end
 
-local BUILDERS = { Lantern = lantern, Radio = radio, Crowbar = crowbar, BoltCutters = boltCutters }
+-- Smelling salts: a small brown bottle with a paper label and a black cap.
+local function salts(): Model
+	local model, root = newModel("Salts")
+	local glass = { Color = Color3.fromRGB(96, 62, 30), Material = Enum.Material.Glass, Transparency = 0.15 }
+	local paper = { Color = Color3.fromRGB(225, 210, 170), Material = Enum.Material.SmoothPlastic }
+	local cap = { Color = Color3.fromRGB(40, 38, 36), Material = Enum.Material.SmoothPlastic }
+	part(model, root, "Bottle", Vector3.new(0.3, 0.55, 0.3), CFrame.new(0, 0, 0), glass)
+	part(model, root, "Label", Vector3.new(0.31, 0.22, 0.31), CFrame.new(0, -0.05, 0), paper)
+	part(model, root, "Neck", Vector3.new(0.16, 0.14, 0.16), CFrame.new(0, 0.34, 0), glass)
+	part(model, root, "Cap", Vector3.new(0.2, 0.1, 0.2), CFrame.new(0, 0.46, 0), cap)
+	return model
+end
+
+local BUILDERS = { Lantern = lantern, Radio = radio, Crowbar = crowbar, BoltCutters = boltCutters, Salts = salts }
 
 function ToolModel.tool(id: string): Model?
 	local builder = BUILDERS[id]

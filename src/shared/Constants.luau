@@ -13,7 +13,6 @@ Constants.Tags = {
 	RoomLight = "ConsensusRoomLight",
 	LanternShrine = "ConsensusLanternShrine",
 	Stalker = "ConsensusStalker",
-	Companion = "ConsensusCompanion",
 	Item = "ConsensusItem",
 	Photo = "ConsensusPhoto", -- a family photo the client ages with Drift
 	Blood = "ConsensusBlood", -- a hidden stain the client reveals at its attribute BloodAt (Drift)

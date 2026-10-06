@@ -15,4 +15,5 @@ return {
 	{ id = "lantern", kind = "tool", tool = "Lantern", weight = 2, label = "Lantern" },
 	{ id = "radio", kind = "tool", tool = "Radio", weight = 2, label = "Radio" },
 	{ id = "plans", kind = "plans", weight = 3, label = "House plans" },
+	{ id = "salts", kind = "tool", tool = "Salts", weight = 3, label = "Smelling salts" },
 }

@@ -1,7 +1,7 @@
 -- Gate A (docs/plans/mansion-generation.md, M2): a hash of every part the
 -- house builder made, so a change that should leave the old house alone can
 -- prove it did. F2 `gatea` runs it; tools/studio/partdump.luau is the same
--- for Studio's command bar. Characters (the Companion walks) and run content
+-- for Studio's command bar. Characters (players walk) and run content
 -- (WorldService's RunContent folder, and anything marked RunContent, like
 -- lock plates riding on doors) are left out.
 

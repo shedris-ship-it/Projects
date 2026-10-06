@@ -118,6 +118,7 @@ function ItemService:Start()
 		table.clear(self.leadOf)
 		table.clear(self.notes)
 		table.clear(self.cases)
+		self.saltsPlaced = nil
 		table.clear(self.racks)
 		table.clear(self.decoys)
 		self.folder = nil
@@ -518,6 +519,8 @@ function ItemService:_fill(space, at: CFrame)
 		self.decoys[space] = nil
 		if decoy == "letters" then
 			return Junk.build("Letters", at, self.World.content)
+		elseif decoy == "salts" then
+			self.services.ToolService:PlaceTool("Salts", at)
 		end
 		return false
 	end
@@ -581,7 +584,15 @@ function ItemService:_placeKeepsake(token: string?, room: number, rng): boolean
 			state.home.space = space
 		end
 	else
-		self.decoys[space] = rng:Chance(0.6) and "letters" or "empty"
+		-- Alone, one keepsake box in the house keeps smelling salts (Config.Solo.SaltsChance):
+		-- a second wind, with nobody to pull you up.
+		local solo = #self.PlayerState:RunPlayers() == 1
+		if solo and not self.saltsPlaced and rng:Chance(Config.Solo.SaltsChance) then
+			self.saltsPlaced = true
+			self.decoys[space] = "salts"
+		else
+			self.decoys[space] = rng:Chance(0.6) and "letters" or "empty"
+		end
 	end
 	return true
 end

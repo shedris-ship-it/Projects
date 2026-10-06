@@ -462,7 +462,9 @@ function DoorService:AddPrivacy(door, roomId: number)
 	prompt.Name = "BoltPrompt"
 	prompt.ActionText = "Bolt the door"
 	prompt.ObjectText = "Bathroom door"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
+	-- (V, not F: F is the torch, and a bolt on the torch's key killed the
+	-- light in the dark; the outside playtest of 2026-10-06.)
+	prompt.KeyboardKeyCode = Enum.KeyCode.V
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.HoldDuration = 0.3
 	prompt.MaxActivationDistance = 6
