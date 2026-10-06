@@ -45,6 +45,11 @@ end
 
 function RunLogService:Start()
 	local services = self.services
+	services.PlayerStateService.Downed:Connect(function(player)
+		if self.log and self.log.huntOpen then
+			self.log.downedThisHunt[player] = true
+		end
+	end)
 	services.LockService.Unlocked:Connect(function(seamId, lock, player)
 		self:_unlocked(seamId, lock, player)
 	end)
@@ -112,7 +117,8 @@ function RunLogService:Begin()
 		set = {}, -- token -> name
 		tidied = 0,
 		hunts = 0,
-		survived = {}, -- player -> hunts survived
+		survived = {}, -- player -> hunts survived (not downed in them)
+		downedThisHunt = {}, -- player -> true, cleared when a hunt begins
 		acts = {}, -- { act, at }
 		closest = nil, -- { name, distance, label }
 	}
@@ -314,6 +320,7 @@ function RunLogService:Hunt(began: boolean, why: string?)
 	if began then
 		log.hunts += 1
 		log.huntOpen = true
+		table.clear(log.downedThisHunt)
 		if self.stats then
 			self.stats:HuntBegan(os.clock(), why)
 		end
@@ -328,7 +335,8 @@ function RunLogService:Hunt(began: boolean, why: string?)
 	end
 	local playerState = self.services.PlayerStateService
 	for _, player in playerState:RunPlayers() do
-		if playerState:State(player) ~= States.Lost then
+		-- Caught in it: not survived, whatever happened after.
+		if playerState:State(player) ~= States.Lost and not log.downedThisHunt[player] then
 			log.survived[player] = (log.survived[player] or 0) + 1
 		end
 	end

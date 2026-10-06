@@ -1172,6 +1172,12 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 			act = self.director.act,
 		})
 	else
+		-- A hunt still going (the dinner served mid-hunt): closed in the log
+		-- before the final one begins, or it reads "going on" for ever.
+		if self.mode == Modes.Hunting then
+			local caught = (self.data and self.data.catches or 0) > 0
+			self.services.RunLogService:Hunt(false, caught and "caught" or "overtaken")
+		end
 		self.director:HuntBegan(reason or self.forceReason or "?")
 		self.services.Telemetry:Log("HuntStarted", {
 			reason = reason or self.forceReason or "?",
@@ -1330,10 +1336,16 @@ function StalkerService:_catch(player: Player, now: number, how: string?)
 	self.bodyCtl:Hold()
 	if self.mode == Modes.Hunting then
 		local data = self.data
+		data.catches = (data.catches or 0) + 1 -- a hunt with a catch is never "survived"
 		data.pauseUntil = now + (self.final and 8 or 2.5)
 		data.plan = nil
 		if not self.final then
 			data.endsAt = now + math.max(8, (data.endsAt - now) / 2)
+			-- Alone, nobody is coming to pull you up: he lets you go (the hunt
+			-- ends and he backs away) so the crawl to the light has a chance.
+			if #services.PlayerStateService:LivingPlayers() == 1 then
+				data.endsAt = math.min(data.endsAt, now + 4)
+			end
 		end
 	end
 end
@@ -1360,6 +1372,7 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 				d <= S.CatchRadius
 				and math.abs(pos.Y - here.Y) < 8
 				and services.PlayerStateService:IsActive(player)
+				and not services.PlayerStateService:InReviveGrace(player)
 				and not services.HidingService:IsHidden(player)
 				and not self.perception:InSafeRoom(player)
 				and self.perception:CanSee(player)
@@ -1528,12 +1541,19 @@ end
 
 function StalkerService:_endHunt()
 	local services = self.services
+	-- Caught anyone and it was his hunt, not theirs: no Drift relief, no
+	-- "survived" (the audit's "four downs, hunt survived").
+	local caught = (self.data and self.data.catches or 0) > 0
 	if #services.PlayerStateService:ActivePlayers() > 0 then
-		services.DriftService:Apply("HuntSurvived")
-		Net.get("Notify"):FireAllClients("It's over. For now.", "good")
+		if caught then
+			Net.get("Notify"):FireAllClients("It let you go. For now.", "warning")
+		else
+			services.DriftService:Apply("HuntSurvived")
+			Net.get("Notify"):FireAllClients("It's over. For now.", "good")
+		end
 	end
 	Net.get("HuntState"):FireAllClients({ state = "end" })
-	self.director:HuntEnded(os.clock(), "survived")
+	self.director:HuntEnded(os.clock(), caught and "caught" or "survived")
 	self:_retreat("hunt over")
 end
 

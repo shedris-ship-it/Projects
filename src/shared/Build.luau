@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.111",
-	note = "the bot: F2 botrun plays the escape and reports; F2 inspect",
+	id = "2026-10-06.112",
+	note = "downs matter: caught hunts, revive grace, three downs and Lost, contact only for whoever walks into him",
 }

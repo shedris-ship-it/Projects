@@ -117,12 +117,29 @@ return function(test, check, Shared, require)
 			safeRoom = false,
 			sinceDownNearby = math.huge,
 			sinceContact = math.huge,
+			approaching = true,
+			graced = false,
 		}
 		for k, v in overrides or {} do
 			ctx[k] = v
 		end
 		return ctx
 	end
+
+	test("close contact: only for whoever walks into him, never for his own approach", function()
+		local ok, why = StalkRules.contact(touching({ approaching = false }), G)
+		check.equal(ok, false, "he crept up to someone standing still")
+		check.equal(why, "not coming at him", "reason")
+		check.truthy(StalkRules.contact(touching({ approaching = true }), G), "they came at him")
+		check.truthy(G.CloseBehind > G.ContactRadius, "tier 2 stops outside the contact radius")
+	end)
+
+	test("a player just pulled up can't be caught again for a moment (revive grace)", function()
+		local ok, why = StalkRules.contact(touching({ graced = true }), G)
+		check.equal(ok, false, "no contact lunge in the grace")
+		check.equal(why, "just back up", "reason")
+		check.equal(StalkRules.canLunge(ready({ graced = true }), G), false, "no lunge in the grace")
+	end)
 
 	test("a Guest stunned by a throw can't lunge or lunge on contact", function()
 		local ok, why = StalkRules.canLunge(ready({ stunned = true }), G)

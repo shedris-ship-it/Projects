@@ -319,7 +319,7 @@ function ItemService:_pieceSpace(lockId: string, room: number)
 	local kinds = Config.Progression.StepPieces or {}
 	local fallback = nil
 	for _, space in self.Furniture.spaces do
-		if space.prop.roomId == room and not space.filled and not self.bySpace[space] and not space.lead then
+		if self:_canKeep(space, room) then
 			if space.prop.id == wanted then
 				return space
 			elseif fallback == nil and (kinds[space.prop.kind] or 0) > 0 then
@@ -328,6 +328,20 @@ function ItemService:_pieceSpace(lockId: string, room: number)
 		end
 	end
 	return fallback
+end
+
+-- A furniture space something of the run's can be kept in: in `room`, not
+-- yet looked into, nothing kept there already, and with a spot inside for it
+-- to lie on. A piece with no spot (a wardrobe's doors, a crib's side) is
+-- marked "filled" the moment it opens without making anything (Services/
+-- FurnitureService._fill), so a token kept there could never be found: the
+-- bot (F2 `botrun`) hit that on seed 1, the heirloom in the Child's Bedroom.
+function ItemService:_canKeep(space, room: number): boolean
+	return space.prop.roomId == room
+		and not space.filled
+		and not self.bySpace[space]
+		and not space.lead
+		and typeof(space.spot) == "CFrame"
 end
 
 function ItemService:_keep(id: string, room: number, rng)
@@ -349,7 +363,7 @@ function ItemService:_keep(id: string, room: number, rng)
 	end
 	local spaces = {}
 	for _, space in self.Furniture.spaces do
-		if space.prop.roomId == room and not space.filled and not self.bySpace[space] and not space.lead then
+		if self:_canKeep(space, room) then
 			table.insert(spaces, space)
 		end
 	end

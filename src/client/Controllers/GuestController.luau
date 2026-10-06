@@ -379,6 +379,9 @@ function GuestController:_event(event)
 		audio:Caption(event.beam and "[caught in your light, it stops]" or "[watched by two of you, it stops]")
 	elseif kind == "unheld" then
 		audio:Caption("[the light isn't enough any more. It comes on]")
+	elseif kind == "graced" then
+		-- Just pulled up with him right there (Config.Run.ReviveGraceSeconds).
+		audio:Caption("[it lets you get up. Run.]")
 	elseif kind == "catch" then
 		self:_jumpscare(event.catch)
 	end

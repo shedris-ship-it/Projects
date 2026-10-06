@@ -162,6 +162,7 @@ function BotService:Run(player: Player, args: { string }, report: (string) -> ()
 	self.noWays = 0
 	self.steps = 0
 	self.cheated = 0
+	self.waits = 0
 	self.lines = {}
 	self.carry = nil
 	self.result = nil
@@ -182,6 +183,12 @@ function BotService:Run(player: Player, args: { string }, report: (string) -> ()
 		who = "player",
 		player = player, -- doors swing away from the body (Stalker/Walker)
 	}, Random.new(run.seed or 1))
+	-- Wedged on geometry, the walker may shift the body up to three studs
+	-- into clear space; every nudge is counted in the report (a human has
+	-- no such help, so nudges mean geometry to look at).
+	self.walker.canTeleport = function()
+		return true
+	end
 	self.active = true
 	task.spawn(function()
 		local ok, err = pcall(self._main, self)
@@ -205,6 +212,7 @@ function BotService:Stop(reason: string)
 	self.result = self.result or reason
 	local player = self.player
 	if self.walker then
+		self.walkStats = table.clone(self.walker.stats)
 		self.walker:Stop()
 		self.walker = nil
 	end
@@ -420,7 +428,12 @@ function BotService:_state()
 		if token and plan.tokens[token] and thing.model.Parent and thing.state ~= "gone" then
 			thingOf[token] = thing
 			if not thing.holder then
-				made[token] = true
+				-- Lying there, and where the squad can get (a key on a rack in
+				-- a wing still locked is a lead, not a thing to fetch).
+				local room = self.World:RoomAt(thing.model:GetPivot().Position)
+				if room and locks.reach[room] then
+					made[token] = true
+				end
 			end
 		end
 	end
@@ -471,8 +484,29 @@ end
 -- Walking ----------------------------------------------------------------------------
 
 -- Walk to a point. Returns "ok", "no way", "stuck", "down" (caught on the
--- way) or "hunt" (interrupted).
+-- way) or "hunt" (interrupted). Stuck once (a corridor closet in the straight
+-- way, a corner cut too close), it goes round by the room's middle and tries
+-- again; the middle is kept clear (Logic/RoomFit).
 function BotService:_walkTo(target: Vector3, within: number?, maxSeconds: number?): string
+	local result = self:_walkLeg(target, within, maxSeconds)
+	if result ~= "stuck" then
+		return result
+	end
+	local roomId = self.World:RoomAt(target)
+	local here = self.PlayerState:Position(self.player)
+	local room = roomId and self.World:Room(roomId)
+	if room and here and (flat(here) - flat(room.center)).Magnitude > 4 then
+		self:_log("   stuck: round by the middle of the " .. room.name)
+		local via = self:_walkLeg(self:_floor(room.center), 4, 20)
+		if via ~= "ok" then
+			return via
+		end
+		return self:_walkLeg(target, within, maxSeconds)
+	end
+	return result
+end
+
+function BotService:_walkLeg(target: Vector3, within: number?, maxSeconds: number?): string
 	local walker = self.walker
 	local here = self.PlayerState:Position(self.player)
 	if not here then
@@ -504,6 +538,32 @@ function BotService:_walkTo(target: Vector3, within: number?, maxSeconds: number
 		if pos and distance <= reach and math.abs(pos.Y - target.Y) < 6 then
 			walker:Stop()
 			return "ok"
+		end
+		-- He stands in the way between hunts: a player stops and lets him
+		-- move off rather than walking into him (the contact lunge is for
+		-- whoever comes at him). Counted, so a Guest who parks in a corridor shows.
+		local guest = self.services.StalkerService:GetPosition()
+		if
+			guest
+			and pos
+			and not self.services.StalkerService:IsHunting()
+			and (flat(guest) - flat(pos)).Magnitude < B.GiveWay
+			and math.abs(guest.Y - pos.Y) < 6
+		then
+			walker:Stop()
+			self.waits = (self.waits or 0) + 1
+			local waited = os.clock()
+			while self.active and os.clock() - waited < 2.5 do
+				task.wait(0.25)
+				local g = self.services.StalkerService:GetPosition()
+				local p = self.PlayerState:Position(self.player)
+				if not g or not p or (flat(g) - flat(p)).Magnitude >= B.GiveWay then
+					break
+				end
+			end
+			walker:SetDestination(target, { speed = self.speed, force = true })
+			began += math.min(2.5, os.clock() - waited) -- waiting for him isn't the leg's time
+			continue
 		end
 		-- Close, and no closer for a while (furniture between): near enough
 		-- for a hand's reach (Grab 9.5, a pickup 6, a prompt).
@@ -585,10 +645,12 @@ end
 function BotService:_frontOf(frame: CFrame, kind: string?, room: number?): Vector3
 	local size = kind and Props.Kinds[kind] and Props.Kinds[kind].size
 	local depth = size and size[3] or 2
-	local point = frame.Position + frame.LookVector * (depth / 2 + 2.2)
+	-- (A prop's front is its frame's +Z, World/PropFactory; LookVector is -Z.)
+	local front = -frame.LookVector
+	local point = frame.Position + front * (depth / 2 + 2.2)
 	point = Vector3.new(point.X, self.World:FloorBase(frame.Position.Y), point.Z)
 	if self.World:RoomAt(point) == nil and room then
-		local back = frame.Position - frame.LookVector * (depth / 2 + 2.2)
+		local back = frame.Position - front * (depth / 2 + 2.2)
 		back = Vector3.new(back.X, point.Y, back.Z)
 		if self.World:RoomAt(back) ~= nil then
 			return back
@@ -841,9 +903,8 @@ function BotService:_look(step): (boolean, string?)
 		return false, "nowhere to find it"
 	end
 	local prop = space.prop
-	local stand = prop.frame and self:_frontOf(prop.frame, prop.kind, prop.roomId)
-		or self:_standNear(prop.model:GetPivot().Position, prop.roomId, { prop.model })
-	local walked = self:_walkTo(stand, 3)
+	local stand = self:_standNear(prop.model:GetPivot().Position, prop.roomId, { prop.model })
+	local walked = self:_walkTo(stand, 2.5)
 	if walked ~= "ok" then
 		return false, walked
 	end
@@ -852,8 +913,24 @@ function BotService:_look(step): (boolean, string?)
 		furniture:Toggle(piece, self.player)
 	end
 	local began = os.clock()
-	while self.active and not space.filled and os.clock() - began < 5 do
+	while self.active and not space.filled and os.clock() - began < 6 do
 		task.wait(0.25)
+		if piece and os.clock() - began > 2.5 and piece.state.target < piece.state.max / 2 then
+			furniture:Toggle(piece, self.player) -- shut again (the house?): once more
+		end
+	end
+	if not space.filled then
+		local state = piece and piece.state
+		self:_log(
+			string.format(
+				"   %s never filled: piece %s value %.1f target %.1f max %.1f",
+				space.id,
+				piece and piece.id or "none",
+				state and state.value or -1,
+				state and state.target or -1,
+				state and state.max or -1
+			)
+		)
 	end
 	task.wait(0.4)
 	return self:_take(token)
@@ -873,16 +950,38 @@ function BotService:_take(token: string): (boolean, string?)
 		return false, "nothing to take"
 	end
 	local at = thing.model:GetPivot().Position
+	local room = self.World:RoomAt(at)
 	local here = self.PlayerState:Position(self.player)
-	if not here or (here - at).Magnitude > 7 then
-		local stand = self:_standNear(at, self.World:RoomAt(at), { thing.model })
-		local walked = self:_walkTo(stand, 2.5)
+	-- Lying inside a cabinet, a drawer or the freezer (FurnitureService puts
+	-- it there on the first look): the line to it is clear from the front
+	-- only, where a player stands to look in.
+	local inside = thing.inside
+	local prop = inside and inside.prop
+	local function standPoint()
+		if prop and prop.frame then
+			return self:_frontOf(prop.frame, prop.kind, prop.roomId), 2
+		end
+		return self:_standNear(thing.model:GetPivot().Position, room, { thing.model }), 2.5
+	end
+	-- Into its room first: six studs through a wall is not within reach.
+	if prop or not here or (here - at).Magnitude > 6 or (room and self.World:RoomAt(here) ~= room) then
+		local stand, within = standPoint()
+		local walked = self:_walkTo(stand, within)
 		if walked ~= "ok" then
 			return false, walked
 		end
 	end
 	services.HandsService:Grab(self.player, thing.id)
 	task.wait(0.3)
+	if thing.holder ~= self.player and thing.state ~= "gone" then
+		-- Not in reach or not in sight from here: once more from a clear spot beside it.
+		local walked = self:_walkTo(self:_standNear(thing.model:GetPivot().Position, room, { thing.model }), 2)
+		if walked ~= "ok" then
+			return false, walked
+		end
+		services.HandsService:Grab(self.player, thing.id)
+		task.wait(0.3)
+	end
 	if thing.holder == self.player then
 		-- Carried by the server (the client only carries what it asked for).
 		thing.serverCarried = true
@@ -1037,7 +1136,7 @@ function BotService:_report(reason: string)
 	table.insert(
 		lines,
 		string.format(
-			"botrun %s: %s in %s · %d steps, %d failed, %d with no way, %d stuck points · %d puzzles solved as if played",
+			"botrun %s: %s in %s · %d steps, %d failed, %d with no way, %d stuck points · %d nudges · %d waits for him · %d puzzles solved as if played",
 			self.fast and "(fast)" or "",
 			reason,
 			clock(elapsed),
@@ -1051,6 +1150,8 @@ function BotService:_report(reason: string)
 			end)(),
 			self.noWays or 0,
 			#(self.stuckPoints or {}),
+			self.walkStats and self.walkStats.nudges or 0,
+			self.waits or 0,
 			self.cheated or 0
 		)
 	)
@@ -1075,6 +1176,8 @@ function BotService:_report(reason: string)
 		steps = self.steps,
 		noWays = self.noWays,
 		stuck = #(self.stuckPoints or {}),
+		nudges = self.walkStats and self.walkStats.nudges or 0,
+		waits = self.waits or 0,
 		cheated = self.cheated,
 		firstDoor = summary and summary.firstDoorAt and math.floor(summary.firstDoorAt) or nil,
 		dinner = summary and summary.servedAt and math.floor(summary.servedAt) or nil,

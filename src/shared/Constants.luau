@@ -80,6 +80,9 @@ Constants.PlayerAttributes = {
 	-- F2 `botrun` is driving this character from the server (Services/
 	-- BotService): the client's movement and walk speed stand aside.
 	BotDriven = "BotDriven",
+	-- Server time until which a player just pulled up can't be caught
+	-- (Config.Run.ReviveGraceSeconds); nil otherwise.
+	Grace = "Grace",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
 	Ready = "Ready",

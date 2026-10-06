@@ -1117,11 +1117,21 @@ function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
 		local head = player.Character and player.Character:FindFirstChild("Head")
 		if pos then
 			local distance = planar(pos, here)
+			-- Their own speed towards him (Config.Guest.ContactApproachSpeed):
+			-- he never earns a contact lunge by walking up to someone standing still.
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+			local toward = flat(here - pos)
+			local approaching = false
+			if root and toward.Magnitude > 0.1 then
+				approaching = flat(root.AssemblyLinearVelocity):Dot(toward.Unit) >= G.ContactApproachSpeed
+			end
 			local ok = StalkRules.contact({
 				tier = ctx.tier,
 				visibleToVictim = service.visibleTo[player] == true,
 				distance = distance,
 				verticalGap = math.abs(pos.Y - here.Y),
+				approaching = approaching,
+				graced = services.PlayerStateService:InReviveGrace(player),
 				lineOfSight = head ~= nil
 					and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
 				watchers = ctx.watchers,
@@ -1350,6 +1360,7 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 			and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
 		hidden = services.HidingService:IsHidden(target),
 		downed = not services.PlayerStateService:IsActive(target),
+		graced = services.PlayerStateService:InReviveGrace(target),
 		safeRoom = service.perception:InSafeRoom(target),
 		sinceDownNearby = sinceDown,
 		sincePlayerLunge = now - (service.lungeLast[target] or -math.huge),

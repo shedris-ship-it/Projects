@@ -15,6 +15,16 @@ Config.Run = {
 	DownedSeconds = 15,
 	BleedWarnSeconds = 6, -- the last seconds get louder and redder
 	ReviveHoldSeconds = 4, -- (doc)
+	-- Downs matter (docs/progress/2026-10-07-loop/REPORT.md, WP2; the owner,
+	-- 2026-10-06): this many downs in a run and you're Lost (Hard: see
+	-- Config.Difficulty), and a player just pulled up can't be caught again
+	-- for a moment, so a revive is never a second catch.
+	DownsBeforeLost = 3,
+	ReviveGraceSeconds = 8,
+	-- A lit Lantern room protects you with this much company in it, by the
+	-- size of the squad (index = players in the run): alone, your own company
+	-- is enough (the owner's RE save room, 2026-10-06); with friends it takes two.
+	LanternCompany = { 1, 2, 2, 2 },
 	CompanionReviveSeconds = 6, -- the solo Companion is slower than a friend
 	HeartbeatBpm = 96, -- tempo of Assets.Sounds.Heartbeat at normal speed
 	BleedHeartbeat = { 1, 0.45 }, -- heartbeat speed from just downed to gone
@@ -737,6 +747,7 @@ Config.Bot = {
 	WalkSpeed = 8, -- studs a second (a player's walk)
 	SprintSpeed = 19, -- `botrun fast`
 	LegTimeout = 25, -- seconds a leg may take at least (longer legs get longer)
+	GiveWay = 9, -- studs: between hunts it stops and lets him move off rather than walk into him
 }
 
 -- Stuck-assist (Logic/Assist; Services/FinaleService): help rises with the
@@ -890,7 +901,7 @@ Config.Guest = {
 	TellRadius = 12,
 	BreathInterval = { 2.5, 4 },
 	CreakInterval = { 3, 6 },
-	CloseBehind = 3.5, -- tier 2: as close as he comes, breathing on your neck
+	CloseBehind = 5.5, -- tier 2: as close as he comes, breathing on your neck (outside ContactRadius: his own approach is never a contact lunge)
 	-- The lunge (tier 3+). Fairness gates live in Logic/StalkRules.
 	LungeRadius = 6,
 	LungeWindup = 0.32,
@@ -907,6 +918,10 @@ Config.Guest = {
 	-- you can see, he lunges at once. 5 is also where he senses you regardless
 	-- of facing (Perception:CanSee).
 	ContactRadius = 5,
+	-- ...and only when they came at him: their own speed towards him, studs a
+	-- second (the bot found him lunging at anyone he stood next to in a
+	-- corridor, 2026-10-06). He may creep up to you; you have to walk into him.
+	ContactApproachSpeed = 3,
 	ContactWindup = 0.15,
 	ContactCooldownPerPlayer = 8,
 	ContactAloneRadius = 30, -- nobody he knows of this close to the victim: he withdraws
@@ -1451,6 +1466,7 @@ Config.Difficulty = {
 		-- the atmosphere is on from act 1, and his telegraphs are shorter.
 		DreadFloor = 20,
 		TelegraphScale = 0.7,
+		DownsBeforeLost = 2,
 	},
 }
 

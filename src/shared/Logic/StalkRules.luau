@@ -153,6 +153,8 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 		return false, "stunned"
 	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
 		return false, "protected"
+	elseif ctx.graced then
+		return false, "just back up"
 	elseif ctx.distance > cfg.LungeRadius or ctx.verticalGap > 4 then
 		return false, "out of reach"
 	elseif not ctx.lineOfSight then
@@ -188,12 +190,18 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 		return false, "stunned"
 	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
 		return false, "protected"
+	elseif ctx.graced then
+		return false, "just back up"
 	elseif not ctx.lineOfSight then
 		return false, "no line"
 	elseif ctx.sinceDownNearby < cfg.NoLungeNearDownSeconds then
 		return false, "someone just went down"
 	elseif ctx.sinceContact < cfg.ContactCooldownPerPlayer then
 		return false, "cooldown"
+	elseif not ctx.approaching then
+		-- He may creep up on you (CloseBehind keeps him outside ContactRadius);
+		-- the contact lunge is for whoever walks into him.
+		return false, "not coming at him"
 	end
 	return true, nil
 end

@@ -323,6 +323,13 @@ function PlayerStateService:Down(player: Player)
 	end
 	self.services.HidingService:ForceLeave(player)
 	record.downs = (record.downs or 0) + 1
+	-- Downs matter (Config.Run.DownsBeforeLost; Hard has its own): the last
+	-- one is the end, not another bleed-out.
+	local cap = self:DownsCap()
+	if record.downs >= cap then
+		self:MakeLost(player, "caught once too often")
+		return
+	end
 	record.downedUntil = os.clock() + Config.Run.DownedSeconds
 	self:_setState(player, States.Downed)
 	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + Config.Run.DownedSeconds)
@@ -349,7 +356,16 @@ function PlayerStateService:Down(player: Player)
 		record.revivePrompt = prompt
 	end
 	local seconds = Config.Run.DownedSeconds
-	notify(player, string.format("You're bleeding out. Someone has %d seconds to reach you.", seconds), "danger")
+	notify(
+		player,
+		string.format(
+			"You're bleeding out. Someone has %d seconds to reach you. (Down %d of %d.)",
+			seconds,
+			record.downs,
+			cap
+		),
+		"danger"
+	)
 	for _, other in self:RunPlayers() do
 		if other ~= player then
 			notify(
@@ -378,8 +394,31 @@ function PlayerStateService:Revive(player: Player, rescuer: Player?)
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
 	end
 	self.lastRevive = os.clock()
+	-- Just up: he can't catch you again for a moment (Config.Run.ReviveGraceSeconds),
+	-- and if he's right there you're told so.
+	local grace = Config.Run.ReviveGraceSeconds or 0
+	record.graceUntil = os.clock() + grace
+	player:SetAttribute(PA.Grace, workspace:GetServerTimeNow() + grace)
+	local guest = self.services.StalkerService and self.services.StalkerService:GetPosition()
+	local pos = self:Position(player)
+	if guest and pos and (guest - pos).Magnitude < 14 then
+		Net.get("GuestEvent"):FireClient(player, { kind = "graced" })
+	end
 	notify(player, rescuer and (rescuer.DisplayName .. " pulled you up.") or "You're back up.", "good")
 	self.Revived:Fire(player, rescuer)
+end
+
+-- Within the moment after a revive when he can't catch you.
+function PlayerStateService:InReviveGrace(player: Player): boolean
+	local record = records[player]
+	return record ~= nil and record.graceUntil ~= nil and os.clock() < record.graceUntil
+end
+
+-- How many downs end a run for a player (Config.Run.DownsBeforeLost; Hard overrides).
+function PlayerStateService:DownsCap(): number
+	local orchestrator = self.services.RunOrchestrator
+	local difficulty = orchestrator and orchestrator.run and orchestrator.run.difficulty
+	return (difficulty and difficulty.DownsBeforeLost) or Config.Run.DownsBeforeLost or 3
 end
 
 function PlayerStateService:_applyEcho(player: Player)
@@ -587,6 +626,10 @@ function PlayerStateService:_tick(dt: number)
 		-- Downed timer
 		if record.state == States.Downed and record.downedUntil and now >= record.downedUntil then
 			self:MakeLost(player, "nobody reached them")
+		end
+		if record.graceUntil and now >= record.graceUntil then
+			record.graceUntil = nil
+			player:SetAttribute(PA.Grace, nil)
 		end
 
 		-- Isolation (only meaningful with teammates)

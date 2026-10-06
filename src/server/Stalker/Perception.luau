@@ -94,7 +94,11 @@ function Perception:InSafeRoom(player: Player): boolean
 			company += 1
 		end
 	end
-	return company >= 2
+	-- Alone, your own company is enough (Config.Run.LanternCompany: the
+	-- owner's RE save room, 2026-10-06); with friends it takes two of you.
+	local squad = math.clamp(#services.PlayerStateService:RunPlayers(), 1, 4)
+	local need = (Config.Run.LanternCompany or {})[squad] or 2
+	return company >= need
 end
 
 -- Can the stalker see this player right now?

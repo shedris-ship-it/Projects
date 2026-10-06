@@ -465,12 +465,28 @@ function DebugService:Run(player: Player, text: string)
 			return
 		end
 		local lines = {}
+		local items = services.ItemService
 		for id, token in plan.tokens do
 			local where = token.producer.kind == "puzzle" and ("puzzle " .. token.producer.id)
 				or ("room " .. table.concat(LockPlanner.producerRooms(plan, token), "+"))
+			-- The furniture it waits in, if any (Services/ItemService.bySpace).
+			local kept = ""
+			for space, held in items.bySpace do
+				if held == id then
+					kept = string.format(
+						" · kept in %s (%s%s, spot %s, filled %s%s)",
+						space.id,
+						space.prop.kind,
+						space.lead and (", lead " .. space.lead) or "",
+						typeof(space.spot) == "CFrame" and "yes" or "NO",
+						tostring(space.filled),
+						items.decoys[space] and ", DECOY" or ""
+					)
+				end
+			end
 			table.insert(
 				lines,
-				string.format("%s (%s) %s%s", id, token.kind, where, services.ItemService.found[id] and ", found" or "")
+				string.format("%s (%s) %s%s%s", id, token.kind, where, items.found[id] and ", found" or "", kept)
 			)
 		end
 		table.sort(lines)
