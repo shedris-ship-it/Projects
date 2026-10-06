@@ -539,6 +539,34 @@ function PushService:SwingStop(door, from: number, to: number): (number?, any)
 	return best, which
 end
 
+-- Parts fixed to a piece after the house was built (a step's chain or
+-- planks, Services/LockService) move with it when it's pushed.
+function PushService:Fix(model: Instance, parts: { BasePart })
+	for _, piece in self.pieces do
+		if piece.model == model then
+			for _, p in parts do
+				table.insert(piece.parts, p)
+			end
+			return
+		end
+	end
+end
+
+-- And let go of them (cut off, or pried away).
+function PushService:Unfix(parts: { BasePart })
+	local gone = {}
+	for _, p in parts do
+		gone[p] = true
+	end
+	for _, piece in self.pieces do
+		for i = #piece.parts, 1, -1 do
+			if gone[piece.parts[i]] then
+				table.remove(piece.parts, i)
+			end
+		end
+	end
+end
+
 -- Any piece close enough to a door's hinge to be in its swing, either way
 -- (DoorService only turns a door's swing round with none: barricades are
 -- read against the swing as it is).

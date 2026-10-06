@@ -60,7 +60,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
-	"locks (the locks to Output) · unlock <seam|all> · try <seam> (as if you pressed on it) · give <token> · items · solve [puzzle]",
+	"locks (the locks to Output) · unlock <seam|all> · try <seam|piece> (as if you pressed on it) · give <token> · items · solve [puzzle]",
 	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
 	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|scan]",
 }, "\n")
@@ -183,8 +183,13 @@ function DebugService:Run(player: Player, text: string)
 		-- (a key turns, a double lock takes one key at a time).
 		local target = args[2] or ""
 		local entry = services.LockService.locks[target]
-		if entry and not entry.open then
-			services.LockService:_try(entry.door, player)
+		local piece = services.LockService.pieceLocks[target]
+		if piece and not piece.open then
+			-- A step's chest or fridge: one hold, as its prompt does.
+			services.LockService:_tryPiece(target, player)
+			reply(player, target .. (piece.open and " opened" or (" still shut, " .. piece.state.left .. " to go")))
+		elseif entry and not entry.open then
+			services.LockService:_try(entry.door, player, "prompt")
 			reply(player, target .. (entry.open and " opened" or " still locked"))
 		else
 			reply(player, entry and (target .. " is already open") or "no such lock")
@@ -193,12 +198,20 @@ function DebugService:Run(player: Player, text: string)
 		-- A key onto your ring, or an heirloom at your feet.
 		local token = args[2] or ""
 		local plan = services.LockService.plan
+		-- (The console lower-cases what's typed: "tool:crowbar".)
+		for id in plan and plan.tokens or {} do
+			if string.lower(id) == token then
+				token = id
+			end
+		end
 		local info = plan and plan.tokens[token]
 		if not info then
-			reply(player, "usage: give <token> (key:1, heirloom:2, ...)")
+			reply(player, "usage: give <token> (key:1, heirloom:2, tool:Crowbar, ...)")
 		elseif info.kind == "key" then
 			services.LockService:GiveKey(player, token, info.label)
 			reply(player, "on your ring: " .. info.label)
+		elseif info.kind == "tool" then
+			reply(player, services.ToolService:DebugGive(player, info.tool))
 		else
 			local position = services.PlayerStateService:Position(player)
 			if position then

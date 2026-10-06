@@ -28,6 +28,12 @@ return function(test, check, Shared, require)
 			check.truthy(ToolLocks.is(kind), kind .. " is a tool lock")
 		end
 		check.truthy(not ToolLocks.is("key"), "a key isn't")
+		-- On a chest (a step inside a wing): fewer planks, the same holds.
+		local chest = ToolLocks.work("boards", 4, Config.ToolLocks, true)
+		check.equal(chest.steps, Config.ToolLocks.Boards.PiecePlanks, "a chest's planks")
+		check.truthy(chest.steps < four.steps, "fewer than a door's")
+		check.equal(ToolLocks.kindOf("Crowbar"), "boards", "the crowbar's kind")
+		check.equal(ToolLocks.kindOf("BoltCutters"), "chain", "the bolt cutters' kind")
 	end)
 
 	test("work is kept: each hold is a step, and the last opens it", function()
@@ -42,7 +48,7 @@ return function(test, check, Shared, require)
 	end)
 
 	test(
-		"in the plan: a tool is found before its first door, opens every door of its kind, never too many kinds",
+		"in the plan: a tool is found before its first gate, opens every door of its kind, never too many kinds",
 		function()
 			local seen = 0
 			for squad = 1, 4 do
@@ -67,12 +73,16 @@ return function(test, check, Shared, require)
 						if token.kind == "tool" then
 							kinds += 1
 							seen += 1
+							-- (A step inside a wing's tool may lie across that wing,
+							-- or open no door at all: WingSteps.spec.)
 							local room = token.producer.room
-							local first = plan.locks[token.opens]
-							check.truthy(
-								position[plan.roomRegion[room]] < position[first.region],
-								where .. ": " .. id .. " is found before its first door"
-							)
+							local first = token.opens and plan.locks[token.opens]
+							if first and not first.step then
+								check.truthy(
+									position[plan.roomRegion[room]] < position[first.region],
+									where .. ": " .. id .. " is found before its first gate"
+								)
+							end
 							for _, seamId in token.also or {} do
 								check.truthy(
 									plan.locks[seamId].needs[1] == id,

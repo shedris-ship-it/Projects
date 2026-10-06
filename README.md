@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (398 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
+> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (403 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
 
 ---
 
@@ -90,6 +90,8 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
    - **Leads, not rummaging.** Notes (press E to read) say which drawer something is in; a keepsake box on a dresser, a locked glass case (pick its lock, or throw something through the glass) or a key rack hold the rest.
    - **Marks.** Every locked door that takes something has a mark on its plate (a star, a phone, scissors...), and its key, code or breaker carries the same mark: the phone key fits the door with a phone. A key is always found once its door can be seen. Holding the wrong key, a door says so ("Your umbrella key doesn't fit. This lock has a sun."), and the objective line says where a key you hold fits.
    - **Boards and chains.** A boarded door needs the crowbar, a chained one the bolt cutters; each lies in plain sight before its first door and opens every door of its kind. Hold E on the door while you carry it: a plank a hold, or one cut. It's loud (he may come), so keep a lookout; work already done stays done.
+   - **Steps inside a wing** (three or four players). In a bigger wing, what you came for (the next key, or an heirloom) may be shut away inside it: a side room boarded up or chained, or a chest or the fridge nailed or chained shut. The tool for it lies across the wing or in the wing next door, so someone goes to fetch it while the others carry on.
+   - **Doors swing away from you.** Press E on a shut door from the side it opens towards and it swings the other way, into the next room.
    - **The house key.** One key a run isn't used up: its mark is also on a side room or two you passed earlier, each with an heirloom inside. Go back for them.
    - **Keys** go on your own ring and are used up at their door; drop one for a friend from the journal, which also says where each key's door is once someone has seen it. **Bolts** slide back only from their own side: shortcuts ("Bolted from the other side. There must be another way round.").
    - **Puzzles:** the home computer (a word-guessing terminal that prints a padlock's code), the breaker panel (power a door without tripping the main), the wall safe (listen for the click), the music box and the piano (play its tune back).
@@ -114,7 +116,7 @@ start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · scent · table · tidy
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
-locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> · items · leads [go <token> [note]]
+locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar) · items · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
 switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>

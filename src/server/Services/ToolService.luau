@@ -432,6 +432,28 @@ function ToolService:PlacePlanned(plan, rng)
 	end
 end
 
+-- F2 `give tool:Crowbar`: the house's one into your inventory, from wherever
+-- it lies. Returns what happened.
+function ToolService:DebugGive(player: Player, toolId: string): string
+	local inv = inventories[player]
+	for uid, entry in pickups do
+		if entry.item.id == toolId and inv then
+			local ok, _, swapped = Inventory.pickup(inv, entry.item)
+			if not ok then
+				return "your hands are full"
+			end
+			pickups[uid] = nil
+			entry.model:Destroy()
+			if swapped then
+				self:_putDown(player, swapped)
+			end
+			self:_publish(player)
+			return "in your inventory: " .. toolId
+		end
+	end
+	return "no " .. toolId .. " lying in the house"
+end
+
 -- Does this player carry this tool, in any slot?
 function ToolService:Carries(player: Player, toolId: string): boolean
 	local inv = inventories[player]

@@ -192,7 +192,46 @@ end
 
 -- A drawer or cupboard in its room for a token (the old way, and a note's
 -- target). Returns the space, or nil when it lies on the floor.
+-- The space a step's chest or fridge opens onto (docs/plans/level-design.md
+-- section 11, L3.4): the one the plan chose, else another of its kind in the
+-- room, else nil.
+function ItemService:_pieceSpace(lockId: string, room: number)
+	local info = self.plan.pieces and self.plan.pieces[lockId]
+	if not info then
+		return nil
+	end
+	local wanted = "prop:" .. room .. ":" .. info.prop
+	local kinds = Config.Progression.StepPieces or {}
+	local fallback = nil
+	for _, space in self.Furniture.spaces do
+		if space.prop.roomId == room and not space.filled and not self.bySpace[space] and not space.lead then
+			if space.prop.id == wanted then
+				return space
+			elseif fallback == nil and (kinds[space.prop.kind] or 0) > 0 then
+				fallback = space
+			end
+		end
+	end
+	return fallback
+end
+
 function ItemService:_keep(id: string, room: number, rng)
+	-- Shut in a chest by a step: that chest, chained or nailed shut.
+	local pieceId = self.plan.tokens[id] and self.plan.tokens[id].producer.piece
+	if pieceId then
+		local space = self:_pieceSpace(pieceId, room)
+		if space then
+			self.bySpace[space] = id
+			local state = self.heirlooms[id]
+			if state then
+				state.home.space = space
+			end
+			self.Locks:LockPiece(pieceId, space)
+			return space
+		end
+		-- (The plan's furniture wasn't built: kept loose, nothing locked.)
+		warn("[Consensus] no furniture for " .. pieceId .. "; " .. id .. " kept unlocked")
+	end
 	local spaces = {}
 	for _, space in self.Furniture.spaces do
 		if space.prop.roomId == room and not space.filled and not self.bySpace[space] and not space.lead then

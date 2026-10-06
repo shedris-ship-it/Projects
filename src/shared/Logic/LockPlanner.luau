@@ -37,6 +37,7 @@
 local Dumbwaiter = require(script.Parent.Dumbwaiter)
 local Graph = require(script.Parent.Graph)
 local MansionHouse = require(script.Parent.MansionHouse)
+local RoomFit = require(script.Parent.RoomFit)
 local Interactables = require(script.Parent.Parent.Data.Interactables)
 local Marks = require(script.Parent.Parent.Data.Marks)
 local Props = require(script.Parent.Parent.Data.Props)
@@ -633,8 +634,11 @@ local function addPockets(ctx, rng, plan, cfg, position)
 	end
 	-- (An heirloom in a drawer may stay: it's what the side room is for.)
 	local holds = {}
+	local function shut(token): boolean
+		return token.producer.piece ~= nil or (plan.pockets ~= nil and plan.pockets[token.producer.room] ~= nil)
+	end
 	for id, token in plan.tokens do
-		if token.kind == "heirloom" and token.producer.kind == "container" then
+		if token.kind == "heirloom" and token.producer.kind == "container" and not shut(token) then
 			holds[token.producer.room] = id
 		else
 			for _, room in LockPlanner.producerRooms(plan, token) do
@@ -696,7 +700,8 @@ local function addPockets(ctx, rng, plan, cfg, position)
 	for _, r in plan.order do
 		local lock = plan.locks[plan.regions[r].gate]
 		local token = lock.kind == "key" and lock.needs and #lock.needs == 1 and plan.tokens[lock.needs[1]]
-		if token and token.producer.kind == "container" then
+		-- (Not a key a step inside a wing shuts away.)
+		if token and token.producer.kind == "container" and not shut(token) then
 			local at = position[plan.roomRegion[token.producer.room]]
 			local older, same = {}, {}
 			for _, c in candidates do
@@ -749,7 +754,8 @@ local function addPockets(ctx, rng, plan, cfg, position)
 	-- one already).
 	local movable = {}
 	for _, id in plan.finale.heirlooms do
-		if plan.tokens[id].producer.kind == "container" then
+		local token = plan.tokens[id]
+		if token.producer.kind == "container" and not shut(token) then
 			table.insert(movable, id)
 		end
 	end
@@ -829,7 +835,11 @@ local function addPockets(ctx, rng, plan, cfg, position)
 				table.insert(same, id)
 			end
 		end
-		local room = keepingRoom(ctx, rng, #later > 0 and later or same, taken)
+		local avoid = table.clone(taken)
+		for side in plan.pockets or {} do
+			avoid[side] = true
+		end
+		local room = keepingRoom(ctx, rng, #later > 0 and later or same, avoid)
 		local used = {}
 		for _, lock in plan.locks do
 			if lock.mark then
@@ -857,7 +867,7 @@ local function addPockets(ctx, rng, plan, cfg, position)
 	local key = plan.tokens[tokenId]
 	key.reusable = true
 	key.also = {}
-	plan.pockets = {}
+	plan.pockets = plan.pockets or {}
 	for _, c in pockets do
 		plan.locks[c.seam.id] = {
 			kind = "pocket",
@@ -873,6 +883,373 @@ local function addPockets(ctx, rng, plan, cfg, position)
 		end
 	end
 	plan.stats.pockets = #pockets
+end
+
+local solveWith -- (below: the solver, over a context already built)
+
+-- Steps inside a wing (docs/plans/level-design.md section 11, L3.4): for
+-- three or four players, a big wing's prize (the key to a later door, else
+-- an heirloom) is shut away inside the wing, and the tool that opens it is
+-- in the wing's other branch, or in the wing opened beside it straight
+-- after. Shut away in a side room, its door boarded up or chained, or, with
+-- no side room to spare, in a chest (or the fridge) chained or nailed shut
+-- (`plan.pieces`). Someone goes for the tool while the rest carry on, and
+-- whoever pries wants a lookout. What opens a step is never a key, so key
+-- hunts don't multiply. Each step is played out by the solver and left out
+-- if the squad couldn't finish with it. `cfg.WingSteps` is { fewest, most }
+-- a house (by squad, Logic/HouseSize), in wings of `cfg.WingStepRooms`
+-- rooms or more.
+--
+--   plan.pieces [lock id] = { kind = "boards" | "chain", needs = { tool },
+--              room, prop = the template prop's id, thing = "chest", region,
+--              step = true }; what's kept in it has `producer.piece` = its id
+local function addWingSteps(ctx, rng, plan, cfg, position)
+	local range = cfg.WingSteps
+	if not range or not ctx.mansion or range[2] <= 0 then
+		return
+	end
+	local want = rng:NextInteger(range[1], range[2])
+	if want <= 0 then
+		return
+	end
+	-- What may be shut away (a key to a gate, or an heirloom, kept in
+	-- furniture), and the rooms that keep anything else or must stay open.
+	local busy = { [ctx.dining] = true, [ctx.start] = true }
+	if ctx.goal then
+		busy[ctx.goal] = true
+	end
+	local prizes = {} -- room -> { token ids }
+	for _, id in sortedKeys(plan.tokens) do
+		local token = plan.tokens[id]
+		local gate = token.opens and plan.locks[token.opens]
+		local prize = token.producer.kind == "container"
+			and (
+				token.kind == "heirloom"
+				or (token.kind == "key" and not token.reusable and gate ~= nil and not gate.pocket)
+			)
+		if prize then
+			local room = token.producer.room
+			prizes[room] = prizes[room] or {}
+			table.insert(prizes[room], id)
+		else
+			for _, room in LockPlanner.producerRooms(plan, token) do
+				busy[room] = true
+			end
+		end
+	end
+	for _, puzzle in plan.puzzles do
+		busy[puzzle.room] = true
+		for _, room in puzzle.rooms or {} do
+			busy[room] = true
+		end
+	end
+	local layout = ctx.layout
+	if layout.chute then
+		busy[layout.chute.ground] = true
+		busy[layout.chute.upper] = true
+	end
+	-- (A side room with a servants' passage into it has another way in.)
+	local passage = {}
+	for _, way in layout.passages or {} do
+		for _, seam in way.seams or {} do
+			passage[seam.a] = true
+			passage[seam.b] = true
+		end
+	end
+	local doorways = {}
+	for _, seam in ctx.seams do
+		doorways[seam.a] = doorways[seam.a] or {}
+		doorways[seam.b] = doorways[seam.b] or {}
+		table.insert(doorways[seam.a], seam)
+		table.insert(doorways[seam.b], seam)
+	end
+	-- Where each wing's door is seen from: wings off the same region opened
+	-- one after the other are siblings (Logic/Wings: split up).
+	local doorRegion = {}
+	for _, r in plan.order do
+		local gate = plan.regions[r].gate
+		local seam = gate and ctx.seamById[gate]
+		local lock = gate and plan.locks[gate]
+		if seam and lock then
+			doorRegion[r] = plan.roomRegion[seam.a == lock.inside and seam.b or seam.a]
+		end
+	end
+	local function sibling(r: number): number?
+		for _, s in plan.order do
+			if s ~= r and doorRegion[s] == doorRegion[r] and position[s] == position[r] + 1 then
+				return s
+			end
+		end
+		return nil
+	end
+	-- The furniture a step can chain or nail shut in a room, as it will be
+	-- furnished (Logic/RoomFit, as World/MansionBuilder lays it out).
+	local pieceKinds = cfg.StepPieces or {}
+	local fitted = {}
+	local function piecesIn(id: number): { any }
+		if fitted[id] == nil then
+			local list = {}
+			local room = ctx.byId[id]
+			local template = ctx.templatesById[room.template]
+			if template then
+				for _, prop in RoomFit.inMansion(layout, room, template, cfg.PieceWall or 0.5).props do
+					if (pieceKinds[prop.kind] or 0) > 0 then
+						table.insert(list, prop)
+					end
+				end
+			end
+			fitted[id] = list
+		end
+		return fitted[id]
+	end
+	-- Somewhere a tool may lie: keeping nothing else (a prize is fine), and
+	-- not shut away.
+	local function free(id: number): boolean
+		return (not busy[id] or prizes[id] ~= nil) and not (plan.pockets and plan.pockets[id])
+	end
+	local enabled = cfg.Enabled or {}
+	-- Big wings, the biggest first.
+	local wings = {}
+	for _, r in plan.order do
+		if #plan.regions[r].rooms >= (cfg.WingStepRooms or 5) then
+			table.insert(wings, r)
+		end
+	end
+	rng:Shuffle(wings)
+	table.sort(wings, function(a, b)
+		local na, nb = #plan.regions[a].rooms, #plan.regions[b].rooms
+		if na ~= nb then
+			return na > nb
+		end
+		return position[a] < position[b]
+	end)
+
+	-- Shut `prize` away at `spot` behind `kind`'s tool (`fresh`: a new tool,
+	-- kept in a room of `rooms`), if the squad can still finish; else put
+	-- everything back as it was.
+	local function try(r: number, spot, prize: string, kind, fresh, rooms, walk): boolean
+		local tokenId = "tool:" .. kind.tool
+		local token = plan.tokens[prize]
+		local was = token.producer
+		local lockId = spot.seam and spot.seam.id or ("piece:" .. spot.room .. ":" .. spot.prop.id)
+		local tool = plan.tokens[tokenId]
+		if fresh then
+			local avoid = { [spot.room] = true }
+			for room in plan.pockets or {} do
+				avoid[room] = true
+			end
+			tool = {
+				kind = "tool",
+				tool = kind.tool,
+				-- (A tool that only opens furniture opens no door.)
+				opens = spot.seam and spot.seam.id or nil,
+				label = kind.label(),
+				producer = {
+					kind = "container",
+					room = keepingRoom(ctx, rng, rooms, avoid, nil, walk, cfg.StepToolStuds),
+				},
+			}
+			plan.tokens[tokenId] = tool
+		elseif spot.seam then
+			tool.also = tool.also or {}
+			table.insert(tool.also, spot.seam.id)
+		end
+		if spot.seam then
+			plan.locks[lockId] = {
+				kind = kind.id,
+				needs = { tokenId },
+				region = r,
+				inside = spot.room,
+				pocket = true,
+				step = true,
+			}
+			plan.pockets = plan.pockets or {}
+			plan.pockets[spot.room] = { seam = lockId, opener = tokenId, step = true }
+			token.producer = { kind = "container", room = spot.room }
+		else
+			plan.pieces = plan.pieces or {}
+			plan.pieces[lockId] = {
+				kind = kind.id,
+				needs = { tokenId },
+				room = spot.room,
+				prop = spot.prop.id,
+				thing = string.lower(spot.prop.kind),
+				region = r,
+				step = true,
+			}
+			token.producer = { kind = "container", room = spot.room, piece = lockId }
+		end
+		-- The squad can finish with it, and can't without opening it (what it
+		-- holds is needed: never a chore for nothing).
+		local step = spot.seam and plan.locks[lockId] or plan.pieces[lockId]
+		local finishes = solveWith(ctx, plan).solvable
+		local needed = false
+		if finishes then
+			step.needs = { "nothing" }
+			needed = not solveWith(ctx, plan).solvable
+			step.needs = { tokenId }
+		end
+		if needed then
+			busy[spot.room] = true
+			busy[LockPlanner.tokenRoom(plan, tool)] = true
+			for _, list in prizes do
+				local at = table.find(list, prize)
+				if at then
+					table.remove(list, at)
+				end
+			end
+			return true
+		end
+		token.producer = was
+		if spot.seam then
+			plan.locks[lockId] = nil
+			plan.pockets[spot.room] = nil
+		else
+			plan.pieces[lockId] = nil
+		end
+		if fresh then
+			plan.tokens[tokenId] = nil
+		elseif spot.seam then
+			table.remove(tool.also)
+		end
+		return false
+	end
+
+	local steps = 0
+	for _, r in wings do
+		if steps >= want then
+			break
+		end
+		local rooms = plan.regions[r].rooms
+		-- Where: side rooms first (one doorway, inside the wing, with
+		-- furniture to keep the prize in), then a chest or the like in any
+		-- room; deepest from the wing's door first.
+		local gateLock = plan.locks[plan.regions[r].gate]
+		local inside = {}
+		for _, id in rooms do
+			inside[id] = true
+		end
+		local regionEdges = {}
+		for _, seam in ctx.seams do
+			if inside[seam.a] and inside[seam.b] then
+				table.insert(regionEdges, { seam.a, seam.b })
+			end
+		end
+		local depth = Graph.bfs(Graph.adjacency(rooms, regionEdges), gateLock.inside)
+		local sideRooms, pieces = {}, {}
+		for _, id in rooms do
+			local seams = doorways[id] or {}
+			local seam = seams[1]
+			local room = ctx.byId[id]
+			local open = not busy[id] and not ctx.corridor[id] and not (plan.pockets and plan.pockets[id])
+			if
+				open
+				and #seams == 1
+				and not passage[id]
+				and room.kind ~= "stair"
+				and not room.tall
+				and not room.lantern
+				and not seam.arch
+				and plan.locks[seam.id] == nil
+				and plan.roomRegion[seam.a] == plan.roomRegion[seam.b]
+				and ctx.offers[id].containers > 0
+			then
+				table.insert(sideRooms, { room = id, seam = seam, depth = depth[id] or 0 })
+			end
+			local list = open and piecesIn(id) or {}
+			if #list > 0 then
+				local prop = rng:WeightedPick(list, function(p)
+					return pieceKinds[p.kind]
+				end)
+				table.insert(pieces, { room = id, prop = prop, depth = depth[id] or 0 })
+			end
+		end
+		local spots = {}
+		for _, list in { sideRooms, pieces } do
+			rng:Shuffle(list)
+			table.sort(list, function(a, b)
+				if a.depth ~= b.depth then
+					return a.depth > b.depth
+				end
+				return a.room < b.room
+			end)
+			for _, spot in list do
+				table.insert(spots, spot)
+			end
+		end
+		-- What: a key first (it leads on), else an heirloom.
+		local keys, heirlooms = {}, {}
+		for _, id in rooms do
+			for _, token in prizes[id] or {} do
+				table.insert(plan.tokens[token].kind == "key" and keys or heirlooms, token)
+			end
+		end
+		local choices = rng:Shuffle(keys)
+		for _, token in rng:Shuffle(heirlooms) do
+			table.insert(choices, token)
+		end
+		-- How: a tool the house doesn't have yet, in the sibling wing (opened
+		-- just after) or across this one; else one it has, wherever it lies.
+		local placed = false
+		for _, spot in spots do
+			for _, prize in choices do
+				local have, fresh = 0, {}
+				for _, kind in LockPlanner.Gates do
+					if kind.tool then
+						if plan.tokens["tool:" .. kind.tool] then
+							have += 1
+						elseif enabled[kind.id] and (cfg.Flavours[kind.id] or 0) > 0 then
+							table.insert(fresh, kind)
+						end
+					end
+				end
+				if have < (cfg.MaxTools or 2) and #fresh > 0 then
+					local kind = rng:Pick(fresh)
+					local s = sibling(r)
+					if s and rng:Chance(cfg.StepSibling or 0.5) then
+						local there = {}
+						for _, id in plan.regions[s].rooms do
+							if free(id) then
+								table.insert(there, id)
+							end
+						end
+						placed = #there > 0 and try(r, spot, prize, kind, true, there)
+					end
+					if not placed then
+						-- Across the wing: a walk from the step, never beside it.
+						local door = spot.seam and (spot.seam.a == spot.room and spot.seam.b or spot.seam.a)
+							or spot.room
+						local walk = ctx.walker
+							and ctx.walker(door, function(seam)
+								return seam.connected == true
+							end)
+						local band = cfg.StepToolStuds or { 40, 400 }
+						local across = {}
+						for _, id in rooms do
+							local far = walk == nil or (walk[id] or 0) >= band[1]
+							if id ~= spot.room and free(id) and far then
+								table.insert(across, id)
+							end
+						end
+						placed = #across > 0 and try(r, spot, prize, kind, true, across, walk)
+					end
+				end
+				for _, kind in LockPlanner.Gates do
+					if not placed and kind.tool and plan.tokens["tool:" .. kind.tool] then
+						placed = try(r, spot, prize, kind, false)
+					end
+				end
+				if placed then
+					break
+				end
+			end
+			if placed then
+				steps += 1
+				break
+			end
+		end
+	end
+	plan.stats.wingSteps = steps
 end
 
 -- When a room can first be reached: its region's place in the order, or, for
@@ -1392,7 +1769,9 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 		cut = {}
 	end
 	plan.finale = { table = ctx.dining, heirlooms = heirlooms, cut = cut, goal = ctx.goal }
-	-- Side rooms behind the house key (its own fork: nothing else changes).
+	-- Steps inside the big wings, for three or four, then side rooms behind
+	-- the house key in what's left (each its own fork: nothing else changes).
+	addWingSteps(ctx, rng:Fork("steps"), plan, cfg, position)
 	addPockets(ctx, rng:Fork("pockets"), plan, cfg, position)
 	return plan
 end
@@ -1404,13 +1783,23 @@ end
 -- nothing changes. Returns { solvable, held, opened, gates (in the order they
 -- opened), tableSet, out }.
 function LockPlanner.solve(layout, plan, templatesById)
-	local ctx = context(layout, templatesById or {}, nil)
+	return solveWith(context(layout, templatesById or {}, nil), plan)
+end
+
+function solveWith(ctx, plan)
 	local opened, held, gates = {}, {}, {}
 	local function open(seam)
 		return plan.locks[seam.id] == nil or opened[seam.id] == true
 	end
 	local reachable = reach(ctx, ctx.start, open)
 	local function made(token)
+		-- Shut in furniture (a step: chained or nailed) until its tool is held.
+		local piece = token.producer.piece and plan.pieces and plan.pieces[token.producer.piece]
+		for _, need in piece and piece.needs or {} do
+			if not held[need] then
+				return false
+			end
+		end
 		local rooms = LockPlanner.producerRooms(plan, token)
 		for _, room in rooms do
 			if not reachable[room] then

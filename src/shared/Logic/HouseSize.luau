@@ -39,6 +39,7 @@ function HouseSize.config(mansion, progression, squad: number?, extra: number?)
 	p.Regions = { { upTo = math.huge, count = regions } }
 	p.FinaleItems = size.heirlooms
 	p.Pockets = size.pockets
+	p.WingSteps = size.wingSteps
 	p.MaxTools = size.maxTools or progression.MaxTools
 	if size.flavours then
 		p.Flavours = table.clone(progression.Flavours)

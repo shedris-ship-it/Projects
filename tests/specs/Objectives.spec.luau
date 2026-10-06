@@ -80,6 +80,23 @@ return function(test, check, Shared, require)
 			"Somewhere there's a door with an umbrella on it.",
 			"an umbrella"
 		)
+		-- A tool someone carries: a door it works, or a step's chest (L3.4).
+		check.equal(
+			Objectives.lockLine({ tools = { { name = "crowbar", kind = "boards", place = "the Den" } } }),
+			"The crowbar could pry the boards off the door in the Den.",
+			"a boarded door"
+		)
+		check.equal(
+			Objectives.lockLine({
+				tools = { { name = "bolt cutters", kind = "chain", place = "the Nursery", thing = "chest" } },
+			}),
+			"The bolt cutters could cut the chain on the chest in the Nursery.",
+			"a chained chest"
+		)
+		check.truthy(
+			Objectives.lockLine({ tools = { { name = "crowbar", kind = "boards" } } }) == nil,
+			"a tool with nothing seen to use it on says nothing"
+		)
 	end)
 
 	test("once the dinner is served, only the way out", function()

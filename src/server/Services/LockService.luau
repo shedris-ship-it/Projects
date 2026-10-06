@@ -29,6 +29,7 @@ local Constants = require(Shared.Constants)
 local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
+local Props = require(Shared.Data.Props)
 local ToolLocks = require(Shared.Logic.ToolLocks)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
@@ -47,6 +48,10 @@ local LockService = {
 	-- the house that was locked away (a set of its room ids). Progress: it
 	-- calms Drift and wakes a hunt (Stalker/Director).
 	RegionEntered = Signal.new(),
+	-- (piece lock id, player?): a chest a step shut came open; (id, player):
+	-- someone tried it without its tool.
+	PieceOpened = Signal.new(),
+	PieceTried = Signal.new(),
 }
 
 function LockService:Init(services)
@@ -61,6 +66,7 @@ function LockService:Init(services)
 	self.seen = {} -- seam id -> true once someone has tried it
 	self.reach = {} -- room id -> true while the squad can get there
 	self.entered = {} -- region -> true once someone has walked in
+	self.pieceLocks = {} -- piece lock id -> { lock, space, open, work, state, fixings, anchor }
 	self.quiet = false -- every lock opened at once (the dinner, F2): entering no longer counts
 end
 
@@ -140,6 +146,7 @@ function LockService:_clear()
 	table.clear(self.seen)
 	table.clear(self.reach)
 	table.clear(self.entered)
+	table.clear(self.pieceLocks)
 	self.quiet = false
 	for player in self.rings do
 		if player.Parent then
@@ -335,6 +342,95 @@ local function chain(door, parent: Instance): Model
 	return model
 end
 
+-- A run of chain links from `at` (its middle, facing out of the front), at
+-- `angle` across the face, `half` studs each way: overlapping links, each
+-- turned a quarter round the chain from the last.
+local function links(model: Model, at: CFrame, angle: number, half: number)
+	local count = math.max(1, math.floor(half / 0.36))
+	for k = -count, count do
+		local link = Instance.new("Part")
+		link.Name = "Link"
+		link.Anchored = true
+		link.CanCollide = false
+		link.CanTouch = false
+		link.CanQuery = false
+		link.Material = Enum.Material.Metal
+		link.Color = Color3.fromRGB(96, 96, 100)
+		link.Size = Vector3.new(0.5, 0.2, 0.07)
+		link.CFrame = at
+			* CFrame.Angles(0, 0, angle)
+			* CFrame.new(k * 0.36, 0, 0)
+			* CFrame.Angles((k % 2) * math.rad(90), 0, 0)
+		link.Parent = model
+	end
+end
+
+-- A chest (or the fridge) a step shut (section 11, L3.4): a chain crossed
+-- over its front with a padlock, or `steps` planks nailed across it, each
+-- tagged with its step. `frame` is the piece's own (its front is +Z), at
+-- the floor. Returns the model and the part its prompt hangs on.
+local function pieceFixings(kind: string, frame: CFrame, size: Vector3, steps: number, parent: Instance)
+	local model = Instance.new("Model")
+	model.Name = kind == "boards" and "Boards" or "Chain"
+	local w, h, d = size.X, size.Y, size.Z
+	-- Across the doors' middle, or a chest's lid and front.
+	local low, high = h * 0.4, h - 0.35
+	if h > 5 then
+		low, high = h * 0.3, h * 0.68
+	end
+	local face = d / 2 + 0.2
+	local middle = frame * CFrame.new(0, (low + high) / 2, face)
+	if kind == "boards" then
+		for i = 1, steps do
+			local plank = Instance.new("Part")
+			plank.Name = "Plank"
+			plank.Anchored = true
+			plank.CanCollide = false
+			plank.CanTouch = false
+			plank.CanQuery = false
+			plank.Material = Enum.Material.WoodPlanks
+			plank.Color = Color3.fromRGB(150, 116, 78) -- fresh-cut: it reads in torchlight
+			plank.Size = Vector3.new(w + 0.5, 0.5, 0.14)
+			local y = steps == 1 and (low + high) / 2 or low + (high - low) * (i - 1) / (steps - 1)
+			local tilt = math.rad((i % 2 == 0 and 1 or -1) * 5)
+			plank.CFrame = frame * CFrame.new(0, y, face) * CFrame.Angles(0, 0, tilt)
+			plank:SetAttribute("Step", i)
+			plank.Parent = model
+		end
+	else
+		local spanX, spanY = w * 0.4, (high - low) / 2
+		local half = math.sqrt(spanX * spanX + spanY * spanY)
+		for _, slope in { -1, 1 } do
+			links(model, middle, slope * math.atan2(spanY, spanX), half)
+		end
+		local lock = Instance.new("Part")
+		lock.Name = "Padlock"
+		lock.Anchored = true
+		lock.CanCollide = false
+		lock.CanTouch = false
+		lock.CanQuery = false
+		lock.Material = Enum.Material.Metal
+		lock.Color = Color3.fromRGB(70, 70, 74)
+		lock.Size = Vector3.new(0.5, 0.6, 0.25)
+		lock.CFrame = middle * CFrame.new(0, -0.2, 0.12)
+		lock.Parent = model
+	end
+	-- Where its prompt hangs: its middle, just out from the front.
+	local anchor = Instance.new("Part")
+	anchor.Name = "Anchor"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanTouch = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.CFrame = middle * CFrame.new(0, 0, 0.2)
+	anchor.Parent = model
+	model:SetAttribute("RunContent", true)
+	model.Parent = parent
+	return model, anchor
+end
+
 -- The plan's locks on the built house. Called by RunOrchestrator after the
 -- house is built and DoorService has set up its doors.
 function LockService:Begin(plan)
@@ -495,7 +591,7 @@ end
 
 -- Where a key's next door is, in words, once someone has seen it (the first
 -- of its doors still shut that has been seen); nil until then.
-function LockService:KeyPlace(token: string): string?
+function LockService:KeyPlace(token: string): (string?, string?)
 	local finale = self.services.FinaleService
 	for _, seamId in self:DoorsOf(token) do
 		local entry = self.locks[seamId]
@@ -504,6 +600,19 @@ function LockService:KeyPlace(token: string): string?
 			if place then
 				return place
 			end
+		end
+	end
+	-- A step's chest it opens (a tool's), once anyone has been by it: the
+	-- place, and what it is ("chest").
+	local ids = {}
+	for id in self.pieceLocks do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	for _, id in ids do
+		local entry = self.pieceLocks[id]
+		if not entry.open and table.find(entry.lock.needs, token) and finale:PieceKnown(id) then
+			return finale:RoomPlace(entry.lock.room), entry.lock.thing
 		end
 	end
 	return nil
@@ -704,6 +813,130 @@ function LockService:_loosePlank(plank: BasePart)
 	model.PrimaryPart = copy
 	model.Parent = parent
 	hands:AddThing(model, { class = Physical.Dressing.Plank.class, label = Physical.Dressing.Plank.label })
+end
+
+-- A chest (or the fridge) a step inside a wing shuts (docs/plans/level-
+-- design.md section 11, L3.4): what's kept in its `space` (Services/
+-- ItemService put it there) stays shut in until the tool's work is done.
+function LockService:LockPiece(lockId: string, space)
+	local info = self.plan and self.plan.pieces and self.plan.pieces[lockId]
+	if not info or not space or self.pieceLocks[lockId] then
+		return
+	end
+	-- Every door and lid on it (a fridge's freezer too: the planks cross both).
+	local furniture = self.services.FurnitureService
+	local pieces = {}
+	for _, piece in furniture.pieces do
+		if piece.prop == space.prop then
+			furniture:SetLocked(piece, true)
+			table.insert(pieces, piece)
+		end
+	end
+	local orchestrator = self.services.RunOrchestrator
+	local squad = orchestrator and orchestrator.run and orchestrator.run.squad
+	local work = ToolLocks.work(info.kind, squad, Config.ToolLocks, true)
+	local prop = space.prop
+	local kind = Props.Kinds[prop.kind]
+	local size = kind and Vector3.new(kind.size[1], kind.size[2], kind.size[3]) or Vector3.new(4, 3, 3)
+	local fixings, anchor = pieceFixings(info.kind, prop.frame, size, work.steps, self.World.content or workspace)
+	local parts = {}
+	for _, p in fixings:GetChildren() do
+		table.insert(parts, p)
+	end
+	local push = self.services.PushService
+	if push then
+		push:Fix(prop.model, parts)
+	end
+	local tool = ToolLocks.Kinds[info.kind]
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ToolPrompt"
+	prompt.ObjectText = (string.gsub(info.thing, "^%l", string.upper))
+	prompt.ActionText = tool.action
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = work.seconds
+	prompt.MaxActivationDistance = 6
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = anchor
+	prompt.Triggered:Connect(function(player)
+		self:_tryPiece(lockId, player)
+	end)
+	self.pieceLocks[lockId] = {
+		lock = info,
+		space = space,
+		pieces = pieces,
+		open = false,
+		work = work,
+		state = ToolLocks.start(work),
+		fixings = fixings,
+		parts = parts,
+		anchor = anchor,
+	}
+end
+
+-- One hold on a step's chest: with the tool, a plank off or the chain cut
+-- (loud); without it, it won't budge and says what would do.
+function LockService:_tryPiece(lockId: string, player: Player)
+	local entry = self.pieceLocks[lockId]
+	if not entry or entry.open or not self.PlayerState:CanAct(player) then
+		return
+	end
+	local info = ToolLocks.Kinds[entry.lock.kind]
+	local at = entry.anchor.Position
+	local tools = self.services.ToolService
+	if not (tools and tools:Carries(player, info.tool)) then
+		Sfx.play("DoorLatch", at, 0.4, 0.8)
+		notify(player, info.pieceRefuse)
+		self.PieceTried:Fire(lockId, player)
+		return
+	end
+	local done = ToolLocks.step(entry.state)
+	if entry.lock.kind == "boards" then
+		local step = entry.state.left + 1
+		for _, plank in entry.fixings:GetChildren() do
+			if plank:GetAttribute("Step") == step then
+				local push = self.services.PushService
+				if push then
+					push:Unfix({ plank })
+				end
+				self:_loosePlank(plank)
+				plank:Destroy()
+			end
+		end
+		Sfx.play("CreakAlt", at, 1, 0.5)
+		task.delay(0.25, function()
+			Sfx.play("Thud", at, 0.8, 1.15)
+		end)
+	else
+		Sfx.play("Snap", at, 1, 0.6)
+	end
+	self.Noise:Emit(at, entry.work.noise, player, entry.lock.kind == "boards" and "pry" or "snap")
+	if done then
+		self:UnlockPiece(lockId, player, info.done)
+	elseif info.step then
+		notify(player, info.step .. " " .. entry.state.left .. " left.")
+	end
+end
+
+-- A step's chest comes open: its pieces move again and its fixings go.
+function LockService:UnlockPiece(lockId: string, player: Player?, message: string?)
+	local entry = self.pieceLocks[lockId]
+	if not entry or entry.open then
+		return
+	end
+	entry.open = true
+	local furniture = self.services.FurnitureService
+	for _, piece in entry.pieces do
+		furniture:SetLocked(piece, false)
+	end
+	local push = self.services.PushService
+	if push then
+		push:Unfix(entry.parts)
+	end
+	entry.fixings:Destroy()
+	if message then
+		notify(player, message)
+	end
+	self.PieceOpened:Fire(lockId, player)
 end
 
 -- Someone pressed on or pulled a locked door (`how`: "prompt" or "pull").
@@ -923,6 +1156,9 @@ function LockService:UnlockAll(except: { [string]: boolean }?)
 			self:Unlock(seamId, nil, nil)
 		end
 	end
+	for id in self.pieceLocks do
+		self:UnlockPiece(id, nil, nil)
+	end
 end
 
 -- For F2 `locks`: one line a lock.
@@ -933,6 +1169,11 @@ function LockService:Describe(): { string }
 		local what = lock.kind == "bolt" and ("bolt, opens from room " .. lock.side)
 			or (lock.kind .. ", needs " .. table.concat(lock.needs or {}, " "))
 		table.insert(lines, string.format("%s %s: %s", seamId, entry.open and "open" or "LOCKED", what))
+	end
+	for id, entry in self.pieceLocks do
+		local lock = entry.lock
+		local what = string.format("%s on the %s, needs %s", lock.kind, lock.thing, table.concat(lock.needs, " "))
+		table.insert(lines, string.format("%s %s: %s", id, entry.open and "open" or "LOCKED", what))
 	end
 	table.sort(lines)
 	return lines

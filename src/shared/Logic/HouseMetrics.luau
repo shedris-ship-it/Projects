@@ -182,10 +182,20 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	m.doorTokens, m.blindTokens, m.heldKeyBlind = 0, 0, 0
 	-- Side rooms behind the house key, and the doors it opens (section 11, L3.2).
 	m.pockets, m.pocketReturns, m.houseKeyDoors = 0, 0, 0
-	-- Boarded and chained doors (section 11, L3.3).
-	m.toolLocks = 0
+	-- Boarded and chained doors (section 11, L3.3), and the steps inside a
+	-- wing (L3.4: a side room or a chest a tool opens, not the house key).
+	m.toolLocks, m.wingSteps = 0, 0
+	local pieceIds = sortedKeys(plan.pieces or {})
+	for _, id in pieceIds do
+		m.toolLocks += 1
+		if plan.pieces[id].step then
+			m.wingSteps += 1
+		end
+	end
 	for _, lock in plan.locks do
-		if lock.pocket then
+		if lock.step then
+			m.wingSteps += 1
+		elseif lock.pocket then
 			m.pockets += 1
 		end
 		if lock.kind == "boards" or lock.kind == "chain" then
@@ -215,9 +225,13 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		end
 	end
 
+	-- Chests and the like a step chained or nailed shut, opened once someone
+	-- came back with the tool.
+	local pieceOpened = {}
 	local function collect()
 		for _, id in tokenIds do
-			if not had[id] then
+			local piece = plan.tokens[id].producer.piece
+			if not had[id] and not (piece and not pieceOpened[piece]) then
 				local rooms = LockPlanner.producerRooms(plan, plan.tokens[id])
 				local all = #rooms > 0
 				for _, room in rooms do
@@ -316,11 +330,34 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 				end
 			end
 		end
+		-- A chest a step shut, once its tool is held.
+		local bestPiece = nil
+		for _, id in pieceIds do
+			local piece = plan.pieces[id]
+			if not pieceOpened[id] then
+				local ready = true
+				for _, need in piece.needs do
+					ready = ready and had[need] == true
+				end
+				local d = dist[anchor[piece.room]]
+				if ready and d and d < bestDistance then
+					best, bestDistance, bestFrom, bestPiece = id, d, piece.room, piece
+				end
+			end
+		end
 		if not best then
 			break
 		end
 		local lock = plan.locks[best]
-		if lock.pocket then
+		if bestPiece then
+			-- A trip back to it pays like a side room's.
+			if position[regionOf[bestFrom]] < newest then
+				m.pocketReturns += 1
+			end
+			go(bestFrom, "open " .. best)
+			pieceOpened[best] = true
+			collect()
+		elseif lock.pocket then
 			-- A side room the house key opens (docs/plans/level-design.md
 			-- section 11, L3.2): a trip back that pays, counted on its own.
 			if position[regionOf[bestFrom]] < newest then

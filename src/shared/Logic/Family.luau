@@ -247,9 +247,10 @@ function Family.markDoors(family, plan, label: (string, string, number?) -> stri
 			end
 		end
 	end
-	-- Side rooms carry their house key's mark.
+	-- Side rooms carry their house key's mark (a step inside a wing shows its
+	-- boards or chain).
 	for _, lock in plan.locks do
-		if lock.pocket then
+		if lock.pocket and not lock.step then
 			lock.mark = plan.tokens[lock.needs[1]].mark
 		end
 	end

@@ -27,6 +27,7 @@ local Config = require(Shared.Config)
 local Dinner = require(Shared.Logic.Dinner)
 local Marks = require(Shared.Data.Marks)
 local Objectives = require(Shared.Logic.Objectives)
+local ToolLocks = require(Shared.Logic.ToolLocks)
 local Props = require(Shared.Data.Props)
 local RoomRects = require(Shared.Logic.RoomRects)
 local PropFactory = require(Shared.World.PropFactory)
@@ -63,6 +64,7 @@ function FinaleService:Start()
 		table.clear(self.places)
 		self.facts = {}
 		self.seenStations = {}
+		self.knownPieces = {}
 		table.clear(self.tried)
 		table.clear(self.spans)
 		self.line = nil
@@ -86,6 +88,19 @@ function FinaleService:Start()
 		end
 	end)
 	self.Locks.RingChanged:Connect(function()
+		if self.plan then
+			self:_publish()
+		end
+	end)
+	-- A step's chest (L3.4): tried without its tool, or opened.
+	self.Locks.PieceTried:Connect(function(id)
+		self.knownPieces = self.knownPieces or {}
+		if self.plan and not self.knownPieces[id] then
+			self.knownPieces[id] = true
+			self:_publish()
+		end
+	end)
+	self.Locks.PieceOpened:Connect(function()
 		if self.plan then
 			self:_publish()
 		end
@@ -194,6 +209,7 @@ function FinaleService:_lookForStations()
 			table.insert(positions, { at = position, room = self.World:RoomAt(position) })
 		end
 	end
+	self:_lookForPieces(positions)
 	for _, station in self:_stations() do
 		if not self.seenStations[station.id] and not station.solved then
 			for _, seen in positions do
@@ -259,6 +275,31 @@ function FinaleService:_placeOf(seamId: string): string?
 	return phrase
 end
 
+-- A room as the line says it ("the Nursery"), for a step's chest.
+function FinaleService:RoomPlace(room: number): string
+	return self.Items:RoomPhrase(room)
+end
+
+-- Someone has been by a step's chest (in its room, near it) or tried it.
+function FinaleService:PieceKnown(id: string): boolean
+	return self.knownPieces ~= nil and self.knownPieces[id] == true
+end
+
+function FinaleService:_lookForPieces(positions)
+	self.knownPieces = self.knownPieces or {}
+	for id, entry in self.Locks.pieceLocks do
+		if not entry.open and not self.knownPieces[id] and entry.anchor.Parent then
+			for _, seen in positions do
+				if seen.room == entry.lock.room and (seen.at - entry.anchor.Position).Magnitude < 14 then
+					self.knownPieces[id] = true
+					self:_publish()
+					break
+				end
+			end
+		end
+	end
+end
+
 -- Where a door is, once someone has tried it or seen it up close
 -- (MapService); nil till then.
 function FinaleService:DoorPlace(seamId: string): string?
@@ -316,9 +357,12 @@ function FinaleService:_lockFacts()
 	table.sort(ids)
 	for _, id in ids do
 		local token = self.plan.tokens[id]
-		local lock = token.opens and self.plan.locks[token.opens]
 		if toolService and toolService:Holder(token.tool) then
-			table.insert(tools, { name = token.label, kind = lock and lock.kind, place = self.Locks:KeyPlace(id) })
+			local place, thing = self.Locks:KeyPlace(id)
+			table.insert(
+				tools,
+				{ name = token.label, kind = ToolLocks.kindOf(token.tool), place = place, thing = thing }
+			)
 		end
 	end
 	return doors, keys, tools

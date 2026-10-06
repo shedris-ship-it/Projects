@@ -8,6 +8,16 @@
 
 local ToolLocks = {}
 
+-- The kind whose tool this is ("Crowbar" -> "boards").
+function ToolLocks.kindOf(tool: string): string?
+	for kind, info in ToolLocks.Kinds do
+		if info.tool == tool then
+			return kind
+		end
+	end
+	return nil
+end
+
 -- What each kind is, and what it says.
 ToolLocks.Kinds = {
 	boards = {
@@ -18,6 +28,8 @@ ToolLocks.Kinds = {
 		step = "A board screeches and comes away.",
 		done = "The last board comes away.",
 		verb = "pry the boards off",
+		-- On a chest or the like (a step inside a wing, L3.4).
+		pieceRefuse = "Nailed shut. Something could pry the boards off.",
 	},
 	chain = {
 		tool = "BoltCutters",
@@ -26,16 +38,18 @@ ToolLocks.Kinds = {
 		refuse = "A chain through the handles. Something could cut it.",
 		done = "The chain snaps and falls away.",
 		verb = "cut the chain on",
+		pieceRefuse = "Chained shut. Something could cut it.",
 	},
 }
 
 -- How the work goes for a squad of `squad` (Config.ToolLocks):
 -- { steps (holds), seconds (each hold), noise (studs) }.
-function ToolLocks.work(kind: string, squad: number?, cfg)
+-- `piece`: on a chest or the like, not a door (fewer planks).
+function ToolLocks.work(kind: string, squad: number?, cfg, piece: boolean?)
 	local c = kind == "boards" and cfg.Boards or cfg.Chain
 	local i = math.clamp(math.floor(squad or #c.Seconds), 1, #c.Seconds)
 	return {
-		steps = kind == "boards" and c.Planks[i] or 1,
+		steps = kind == "boards" and (piece and c.PiecePlanks or c.Planks[i]) or 1,
 		seconds = c.Seconds[i],
 		noise = c.Noise,
 	}

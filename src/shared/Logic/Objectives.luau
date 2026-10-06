@@ -9,7 +9,8 @@
 --     where its door is ("the Study") once someone has seen it
 --   doors: the locked doors someone has tried and nobody has opened, oldest
 --     first: { { mark?, kind, place } } (`place` the room it's seen from)
---   tools: the tools for tool locks someone carries: { { name, kind, place? } }
+--   tools: the tools for tool locks someone carries: { { name, kind, place?,
+--          thing? (a step's chest, not a door: "chest") } }
 --     (`kind` the lock it works, `place` its next door someone has seen)
 --   stations: the puzzles and locked cases someone has been near, in the
 --     order they were first seen: { { kind, room, solved } }. The newest one
@@ -81,7 +82,7 @@ function Objectives.lockLine(facts): string?
 				.. (key.two and " It needs two keys." or "")
 		end
 	end
-	-- A tool someone carries, and a seen door it works.
+	-- A tool someone carries, and a seen door (or chest) it works.
 	local tools = facts.tools or {}
 	for i = #tools, 1, -1 do
 		local tool = tools[i]
@@ -90,7 +91,9 @@ function Objectives.lockLine(facts): string?
 				.. tool.name
 				.. " could "
 				.. (TOOL_VERBS[tool.kind] or "open")
-				.. " the door in "
+				.. " the "
+				.. (tool.thing or "door")
+				.. " in "
 				.. tool.place
 				.. "."
 		end

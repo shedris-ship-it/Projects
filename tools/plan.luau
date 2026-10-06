@@ -167,12 +167,14 @@ if process.args[3] == "locks" then
 	table.sort(bolts)
 	print("  bolts (shortcuts, opened from inside): " .. (#bolts > 0 and table.concat(bolts, ", ") or "none"))
 	-- Side rooms behind the house key (docs/plans/level-design.md section 11, L3.2).
-	if plan.pockets then
-		local sides, opener = {}, nil
-		for room, pocket in plan.pockets do
+	local sides, opener = {}, nil
+	for room, pocket in plan.pockets or {} do
+		if not pocket.step then
 			table.insert(sides, named(room) .. " by " .. pocket.seam)
 			opener = pocket.opener
 		end
+	end
+	if opener then
 		table.sort(sides)
 		local key = plan.tokens[opener]
 		print(
@@ -184,6 +186,54 @@ if process.args[3] == "locks" then
 				table.concat(sides, ", ")
 			)
 		)
+	end
+	-- Steps inside a wing (section 11, L3.4): a side room or a chest a tool opens.
+	local steps = {}
+	local function holding(room: number, piece: string?): string
+		local what = {}
+		for id, token in plan.tokens do
+			if token.producer.kind == "container" and token.producer.room == room and token.producer.piece == piece then
+				table.insert(what, id)
+			end
+		end
+		table.sort(what)
+		return table.concat(what, " ")
+	end
+	local function toolAt(needs): string
+		local tool = plan.tokens[needs[1]]
+		return string.format("%s in %s", tool.label, named(LockPlanner.tokenRoom(plan, tool)))
+	end
+	for seamId, lock in plan.locks do
+		if lock.step then
+			table.insert(
+				steps,
+				string.format(
+					"%s behind %s %s, holding %s (the %s)",
+					named(lock.inside),
+					lock.kind,
+					seamId,
+					holding(lock.inside),
+					toolAt(lock.needs)
+				)
+			)
+		end
+	end
+	for id, piece in plan.pieces or {} do
+		table.insert(
+			steps,
+			string.format(
+				"the %s in %s, %s, holding %s (the %s)",
+				piece.thing,
+				named(piece.room),
+				piece.kind,
+				holding(piece.room, id),
+				toolAt(piece.needs)
+			)
+		)
+	end
+	table.sort(steps)
+	for _, line in steps do
+		print("  step inside a wing: " .. line)
 	end
 	-- The adventure the doors were laid for (Logic/Wings, docs/plans/level-design.md 5.3).
 	local wings = layout.wings

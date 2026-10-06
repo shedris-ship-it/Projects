@@ -36,6 +36,17 @@ return function(test, check, Shared, require)
 	local function name(house): string
 		return string.format("squad %d seed %d", house.squad, house.seed)
 	end
+	-- The house key's side rooms (not the steps inside a wing a tool opens:
+	-- WingSteps.spec).
+	local function sideRooms(plan)
+		local out = {}
+		for room, pocket in plan.pockets or {} do
+			if not pocket.step then
+				out[room] = pocket
+			end
+		end
+		return out
+	end
 
 	test("every plan with side rooms still finishes and passes its own checks", function()
 		for _, house in houses do
@@ -56,7 +67,7 @@ return function(test, check, Shared, require)
 					doorways[seam.b] = (doorways[seam.b] or 0) + 1
 				end
 			end
-			for room, pocket in plan.pockets or {} do
+			for room, pocket in sideRooms(plan) do
 				local where = name(house) .. " room " .. room
 				check.equal(doorways[room], 1, where .. ": one doorway")
 				local lock = plan.locks[pocket.seam]
@@ -101,7 +112,7 @@ return function(test, check, Shared, require)
 			for i, r in plan.order do
 				position[r] = i
 			end
-			for room, pocket in plan.pockets or {} do
+			for room, pocket in sideRooms(plan) do
 				local keyRoom = LockPlanner.tokenRoom(plan, plan.tokens[pocket.opener])
 				check.truthy(
 					not (plan.pockets and plan.pockets[keyRoom]),
@@ -121,7 +132,7 @@ return function(test, check, Shared, require)
 		local with, total = { 0, 0, 0, 0 }, { 0, 0, 0, 0 }
 		for _, house in houses do
 			local count = 0
-			for _ in house.plan.pockets or {} do
+			for _ in sideRooms(house.plan) do
 				count += 1
 			end
 			local range = house.progression.Pockets
@@ -162,7 +173,7 @@ return function(test, check, Shared, require)
 				local m = HouseMetrics.measure(layout, plan, templates, { nav = nav, config = house.mansion })
 				check.truthy(m.tableSet, name(house) .. ": the walk sets the table")
 				local count = 0
-				for _ in plan.pockets do
+				for _ in sideRooms(plan) do
 					count += 1
 				end
 				check.equal(m.pockets, count, name(house) .. ": the metric counts them")

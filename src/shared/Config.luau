@@ -169,6 +169,8 @@ Config.Mansion = {
 			-- section 11, L3.2): fewest and most a house.
 			pockets = { 0, 1 },
 			maxTools = 1, -- one tool kind a run
+			-- Steps inside a wing (section 11, L3.4): none for one or two.
+			wingSteps = { 0, 0 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
 		},
@@ -178,6 +180,7 @@ Config.Mansion = {
 			heirlooms = { 2, 3 },
 			pockets = { 1, 1 },
 			maxTools = 1,
+			wingSteps = { 0, 0 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
 		},
@@ -188,6 +191,7 @@ Config.Mansion = {
 			heirlooms = { 3, 3 },
 			pockets = { 1, 2 },
 			maxTools = 2,
+			wingSteps = { 0, 1 },
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -197,6 +201,7 @@ Config.Mansion = {
 			heirlooms = { 3, 3 },
 			pockets = { 2, 2 },
 			maxTools = 2,
+			wingSteps = { 1, 2 },
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -861,6 +866,7 @@ Config.Guest = {
 Config.ToolLocks = {
 	Boards = {
 		Planks = { 3, 4, 4, 4 }, -- a hold each
+		PiecePlanks = 2, -- nailed across a chest or the fridge (a step inside a wing)
 		Seconds = { 1.2, 1.5, 1.5, 1.5 }, -- each hold
 		Noise = 35, -- studs each plank carries
 	},
@@ -919,6 +925,16 @@ Config.Progression = {
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
 	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0, boards = 1, chain = 0.7 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
 	MaxTools = 2, -- tool kinds a house's tool locks use (docs/plans/level-design.md 11, L3.3; by squad)
+	-- Steps inside a wing (section 11, L3.4): a wing's prize behind boards or a
+	-- chain inside it, the tool across the wing or in its sibling. How many a
+	-- house is by squad (none for one or two: Mansion.BySquad `wingSteps`).
+	WingStepRooms = 4, -- rooms a wing needs for a step (wings of 5+ are one in ten)
+	StepSibling = 0.5, -- the tool lies in the sibling wing (opened just after), this often
+	StepToolStuds = { 40, 400 }, -- walking studs from the step's door to the tool: at least, and best up to
+	-- With no side room to spare, a chest (or the fridge) chained or nailed
+	-- shut instead (weights; not a hiding spot: nobody loses one).
+	StepPieces = { Chest = 3, Fridge = 2 },
+	PieceWall = Config.Level.WallThickness, -- the walls rooms are furnished inside (Logic/RoomFit)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
 	Enabled = {
 		key = true,
@@ -984,6 +1000,8 @@ Config.LevelDesign = {
 		pockets = { band = { 1, 2 }, bySquad = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 2 } }, weight = 2 },
 		-- Boarded and chained doors (section 11, L3.3): loud work for a lookout.
 		toolLocks = { band = { 1, 3 }, bySquad = { { 1, 2 }, { 1, 2 }, { 1, 3 }, { 2, 4 } }, weight = 1 },
+		-- Steps inside a wing (section 11, L3.4): none for one or two players.
+		wingSteps = { band = { 0, 2 }, bySquad = { { 0, 0 }, { 0, 0 }, { 0, 1 }, { 1, 2 } }, weight = 1 },
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)

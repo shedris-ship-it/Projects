@@ -125,6 +125,11 @@ function Leads.plan(plan, rooms, rng, cfg)
 			elseif kind == "hook" then
 				fits = token.kind == "key"
 			end
+			-- Shut in a chest by a step (Logic/LockPlanner): it stays in there,
+			-- and only a note says so.
+			if token.producer.piece and kind ~= "note" and kind ~= "drawer" then
+				fits = false
+			end
 			if weight > 0 and fits then
 				table.insert(options, { kind = kind, weight = weight * cfg.Repeat ^ (used[kind] or 0) })
 			end
