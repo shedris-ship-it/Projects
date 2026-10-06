@@ -28,6 +28,8 @@ Map.__index = Map
 
 -- How each kind of doorway looks: colour, and its short tag.
 -- What each storey is called (Logic/FloorPlan's names).
+local MIN_ROOM_PIXELS = 56 -- the smallest room on the map, across its shorter side
+
 local STOREY_NAMES = { [-1] = "Cellar", [0] = "Ground floor", [1] = "Upper floor", [2] = "Attic" }
 
 local DOORS = {
@@ -110,7 +112,7 @@ function Map.new(ctx)
 		BackgroundTransparency = 1,
 		ScrollBarThickness = 6,
 		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		AutomaticCanvasSize = Enum.AutomaticSize.XY,
 		Parent = panel,
 	})
 	ctx.state.LayoutChanged:Connect(function()
@@ -238,22 +240,40 @@ function Map:_renderMap()
 		Ui.label("Nowhere yet.", { Size = UDim2.fromOffset(300, 20), Parent = self.body })
 		return
 	end
-	-- The whole house's extent sets the scale (so the map doesn't jump as it
-	-- grows). The mansion's storeys side by side, two to a row when the
-	-- house has a cellar or an attic as well (docs/plans/level-design.md
-	-- section 10.1).
+	-- The rooms on the map set the scale (the outside playtest's map clipped
+	-- when the whole house did), never smaller than a readable room
+	-- (MIN_ROOM_PIXELS); the body scrolls when it outgrows the panel. The
+	-- mansion's storeys side by side, two to a row when the house has a cellar
+	-- or an attic as well (docs/plans/level-design.md section 10.1), and only
+	-- the storeys somebody has seen a room on.
 	local low, high = 0, 0
+	local storeyShown = {}
+	for _, room in shown do
+		local bottom = room.floor or 0
+		local roof = room.tall and (room.top or bottom + 1) or bottom
+		for f = bottom, roof do
+			storeyShown[f] = true
+		end
+	end
 	if layout.mode == "Mansion" then
 		local range = layout.storeys or { 0, 1 }
 		low, high = range[1], range[2]
+		while low < high and not storeyShown[low] do
+			low += 1
+		end
+		while high > low and not storeyShown[high] do
+			high -= 1
+		end
 	end
 	local count = high - low + 1
 	local cols = math.min(count, 2)
 	local rows = math.ceil(count / cols)
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
-	for _, room in layout.rooms do
+	local smallest = math.huge
+	for _, room in shown do
 		minX, maxX = math.min(minX, room.x), math.max(maxX, room.x + room.w)
 		minZ, maxZ = math.min(minZ, room.z), math.max(maxZ, room.z + room.d)
+		smallest = math.min(smallest, room.w, room.d)
 	end
 	local gap = 30
 	local label = 24 -- pixels under each storey for its name
@@ -266,6 +286,9 @@ function Map:_renderMap()
 	local areaX = math.min(viewport.X * 0.86, 1100) - 56
 	local areaY = math.min(viewport.Y * 0.82, 720) - 92 - 46 - label * rows
 	local scale = math.min(math.max(150, areaY) / (height * rows), math.max(300, areaX) / width)
+	if smallest < math.huge then
+		scale = math.max(scale, MIN_ROOM_PIXELS / smallest)
+	end
 	local rowPixels = height * scale + label
 	local canvas = Ui.new("Frame", {
 		Size = UDim2.fromOffset(width * scale, rowPixels * rows + 40),
@@ -285,7 +308,7 @@ function Map:_renderMap()
 	local here = root and self.ctx.state:RoomAt(root.Position)
 	for floor = low, high do
 		local left, top = corner(floor)
-		if count > 1 then
+		if count > 1 and storeyShown[floor] then
 			Ui.label(STOREY_NAMES[floor] or ("Floor " .. floor), {
 				Position = UDim2.fromOffset(left, top + height * scale + 4),
 				Size = UDim2.fromOffset((maxX - minX) * scale, 18),
@@ -320,7 +343,7 @@ function Map:_renderMap()
 			y,
 			14,
 			Color3.fromRGB(230, 200, 120),
-			string.format("%d/%d", state.table.set, state.table.places)
+			string.format("table %d/%d", state.table.set, state.table.places)
 		)
 	end
 	for _, door in state.doors do
@@ -471,8 +494,8 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 		BackgroundTransparency = (o.done and not isHere) and 0.45 or 0.15,
 		Text = room.name .. tag,
 		TextWrapped = true,
-		TextScaled = room.w * scale < 70,
-		TextSize = 12,
+		TextSize = 11,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		Font = Ui.Theme.font,
 		TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
@@ -524,15 +547,19 @@ function Map:_dot(canvas, x: number, y: number, size: number, color: Color3, tex
 		Parent = canvas,
 	}, { Ui.corner(size) })
 	if text then
+		-- On a dark backing, above the room it stands in, so it reads anywhere.
 		Ui.label(text, {
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.fromOffset(x, y + size / 2 + 1),
-			Size = UDim2.fromOffset(140, 12),
+			Size = UDim2.fromOffset(12 + 6 * #text, 13),
+			BackgroundColor3 = Color3.fromRGB(14, 12, 12),
+			BackgroundTransparency = 0.25,
 			TextSize = 10,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = color,
+			ZIndex = 5,
 			Parent = canvas,
-		})
+		}, { Ui.corner(3) })
 	end
 end
 

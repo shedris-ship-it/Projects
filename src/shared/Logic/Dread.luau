@@ -19,11 +19,13 @@
 
 local Dread = {}
 
--- The act's floor, eased in from the previous act's over DreadRamp seconds.
-function Dread.floor(act: number, sinceAct: number, cfg): number
+-- The act's floor, eased in over DreadRamp seconds from `from` (the Dread
+-- the house was at when the act began, so a squad already uneasy isn't
+-- dropped and lifted again) or, without it, from the previous act's floor.
+function Dread.floor(act: number, sinceAct: number, cfg, from: number?): number
 	local floors = cfg.ActDread
 	local target = floors[act] or floors[#floors] or 0
-	local previous = floors[act - 1] or 0
+	local previous = from or floors[act - 1] or 0
 	if previous > target then
 		previous = target
 	end
@@ -32,8 +34,8 @@ function Dread.floor(act: number, sinceAct: number, cfg): number
 	return previous + (target - previous) * t
 end
 
-function Dread.value(drift: number, act: number, sinceAct: number, cfg, difficulty): number
-	local floor = Dread.floor(act, sinceAct, cfg)
+function Dread.value(drift: number, act: number, sinceAct: number, cfg, difficulty, from: number?): number
+	local floor = Dread.floor(act, sinceAct, cfg, from)
 	local hard = difficulty and difficulty.DreadFloor or 0
 	return math.clamp(math.max(drift, floor, hard), 0, 100)
 end

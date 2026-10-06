@@ -1346,6 +1346,27 @@ function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boole
 	end
 	if held and not self.wasHeld then
 		tell("held")
+		-- Who held him, from where, and whether the line was clear: so a
+		-- "held through a wall" report can be answered from the numbers.
+		local eye = self.body:EyePosition()
+		local list = {}
+		for _, w in watchers do
+			if typeof(w) == "Instance" then
+				local head = self.services.PlayerStateService:Head(w)
+				local pos = head and head.Position
+				table.insert(list, {
+					name = w.DisplayName,
+					at = pos and { math.floor(pos.X), math.floor(pos.Y), math.floor(pos.Z) } or nil,
+					line = pos ~= nil and self.services.WitnessService:ClearLine(eye, pos, { self.body.model }),
+				})
+			end
+		end
+		self.services.Telemetry:Log("Freeze", {
+			guest = { math.floor(eye.X), math.floor(eye.Y), math.floor(eye.Z) },
+			watchers = list,
+			beam = beam,
+			hunt = hunting,
+		})
 	elseif self.wasHeld and not held and frozen and hunting then
 		tell("unheld")
 	end

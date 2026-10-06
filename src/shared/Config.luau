@@ -1663,6 +1663,7 @@ Config.ViewModel = {
 
 Config.Debug = {
 	AllowInStudio = true,
+	SkipIntroInStudio = true, -- the first-launch settings dialog never blocks a Studio test
 	AllowedUserIds = {}, -- add your user id to use debug commands on live servers
 	LogTactics = false,
 }

@@ -22,7 +22,9 @@ local KIND_COLORS = {
 
 function Toasts.new(ctx)
 	local self = setmetatable({}, Toasts)
-	local gui = Ui.screen("ConsensusToasts", 20, ctx.playerGui)
+	-- Above the map (40), the reader (45) and a puzzle (46), under the overlays
+	-- (50): a line said while the map is open is still read.
+	local gui = Ui.screen("ConsensusToasts", 48, ctx.playerGui)
 	self.feed = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 24, 1, -170),

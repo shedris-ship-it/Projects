@@ -2,7 +2,20 @@
 -- reduce flicker, reduce grain, subtitles, colour-blind-safe pings, a
 -- low-end graphics mode, FOV and volume. Also explains how to play.
 
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Ui = require(script.Parent.Parent.Lib.Ui)
+local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+
+-- The real keys, as Controllers/ActionController binds them (WP9: the
+-- outside playtest found the bolt on the torch's key and no list anywhere).
+local CONTROLS = table.concat({
+	"E  use, hold to work (a drawer, a lock, the table)  ·  hold click  drag or carry  ·  right click  throw",
+	"F  torch  ·  R  use the tool in hand  ·  V  bolt the bathroom door  ·  Q  squeeze past a barricade  ·  X  put down",
+	"1 2 3 4  slots (4 is your hands)  ·  wheel  next slot  ·  Shift  run  ·  Space  hold your breath",
+	"Tab  map and journal  ·  G  ping  ·  C  callouts  ·  Enter  say a line  ·  F1  settings  ·  F2  debug",
+}, "\n")
 
 local Settings = {}
 Settings.__index = Settings
@@ -39,9 +52,27 @@ function Settings.new(ctx)
 	})
 	Ui.label(HOW_TO, {
 		Position = UDim2.fromOffset(0, 40),
-		Size = UDim2.new(0.55, -10, 1, -90),
+		Size = UDim2.new(0.55, -10, 0, 300),
 		TextSize = 14,
 		TextYAlignment = Enum.TextYAlignment.Top,
+		Parent = panel,
+	})
+	Ui.label("CONTROLS", {
+		Position = UDim2.fromOffset(0, 346),
+		Size = UDim2.new(0.55, -10, 0, 22),
+		Font = Ui.Theme.fontType,
+		TextSize = 18,
+		TextColor3 = Ui.Theme.accent,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+	Ui.label(CONTROLS, {
+		Position = UDim2.fromOffset(0, 370),
+		Size = UDim2.new(0.55, -10, 1, -420),
+		TextSize = 12,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextColor3 = Ui.Theme.textDim,
 		Parent = panel,
 	})
 	Ui.label('Photosensitivity: this game uses flickering lights. Turn on "Reduce flicker" if you need to.', {
@@ -133,7 +164,9 @@ function Settings.new(ctx)
 	end)
 
 	ctx.state.ProfileChanged:Connect(function()
-		if not ctx.state.settings.seenIntro and not self.shownIntro then
+		-- (Config.Debug.SkipIntroInStudio: a Studio test never waits on the dialog.)
+		local skip = RunService:IsStudio() and Config.Debug.SkipIntroInStudio
+		if not skip and not ctx.state.settings.seenIntro and not self.shownIntro then
 			self.shownIntro = true
 			self:Open()
 		end

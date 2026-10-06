@@ -112,6 +112,8 @@ end
 -- The run's act (Stalker/Director): Dread's floor rises with it.
 function DriftService:SetAct(act: number)
 	if act ~= self.act then
+		-- The new act's floor eases in from where Dread already is (Logic/Dread).
+		self.actFrom = self:Dread()
 		self.act = act
 		self.actSince = os.clock()
 		if self.running then
@@ -126,7 +128,7 @@ function DriftService:Dread(): number
 		return 0
 	end
 	local since = self.actSince and os.clock() - self.actSince or math.huge
-	return Dread.value(self.model.value, self.act, since, Config.Pacing, self.difficulty)
+	return Dread.value(self.model.value, self.act, since, Config.Pacing, self.difficulty, self.actFrom)
 end
 
 function DriftService:DreadStateName(): string

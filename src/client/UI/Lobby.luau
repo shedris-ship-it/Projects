@@ -22,7 +22,7 @@ function Lobby.new(ctx)
 	self.gui = gui
 	local panel = Ui.new("Frame", {
 		Position = UDim2.fromOffset(24, 24),
-		Size = UDim2.fromOffset(380, 440),
+		Size = UDim2.fromOffset(380, 456),
 		BackgroundColor3 = Ui.Theme.panel,
 		BackgroundTransparency = 0.1,
 		Parent = gui,
@@ -36,7 +36,8 @@ function Lobby.new(ctx)
 	})
 	Ui.label("A table laid for something already inside. Set its places, then run.", {
 		Position = UDim2.fromOffset(0, 40),
-		Size = UDim2.new(1, 0, 0, 18),
+		Size = UDim2.new(1, 0, 0, 34),
+		TextWrapped = true,
 		TextSize = 13,
 		TextColor3 = Ui.Theme.textDim,
 		Parent = panel,
@@ -44,11 +45,11 @@ function Lobby.new(ctx)
 
 	self.contract = Ui.label(
 		"",
-		{ Position = UDim2.fromOffset(0, 70), Size = UDim2.new(1, 0, 0, 40), TextSize = 14, Parent = panel }
+		{ Position = UDim2.fromOffset(0, 86), Size = UDim2.new(1, 0, 0, 40), TextSize = 14, Parent = panel }
 	)
 	self.difficultyButton = Ui.button(
 		"Difficulty: Normal",
-		{ Position = UDim2.fromOffset(0, 114), Size = UDim2.new(0.62, -4, 0, 34), TextSize = 14, Parent = panel },
+		{ Position = UDim2.fromOffset(0, 130), Size = UDim2.new(0.62, -4, 0, 34), TextSize = 14, Parent = panel },
 		function()
 			local lobby = ctx.state.lobby
 			local current = lobby and lobby.difficulty or "Normal"
@@ -59,7 +60,7 @@ function Lobby.new(ctx)
 	-- (one wing, two heirlooms) for a first run or a late night.
 	self.nightButton = Ui.button(
 		"Night: Full",
-		{ Position = UDim2.new(0.62, 4, 0, 114), Size = UDim2.new(0.38, -4, 0, 34), TextSize = 14, Parent = panel },
+		{ Position = UDim2.new(0.62, 4, 0, 130), Size = UDim2.new(0.38, -4, 0, 34), TextSize = 14, Parent = panel },
 		function()
 			local lobby = ctx.state.lobby
 			local current = lobby and lobby.night or "full"
@@ -68,7 +69,7 @@ function Lobby.new(ctx)
 	)
 
 	Ui.label("Tools are found in the house: look on tables, desks and dressers.", {
-		Position = UDim2.fromOffset(0, 158),
+		Position = UDim2.fromOffset(0, 174),
 		Size = UDim2.new(1, 0, 0, 36),
 		TextSize = 13,
 		TextColor3 = Ui.Theme.textDim,
@@ -77,13 +78,13 @@ function Lobby.new(ctx)
 
 	self.readyButton = Ui.button(
 		"Ready",
-		{ Position = UDim2.fromOffset(0, 202), Size = UDim2.new(1, 0, 0, 44), TextSize = 18, Parent = panel },
+		{ Position = UDim2.fromOffset(0, 218), Size = UDim2.new(1, 0, 0, 44), TextSize = 18, Parent = panel },
 		function()
 			Net.get("SetReady"):FireServer(not player:GetAttribute(Constants.PlayerAttributes.Ready))
 		end
 	)
 	self.countdown = Ui.label("", {
-		Position = UDim2.fromOffset(0, 250),
+		Position = UDim2.fromOffset(0, 266),
 		Size = UDim2.new(1, 0, 0, 20),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 15,
@@ -91,14 +92,14 @@ function Lobby.new(ctx)
 		Parent = panel,
 	})
 	Ui.label("Squad", {
-		Position = UDim2.fromOffset(0, 282),
+		Position = UDim2.fromOffset(0, 298),
 		Size = UDim2.new(1, 0, 0, 18),
 		Font = Ui.Theme.fontBold,
 		TextSize = 14,
 		Parent = panel,
 	})
 	self.squad = Ui.label("", {
-		Position = UDim2.fromOffset(0, 302),
+		Position = UDim2.fromOffset(0, 318),
 		Size = UDim2.new(1, 0, 0, 80),
 		TextSize = 13,
 		TextYAlignment = Enum.TextYAlignment.Top,
