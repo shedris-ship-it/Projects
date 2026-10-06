@@ -257,6 +257,53 @@ local function plate(door, lock)
 	return folder
 end
 
+-- A brass sign beside a power door's plate, both faces: the fuse box's
+-- labels (Config.Breaker.PlateAtDoor; server/Puzzles/Breaker sets the text).
+-- One player reads it to another at the panel.
+function LockService:SetPlateText(seamId: string, text: string)
+	local entry = self.locks[seamId]
+	local folder = entry and entry.plate
+	local door = entry and entry.door
+	if not folder or not door or not door.slab then
+		return
+	end
+	local slab = door.slab
+	for _, side in { -1, 1 } do
+		local face = slab.CFrame * CFrame.new(-slab.Size.X / 2 + 1.1, -0.1, side * (slab.Size.Z / 2 + 0.03))
+		local sign = Instance.new("Part")
+		sign.Name = "Sign"
+		sign.Anchored = true
+		sign.CanCollide = false
+		sign.CanTouch = false
+		sign.CastShadow = false
+		sign.Material = Enum.Material.Metal
+		sign.Color = Color3.fromRGB(168, 138, 78)
+		sign.Size = Vector3.new(1.5, 1.2, 0.12)
+		sign.CFrame = face * CFrame.new(1.35, 0.6, side * 0.06)
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = side > 0 and Enum.NormalId.Back or Enum.NormalId.Front
+		gui.CanvasSize = Vector2.new(150, 120)
+		gui.LightInfluence = 1
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.SpecialElite
+		label.TextScaled = true
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextColor3 = Color3.fromRGB(50, 36, 24)
+		label.Text = text
+		label.Parent = gui
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 6)
+		pad.PaddingRight = UDim.new(0, 6)
+		pad.PaddingTop = UDim.new(0, 4)
+		pad.PaddingBottom = UDim.new(0, 4)
+		pad.Parent = label
+		gui.Parent = sign
+		sign.Parent = folder
+	end
+end
+
 -- Boards nailed across a doorway on both faces (a tool lock, Logic/
 -- ToolLocks): `steps` planks, with gaps to see through. They're on the frame,
 -- not the door, so they don't swing. Each is tagged with its step (the

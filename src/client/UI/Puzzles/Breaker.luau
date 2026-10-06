@@ -83,8 +83,10 @@ function Screen.build(host, open)
 			open.first = toggle
 		end
 		open.toggles[i] = toggle
-		-- The family's label on a strip of tape.
-		Ui.new("TextLabel", {
+		-- The family's label on a strip of tape (a number when the labels
+		-- live on the plate by the door; the plate's words while traced).
+		open.labels = open.labels or {}
+		open.labels[i] = Ui.new("TextLabel", {
 			Position = UDim2.fromOffset(0, 118),
 			Size = UDim2.fromOffset(72, 54),
 			BackgroundColor3 = TAPE,
@@ -116,6 +118,10 @@ end
 
 function Screen.refresh(host, open, events)
 	local state = open.state
+	for i, label in open.labels or {} do
+		local text = (state.labels and state.labels[i]) or open.view.labels[i] or ""
+		label.Text = text == "?" and "" or text
+	end
 	for i, toggle in open.toggles do
 		local on = state.on[i] == true
 		toggle.Text = on and "ON" or "OFF"

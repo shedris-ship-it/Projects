@@ -1256,6 +1256,14 @@ Config.Breaker = {
 	DecoyChance = 0.5, -- another breaker is wrongly labelled with the door's room
 	TripNoise = 30, -- the main tripping: a loud clunk, and every light out
 	FlipNoise = 6,
+	-- The one two-human step a run has (the owner, 2026-10-06): the panel
+	-- shows numbers only; the family's labels, mistakes and all, are on a
+	-- brass plate beside the door it powers. One reads, one flips. Alone,
+	-- a long hold on the panel ("Trace the wiring") shows the labels there
+	-- for a while. (Logic/Objectives' fuse-box line assumes this is on.)
+	PlateAtDoor = true,
+	RevealHold = 6, -- seconds held to trace the wiring (solo only)
+	RevealSeconds = 20, -- how long the labels then show on the panel
 }
 
 -- The music box and the piano (R2c; Logic/Puzzles/MusicBox, server/Puzzles/

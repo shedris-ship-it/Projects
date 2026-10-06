@@ -16,9 +16,14 @@
 -- optional, not a riddle), off at the start, and open for good the first
 -- time it has power, like the door's.
 --
+-- With `plate` (Config.Breaker.PlateAtDoor), the panel shows numbers only
+-- and the labels, mistakes and all, live on a plate by the door it powers
+-- (`spec.plate`): one reads, one flips. Alone, `reveal` shows them on the
+-- panel for a while (`public` carries `labels` then).
+--
 -- Pure; the answer (`gate`) stays on the server.
 --   generate(rng, ctx): ctx { labels = { names }, gate = index, gateName,
---     capacity?, smudge?, decoy?, extra? } (all optional: a plain
+--     capacity?, smudge?, decoy?, extra?, plate? } (all optional: a plain
 --     six-breaker panel)
 
 local Breaker = {}
@@ -75,15 +80,47 @@ function Breaker.generate(rng, ctx)
 	if extra then
 		shown[extra.index] = extra.name
 	end
+	-- The plate by the door takes the labels; the panel keeps numbers (the
+	-- safe room's breaker stays named on both: it is optional, not a riddle).
+	local plate = nil
+	if ctx.plate then
+		plate = shown
+		shown = {}
+		for i = 1, count do
+			shown[i] = (extra and i == extra.index) and extra.name or tostring(i)
+		end
+	end
 	return {
 		count = count,
 		capacity = math.min(capacity, count),
 		gate = gate,
 		gateName = gateName,
 		labels = shown,
+		plate = plate,
 		start = start,
 		extra = extra and extra.index or nil,
 	}
+end
+
+-- What the plate by the door says, a line per breaker.
+function Breaker.plateText(spec): string
+	local lines = {}
+	for i, label in spec.plate or spec.labels do
+		table.insert(lines, string.format("%d  %s", i, label))
+	end
+	return table.concat(lines, "\n")
+end
+
+-- Alone at the panel: trace the wiring, and the plate's labels show on the
+-- panel until `now + seconds` (Breaker.public carries them). False when
+-- there is no plate to read.
+function Breaker.reveal(spec, state, now: number, seconds: number): boolean
+	if not spec.plate then
+		return false
+	end
+	state.revealUntil = now + seconds
+	state.plate = spec.plate
+	return true
 end
 
 -- The breakers the door's could be, read off the panel: labelled with its
@@ -161,8 +198,15 @@ function Breaker.solved(state): boolean
 	return state.solved == true
 end
 
-function Breaker.public(state, _now: number)
-	return { on = state.on, tripped = state.tripped, solved = state.solved, extraOpen = state.extraOpen }
+function Breaker.public(state, now: number)
+	local revealed = state.revealUntil ~= nil and now < state.revealUntil
+	return {
+		on = state.on,
+		tripped = state.tripped,
+		solved = state.solved,
+		extraOpen = state.extraOpen,
+		labels = revealed and state.plate or nil,
+	}
 end
 
 function Breaker.parse(action: string, _word: string?, a: number?, _b: number?, _now: number)

@@ -34,7 +34,9 @@ Objectives.Stations = {
 		return "A glass case in the " .. room .. " is locked."
 	end,
 	breaker = function(room: string)
-		return "There's a fuse box in the " .. room .. "."
+		-- (Config.Breaker.PlateAtDoor: the panel shows numbers, the labels
+		-- hang by the door it powers.)
+		return "There's a fuse box in the " .. room .. ". Its labels are on a plate by the door it powers."
 	end,
 	safe = function(room: string)
 		return "There's a safe in the " .. room .. "."

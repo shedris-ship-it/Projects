@@ -12,6 +12,36 @@ return function(test, check, Shared, require)
 		return Breaker.generate(rng, { labels = table.clone(LABELS), gate = rng:NextInteger(2, #LABELS) })
 	end
 
+	test(
+		"the labels at the door (plate): numbers on the panel, the names on the plate, revealed for a while",
+		function()
+			for seed = 1, 100 do
+				local rng = Rng.new(seed)
+				local spec = Breaker.generate(
+					rng,
+					{ labels = table.clone(LABELS), gate = rng:NextInteger(2, #LABELS), plate = true }
+				)
+				for i, label in spec.labels do
+					check.equal(label, tostring(i), "seed " .. seed .. ": a number on the panel")
+				end
+				check.equal(#spec.plate, #LABELS, "every breaker on the plate")
+				local candidates = Breaker.candidates(spec.plate, spec.gateName)
+				check.atMost(#candidates, 3, "at most three to try from the plate")
+				check.truthy(table.find(candidates, spec.gate) ~= nil, "the door's among them")
+				local text = Breaker.plateText(spec)
+				check.truthy(string.find(text, "1  HALL", 1, true) ~= nil, "the plate reads line by line")
+				local state = Breaker.start(spec)
+				check.equal(Breaker.public(state, 0).labels, nil, "the panel keeps its numbers")
+				check.truthy(Breaker.reveal(spec, state, 100, 20), "traced")
+				check.equal(Breaker.public(state, 110).labels, spec.plate, "the labels show while traced")
+				check.equal(Breaker.public(state, 121).labels, nil, "and fade")
+			end
+			local plain = Breaker.generate(Rng.new(1), { labels = table.clone(LABELS), gate = 3 })
+			check.equal(plain.plate, nil, "no plate unless asked")
+			check.equal(Breaker.reveal(plain, Breaker.start(plain), 0, 20), false, "nothing to trace without one")
+		end
+	)
+
 	test("the panel starts full, the hall on, the door's breaker off", function()
 		for seed = 1, 200 do
 			local spec = generate(seed)

@@ -124,6 +124,7 @@ function Kind.create(service, id: string, puzzle)
 		smudge = onlySafe and 0 or B.SmudgeChance,
 		decoy = onlySafe and 0 or B.DecoyChance,
 		extra = extra,
+		plate = B.PlateAtDoor and not onlySafe,
 	})
 	local session = {
 		id = id,
@@ -142,6 +143,10 @@ function Kind.create(service, id: string, puzzle)
 	Kind.lights(service, session)
 	if seamId then
 		service.Locks:SetPowered(seamId, false)
+		-- The labels live on a plate by the door it powers (Config.Breaker.PlateAtDoor).
+		if spec.plate then
+			service.Locks:SetPlateText(seamId, Breaker.plateText(spec))
+		end
 	end
 	if safeSeam then
 		service.Locks:SetPowered(safeSeam, false)
@@ -213,6 +218,35 @@ function Kind.build(service, session, roomId: number, rng)
 	session.station = face
 	session.front = -cf.LookVector -- into the room (the builder faces +Z out of the wall)
 	session.prompt = service:Prompt(session, face, "Open", Kind.label)
+	-- Alone there is nobody at the door to read the plate: a long hold here
+	-- traces the wiring, and the labels show on the panel for a while.
+	if session.spec.plate and #service.services.PlayerStateService:RunPlayers() == 1 then
+		local trace = Instance.new("ProximityPrompt")
+		trace.Name = "TracePrompt"
+		trace.ActionText = "Trace the wiring"
+		trace.ObjectText = "Fuse box"
+		trace.KeyboardKeyCode = Enum.KeyCode.T
+		trace.GamepadKeyCode = Enum.KeyCode.ButtonY
+		trace.HoldDuration = B.RevealHold
+		trace.MaxActivationDistance = 8
+		trace.RequiresLineOfSight = false
+		trace.UIOffset = Vector2.new(0, 72)
+		trace.Parent = face
+		trace.Triggered:Connect(function(player)
+			if not service.PlayerState:CanAct(player) then
+				return
+			end
+			if Breaker.reveal(session.spec, session.state, os.clock(), B.RevealSeconds) then
+				service:Push(session, { { kind = "reveal" } })
+				Net.get("Notify"):FireClient(
+					player,
+					string.format("You trace the wiring. The labels hold in your head for %d seconds.", B.RevealSeconds),
+					"info"
+				)
+			end
+		end)
+		session.tracePrompt = trace
+	end
 end
 
 -- Each circuit's rooms lit or dark as the panel says (WorldService's one
@@ -274,6 +308,8 @@ function Kind.event(service, session, event, player: Player, position: Vector3)
 	if event.kind == "flip" then
 		Sfx.play("LockClick", position, 0.5, event.on and 0.8 or 0.65)
 		service.Noise:Emit(position, B.FlipNoise, player, "puzzle")
+	elseif event.kind == "reveal" then
+		Sfx.play("LockClick", position, 0.4, 1.15)
 	elseif event.kind == "trip" then
 		-- Every light out, and a clunk he hears from you.
 		Sfx.play("DoorBang", position, 0.9, 0.5)
