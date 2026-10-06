@@ -121,11 +121,59 @@ function DebugService:Start()
 	end)
 end
 
+-- Commands that only read: they don't count against the finish line's
+-- "no F2" (Logic/RunStats.finishLine).
+local READ_ONLY = {
+	help = true,
+	[""] = true,
+	overlay = true,
+	summary = true,
+	watch = true,
+	where = true,
+	act = true,
+	perf = true,
+	plan = true,
+	house = true,
+	locks = true,
+	items = true,
+	landmarks = true,
+	saferoom = true,
+	doors = true,
+	scent = true,
+	gatea = true,
+	steps = true,
+	clip = true,
+	switch = true,
+	crank = true,
+	leads = true,
+	barricade = true,
+	piece = true,
+	seed = true,
+	layout = true,
+	squad = true,
+}
+
 function DebugService:Run(player: Player, text: string)
 	local services = self.services
 	local args = string.split(string.lower(text), " ")
 	local command = args[1]
 	local orchestrator = services.RunOrchestrator
+	-- (`leads go`, `crank go|up`, `barricade here|...`, `switch <n>` and
+	-- `piece <id>` change things; their bare forms only list.)
+	local changes = not READ_ONLY[command]
+		or (
+			args[2] ~= nil
+			and (
+				command == "leads"
+				or command == "crank"
+				or command == "barricade"
+				or command == "switch"
+				or command == "piece"
+			)
+		)
+	if changes and services.RunLogService then
+		services.RunLogService:F2(command)
+	end
 	if command == "help" or command == "" then
 		reply(player, HELP)
 	elseif command == "overlay" then

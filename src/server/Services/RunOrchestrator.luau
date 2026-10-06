@@ -338,6 +338,7 @@ function RunOrchestrator:_onExtracted(player: Player)
 		return
 	end
 	run.extracted[player] = true
+	self.services.RunLogService:Extracted()
 	local character = player.Character
 	self.services.PlayerStateService:MarkTeleport(player)
 	if character then

@@ -184,6 +184,7 @@ function FinaleService:_assist()
 		self.facts.hint = text
 		self.hint = hint
 		services.Telemetry:Log("Assist", { kind = hint.kind, room = hint.room, since = math.floor(since) })
+		services.RunLogService:Hint()
 	end
 	local lamp = since >= Config.Assist.LampAfter
 	self.hintRoom = lamp and hint.room or nil
@@ -786,6 +787,7 @@ function FinaleService:Serve()
 		return
 	end
 	self.served = true
+	self.services.RunLogService:Served()
 	for _, place in self.places do
 		place.prompt.Enabled = false
 	end

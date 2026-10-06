@@ -58,27 +58,44 @@ end
 
 -- In a hunt two watchers hold him for HuntHoldSeconds at a time; then he
 -- comes on (slowed while watched) until nobody has watched him for
--- HoldResetSeconds, which lets them hold him again. state = { held,
--- spent, unwatched } is kept by the caller. Returns whether he is held now.
+-- HoldResetSeconds, which lets them hold him again. Each hold in one hunt is
+-- shorter than the last (HoldDecay, down to HoldMin: 4, 2, 1, 0.5 s), and a
+-- hold broken off early still counts for its share, so two torches can't
+-- blink at him all the way to the front door. state = { held, spent,
+-- unwatched, holds } is kept by the caller and reset when a hunt starts.
+-- Returns whether he is held now.
 function StalkRules.huntHold(state, frozen: boolean, dt: number, cfg): boolean
+	local holds = state.holds or 0
+	local cap = math.max(cfg.HoldMin or 0, cfg.HuntHoldSeconds * (cfg.HoldDecay or 1) ^ holds)
 	if frozen then
 		state.unwatched = 0
 		if state.spent then
 			return false
 		end
 		state.held += dt
-		if state.held >= cfg.HuntHoldSeconds then
+		if state.held >= cap then
 			state.spent = true
+			state.holds = holds + 1
+			state.held = 0
 			return false
 		end
 		return true
 	end
 	state.unwatched += dt
 	if state.unwatched >= cfg.HoldResetSeconds then
+		if state.held > 0 and not state.spent then
+			-- A hold let go early counts for the share of it they used.
+			state.holds = holds + math.min(1, state.held / cap)
+		end
 		state.held = 0
 		state.spent = false
 	end
 	return false
+end
+
+-- How long the next hold would last (for the overlay).
+function StalkRules.holdCap(state, cfg): number
+	return math.max(cfg.HoldMin or 0, cfg.HuntHoldSeconds * (cfg.HoldDecay or 1) ^ (state.holds or 0))
 end
 
 -- May he move closer right now?

@@ -177,6 +177,37 @@ function RunLogService:Catch(who: string?, how: string?)
 	end
 end
 
+-- The finish line's moments (Logic/RunStats.finishLine).
+function RunLogService:Served()
+	if self.stats then
+		self.stats:Served(os.clock())
+	end
+end
+
+function RunLogService:Extracted()
+	if self.stats then
+		self.stats:Extracted(os.clock())
+	end
+end
+
+function RunLogService:TorchDead()
+	if self.stats then
+		self.stats:TorchDead(os.clock())
+	end
+end
+
+function RunLogService:Hint()
+	if self.stats then
+		self.stats:Hint(os.clock())
+	end
+end
+
+function RunLogService:F2(command: string?)
+	if self.stats then
+		self.stats:F2(os.clock(), command)
+	end
+end
+
 function RunLogService:Summary()
 	return self.stats and self.stats:Summary(os.clock()) or nil
 end

@@ -682,6 +682,7 @@ function PlayerStateService:_tick(dt: number)
 			record.battery = math.max(0, record.battery - dt * scale)
 			if record.battery <= 0 then
 				self:SetFlashlight(player, false)
+				self.services.RunLogService:TorchDead()
 				notify(player, "Your flashlight is dead. A lit Lantern room will recharge it.", "warning")
 			end
 		elseif pos and self.World:IsLanternRoom(self.World:RoomAt(pos)) then

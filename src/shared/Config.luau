@@ -86,8 +86,10 @@ Config.Stare = {
 	SoloBeam = true, -- alone (one active player), your full beam on him counts double
 	SoloBeamSeconds = 0.6, -- ... once held steady this long
 	BeamDrainScale = 3, -- and drains the battery this many times faster while it does
-	HuntHoldSeconds = 4, -- in a hunt two watchers hold him this long at a time
-	HoldResetSeconds = 1.5, -- then he comes on until nobody has watched him for this long
+	HuntHoldSeconds = 4, -- in a hunt two watchers hold him this long at a time...
+	HoldDecay = 0.5, -- ...then half as long each time within one hunt (4, 2, 1 s)...
+	HoldMin = 0.5, -- ...never less than this
+	HoldResetSeconds = 1.5, -- a hold is over once nobody has watched him for this long
 	HuntWatchedSpeedScale = 0.45, -- how fast he comes on while two still watch (about a walk)
 	CoStareEndsHunt = false, -- the old rule: a 3 s co-stare ended a hunt
 	Cues = 2, -- how many times a run each player is told "[it stops in the light]" and the like
@@ -762,6 +764,7 @@ Config.HouseEvents = {
 -- overlay and the Dossier's "THE NIGHT IN NUMBERS".
 Config.Stats = {
 	SilentSeconds = 60, -- a stretch this long with nothing happening counts as silent minutes
+	EarlySeconds = 600, -- the finish line counts scares in the first ten minutes
 }
 
 -- The Guest wants his dinner (Logic/Scent, Logic/Dinner; docs/plans/

@@ -188,7 +188,7 @@ function StalkerService:Begin(ctx)
 	self.stunImmuneUntil = 0
 	self.stuns = {} -- when each recent stun landed (repeats are shorter)
 	self.coStare = 0
-	self.hold = { held = 0, spent = false, unwatched = 0 } -- the stare in a hunt (StalkRules.huntHold)
+	self.hold = { held = 0, spent = false, unwatched = 0, holds = 0 } -- the stare in a hunt (StalkRules.huntHold)
 	self.holdCues = {} -- player -> times told
 	self.visibleTo = {}
 	self.parked = true
@@ -558,13 +558,15 @@ function StalkerService:DebugState()
 		final = self.final,
 		watchers = self.watchers and #self.watchers or 0,
 		watch = watch and string.format(
-			"lit %d · dark %d · beam %d · room %s · hold %.1f%s",
+			"lit %d · dark %d · beam %d · room %s · hold %.1f/%.1f%s (%.1f used)",
 			watch.lit,
 			watch.dark,
 			watch.beams,
 			watch.roomLit and "lit" or "dark",
 			self.hold.held,
-			self.hold.spent and " spent" or ""
+			StalkRules.holdCap(self.hold, Config.Stare),
+			self.hold.spent and " spent" or "",
+			self.hold.holds or 0
 		) or "-",
 		coStare = self.coStare,
 		memories = memories,
@@ -859,6 +861,7 @@ function StalkerService:_direct()
 		decision.tier = math.min(self.tierOverride, 3)
 		if self.tierOverride >= 4 and self.mode ~= Modes.Hunting and self.mode ~= Modes.Telegraph then
 			decision.huntDue = true
+			decision.reason = "debug tier 4"
 		end
 	end
 	local presenceTier = self.mode == Modes.Hunting and 4 or self.tier
@@ -1183,7 +1186,7 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 		self:_forceArrive()
 	end
 	self.mode = Modes.Telegraph
-	self.hold = { held = 0, spent = false, unwatched = 0 }
+	self.hold = { held = 0, spent = false, unwatched = 0, holds = 0 }
 	local now = os.clock()
 	self.data = { telegraphUntil = now + duration, startedAt = now, falseAlarm = falseAlarm == true }
 	Net.get("HuntState")

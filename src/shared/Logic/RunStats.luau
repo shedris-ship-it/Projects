@@ -45,9 +45,24 @@ function RunStats.new(startedAt: number, cfg)
 		progress = 0,
 		firstProgressAt = nil,
 		lastProgressAt = startedAt,
+		longestGap = 0, -- the longest stretch without progress so far
 		acts = {}, -- { act, at }
 		act = 1,
+		-- The owner's finish line (docs/progress/2026-10-06-overnight/REPORT.md).
+		firstDoorAt = nil,
+		firstHuntAt = nil,
+		servedAt = nil,
+		extractedAt = nil,
+		torchDead = 0,
+		torchDeadAt = nil,
+		hints = 0,
+		earlyScares = 0, -- scares in the first EarlySeconds
+		f2 = 0, -- debug commands that changed the run
 	}, RunStats)
+end
+
+function RunStats:_gap(t: number)
+	self.longestGap = math.max(self.longestGap, t - self.lastProgressAt)
 end
 
 function RunStats:_event(t: number, kind: string, detail: string?)
@@ -87,6 +102,7 @@ end
 -- Once a second or so: his tier (0-3, 4 in a hunt) and whether two watchers
 -- hold him frozen.
 function RunStats:Tick(t: number, tier: number, frozen: boolean)
+	self:_gap(t)
 	if not self.arrivedAt then
 		return -- nothing to measure until he's in the house
 	end
@@ -112,8 +128,42 @@ function RunStats:Progress(t: number, kind: string, detail: string?)
 	if not self.firstProgressAt then
 		self.firstProgressAt = t
 	end
+	if kind == "lock" and not self.firstDoorAt then
+		self.firstDoorAt = t
+	end
+	self:_gap(t)
 	self.lastProgressAt = t
 	self:Beat(t, "progress:" .. kind, detail)
+end
+
+-- The dinner is served; someone got out of the front door.
+function RunStats:Served(t: number)
+	self.servedAt = self.servedAt or t
+	self:Beat(t, "served")
+end
+
+function RunStats:Extracted(t: number)
+	self.extractedAt = self.extractedAt or t
+	self:_event(t, "extracted")
+end
+
+-- A torch ran flat.
+function RunStats:TorchDead(t: number)
+	self.torchDead += 1
+	self.torchDeadAt = self.torchDeadAt or t
+	self:_event(t, "torchDead")
+end
+
+-- Stuck-assist had to say something (Logic/Assist).
+function RunStats:Hint(t: number)
+	self.hints += 1
+	self:_event(t, "hint")
+end
+
+-- A debug command that changed the run (F2): the finish line wants none.
+function RunStats:F2(t: number, command: string?)
+	self.f2 += 1
+	self:_event(t, "f2", command)
 end
 
 function RunStats:Act(t: number, act: number)
@@ -125,6 +175,9 @@ end
 function RunStats:Scare(t: number, id: string)
 	self.scares[id] = (self.scares[id] or 0) + 1
 	self.scareTotal += 1
+	if t - self.started < (self.cfg.EarlySeconds or 600) then
+		self.earlyScares += 1
+	end
 	self:Beat(t, "scare", id)
 end
 
@@ -135,6 +188,7 @@ end
 
 function RunStats:HuntBegan(t: number, reason: string?)
 	table.insert(self.hunts, { at = t, reason = reason or "?", catches = 0 })
+	self.firstHuntAt = self.firstHuntAt or t
 	self:Beat(t, "hunt", reason)
 end
 
@@ -231,7 +285,44 @@ function RunStats:Summary(t: number)
 		progress = self.progress,
 		firstProgressAt = self.firstProgressAt and (self.firstProgressAt - self.started) or nil,
 		sinceProgress = t - self.lastProgressAt,
+		longestGap = math.max(self.longestGap, t - self.lastProgressAt),
+		-- The finish line.
+		firstDoorAt = self.firstDoorAt and (self.firstDoorAt - self.started) or nil,
+		firstHuntAt = self.firstHuntAt and (self.firstHuntAt - self.started) or nil,
+		servedAt = self.servedAt and (self.servedAt - self.started) or nil,
+		extractedAt = self.extractedAt and (self.extractedAt - self.started) or nil,
+		torchDead = self.torchDead,
+		torchDeadAt = self.torchDeadAt and (self.torchDeadAt - self.started) or nil,
+		hints = self.hints,
+		earlyScares = self.earlyScares,
+		f2 = self.f2,
 	}
+end
+
+local function clockOr(seconds: number?, missing: string): string
+	if seconds == nil then
+		return missing
+	end
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+-- The owner's finish line in one line (three solo runs: frightened twice in
+-- the first ten minutes with no hunt, never stuck two minutes, no stare
+-- ending a hunt, the dinner under forty minutes with no F2).
+function RunStats.finishLine(s): string
+	return string.format(
+		"Finish line: first door %s · dinner %s · out %s · torch dead %d · hints %d · longest without progress %s · scares in the first 10 min %d · first hunt %s · F2 used %d",
+		clockOr(s.firstDoorAt, "never"),
+		clockOr(s.servedAt, "never"),
+		clockOr(s.extractedAt, "never"),
+		s.torchDead,
+		s.hints,
+		clockOr(s.longestGap, "0:00"),
+		s.earlyScares,
+		clockOr(s.firstHuntAt, "none"),
+		s.f2
+	)
 end
 
 local function clock(seconds: number): string
@@ -322,6 +413,7 @@ function RunStats.lines(s): { string }
 			clock(s.sinceProgress)
 		)
 	)
+	table.insert(lines, RunStats.finishLine(s))
 	return lines
 end
 
@@ -359,6 +451,17 @@ function RunStats.overlay(s): { string }
 			s.sightings,
 			s.downs,
 			s.catches
+		),
+		string.format(
+			"door %s · dinner %s · out %s · torch dead %d · hints %d · no progress max %s · early scares %d · F2 %d",
+			clockOr(s.firstDoorAt, "-"),
+			clockOr(s.servedAt, "-"),
+			clockOr(s.extractedAt, "-"),
+			s.torchDead,
+			s.hints,
+			clock(s.longestGap),
+			s.earlyScares,
+			s.f2
 		),
 	}
 end

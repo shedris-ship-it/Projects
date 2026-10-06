@@ -206,7 +206,7 @@ return function(test, check, Shared, require)
 
 	test("in a hunt two watchers hold him a few seconds at a time, then he comes on until they lose him", function()
 		local cfg = Config.Stare
-		local state = { held = 0, spent = false, unwatched = 0 }
+		local state = { held = 0, spent = false, unwatched = 0, holds = 0 }
 		local heldFor = 0
 		for _ = 1, 100 do
 			if StalkRules.huntHold(state, true, 0.1, cfg) then
@@ -222,6 +222,47 @@ return function(test, check, Shared, require)
 		StalkRules.huntHold(state, false, cfg.HoldResetSeconds, cfg)
 		check.equal(state.spent, false, "lost for long enough: they can hold him again")
 		check.truthy(StalkRules.huntHold(state, true, 0.1, cfg), "and do")
+	end)
+
+	test("holds shrink within one hunt, so two torches can't blink him all the way to the door", function()
+		local cfg = Config.Stare
+		local state = { held = 0, spent = false, unwatched = 0, holds = 0 }
+		local function hold()
+			local heldFor = 0
+			for _ = 1, 200 do
+				if StalkRules.huntHold(state, true, 0.05, cfg) then
+					heldFor += 0.05
+				end
+			end
+			return heldFor
+		end
+		local function blink()
+			StalkRules.huntHold(state, false, cfg.HoldResetSeconds + 0.1, cfg)
+		end
+		local first = hold()
+		blink()
+		local second = hold()
+		blink()
+		local third = hold()
+		blink()
+		local fourth = hold()
+		check.near(first, cfg.HuntHoldSeconds, 0.1, "the first hold is full")
+		check.near(second, cfg.HuntHoldSeconds * cfg.HoldDecay, 0.1, "the second is half")
+		check.near(third, cfg.HuntHoldSeconds * cfg.HoldDecay ^ 2, 0.1, "the third a quarter")
+		check.near(fourth, math.max(cfg.HoldMin, cfg.HuntHoldSeconds * cfg.HoldDecay ^ 3), 0.1, "then the floor")
+		-- A hold let go early still counts for its share.
+		local fresh = { held = 0, spent = false, unwatched = 0, holds = 0 }
+		for _ = 1, 20 do
+			StalkRules.huntHold(fresh, true, 0.1, cfg) -- 2 s of a 4 s hold
+		end
+		StalkRules.huntHold(fresh, false, cfg.HoldResetSeconds + 0.1, cfg)
+		check.near(fresh.holds, 0.5, 0.05, "half a hold used")
+		check.near(
+			StalkRules.holdCap(fresh, cfg),
+			cfg.HuntHoldSeconds * cfg.HoldDecay ^ 0.5,
+			0.05,
+			"the next is shorter"
+		)
 	end)
 
 	test("doorway stand only while he can't attack", function()
