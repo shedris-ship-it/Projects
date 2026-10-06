@@ -55,7 +55,7 @@ local HELP = table.concat({
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
-	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100> · fling <room> <room> <speed>",
+	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · fling <room> <room> <speed>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -545,12 +545,45 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "door" then
 		local door = services.DoorService:DoorBetween(tonumber(args[2]) or 0, tonumber(args[3]) or 0)
 		local angle = tonumber(args[4])
-		if not door or not angle then
-			reply(player, "usage: door <room> <room> <angle>; no door between those rooms")
+		if door and args[4] == "use" then
+			-- As its prompt does, for you where you stand.
+			services.DoorService:Toggle(door, player)
+			reply(player, door.id .. " used")
+		elseif not door or not angle then
+			reply(player, "usage: door <room> <room> <angle|use>; no door between those rooms")
 		else
 			local ok = services.DoorService:SetAngle(door, angle)
 			reply(player, string.format("%s to %d degrees%s", door.id, angle, ok and "" or " (locked: it rattles)"))
 		end
+	elseif command == "doors" then
+		-- Every unlocked door that furniture stops before it's open enough to
+		-- walk through (PushService:SwingStop); `doors open` swings them all.
+		local world = services.WorldService.World
+		local stuck, count = {}, 0
+		for _, door in world and world.doors or {} do
+			if door.state and not door.locked then
+				count += 1
+				local stop, piece = services.PushService:SwingStop(door, door.state.value, Config.Doors.OpenAngle)
+				if stop and stop < Config.Doors.PassAngle then
+					table.insert(
+						stuck,
+						string.format(
+							"%s (%d/%d) stops at %.0f on %s",
+							door.id,
+							door.a,
+							door.b,
+							stop,
+							piece and piece.prop.kind or "?"
+						)
+					)
+				end
+				if args[2] == "open" then
+					services.DoorService:SetOpen(door, true)
+				end
+			end
+		end
+		table.sort(stuck)
+		reply(player, string.format("%d doors, %d stopped by furniture: %s", count, #stuck, table.concat(stuck, "; ")))
 	elseif command == "piece" then
 		-- The nearest drawer, cupboard door or closet door (or `piece piece:17`):
 		-- toggled (`piece show`: not), and how it stands.

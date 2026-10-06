@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-05.42",
-	note = "L3.3: the crowbar and boards, bolt cutters and chains",
+	id = "2026-10-05.43",
+	note = "doors swing away from you; no stuck doors from furniture upstairs",
 }

@@ -186,6 +186,13 @@ local function footprint(frame: CFrame, size: Vector3)
 	return { x = frame.X, z = frame.Z, yaw = math.atan2(-right.Z, right.X), w = size.X, d = size.Z }
 end
 
+-- A piece standing on a door's own floor (`door.position` is its threshold).
+-- Not the floor above: boxes in the attic once held a door below shut, on
+-- nothing anyone could see.
+local function onDoorFloor(frame: CFrame, door): boolean
+	return math.abs(frame.Y - door.position.Y) < 4
+end
+
 -- A doorway's lane on the side of `position`, and that side (+1 along the
 -- seam's normal, toward room b).
 local function laneOf(seam, position: Vector3)
@@ -453,7 +460,7 @@ function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3)
 		if
 			hinge
 			and door.state
-			and math.abs(hinge.Y - to.Y) < 8
+			and onDoorFloor(to, door)
 			and gap(to, size, Vector3.new(hinge.X, to.Y + 1, hinge.Z)) < DOOR_LENGTH + P.DoorClear
 		then
 			if door.open then
@@ -500,17 +507,17 @@ end
 
 -- Where a door swinging open from `from` to `to` stops against pushable
 -- furniture in its way (Services/DoorService), or nil.
-function PushService:SwingStop(door, from: number, to: number): number?
+function PushService:SwingStop(door, from: number, to: number): (number?, any)
 	if to <= from or not door.hinge then
 		return nil
 	end
 	local shut = door.closedCFrame.Position - door.hinge
-	local best = nil
+	local best, which = nil, nil
 	for _, piece in self.pieces do
 		local frame = piece.prop.frame
 		if
 			piece.model.Parent
-			and math.abs(frame.Y - door.hinge.Y) < 8
+			and onDoorFloor(frame, door)
 			and gap(frame, piece.size, Vector3.new(door.hinge.X, frame.Y + 1, door.hinge.Z)) < DOOR_LENGTH + 0.5
 		then
 			for _, point in Barricade.edgePoints(footprint(frame, piece.size), 0.5) do
@@ -524,12 +531,32 @@ function PushService:SwingStop(door, from: number, to: number): number?
 					door.openSign
 				)
 				if stop and (best == nil or stop < best) then
-					best = stop
+					best, which = stop, piece
 				end
 			end
 		end
 	end
-	return best
+	return best, which
+end
+
+-- Any piece close enough to a door's hinge to be in its swing, either way
+-- (DoorService only turns a door's swing round with none: barricades are
+-- read against the swing as it is).
+function PushService:NearDoor(door): boolean
+	if not door.hinge then
+		return false
+	end
+	for _, piece in self.pieces do
+		local frame = piece.prop.frame
+		if
+			piece.model.Parent
+			and onDoorFloor(frame, door)
+			and gap(frame, piece.size, Vector3.new(door.hinge.X, frame.Y + 1, door.hinge.Z)) < DOOR_LENGTH + 0.5
+		then
+			return true
+		end
+	end
+	return false
 end
 
 -- Barricades -------------------------------------------------------------------------

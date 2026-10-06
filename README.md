@@ -118,7 +118,7 @@ locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · 
 puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
 switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
-push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100>
+push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]
 furniture open|shut [all] · block <room> <room> · block off
 navtest [fast] · navtest room <id> [fast] · navtest retreat [n]
 down [name] · revive [name] · steps · clip

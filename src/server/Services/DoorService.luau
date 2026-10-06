@@ -17,6 +17,10 @@
 -- against a body in its way, anyone's. While one moves, clients are told its
 -- motion a few times a second (Lib/MotionState) and draw it smoothly
 -- themselves (Controllers/MotionController).
+--
+-- Opened with its prompt, a shut door swings away from whoever opened it,
+-- and never stops against them (owner's playtest, 2026-10-05: standing in
+-- its swing, the door opened a third of the way into you and stuck there).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -178,13 +182,15 @@ function DoorService:_guestStop(door, from: number, to: number): number?
 end
 
 -- Where a swing from `from` to `to` stops against a player standing in it,
--- or nil: a door never goes through anyone.
+-- or nil: a door never goes through anyone, except whoever opened it with
+-- its prompt (a door left ajar towards them swings past them).
 function DoorService:_bodyStop(door, from: number, to: number): number?
 	local shut = door.closedCFrame.Position - door.hinge
 	local best = nil
 	for _, player in self.PlayerState:LivingPlayers() do
 		local position = self.PlayerState:Position(player)
-		if position and math.abs(position.Y - door.hinge.Y - 3) < 5 then
+		local opener = to > from and door.opener == player
+		if position and not opener and math.abs(position.Y - door.hinge.Y - 3) < 5 then
 			local body = position - door.hinge
 			local stop = Articulation.sweepStopSigned(
 				{ x = shut.X, z = shut.Z },
@@ -291,6 +297,7 @@ function DoorService:_step(door, dt: number)
 		self.moving[door] = nil
 		door.slamRate = nil
 		door.byGuest = nil
+		door.opener = nil
 		MotionState.settle(door.slab, math.round(state.value * 10) / 10)
 	else
 		MotionState.publish(door.slab, state, H.MotionHz, door.slamRate)
@@ -319,6 +326,7 @@ function DoorService:Drag(door, degrees: number, player: Player, release: number
 	door.lastHolder, door.lastHeldAt = player, now
 	local state = door.state
 	door.slamRate = nil
+	door.opener = nil
 	Articulation.hold(state)
 	local ok = Articulation.setTarget(state, degrees)
 	if release then
@@ -350,7 +358,30 @@ function DoorService:SetAngle(door, degrees: number, rate: number?): boolean
 	return ok
 end
 
--- Open toward room `b` side so the slab swings out of the doorway.
+-- Turn a shut door's swing round so it opens away from `player` (the
+-- prompt's opener), if it would have swung into them. Not a hidden door (it
+-- must clear the passage), and not with furniture by the door: a barricade
+-- is read against the swing as it is (Services/PushService).
+function DoorService:_swingAway(door, player: Player)
+	local state = door.state
+	if door.hidden or not state.latched or state.value > D.LatchAngle then
+		return
+	end
+	local position = self.PlayerState:Position(player)
+	if not position or (self.Push and self.Push:NearDoor(door)) then
+		return
+	end
+	local shut = door.closedCFrame.Position - door.hinge
+	local body = position - door.hinge
+	local side = Articulation.flatAngle({ x = shut.X, z = shut.Z }, { x = body.X, z = body.Z }) * (door.openSign or 1)
+	if side > 0 then
+		door.openSign = -(door.openSign or 1)
+		door.joint.sign = door.openSign
+		Joint.write(door.slab, door.joint)
+	end
+end
+
+-- Open (swinging away from a player who used the prompt), or shut.
 function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boolean?)
 	if door.locked then
 		return
@@ -358,6 +389,11 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 	local target = open and D.OpenAngle or 0
 	if not door.state or door.state.target == target then
 		return
+	end
+	door.opener = nil
+	if open and byPlayer then
+		self:_swingAway(door, byPlayer)
+		door.opener = byPlayer
 	end
 	if not byPlayer then
 		-- The Guest (or the house) takes it: out of anyone's hands for a moment.
