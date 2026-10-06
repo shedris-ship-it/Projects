@@ -279,8 +279,11 @@ function Hud:Update()
 	self.batteryFill.Size = UDim2.fromScale(player:GetAttribute(PA.Battery) or 1, 1)
 	self.panel.Visible = active
 
-	-- Phase and Drift word
+	-- Phase and Drift word (the Reckoning: Drift 100, a hunt that never ends)
 	local phaseText = PHASE_TEXT[phase] or string.upper(phase)
+	if state:Run(RS.Reckoning) and phase ~= "Extraction" then
+		phaseText = "THE RECKONING"
+	end
 	local driftState = state:Run(RS.DreadState) or state:Run(RS.DriftState)
 	local endsAt = state:Run(RS.PhaseEndsAt)
 	local timer = ""

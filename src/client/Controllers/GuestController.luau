@@ -145,6 +145,9 @@ function GuestController:Start()
 		end
 	end)
 	Net.get("HuntState").OnClientEvent:Connect(function(payload)
+		if type(payload) == "table" and payload.reckoning and payload.state == "telegraph" then
+			self.controllers.AudioController:Caption("[the house has had enough]")
+		end
 		if payload.state == "dissolve" then
 			fade = { started = os.clock(), duration = 1.5 }
 		end

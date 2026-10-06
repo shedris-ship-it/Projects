@@ -58,10 +58,18 @@ function RunOrchestrator:Start()
 	local services = self.services
 	self:_setPhase(Phases.Lobby)
 
+	-- Drift 100 is the Reckoning (the owner, 2026-10-06: the ultimate
+	-- punishment, never a reward): he hunts everyone down with no end and no
+	-- room that protects, the front door stays shut, and the squad may still
+	-- set the table and run for it. The run ends only when everyone is Lost
+	-- or out (_checkSquad).
 	services.DriftService.Collapsed:Connect(function()
-		if self.run and not self.run.ending then
-			Net.get("Notify"):FireAllClients("The house comes apart. Collapse.", "danger")
-			self:EndRun(false, "Collapse")
+		local run = self.run
+		if run and not run.ending and not run.reckoning then
+			run.reckoning = true
+			ReplicatedStorage.RunState:SetAttribute(RS.Reckoning, true)
+			Net.get("Notify"):FireAllClients("The house has had enough. It will not let you leave.", "danger")
+			services.StalkerService:StartReckoning()
 		end
 	end)
 	services.PlayerStateService.Downed:Connect(function()
@@ -154,6 +162,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		squad = HouseSize.clamp(self.squadSize or #players, Config.Mansion.BySquad),
 	}
 	self:_setPhase(Phases.Generating)
+	ReplicatedStorage.RunState:SetAttribute(RS.Reckoning, nil)
 	ReplicatedStorage.RunState:SetAttribute(RS.Seed, seed)
 	ReplicatedStorage.RunState:SetAttribute(RS.Difficulty, difficultyName)
 	ReplicatedStorage.RunState:SetAttribute(RS.SquadSize, #players)
@@ -366,8 +375,10 @@ function RunOrchestrator:_checkSquad()
 	if #living == 0 then
 		if extracted > 0 then
 			self:EndRun(true, "Extracted")
+		elseif #services.PlayerStateService:RunPlayers() == 0 then
+			self:EndRun(false, "Abandoned")
 		else
-			self:EndRun(false, #services.PlayerStateService:RunPlayers() == 0 and "Abandoned" or "AllLost")
+			self:EndRun(false, run.reckoning and "Collapse" or "AllLost")
 		end
 	elseif self.phase == Phases.Extraction then
 		-- Everyone still standing has either left or is down: finish when the

@@ -38,6 +38,7 @@ Constants.Attributes = {
 
 -- Attributes on the ReplicatedStorage.RunState folder.
 Constants.RunState = {
+	Reckoning = "Reckoning", -- true from Drift 100 (the Reckoning) to the run's end
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",

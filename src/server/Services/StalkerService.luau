@@ -183,6 +183,7 @@ function StalkerService:Begin(ctx)
 	self.mode = Modes.Dormant
 	self.tier = 0
 	self.final = false
+	self.reckoning = false
 	self.resolved = false
 	self.stunnedUntil = 0
 	self.stunImmuneUntil = 0
@@ -364,6 +365,25 @@ function StalkerService:StartFinalHunt()
 	self:_beginTelegraph(5, "final")
 end
 
+-- Drift 100 (the owner, 2026-10-06): a hunt that never ends. No Director,
+-- no room that protects (Perception), no letting go after a catch, no
+-- backing off when stared down; the hold with its decay, hiding places,
+-- the tells, CatchRadius and the revive grace still hold (fairness, doc
+-- section 3). The dinner still serves and opens the door (StartFinalHunt
+-- takes over from it).
+function StalkerService:StartReckoning()
+	if not self.active or self.reckoning then
+		return
+	end
+	self.reckoning = true
+	self.perception.noSafeRoom = true
+	self.director:Disarm(true)
+	if self.mode ~= Modes.Hunting and self.mode ~= Modes.Telegraph then
+		self:_beginTelegraph(5, "reckoning")
+	end
+	self:_publish()
+end
+
 -- His things (R2c, "the Guest wants his dinner") -----------------------------------
 
 -- Is this player carrying one of his heirlooms (Logic/Scent)?
@@ -529,6 +549,7 @@ function StalkerService:EndFinalHunt()
 		return
 	end
 	self.final = false
+	self.reckoning = false
 	self.resolved = true
 	self:_retreat("resolved")
 end
@@ -785,7 +806,7 @@ function StalkerService:_form(): number
 	if self.debugForm then
 		return self.debugForm
 	end
-	if self.final then
+	if self.final or self.reckoning then
 		return 2
 	end
 	local dread = self.services.DriftService:Dread()
@@ -881,6 +902,7 @@ function StalkerService:_direct()
 		or self.mode == Modes.Retreating
 		or self.mode == Modes.Departing
 		or self.final
+		or self.reckoning
 	then
 		return
 	end
@@ -1183,7 +1205,7 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 	else
 		-- A hunt still going (the dinner served mid-hunt): closed in the log
 		-- before the final one begins, or it reads "going on" for ever.
-		if self.mode == Modes.Hunting then
+		if self.mode == Modes.Hunting or self.mode == Modes.Telegraph then
 			local caught = (self.data and self.data.catches or 0) > 0
 			self.services.RunLogService:Hunt(false, caught and "caught" or "overtaken")
 		end
@@ -1204,8 +1226,13 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 	self.hold = { held = 0, spent = false, unwatched = 0, holds = 0 }
 	local now = os.clock()
 	self.data = { telegraphUntil = now + duration, startedAt = now, falseAlarm = falseAlarm == true }
-	Net.get("HuntState")
-		:FireAllClients({ state = "telegraph", duration = duration, final = self.final, reason = self.forceReason })
+	Net.get("HuntState"):FireAllClients({
+		state = "telegraph",
+		duration = duration,
+		final = self.final,
+		reckoning = self.reckoning,
+		reason = self.forceReason,
+	})
 	self.forceReason = nil
 	-- Nobody stays bent over a puzzle while he comes (R2c).
 	local puzzles = self.services.PuzzleService
@@ -1275,8 +1302,12 @@ function StalkerService:_updateTelegraph(now: number)
 			pauseUntil = 0,
 		}
 		body:FaceMovement()
-		Net.get("HuntState")
-			:FireAllClients({ state = "hunt", final = self.final, duration = self.final and 0 or duration })
+		Net.get("HuntState"):FireAllClients({
+			state = "hunt",
+			final = self.final,
+			reckoning = self.reckoning,
+			duration = (self.final or self.reckoning) and 0 or duration,
+		})
 		self:_publish()
 	end
 end
@@ -1346,9 +1377,9 @@ function StalkerService:_catch(player: Player, now: number, how: string?)
 	if self.mode == Modes.Hunting then
 		local data = self.data
 		data.catches = (data.catches or 0) + 1 -- a hunt with a catch is never "survived"
-		data.pauseUntil = now + (self.final and 8 or 2.5)
+		data.pauseUntil = now + ((self.final or self.reckoning) and 8 or 2.5)
 		data.plan = nil
-		if not self.final then
+		if not self.final and not self.reckoning then
 			data.endsAt = now + math.max(8, (data.endsAt - now) / 2)
 			-- Alone, nobody is coming to pull you up: he lets you go (the hunt
 			-- ends and he backs away) so the crawl to the light has a chance.
@@ -1416,7 +1447,7 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 		self:_runPlan(now, dt, speed)
 	end
 
-	if not self.final and now >= data.endsAt then
+	if not self.final and not self.reckoning and now >= data.endsAt then
 		self:_endHunt()
 	end
 end
@@ -1575,11 +1606,12 @@ function StalkerService:_retreat(reason: string)
 	if reason == "stared down" then
 		self.services.RunLogService:StareDown(wasHunting)
 	end
-	if wasHunting and reason == "stared down" and not self.final then
+	local relentless = self.final or self.reckoning
+	if wasHunting and reason == "stared down" and not relentless then
 		self.services.DriftService:Apply("HuntSurvived")
 		Net.get("HuntState"):FireAllClients({ state = "end" })
 		self.director:HuntEnded(now, "stared down")
-	elseif reason == "stared down" and not self.final then
+	elseif reason == "stared down" and not relentless then
 		self.director.retreatUntil = now + 30
 	end
 	self.bodyCtl:CancelSpecial()
@@ -1588,7 +1620,7 @@ function StalkerService:_retreat(reason: string)
 	self.data = {
 		untilT = now + G.BackAwayMaxSeconds,
 		unseenFor = 0,
-		returnToHunt = (self.final and reason == "stared down") and now + 15 or nil,
+		returnToHunt = ((self.final or self.reckoning) and reason == "stared down") and now + 15 or nil,
 	}
 	self:_publish()
 end
@@ -1596,7 +1628,7 @@ end
 function StalkerService:_updateRetreating(now: number, dt: number, watchers)
 	local data = self.data
 	if data.returnToHunt then
-		if now >= data.returnToHunt and self.final then
+		if now >= data.returnToHunt and (self.final or self.reckoning) then
 			self:_beginTelegraph(3)
 			return
 		end

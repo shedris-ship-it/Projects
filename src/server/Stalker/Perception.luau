@@ -72,6 +72,10 @@ end
 -- Is the player safe from the hunt in a lit Lantern room with company?
 function Perception:InSafeRoom(player: Player): boolean
 	local services = self.services
+	-- The Reckoning (StalkerService.StartReckoning): no room protects anyone.
+	if self.noSafeRoom then
+		return false
+	end
 	local pos = services.PlayerStateService:Position(player)
 	if not pos then
 		return false
