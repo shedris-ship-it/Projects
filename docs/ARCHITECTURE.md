@@ -22,7 +22,8 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 | WorldService | Builds and clears the house (`World/LevelBuilder`, `World/MansionBuilder`); run content goes in a `RunContent` folder that Gate A leaves out. Spatial queries (room at a position, floors, doorways). **The passage model:** `SeamCost(seam, who)` for `player`, `guest`, `guestHunt` and `guestRetreat` (nil = blocked: a lock, a crank shutter down; a cost: a shut door, a barricade), `SetSeamBlocked`, `MarkPassageChanged`, `Route`, `Separation`. **The one light rule:** `SetLightCause(room, cause, dark)`: a room is lit only while nothing (its switch, its circuit, the main breaker, his KillLights, the dinner, F2) keeps it dark. Collision groups |
 | PlayerStateService | Active / Downed / Lost (Echo) / Extracted. Revives, isolation for Drift, movement noise, the speed sanity check, flashlight and battery, AFK |
 | WitnessService | Camera view reports (`ReportView`), `GetView`, `IsLookingAt`, `ClearLine` (solid seam panels block it), pings, callouts, fake pings |
-| DriftService | Wraps `Logic/DriftModel` (with its per-minute `Caps`), publishes Drift to `ReplicatedStorage.RunState` |
+| DriftService | Wraps `Logic/DriftModel` (with its per-minute `Caps`), publishes Drift to `ReplicatedStorage.RunState`. Since 2026-10-06 also **Dread** (`Logic/Dread`: Drift or the act's floor, whichever is worse, `RS.Dread` and `RS.DreadState`), which every escalation reads; `SetAct`, `SinceProgress` |
+| HouseEventService | The house's own scares (2026-10-06): cards the Director's deck draws by act and Dread (a door swings ajar unseen, a radio turns itself on, his footsteps through the floor where he really is, knocks from inside a wardrobe, the rooms ahead going dark one by one, the telephone ringing, the clock striking thirteen) and the change a squad finds coming back to a wing it left 150 s ago. Every noise is a lure he hears too. F2 `event <id>` |
 | DivergenceService | Runs `Logic/Atmosphere`, sends per-player profiles, sends one-off scares |
 | DecorService | Portraits, wall clocks and radios in wall and floor slots (`Data/ClockTimes`) |
 | InteractService | Fixtures (`Data/Interactables`: toilets, taps, baths, TVs, radios; each a sourceless lure while it runs) and a light switch by the door of every room (`Logic/SwitchSpots`) |
@@ -30,7 +31,7 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 | CrankService | Crank doors (a gate kind): a roller shutter on an open doorway, a crank 7 studs away on its outer side. Held it rises at 2 studs/s, let go it drops at 6 but never onto a body; the ratchet winds it slowly and holds; a latch inside pins it open. The passage follows it with hysteresis (`SetSeamBlocked "crank"`) |
 | ItemService | Keys and heirlooms, and how each is found (**leads**, `Logic/Leads`): a note naming its drawer (`Logic/NoteText`, `Data/Notes`; text sent only on reading, `NoteText` → `UI/Reader`), a keepsake box, a locked display case (pick it, or smash it with a throw on its first arc), a key rack; decoys. Each heirloom's state and home (`HomeOf`, `SetHome`, `Tidy`). `Found`, `HeirloomTaken`, `HeirloomDropped`, `Tidied`, `NoteRead`, `CaseOpened` |
 | PuzzleService | The generic host for every puzzle kind (`Logic/PuzzleKinds` → `Logic/Puzzles/<Kind>`, `server/Puzzles/<Kind>`): sessions, one operator at a time, reach and inputs re-checked, answers kept here, `Solved`. Kinds: the home computer and printer, padlocks, the breaker panel (power doors, circuits), the wall safe by ear, the music box and piano, the dumbwaiter (no screen). A telegraphed hunt closes every open screen |
-| FinaleService | The dinner: the places at the dining table, setting heirlooms, the set piece (lights out, he's at the head of the table, the cut seals, every other lock opens and every crank door latches, the front door opens) and the HUD's objective line (`Logic/Objectives`, `RS.Objective`), generic over stations |
+| FinaleService | The dinner: the places at the dining table, setting heirlooms, the set piece (lights out, he's at the head of the table, the cut seals, every other lock opens and every crank door latches, the front door opens) and the HUD's objective line (`Logic/Objectives`, `RS.Objective`), generic over stations. **Stuck-assist** (`Logic/Assist`, `Config.Assist`): 150 s without progress and the line says what the plan wants next; from 240 s the lights there stutter and the map rings the room |
 | MapService | What the squad has seen (rooms entered, doorways looked at and their locks, notes read, items seen lying, stations, the table, downed friends), sent to everyone as `MapState` at most twice a second, only on change. Nothing unseen is sent |
 | HandsService | Your bare hands (rework section 4): door and furniture drags (`Drag`, `DragRelease` with the hand's speed; within reach, a clear line); small things (`Data/Physical`) grabbed, carried by the client (`Logic/Heft`), thrown by the client with a wind-up (`Throw(aim, charge, pos, vel)`, checked against the class and the last valid state; keys, heirlooms and the music box taken back by the server), re-anchored once still; stuns counted only on a throw's first arc (`Throw.onArc`). `Grabbed`, `Thrown`, `Released`, `Moved` |
 | DoorService | Doors by angle (`Logic/Articulation`: held, driven or free with momentum; passable from 55° until below 45°), stepped on the server and written with `BulkMoveTo`, motion snapshots for clients (`Lib/MotionState`). A swing stops against The Guest, a player or a barricade; a flung door slams (a lure if nobody held it). Bracing by prompt or by holding it shut; stalker door delays; locking (`SetLocked`) |
@@ -41,7 +42,7 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 | NoiseService | Noise events the stalker hears (with a source player, or none: a lure) |
 | ChatService | Typed lines spoken aloud by text-to-speech and heard by him; mic loudness as noise (`Logic/VoiceNoise`) |
 | SquadProfileService | Habit counters with decay (`Logic/SquadProfile`), each Witness's gaze habits (`Logic/GazeHabits`), and the Dossier's habits, closest calls and catches |
-| RunLogService | The run's journal: who opened which door and solved which puzzle, who carried and set each heirloom, acts, hunts (and who survived each), tidying, the closest call while carrying. Writes the Dossier's "THE HOUSE" lines, counts what the Marks pay for (`Logic/Progression`) and logs each step to Telemetry |
+| RunLogService | The run's journal: who opened which door and solved which puzzle, who carried and set each heirloom, acts, hunts (and who survived each), tidying, the closest call while carrying. Writes the Dossier's "THE HOUSE" lines, counts what the Marks pay for (`Logic/Progression`) and logs each step to Telemetry. **The run in numbers** (`Logic/RunStats`, 2026-10-06): tier score, silent minutes, scares by kind, each hunt and how it ended, stare-downs, freezes, downs, catches, time to first progress; the F2 overlay's last lines, F2 `summary`, the Dossier's THE NIGHT IN NUMBERS, a `RunSummary` event |
 | StalkerService | The Guest's mode machine, arrival, lazy visibility, hunts and retreats. Uses `Stalker/Director` (pacing: Drift, acts, armed hunts), `Stalker/Stalk` (between hunts: moves from `Data/StalkMoves`, rules from `Logic/StalkRules`, **errands**: waiting at the table, tidying up; heirloom scent from `Logic/Scent`), `Stalker/Tactician` (hunts), `Stalker/Body`, `Stalker/Sight`, `Stalker/Perception`, `Stalker/Walker` (movement, below), `Stalker/Clearance`, `Stalker/Retreat`, `Stalker/NavTest` (F2 `navtest`) and `Stalker/StalkerModel` |
 | CompanionService | The solo Companion: follows, helps push, counts as a watcher, revives |
 | OutfitService | Period outfits for players and the Companion (`Logic/Outfit`) |
@@ -56,7 +57,7 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 | Controller | Owns |
 | --- | --- |
 | StateController | RunState and player attributes as signals; layout, lobby and profile snapshots; settings |
-| PerceptionController | Applies this Witness's atmosphere rules (a portrait's eyes, writing in your torch beam, a sound from nowhere, a friend glimpsed late, a colour) and one-off scares |
+| PerceptionController | Applies this player's atmosphere rules (a portrait's eyes, writing in your torch beam, a sound from nowhere, a friend glimpsed late, a colour), woken by Dread, and one-off scares (steps, a flicker, a cold spot, a whisper, his face at a window, footsteps overhead, breathing on the line, a caption) |
 | GuestController | How The Guest looks and sounds here: procedural animation of every joint from `Logic/GuestPose`, his face and fingers (`Lib/GuestFace`), eye-shine, visibility, footsteps from his real feet, the warnings, the jumpscare |
 | WitnessController | 12 Hz view reports, ping and callout sending, world markers |
 | ActionController | Input bindings (keyboard, gamepad, touch), sprint and stamina, camera modes (first person in the house, the peek camera when hidden in a spot; your own camera in a closet), the flashlight (full beam in slot 1, the clip light otherwise), the map (Tab, gamepad Y) |
@@ -65,9 +66,9 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 | FeelController, FootstepController | Head bob, sway, FOV kick and landing dip (Camera motion setting); our own footsteps by floor |
 | ViewModelController | The torch and tools in your hands, sleeved arms |
 | SpeechController | Mic loudness for `VoiceLevel` |
-| AudioController | Sound groups and volume settings, room reverb, Drift layers, ducking, positional one-shots (`Sfx`), loops from the `SoundLoop` tag (taps, the music box), captions |
+| AudioController | Sound groups and volume settings, room reverb, Dread layers, ducking, positional one-shots (`Sfx`), loops from the `SoundLoop` tag (taps, the music box), captions. **Music states** (2026-10-06, `Config.Music`, `Assets.Music`): three looping stems, calm / stalking (tier 2 or Dread 40) / hunt, crossfaded; empty ids play nothing until the owner chooses them by ear |
 | EffectsController | Drift-driven colour, vignette and atmosphere; bloom, grain and depth of field; dust; light flicker and dimming near The Guest; hunt tint; low-end mode |
-| UIController | Every screen in `UI/`: the HUD and objective line, hotbar, map and journal (`UI/Map`), the note reader (`UI/Reader`), puzzle screens (`UI/Puzzle` hosting `UI/Puzzles/<Kind>`), Dossier, lobby, settings, the say box, debug overlay |
+| UIController | Every screen in `UI/`: the HUD and objective line, hotbar, map and journal (`UI/Map`), the note reader (`UI/Reader`), puzzle screens (`UI/Puzzle` hosting `UI/Puzzles/<Kind>`), Dossier, lobby, settings, the say box, debug overlay, and the tips (`UI/Tips`: one short line when the thing it teaches first comes up, once a session, off in Settings) |
 
 ## A run, end to end
 
@@ -86,15 +87,15 @@ Every wall between two rooms is still two wall pieces, a lintel and a doorway-si
 
 ## The observation rule
 
-Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, *and* it is visible to that player (tier 1 shows it to one Witness only), for 0.3 seconds or more. The watch check uses where his head and chest really are for the pose clients are drawing.
+Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, it is visible to that player (tier 1 shows it to one player only), **and he is in that player's light** (`Config.Stare`, since 2026-10-06: the room he stands in is lit, their full beam reaches him within 42 studs and 28° of centre, their clip light within 16 studs where the body faces, a lit Lantern within 22, or arm's length), for 0.3 seconds or more. The watch check uses where his head and chest really are for the pose clients are drawing.
 
 | Watchers | Result |
 | --- | --- |
 | 0 | He moves freely: creeping, peeking, roaming. Visibility changes only now |
 | 1 | Tier 1: yanked out of sight once you've seen him for ~0.45 s. Tier 2: holds and stares; backs away if stared at up close for 4 s. Tier 3: keeps creeping, very slowly |
-| 2 or more | Frozen, and any lunge wind-up is cancelled. Holding the stare together for 3 seconds makes him back away; during a normal hunt that ends the hunt. Not while he waits at the table |
+| 2 or more | Frozen, and any lunge wind-up is cancelled. Between hunts, holding the stare together for 3 seconds makes him back away (not while he waits at the table). **In a hunt the stare holds him 4 s at a time** (the hunt's clock pauses with him), then he comes on at about a walk while two still watch, until they lose him for 1.5 s; the stare never ends a hunt |
 
-The Companion counts as a second watcher only while a real player is also watching.
+The Companion no longer counts as a watcher (2026-10-06). Alone (one active player), a full beam held steady on him for 0.6 s counts as the second pair of eyes and drains the battery three times as fast while it does (`PA.BeamHold`).
 
 ## Remote protocol
 

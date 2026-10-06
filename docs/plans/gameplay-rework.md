@@ -401,6 +401,21 @@ The plan was ten stages; each commit says what was checked in Studio and what wa
 | Lantern, Radio (static near him) | Keep | |
 | Phase names | Keep (Investigation = exploring, Resolution = the dinner); rename later if wanted | |
 
+## 15. The foundation pass (2026-10-06, overnight; builds `2026-10-06.101` to `.108`)
+
+The owner's audit of 2026-10-06 found that fear was gated behind failure (a clean run peaked at Drift 10), that the stare was a free win (two watchers froze him in hunts, the Companion always counted, the dark played no part), that a stalled squad got danger but no help, and that the walks were empty. The overnight pass (`docs/progress/2026-10-06-overnight/REPORT.md`) changed the rules, not the structure:
+
+- **The run in numbers** (`Logic/RunStats`): the act, a tier score, silent minutes, scares by kind, each hunt and how it ended, stare-downs, freezes, downs, catches, time to first progress. F2 overlay and `summary`, the Dossier's THE NIGHT IN NUMBERS, a `RunSummary` event.
+- **The stare has a cost** (`Config.Stare`, `Logic/StalkRules.litFor`/`huntHold`): a look counts only while he is in that player's light (the room, their beam within 42 studs and 28°, the clip light, a lit Lantern, arm's length); in a hunt two watchers hold him 4 s at a time (the clock pauses), then he comes on at about a walk while they watch; the co-stare backs him off only between hunts; the Companion no longer counts, and alone a steady full beam does, at three times the battery.
+- **Dread** (`Logic/Dread`): the greater of Drift (still the failure clock) and the act's floor (`Config.Pacing.ActDread` 0/40/60/75, eased in over 90 s). His tier, face, the scare deck, the atmosphere rules, the flicker, grade, photos, blood, the drones and the HUD's word read it. A steady run meets tier 2 after its first door and tier 3 at minute 17.5 of 23 (`Pacing.spec`). Hard starts at Dread 20 with shorter telegraphs.
+- **Hunts off the clock**: ArmDelay 45–150 s, the gap after a hunt drawn afresh (180 s ± 40%), false alarms (30%, only the telegraph; the real one 30–80 s later), returns (25%, straight back 40–75 s after a survived hunt).
+- **The house's own scares** (`Services/HouseEventService`; section 10's list, built): a door ajar, a radio on, his footsteps through the floor where he really is, knocks from inside a wardrobe, the rooms ahead going dark one by one, the telephone (every house has one now), the clock striking thirteen; and an old wing changed when the squad comes back after 150 s. Cards drawn by the Director's deck by act and Dread; every noise a lure he hears too.
+- **Stuck-assist** (`Logic/Assist`, `Config.Assist`): 150 s without progress and the objective line says the plan's next step (set the heirloom in hand; the door you hold the opener for; the station in reach; the room in reach where something needed is kept); 240 s and the lights there stutter and the map rings the room.
+- **Teaching and words**: `UI/Tips` (one line when the thing first comes up), a three-bullet how-to, the lobby tagline and Hard blurb, HUD phases LOCKED IN / THE HOUSE / THE DINNER / GET OUT, "Nobody got out.", counters without "Witness".
+- **Music states** (`Assets.Music`, `Config.Music`): calm / stalking / hunt stems crossfaded, ids empty until the owner chooses by ear. **The quiet catch** (`Config.Guest.Catch = "quiet"`) as an option.
+
+Fairness additions: the stare's light rule is symmetric with his sight (lit 40 studs, dark 15); every house event is a sound or an unseen change, and he hears the noises; the hint never names a token only an optional lock wants; a false alarm obeys every hunt rule (it is a telegraph, nothing more).
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.

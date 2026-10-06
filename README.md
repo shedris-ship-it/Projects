@@ -116,9 +116,11 @@ These commands work in Studio, or on live servers for user ids listed in `Config
 
 ```
 help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lights on|off · gatea
+watch (the stare right now: watchers, lit, dark, beam, the room, the hold) · summary (the run in numbers, to Output)
+event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)
 seed <n> · layout cells|mansion|default · squad <1-4|auto>   (apply to the next run)
 start · end · skip (end Arrival) · resolve (serve the dinner)
-act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · scent · table · tidy
+act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar) · items · leads [go <token> [note]]
@@ -130,10 +132,10 @@ furniture open|shut [all] · block <room> <room> · block off · plans [read] (t
 navtest [fast] · navtest room <id> [fast] · navtest retreat [n]
 down [name] · revive [name] · steps · clip
 guest here [studs] · guest walk · guest pose <name> · guest form <0-2> · guest smile <0-1>
-guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare · guest off
+guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest off
 ```
 
-The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the squad-profile signals, and client and server performance numbers.
+The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the stare (who counts and in what light), the squad-profile signals, client and server performance numbers, and the run in numbers (act, tier score, silence, scares, hunts and how each ended, stare-downs, progress).
 
 ---
 
