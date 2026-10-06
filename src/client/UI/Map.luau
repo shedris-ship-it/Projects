@@ -6,6 +6,11 @@
 -- who's down. You are drawn; your living friends aren't (you can talk).
 -- The journal lists the notes you've read (UI/Reader) and your key ring,
 -- with a button to leave each key at your feet for someone else.
+--
+-- The map that saves time (docs/plans/level-design.md section 11, L3.5): a
+-- pencil tick on a room with nothing the run needs left in it, a ring round
+-- what's been seen and not yet done, the rooms of a floor whose house plans
+-- someone has read (outlined, named), and who carries what.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -46,7 +51,10 @@ local MARKS = {
 	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
 	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
 	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
+	-- A step's chest or fridge, chained or nailed shut (its label says which).
+	piece = { text = "SHUT", color = Color3.fromRGB(170, 160, 150) },
 }
+local TICK = Color3.fromRGB(150, 205, 150)
 
 function Map.new(ctx)
 	local self = setmetatable({ ctx = ctx, tab = "Map", open = false, state = nil }, Map)
@@ -195,11 +203,33 @@ function Map:_renderMap()
 			end
 		end
 	end
+	-- Nothing left in it the run needs (a tick).
+	local done = {}
+	for _, id in state.done or {} do
+		done[id] = true
+	end
+	-- The rooms of a floor whose house plans someone has read (never a
+	-- servants' passage: Logic/HousePlans).
+	local planned = {}
+	for _, storey in state.plans or {} do
+		for _, room in layout.rooms do
+			local bottom = room.floor or 0
+			local roof = room.tall and (room.top or bottom + 1) or bottom
+			if storey >= bottom and storey <= roof and not room.passage and room.kind ~= "passage" then
+				if not entered[room.id] and not glimpsed[room.id] then
+					planned[room.id] = true
+				end
+			end
+		end
+	end
 	local shown = {}
 	for id in entered do
 		table.insert(shown, byId[id])
 	end
 	for id in glimpsed do
+		table.insert(shown, byId[id])
+	end
+	for id in planned do
 		table.insert(shown, byId[id])
 	end
 	if #shown == 0 then
@@ -266,7 +296,10 @@ function Map:_renderMap()
 			local bottom = room.floor or 0
 			local roof = room.tall and (room.top or bottom + 1) or bottom
 			if floor >= bottom and floor <= roof then
-				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, left, top)
+				self:_room(canvas, room, floor, entered[room.id] == true, here, scale, minX, minZ, left, top, {
+					done = done[room.id] == true,
+					planned = planned[room.id] == true,
+				})
 			end
 		end
 	end
@@ -286,6 +319,10 @@ function Map:_renderMap()
 		local look = DOORS[door.kind] or DOORS.door
 		local x, y = toMap(door.x, door.z, door.floor)
 		local size = look.tag and 9 or 6
+		if look.tag then
+			-- A lock seen and not yet open: something to do here.
+			self:_ring(canvas, x, y, 19, look.color)
+		end
 		Ui.new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromOffset(x, y),
@@ -317,9 +354,13 @@ function Map:_renderMap()
 	end
 	for _, mark in state.marks do
 		local look = MARKS[mark.kind] or { text = mark.label or mark.kind, color = Ui.Theme.text }
+		local text = mark.kind == "piece" and mark.label or look.text
 		local x, y = toMap(mark.x, mark.z, mark.floor)
 		local color = mark.done and Ui.Theme.textDim or look.color
-		self:_dot(canvas, x, y, 8, color, look.text .. (mark.done and " (done)" or ""))
+		if not mark.done then
+			self:_ring(canvas, x, y, 18, color)
+		end
+		self:_dot(canvas, x, y, 8, color, text .. (mark.done and " (done)" or ""))
 	end
 	for _, down in state.downed do
 		local x, y = toMap(down.x, down.z, down.floor)
@@ -348,7 +389,7 @@ function Map:_renderMap()
 		self:_dot(canvas, x, y, 10, Ui.Theme.accent, "you")
 	end
 	Ui.label(
-		"Diamonds: doorways.  KEY, CODE, BOLT, POWER, CRANK: locks.  note: read here.  At the table: places set.",
+		"Diamonds: doorways; a ring: seen, not done yet.  A tick: nothing left there.  note: read here.  At the table: places set.",
 		{
 			Position = UDim2.fromOffset(0, rowPixels * rows + 4),
 			Size = UDim2.fromOffset(width * scale, 18),
@@ -359,18 +400,32 @@ function Map:_renderMap()
 	)
 end
 
-function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, left, top)
+function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, left, top, o)
 	local x0, z0 = left + (room.x - minX) * scale, top + (room.z - minZ) * scale
 	local isHere = here and here.id == room.id
 	local color = isHere and Ui.Theme.accent or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
 	if not entered then
-		-- Glimpsed through a doorway: there's a room, nobody knows what.
-		Ui.new("Frame", {
+		-- Glimpsed through a doorway: there's a room, nobody knows what. From
+		-- the house plans: its outline and its name, faint.
+		Ui.new("TextLabel", {
 			Position = UDim2.fromOffset(x0 + 2, z0 + 2),
 			Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
 			BackgroundTransparency = 1,
+			Text = o.planned and room.name or "",
+			TextWrapped = true,
+			TextScaled = room.w * scale < 70,
+			TextSize = 11,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Font = Ui.Theme.font,
+			TextColor3 = Ui.Theme.textDim,
+			TextTransparency = 0.35,
 			Parent = canvas,
-		}, { Ui.corner(4), Ui.stroke(Ui.Theme.textDim, 1, 0.6) })
+		}, {
+			Ui.corner(4),
+			Ui.stroke(o.planned and Color3.fromRGB(120, 150, 200) or Ui.Theme.textDim, 1, 0.6),
+			Ui.new("UITextSizeConstraint", { MaxTextSize = 11, MinTextSize = 7 }),
+			Ui.padding(3),
+		})
 		return
 	end
 	if room.tall and room.role == "start" and floor == 1 then
@@ -404,7 +459,7 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 		Position = UDim2.fromOffset(x0 + 2, z0 + 2),
 		Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
 		BackgroundColor3 = color,
-		BackgroundTransparency = 0.15,
+		BackgroundTransparency = (o.done and not isHere) and 0.45 or 0.15,
 		Text = room.name .. tag,
 		TextWrapped = true,
 		TextScaled = room.w * scale < 70,
@@ -414,6 +469,36 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 		TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
 		Parent = canvas,
 	}, { Ui.corner(4), Ui.new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 7 }), Ui.padding(3) })
+	if o.done then
+		-- Bottom right, clear of the name.
+		self:_tick(canvas, x0 + room.w * scale - 16, z0 + room.d * scale - 10)
+	end
+end
+
+-- A pencil tick: a short stroke down and a long one up, from (x, y).
+function Map:_tick(canvas, x: number, y: number)
+	for _, stroke in { { x + 1.5, y + 1.5, 5, 45 }, { x + 6, y - 0.5, 10, -50 } } do
+		Ui.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(stroke[1], stroke[2]),
+			Size = UDim2.fromOffset(stroke[3], 2),
+			BackgroundColor3 = TICK,
+			BorderSizePixel = 0,
+			Rotation = stroke[4],
+			Parent = canvas,
+		})
+	end
+end
+
+-- A ring round something seen and not yet done.
+function Map:_ring(canvas, x: number, y: number, size: number, color: Color3)
+	Ui.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(x, y),
+		Size = UDim2.fromOffset(size, size),
+		BackgroundTransparency = 1,
+		Parent = canvas,
+	}, { Ui.corner(size), Ui.stroke(color, 1.5, 0.2) })
 end
 
 -- A small round mark with a word under it.
@@ -441,7 +526,7 @@ end
 -- The journal -----------------------------------------------------------------------
 
 function Map:_renderJournal()
-	self.summary.Text = "What you've read, and the keys you carry."
+	self.summary.Text = "What you've read, the keys you carry, and who carries what."
 	local list = Ui.new("Frame", {
 		Size = UDim2.new(1, -10, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -505,6 +590,26 @@ function Map:_renderJournal()
 				end)
 			end
 		end
+	end
+	-- Who carries which key and which tool (everyone sees everyone's).
+	heading("Who carries what", 60)
+	local carried = self.state and self.state.carried or {}
+	if #carried == 0 then
+		Ui.label("Nobody carries a key or a tool for a lock yet.", {
+			Size = UDim2.new(1, 0, 0, 20),
+			TextSize = 14,
+			TextColor3 = Ui.Theme.textDim,
+			LayoutOrder = 61,
+			Parent = list,
+		})
+	end
+	for i, entry in carried do
+		Ui.label(entry.name .. ": " .. table.concat(entry.what, ", "), {
+			Size = UDim2.new(1, 0, 0, 20),
+			TextSize = 14,
+			LayoutOrder = 61 + i,
+			Parent = list,
+		})
 	end
 	heading("Notes you've read", 100)
 	local reader = self.ctx.ui.components.Reader

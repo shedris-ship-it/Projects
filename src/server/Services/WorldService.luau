@@ -155,10 +155,15 @@ function WorldService:LayoutSnapshot()
 	-- (The servants' passages too: the map only draws a room once someone
 	-- has been in it or seen through its door.)
 	for _, passage in world.layout.passages or {} do
-		table.insert(
-			rects,
-			{ id = passage.id, x = passage.x, z = passage.z, w = passage.w, d = passage.d, floor = passage.floor }
-		)
+		table.insert(rects, {
+			id = passage.id,
+			x = passage.x,
+			z = passage.z,
+			w = passage.w,
+			d = passage.d,
+			floor = passage.floor,
+			passage = true,
+		})
 	end
 	local rooms = {}
 	for _, rect in rects do
@@ -174,6 +179,8 @@ function WorldService:LayoutSnapshot()
 			floor = rect.floor or 0,
 			tall = rect.tall,
 			top = rect.top,
+			-- (Never drawn from the house plans: Logic/HousePlans.)
+			passage = rect.passage,
 			kind = room.kind,
 			name = room.name,
 			role = room.role,

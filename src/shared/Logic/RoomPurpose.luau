@@ -137,6 +137,11 @@ function RoomPurpose.of(layout, plan, templatesById, leads)
 			end
 		end
 	end
+	-- The house plans (Logic/HousePlans).
+	local plans = plan and plan.housePlans
+	if plans and out[plans.room] then
+		add(out[plans.room].strong, "house plans")
+	end
 	for _, decoy in leads and leads.decoys or {} do
 		if out[decoy.room] then
 			add(out[decoy.room].strong, LEAD_NAMES[decoy.kind] or decoy.kind)

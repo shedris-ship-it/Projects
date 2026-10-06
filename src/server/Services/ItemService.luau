@@ -22,6 +22,7 @@
 -- so he can put it back (`Tidy`). Later producers (a safe, the music box)
 -- give their own homes with SetHome.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -44,6 +45,10 @@ local LockPlanner = require(Shared.Logic.LockPlanner)
 local LeadProps = require(script.Parent.Parent.World.LeadProps)
 
 local L = Config.Leads
+
+local function notify(player: Player, text: string, kind: string?)
+	Net.get("Notify"):FireClient(player, text, kind or "info")
+end
 
 local ItemService = {
 	-- (player, token, kind): someone found something the escape needs.
@@ -187,6 +192,56 @@ function ItemService:Begin(plan, rng, leads)
 		elseif decoy.kind == "display" then
 			self:_placeDisplay(nil, decoy.room, place)
 		end
+	end
+	-- The house plans (Logic/HousePlans), on a top in their room.
+	if plan.housePlans then
+		self:_placePlans(plan.housePlans, place)
+	end
+end
+
+local STOREY_WORDS = { [-1] = "the cellar", [0] = "the ground floor", [1] = "the upper floor", [2] = "the attic" }
+
+-- The house plans (docs/plans/level-design.md section 11, L3.5): reading
+-- them puts their floor's rooms on everyone's map (Services/MapService).
+function ItemService:_placePlans(plans, rng)
+	local at = self:_top(plans.room, rng)
+	if not at then
+		local point = self.World:RandomPointIn(plans.room, rng)
+		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	end
+	local _, sheet = LeadProps.plans(at, self.folder)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ReadPrompt"
+	prompt.ActionText = "Read"
+	prompt.ObjectText = "House plans"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = L.ReadRange
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = sheet
+	prompt.Triggered:Connect(function(player)
+		self:ReadPlans(player, sheet)
+	end)
+	self.plansSheet = sheet
+end
+
+function ItemService:ReadPlans(player: Player, sheet: BasePart)
+	local plans = self.plan and self.plan.housePlans
+	local position = self.PlayerState:Position(player)
+	if not plans or not position or not sheet.Parent or (position - sheet.Position).Magnitude > L.ReadRange + 3 then
+		return
+	end
+	local where = STOREY_WORDS[plans.storey] or "this floor"
+	Sfx.play("Cloth", sheet.Position, 0.3, 1.3)
+	if self.services.MapService:RevealStorey(plans.storey) then
+		notify(player, "The house plans: " .. where .. ", room by room. It's on everyone's map now.", "good")
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				notify(other, player.DisplayName .. " found the house plans: " .. where .. " is on your map.")
+			end
+		end
+	else
+		notify(player, "The house plans for " .. where .. ". They're on the map already.")
 	end
 end
 
@@ -363,6 +418,7 @@ function ItemService:Tidy(token: string): boolean
 	self.Hands:Forget(thing, true)
 	state.thing = nil
 	state.droppedAt = nil
+	state.tidied = true -- back where it was kept: its room isn't done (the map's tick)
 	if home.space then
 		local space = home.space
 		space.filled = false
@@ -771,10 +827,6 @@ function ItemService:Leads()
 	return self.leadOf, self.notes, self.cases
 end
 
-local function notify(player: Player, text: string, kind: string?)
-	Net.get("Notify"):FireClient(player, text, kind or "info")
-end
-
 -- A key taken by hand goes on your ring.
 function ItemService:_grabbed(player: Player, thing)
 	local token = thing.model:GetAttribute("Item")
@@ -800,6 +852,7 @@ function ItemService:_grabbed(player: Player, thing)
 			state.holder = player
 			state.droppedAt = nil
 			state.everTaken = true
+			state.tidied = nil
 		end
 		if first then
 			notify(

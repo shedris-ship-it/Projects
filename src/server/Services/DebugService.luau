@@ -55,7 +55,7 @@ local HELP = table.concat({
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
-	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · fling <room> <room> <speed>",
+	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · fling <room> <room> <speed>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -567,6 +567,18 @@ function DebugService:Run(player: Player, text: string)
 		else
 			local ok = services.DoorService:SetAngle(door, angle)
 			reply(player, string.format("%s to %d degrees%s", door.id, angle, ok and "" or " (locked: it rattles)"))
+		end
+	elseif command == "plans" then
+		-- Where the house plans are, or (`plans read`) read them from anywhere.
+		local plan = services.LockService.plan
+		local plans = plan and plan.housePlans
+		if not plans then
+			reply(player, "no house plans this run")
+		elseif args[2] == "read" and services.ItemService.plansSheet then
+			local fresh = services.MapService:RevealStorey(plans.storey)
+			reply(player, string.format("storey %d on the map%s", plans.storey, fresh and "" or " (already)"))
+		else
+			reply(player, string.format("house plans in room %d, for storey %d", plans.room, plans.storey))
 		end
 	elseif command == "doors" then
 		-- Every unlocked door that furniture stops before it's open enough to

@@ -44,6 +44,7 @@ function ToolService:Init(services)
 	self.PlayerState = services.PlayerStateService
 	self.Witness = services.WitnessService
 	self.World = services.WorldService
+	self.found = {} -- tool id -> true once anyone has taken one this run (the map's ticks)
 end
 
 local function notify(player, text, kind)
@@ -132,6 +133,7 @@ function ToolService:BeginRun(players: { Player }, rng)
 		lastUse[player] = nil
 		self:_publish(player)
 	end
+	table.clear(self.found)
 	self:_spawnWorldTools(rng, #players)
 end
 
@@ -353,6 +355,7 @@ function ToolService:_take(player: Player, uid: string)
 		return
 	end
 	pickups[uid] = nil
+	self.found[entry.item.id] = true
 	entry.model:Destroy()
 	if swapped then
 		self:_putDown(player, swapped)
@@ -443,6 +446,7 @@ function ToolService:DebugGive(player: Player, toolId: string): string
 				return "your hands are full"
 			end
 			pickups[uid] = nil
+			self.found[toolId] = true
 			entry.model:Destroy()
 			if swapped then
 				self:_putDown(player, swapped)

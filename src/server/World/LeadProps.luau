@@ -442,4 +442,68 @@ function LeadProps.note(cf: CFrame, parent: Instance, onWall: boolean, seed: num
 	return model, sheet
 end
 
+-- The house plans (docs/plans/level-design.md section 11, L3.5): a sheet of
+-- blueprints lying flat, white lines on blue, one corner curling up.
+function LeadProps.plans(cf: CFrame, parent: Instance)
+	local model = Instance.new("Model")
+	model.Name = "HousePlans"
+	local blue = Color3.fromRGB(38, 70, 128)
+	local sheet = part(
+		model,
+		"Paper",
+		Vector3.new(2.2, 0.02, 1.6),
+		cf * CFrame.new(0, 0.01, 0),
+		blue,
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false }
+	)
+	-- The curl: a thin roll along one short edge.
+	part(
+		model,
+		"Curl",
+		Vector3.new(1.6, 0.16, 0.16),
+		cf * CFrame.new(1.12, 0.08, 0) * CFrame.Angles(0, math.pi / 2, 0),
+		blue,
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false, shape = CYL }
+	)
+	-- A floor plan in white: the outline, and walls between rooms.
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Drawing"
+	gui.Face = Enum.NormalId.Top
+	gui.CanvasSize = Vector2.new(220, 160)
+	gui.LightInfluence = 1
+	local white = Color3.fromRGB(226, 234, 244)
+	local function line(x: number, y: number, w: number, h: number)
+		local f = Instance.new("Frame")
+		f.Position = UDim2.fromOffset(x, y)
+		f.Size = UDim2.fromOffset(w, h)
+		f.BackgroundColor3 = white
+		f.BackgroundTransparency = 0.15
+		f.BorderSizePixel = 0
+		f.Parent = gui
+	end
+	line(20, 20, 180, 3)
+	line(20, 137, 180, 3)
+	line(20, 20, 3, 120)
+	line(197, 20, 3, 120)
+	line(90, 20, 3, 70)
+	line(20, 88, 120, 3)
+	line(140, 60, 3, 80)
+	line(140, 60, 60, 3)
+	local title = Instance.new("TextLabel")
+	title.BackgroundTransparency = 1
+	title.Position = UDim2.fromOffset(24, 142)
+	title.Size = UDim2.fromOffset(172, 16)
+	title.Font = Enum.Font.Code
+	title.TextSize = 12
+	title.TextColor3 = white
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Text = "PLAN - FIRST FLOOR - 1961"
+	title.Parent = gui
+	gui.Parent = sheet
+	model.Parent = parent
+	return model, sheet
+end
+
 return LeadProps

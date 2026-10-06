@@ -9,6 +9,7 @@
 
 local Family = require(script.Parent.Family)
 local HouseMetrics = require(script.Parent.HouseMetrics)
+local HousePlans = require(script.Parent.HousePlans)
 local Leads = require(script.Parent.Leads)
 local LockPlanner = require(script.Parent.LockPlanner)
 local MansionGen = require(script.Parent.MansionGen)
@@ -56,6 +57,8 @@ function HouseSearch.candidate(seed: number, i: number, opts)
 		layout.passages = nil
 	end
 	local leads = Leads.plan(plan, Leads.rooms(layout, opts.templatesById), rng:Fork("leads"), opts.leads)
+	-- The house plans on a desk somewhere open early (Logic/HousePlans).
+	plan.housePlans = HousePlans.choose(layout, plan, opts.templatesById, rng:Fork("plans"))
 	local purposes = RoomPurpose.of(layout, plan, opts.templatesById, leads)
 	local metrics = HouseMetrics.measure(layout, plan, opts.templatesById, {
 		nav = opts.nav,

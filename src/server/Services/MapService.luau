@@ -11,6 +11,14 @@
 -- Sent as MapState to everyone, at most twice a second and only when it
 -- changes; a reloading client gets it again (SyncPlayer). Later systems add
 -- their own marks (Mark: the breaker, a crank door, a barricade).
+--
+-- The map that saves time (docs/plans/level-design.md section 11, L3.5): a
+-- room someone has been in gets a tick once nothing the run needs is left in
+-- it (everything kept there taken, its puzzles done, its chests open: earned
+-- by going in, as in Resident Evil); what's been seen and not yet done (a
+-- locked door, a safe, a case, a chained chest) gets a ring on the client;
+-- the house plans, once read, draw their floor's rooms; and who carries
+-- which key or tool is everyone's to see.
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -43,6 +51,7 @@ function MapService:_reset()
 	self.doors = {} -- seam id -> { known = lock kind seen, open = bool }
 	self.notes = {} -- note id -> true: someone read it here
 	self.marks = {} -- key -> { kind, position, label?, done? } (other systems' facts)
+	self.planStoreys = {} -- storey -> true once someone read the house plans for it
 	self.sent = nil
 	self.lastSent = 0
 end
@@ -107,6 +116,87 @@ function MapService:Unmark(key: string)
 	if self.marks[key] then
 		self.marks[key] = nil
 	end
+end
+
+-- The house plans for `storey` were read (Services/ItemService): its rooms
+-- go on everyone's map. Returns whether that's new.
+function MapService:RevealStorey(storey: number): boolean
+	if self.planStoreys[storey] then
+		return false
+	end
+	self.planStoreys[storey] = true
+	self:_publish(true)
+	return true
+end
+
+-- Rooms someone has been in with nothing the run needs left in them: what
+-- was kept there taken (a tool too), its puzzles and cases done, its chests
+-- open. Junk in drawers, notes and decoys don't count.
+function MapService:_doneRooms(): { number }
+	local plan = self.Locks.plan
+	local left = {} -- room -> true while something there is still to do
+	if plan then
+		local tools = self.services.ToolService
+		for id, token in plan.tokens do
+			if token.producer.kind == "container" then
+				local taken = if token.kind == "tool" then tools.found[token.tool] else self.Items.found[id]
+				-- (An heirloom he put back is there to take again.)
+				local heirloom = self.Items.heirlooms[id]
+				if heirloom and heirloom.tidied then
+					taken = false
+				end
+				if not taken then
+					left[token.producer.room] = true
+				end
+			end
+		end
+		for _, station in self.Finale:_stations() do
+			if not station.solved then
+				left[station.room] = true
+			end
+		end
+		for _, entry in self.Locks.pieceLocks do
+			if not entry.open then
+				left[entry.lock.room] = true
+			end
+		end
+	end
+	local done = {}
+	for id in self.rooms do
+		if not left[id] then
+			table.insert(done, id)
+		end
+	end
+	table.sort(done)
+	return done
+end
+
+-- Who carries which key and which tool for a lock, by name (sorted).
+function MapService:_carried()
+	local by = {} -- name -> { labels }
+	for _, held in self.Locks:HeldKeys() do
+		local name = held.holder.DisplayName
+		by[name] = by[name] or {}
+		table.insert(by[name], held.label)
+	end
+	local plan = self.Locks.plan
+	local tools = self.services.ToolService
+	for _, token in plan and plan.tokens or {} do
+		local holder = token.kind == "tool" and tools:Holder(token.tool)
+		if holder then
+			by[holder.DisplayName] = by[holder.DisplayName] or {}
+			table.insert(by[holder.DisplayName], token.label)
+		end
+	end
+	local out = {}
+	for name, labels in by do
+		table.sort(labels)
+		table.insert(out, { name = name, what = labels })
+	end
+	table.sort(out, function(a, b)
+		return a.name < b.name
+	end)
+	return out
 end
 
 -- Who has been where, and what each player is looking at.
@@ -176,6 +266,13 @@ function MapService:State()
 		table.insert(state.rooms, id)
 	end
 	table.sort(state.rooms)
+	state.done = self:_doneRooms()
+	state.plans = {}
+	for storey in self.planStoreys do
+		table.insert(state.plans, storey)
+	end
+	table.sort(state.plans)
+	state.carried = self:_carried()
 	for id, door in self.doors do
 		local seam = world.seams[id]
 		local entry = self.Locks.locks[id]
@@ -267,6 +364,22 @@ function MapService:State()
 				z = at[2],
 				floor = self:_floorOf(station.position),
 				done = station.solved,
+			})
+		end
+	end
+	-- A step's chest someone has been by (section 11, L3.4).
+	for id, entry in self.Locks.pieceLocks do
+		if self.Finale:PieceKnown(id) and entry.anchor then
+			local at = flat(entry.anchor.Position)
+			local word = entry.lock.kind == "boards" and "NAILED " or "CHAINED "
+			table.insert(state.marks, {
+				key = id,
+				kind = "piece",
+				x = at[1],
+				z = at[2],
+				floor = self:_floorOf(entry.anchor.Position),
+				label = word .. string.upper(entry.lock.thing),
+				done = entry.open,
 			})
 		end
 	end
