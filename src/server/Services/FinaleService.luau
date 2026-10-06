@@ -119,10 +119,10 @@ function FinaleService:Start()
 		Sfx.play("CreakAlt", self.head + Vector3.new(0, 2, 0), 0.9, 0.45)
 		for _, place in self.places do
 			if not place.token then
-				place.flame.Transparency = 0.2
+				place.flame.Transparency = 0
 				task.delay(0.7, function()
 					if not place.token and place.flame.Parent then
-						place.flame.Transparency = 1
+						place.flame.Transparency = 0.35
 					end
 				end)
 				break
@@ -566,13 +566,14 @@ function FinaleService:_place(index: number, at: CFrame, folder: Instance)
 		at * CFrame.new(0.8, 0.7, -0.7),
 		Color3.fromRGB(255, 190, 110),
 		PropFactory.material("Neon"),
-		{ collide = false, castShadow = false, transparency = 1 }
+		{ collide = false, castShadow = false, transparency = 0.35 }
 	)
+	-- Lit from the start, a beacon from the hall (WP5); brighter once set.
 	local glow = Instance.new("PointLight")
 	glow.Color = Color3.fromRGB(255, 170, 90)
-	glow.Range = 9
-	glow.Brightness = 1.2
-	glow.Enabled = false
+	glow.Range = 6
+	glow.Brightness = 0.6
+	glow.Enabled = true
 	glow.Parent = flame
 	model.Parent = folder
 	local prompt = Instance.new("ProximityPrompt")
@@ -726,6 +727,8 @@ function FinaleService:_set(place, player: Player)
 	place.token = token
 	place.label.Text = self.Items:Label(token)
 	place.flame.Transparency = 0
+	place.glow.Range = 9
+	place.glow.Brightness = 1.2
 	place.glow.Enabled = true
 	place.prompt.Enabled = false
 	Sfx.play("Match", place.at.Position, 0.5, 1)

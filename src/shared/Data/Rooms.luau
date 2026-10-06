@@ -182,12 +182,23 @@ local Rooms = {
 		wall = { material = "WallpaperStripe", color = { 150, 116, 116 } },
 		wainscot = true,
 		reverb = "LivingRoom",
-		light = { brightness = 1.5, range = 26 },
+		-- The table at the room's heart, lit from above, its candles a beacon
+		-- (the owner, 2026-10-06; docs/progress/2026-10-07-loop/REPORT.md
+		-- WP5): `middle` lets it sit where solid furniture never goes
+		-- (Logic/RoomFit), and the walkers' graph rings it (Logic/NavGraph).
+		light = { brightness = 2.2, range = 34 },
 		props = {
-			{ id = "table", kind = "DiningTable", x = -15, z = 10, deliberation = true },
-			{ id = "chair1", kind = "Chair", x = -10.5, z = 6 },
-			{ id = "chair2", kind = "Chair", x = -10.5, z = 10 },
-			{ id = "chair3", kind = "Chair", x = -10.5, z = 14 },
+			-- (Its long side along the room's long side, x in this 40x30 frame,
+			-- so the doorway lanes from the long walls never reach it; the chairs
+			-- sit at 4.5: clear of the table's own margin, and dropped only where a
+			-- short wall's doorway lane reaches them.)
+			{ id = "table", kind = "DiningTable", x = 0, z = 0, ry = 90, deliberation = true, middle = true },
+			{ id = "chair1", kind = "Chair", x = -4, z = -4.5, ry = 0 },
+			{ id = "chair2", kind = "Chair", x = 0, z = -4.5, ry = 0 },
+			{ id = "chair3", kind = "Chair", x = 4, z = -4.5, ry = 0 },
+			{ id = "chair4", kind = "Chair", x = -4, z = 4.5, ry = 180 },
+			{ id = "chair5", kind = "Chair", x = 0, z = 4.5, ry = 180 },
+			{ id = "chair6", kind = "Chair", x = 4, z = 4.5, ry = 180 },
 			{ id = "cabinet", kind = "Cabinet", x = -10, z = -18 },
 			{ id = "china", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
 			{ id = "plant", kind = "Plant", x = 17, z = 17 },

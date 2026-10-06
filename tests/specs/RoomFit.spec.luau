@@ -143,9 +143,10 @@ return function(test, check, Shared, require)
 		check.atMost(essentialsLost / math.max(essentials, 1), 0.1, "too many hiding spots and tables left out")
 	end)
 
-	test("the Deliberation Table always fits the dining room", function()
+	test("the Deliberation Table always fits the dining room, at its heart, with its chairs", function()
 		local template = Rooms.MansionById.dining_room
 		local rng = Rng.new(3)
+		local chairsKept, chairsAll = 0, 0
 		for _ = 1, 200 do
 			local w, d = template.mansion.size[1], template.mansion.size[2]
 			local inner = { x = w / 2 - 0.5, z = d / 2 - 0.5 }
@@ -154,9 +155,23 @@ return function(test, check, Shared, require)
 			for _, prop in fitted.props do
 				if prop.deliberation then
 					found = true
+					-- The room's heart (WP5): a `middle` prop may sit where solid
+					-- furniture never goes; a doorway's lane may slide it a stride.
+					check.truthy(
+						math.abs(prop.x) <= 6 and math.abs(prop.z) <= 6,
+						string.format("the table left the middle: (%.1f, %.1f)", prop.x, prop.z)
+					)
+				elseif prop.kind == "Chair" then
+					chairsKept += 1
 				end
 			end
+			chairsAll += 6
 			check.truthy(found, "the table was left out")
 		end
+		-- (A chair in a doorway's lane is left out, by design.)
+		check.truthy(
+			chairsKept >= chairsAll * 0.7,
+			"most chairs stay round the table: " .. chairsKept .. "/" .. chairsAll
+		)
 	end)
 end

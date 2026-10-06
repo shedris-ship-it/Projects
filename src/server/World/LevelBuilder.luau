@@ -356,6 +356,7 @@ end
 -- from, for a double-height room), facesOutside(slot), inFilledArm(x, z),
 -- wallInFilledArm(slot) }.
 function LevelBuilder.furnish(world, ctx)
+	local fixtureAt = ctx.fixtureAt -- (the dining table pulls the key light over itself, WP5)
 	local room, record, template = ctx.room, ctx.record, ctx.template
 	local roomCF, model, rng, center = ctx.roomCF, ctx.model, ctx.rng, ctx.center
 	local prefabs, inner = ctx.prefabs, ctx.inner
@@ -481,6 +482,17 @@ function LevelBuilder.furnish(world, ctx)
 			if prop.deliberation then
 				world.deliberationTable = propModel
 				world.deliberationPosition = cf.Position
+				-- Its footprint on the floor with its chairs (WP5): the walkers'
+				-- graph rings it (Logic/NavGraph islands), the key light hangs over it.
+				local size = Props.Kinds[prop.kind] and Props.Kinds[prop.kind].size or { 6, 3, 12 }
+				local r, l = cf.RightVector, cf.LookVector
+				world.deliberationIsland = {
+					x = cf.Position.X,
+					z = cf.Position.Z,
+					ex = math.abs(r.X) * size[1] / 2 + math.abs(l.X) * size[3] / 2 + 2.5,
+					ez = math.abs(r.Z) * size[1] / 2 + math.abs(l.Z) * size[3] / 2 + 2.5,
+				}
+				fixtureAt = cf.Position
 			end
 		end
 		for _, decor in template.decor do
@@ -530,7 +542,7 @@ function LevelBuilder.furnish(world, ctx)
 
 	-- Key light: one motivated source per room (doc section 8).
 	if not keyLightPart then
-		keyLightPart = ceilingFixture(model, ctx.fixtureAt or center, template.fixture or template.family)
+		keyLightPart = ceilingFixture(model, fixtureAt or center, template.fixture or template.family)
 		keyLightKind = "ceiling"
 	end
 	local light = keyLightPart:FindFirstChildWhichIsA("Light")

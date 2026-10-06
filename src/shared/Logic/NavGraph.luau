@@ -15,6 +15,7 @@
 -- the doorway lanes (Logic/RoomFit), so a doorway's lane and an ordinary
 -- room's middle are clear: lane foot to lane foot is a straight walk.
 
+local RoomFit = require(script.Parent.RoomFit)
 local RoomRects = require(script.Parent.RoomRects)
 local Storeys = require(script.Parent.Storeys)
 local TallRooms = require(script.Parent.TallRooms)
@@ -33,6 +34,7 @@ function NavGraph.options(Config)
 		lattice = Config.Mansion.Lattice,
 		approach = Config.Nav.Approach,
 		clearance = Config.Nav.Clearance,
+		islandBand = RoomFit.IslandBand, -- the wall band in a room with a table at its heart (WP5)
 		doorCost = Config.Nav.DoorCost,
 		attachRise = Config.Nav.AttachRise,
 	}
@@ -187,30 +189,137 @@ function NavGraph.build(layout, options)
 			local keep = options.band + options.clearance
 			local hx, hz = math.max(0, inner.x - keep), math.max(0, inner.z - keep)
 			local y = room.storey * options.pitch
-			local cx, cz = RoomRects.center(rect)
-			local centre = addNode(cx, y, cz, id, "centre")
-			local feet = {}
-			for _, entry in room.approaches do
-				local a = graph.nodes[entry.node]
-				local lx, lz = RoomRects.toLocal(rect, room.rotation, a.x, a.z)
-				lx, lz = math.clamp(lx, -hx, hx), math.clamp(lz, -hz, hz)
-				local wx, wz = RoomRects.toWorld(rect, room.rotation, lx, lz)
-				local foot = centre
-				if math.abs(wx - cx) > 0.01 or math.abs(wz - cz) > 0.01 then
-					foot = addNode(wx, y, wz, id, "foot")
-					table.insert(feet, foot)
+			local island = options.islands and options.islands[id]
+			if island then
+				-- Something at the room's heart (the dining table, WP5): no
+				-- centre; the walk goes round it.
+				room.island = island
+				NavGraph._islandRoom(graph, room, island, inner, y, options, addNode, addLink)
+			else
+				local cx, cz = RoomRects.center(rect)
+				local centre = addNode(cx, y, cz, id, "centre")
+				local feet = {}
+				for _, entry in room.approaches do
+					local a = graph.nodes[entry.node]
+					local lx, lz = RoomRects.toLocal(rect, room.rotation, a.x, a.z)
+					lx, lz = math.clamp(lx, -hx, hx), math.clamp(lz, -hz, hz)
+					local wx, wz = RoomRects.toWorld(rect, room.rotation, lx, lz)
+					local foot = centre
+					if math.abs(wx - cx) > 0.01 or math.abs(wz - cz) > 0.01 then
+						foot = addNode(wx, y, wz, id, "foot")
+						table.insert(feet, foot)
+					end
+					addLink(entry.node, foot)
 				end
-				addLink(entry.node, foot)
-			end
-			for i, a in feet do
-				addLink(a, centre)
-				for j = i + 1, #feet do
-					addLink(a, feet[j])
+				for i, a in feet do
+					addLink(a, centre)
+					for j = i + 1, #feet do
+						addLink(a, feet[j])
+					end
 				end
 			end
 		end
 	end
 	return graph
+end
+
+-- A room with something at its heart (the dining table, WP5; `island` is a
+-- world-space box { x, z, ex, ez } with its chairs): four "ring" nodes just
+-- outside its clearance, linked round it, and every doorway's foot linked
+-- to the ring nodes it can see, so the walkers' fallback points go round
+-- the table, never through it. Nodes may stand in the wall band here: the
+-- clear floor is the ring between the table and the wall furniture.
+function NavGraph._islandRoom(graph, room, island, inner, y: number, options, addNode, addLink)
+	local rect, rotation, id = room.rect, room.rotation, room.id
+	local pad = options.clearance
+	-- The clear middle is wider here (RoomFit.IslandBand keeps wall furniture
+	-- to a narrow band); every node stays inside it.
+	local keep = (options.islandBand or options.band) + pad
+	local hx, hz = math.max(0, inner.x - keep), math.max(0, inner.z - keep)
+	local function inRoom(wx: number, wz: number): (number, number)
+		local lx, lz = RoomRects.toLocal(rect, rotation, wx, wz)
+		lx, lz = math.clamp(lx, -hx, hx), math.clamp(lz, -hz, hz)
+		return RoomRects.toWorld(rect, rotation, lx, lz)
+	end
+	-- Links keep the body's clearance from the table and its chairs.
+	local grown = { x = island.x, z = island.z, ex = island.ex + pad - 0.05, ez = island.ez + pad - 0.05 }
+	local ring = {}
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			local wx, wz = inRoom(island.x + sx * (island.ex + pad), island.z + sz * (island.ez + pad))
+			table.insert(ring, addNode(wx, y, wz, id, "ring"))
+		end
+	end
+	for i, a in ring do
+		for j = i + 1, #ring do
+			local na, nb = graph.nodes[a], graph.nodes[ring[j]]
+			-- Neighbours share a side; the diagonal would cross the table.
+			if math.abs(na.x - nb.x) < 0.5 or math.abs(na.z - nb.z) < 0.5 then
+				addLink(a, ring[j])
+			end
+		end
+	end
+	local feet = {}
+	for _, entry in room.approaches do
+		local a = graph.nodes[entry.node]
+		local wx, wz = inRoom(a.x, a.z)
+		local foot = addNode(wx, y, wz, id, "foot")
+		table.insert(feet, foot)
+		addLink(entry.node, foot)
+		local linked, nearest, nearestD = false, nil, math.huge
+		for _, r in ring do
+			local n = graph.nodes[r]
+			local d = distance(graph.nodes[foot], n)
+			if d < nearestD then
+				nearest, nearestD = r, d
+			end
+			if not NavGraph.crosses(grown, wx, wz, n.x, n.z) then
+				addLink(foot, r)
+				linked = true
+			end
+		end
+		if not linked and nearest then
+			addLink(foot, nearest)
+		end
+	end
+	for i, a in feet do
+		for j = i + 1, #feet do
+			local na, nb = graph.nodes[a], graph.nodes[feet[j]]
+			if not NavGraph.crosses(grown, na.x, na.z, nb.x, nb.z) then
+				addLink(a, feet[j])
+			end
+		end
+	end
+end
+
+-- Does the straight line from a to b pass through the island's box?
+-- (Liang-Barsky, flat.)
+function NavGraph.crosses(island, ax: number, az: number, bx: number, bz: number): boolean
+	local x0, x1 = island.x - island.ex, island.x + island.ex
+	local z0, z1 = island.z - island.ez, island.z + island.ez
+	local dx, dz = bx - ax, bz - az
+	local t0, t1 = 0, 1
+	local function clip(p: number, q: number): boolean
+		if math.abs(p) < 1e-9 then
+			return q >= 0
+		end
+		local r = q / p
+		if p < 0 then
+			if r > t1 then
+				return false
+			elseif r > t0 then
+				t0 = r
+			end
+		else
+			if r < t0 then
+				return false
+			elseif r < t1 then
+				t1 = r
+			end
+		end
+		return true
+	end
+	return clip(-dx, ax - x0) and clip(dx, x1 - ax) and clip(-dz, az - z0) and clip(dz, z1 - az)
 end
 
 -- A double-height room: its TallRooms shape turned into the house (its
@@ -346,6 +455,25 @@ function NavGraph.attach(graph, point, roomId: number?)
 	if not any and nearest then
 		out[nearest] = nearestCost
 	end
+	-- Something at the room's heart (WP5): nothing is reached straight
+	-- through it; the nearest node stays, so there is always a way in.
+	if room.island then
+		local keep, keepCost = nil, math.huge
+		for id, cost in out do
+			if cost < keepCost then
+				keep, keepCost = id, cost
+			end
+		end
+		for id in out do
+			local node = graph.nodes[id]
+			if NavGraph.crosses(room.island, point.x, point.z, node.x, node.z) then
+				out[id] = nil
+			end
+		end
+		if next(out) == nil and keep then
+			out[keep] = keepCost
+		end
+	end
 	-- Halfway up a flight: both ends, by way of the flight (the end above
 	-- or below may be too far up or down to count on its own).
 	for _, stair in graph.stairs do
@@ -474,7 +602,12 @@ function NavGraph.route(graph, from, fromRoom: number?, to, toRoom: number?, opt
 	local rise = graph.options.attachRise
 	if fromRoom == toRoom and math.abs(from.y - to.y) <= rise then
 		local room = graph.rooms[fromRoom]
-		if not room.tall or NavGraph.storeyOf(graph, from.y) == NavGraph.storeyOf(graph, to.y) then
+		local straight = not room.tall or NavGraph.storeyOf(graph, from.y) == NavGraph.storeyOf(graph, to.y)
+		-- (Across the dining table: round it, by the ring, WP5.)
+		if room.island and NavGraph.crosses(room.island, from.x, from.z, to.x, to.z) then
+			straight = false
+		end
+		if straight then
 			return { steps = {}, cost = distance(from, to) }
 		end
 	end

@@ -117,6 +117,10 @@ function WorldService:Build(layout, rng)
 	-- servants' passages in it (their hidden doors shut till found).
 	local navOptions = NavGraph.options(Config)
 	navOptions.passages = true
+	-- The dining table at its room's heart (WP5): the graph walks round it.
+	if layout.deliberation and self.World.deliberationIsland then
+		navOptions.islands = { [layout.deliberation] = self.World.deliberationIsland }
+	end
 	self.nav = NavGraph.build(layout, navOptions)
 	self.passageChangedAt = {}
 	self.debugBlocked = {}

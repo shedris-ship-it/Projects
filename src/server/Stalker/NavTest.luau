@@ -43,7 +43,7 @@ local function spotsOf(worldService)
 				local node = nav.nodes[nodeId]
 				local wanted = room.tall
 						and (node.kind == "tall" and node.region == region and NavGraph.storeyOf(nav, node.y) == storey)
-					or (not room.tall and node.kind == "centre")
+					or (not room.tall and (node.kind == "centre" or node.kind == "ring"))
 				local d = math.abs(node.x - cx) + math.abs(node.z - cz)
 				if wanted and d < bestDistance then
 					best, bestDistance = node, d

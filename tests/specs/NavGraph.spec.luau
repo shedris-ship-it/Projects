@@ -24,6 +24,65 @@ return function(test, check, Shared, require)
 	local fallback = MansionGen.fallback(0, Rooms.Mansion, Config.Mansion)
 	table.insert(houses, { layout = fallback, graph = NavGraph.build(fallback, options) })
 
+	test("a table at the dining room's heart (WP5): the graph rings it and walks round it", function()
+		local checked = 0
+		for _, house in houses do
+			local layout = house.layout
+			local dining = layout.deliberation
+			local rect = nil
+			for _, r in RoomRects.ofLayout(layout) do
+				if r.id == dining then
+					rect = r
+				end
+			end
+			if rect then
+				local cx, cz = RoomRects.center(rect)
+				local island = { x = cx, z = cz, ex = 5.5, ez = 8.5 }
+				local opts = table.clone(options)
+				opts.islands = { [dining] = island }
+				local graph = NavGraph.build(layout, opts)
+				local room = graph.rooms[dining]
+				local rings, centres = 0, 0
+				for _, id in room.nodes do
+					local kind = graph.nodes[id].kind
+					if kind == "ring" then
+						rings += 1
+					elseif kind == "centre" then
+						centres += 1
+					end
+				end
+				check.equal(rings, 4, "four ring nodes round the table")
+				check.equal(centres, 0, "no centre node in the table's room")
+				-- Straight across the table: not straight any more.
+				check.truthy(NavGraph.crosses(island, cx - 12, cz, cx + 12, cz), "the line across crosses")
+				check.truthy(not NavGraph.crosses(island, cx + 9, cz - 12, cx + 9, cz + 12), "a line beside it doesn't")
+				local y = room.storey * pitch
+				local route = NavGraph.route(
+					graph,
+					{ x = cx - 12, y = y, z = cz },
+					dining,
+					{ x = cx + 12, y = y, z = cz },
+					dining
+				)
+				check.truthy(route ~= nil and #route.steps > 0, "a route across the room goes by the ring")
+				if route then
+					for _, step in route.steps do
+						local node = graph.nodes[step.node]
+						check.truthy(
+							node.kind == "ring" or node.kind == "foot",
+							"a step round the table: " .. node.kind
+						)
+					end
+				end
+				checked += 1
+				if checked >= 12 then
+					break
+				end
+			end
+		end
+		check.truthy(checked >= 6, "dining rooms checked: " .. checked)
+	end)
+
 	local function storeyOfRegion(region: string): number?
 		if region == "ground" then
 			return 0
@@ -313,14 +372,34 @@ return function(test, check, Shared, require)
 		local problems = {}
 		for h = 1, #houses, 2 do
 			local house = houses[h]
-			local graph = house.graph
+			-- Fit every room first: a `middle` prop (the dining table, WP5) is
+			-- an island the graph is built round, as the game does.
+			local fittedByRoom, islands = {}, {}
 			for _, room in house.layout.rooms do
 				local template = Rooms.MansionById[room.template]
-				local info = graph.rooms[room.id]
+				local info = house.graph.rooms[room.id]
 				local inner = RoomRects.innerOf(info.rect, info.rotation, options.wall)
 				local source = template.mansion and template.mansion.authored and inner
 					or { x = RoomFit.SourceInner, z = RoomFit.SourceInner }
 				local fitted = RoomFit.fit(template, source, inner, MansionHouse.fitDoors(house.layout, room))
+				fittedByRoom[room.id] = fitted
+				for _, prop in fitted.props do
+					if prop.middle then
+						local ex, ez = RoomFit.footprint(prop.kind, prop.ry)
+						local cx, cz = RoomRects.toWorld(info.rect, info.rotation, prop.x, prop.z)
+						local kx, kz = RoomRects.toWorld(info.rect, info.rotation, prop.x + ex, prop.z + ez)
+						islands[room.id] =
+							{ x = cx, z = cz, ex = math.abs(kx - cx) + 2.5, ez = math.abs(kz - cz) + 2.5 }
+					end
+				end
+			end
+			local opts = table.clone(options)
+			opts.islands = islands
+			local graph = NavGraph.build(house.layout, opts)
+			for _, room in house.layout.rooms do
+				local template = Rooms.MansionById[room.template]
+				local info = graph.rooms[room.id]
+				local fitted = fittedByRoom[room.id]
 				local boxes = {}
 				for _, prop in fitted.props do
 					local kind = Props.Kinds[prop.kind]

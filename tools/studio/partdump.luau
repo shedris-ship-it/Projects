@@ -15,8 +15,11 @@
 -- left out; two fresh runs with `seed 1800820264`, `layout cells`): parts
 -- 2134, hash 191543809. Re-baselined with the owner's OK when bedrooms got
 -- walk-in closets (R2c.9a, build 2026-10-05.20, two fresh runs, same seed and
--- layout): parts 2134, hash 1322547804. F2 `gatea` runs the same (World/
--- PartDump). Run it before opening anything: an opened drawer moves parts.
+-- layout): parts 2134, hash 1322547804. Re-baselined with the owner's
+-- standing OK when the dining table moved to the room's heart with six
+-- chairs (the loop pass WP5, build 2026-10-06.116, two fresh runs, same
+-- seed and layout): parts 2152, hash 1995746720. F2 `gatea` runs the same
+-- (World/PartDump). Run it before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")
 if not level then

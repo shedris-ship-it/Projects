@@ -100,9 +100,26 @@ return function(test, check, Shared, require)
 
 	test("collidable furniture stays in the wall band and out of the doorway lanes", function()
 		for _, template in templates do
+			-- A `middle` prop (the dining table, WP5) and the chairs round it
+			-- are the one thing allowed in the middle: the walkers' graph
+			-- rings them (Logic/NavGraph islands).
+			local function atTheHeart(prop): boolean
+				if prop.middle then
+					return true
+				end
+				if prop.kind ~= "Chair" then
+					return false
+				end
+				for _, other in template.props do
+					if other.middle and math.max(math.abs(other.x - prop.x), math.abs(other.z - prop.z)) <= 6 then
+						return true
+					end
+				end
+				return false
+			end
 			for _, prop in template.props do
 				local kind = Props.Kinds[prop.kind]
-				if kind.collide ~= false then
+				if kind.collide ~= false and not atTheHeart(prop) then
 					local rect = footprint(prop.kind, prop.x, prop.z, prop.ry)
 					local ok = false
 					for _, band in zonesFor(template) do

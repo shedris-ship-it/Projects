@@ -25,6 +25,10 @@ local RoomFit = {}
 
 RoomFit.SourceInner = 19.5 -- a 40x40 template's walls, inner faces
 RoomFit.Band = 8 -- furniture keeps its distance to a wall within this band
+-- In a room with a `middle` prop (the dining table, WP5) wall furniture keeps
+-- to this narrower band: the walk round the table needs the floor between
+-- it and the walls (Logic/NavGraph islands read the same number).
+RoomFit.IslandBand = 4
 RoomFit.LaneHalfWidth = 4 -- (doc) doorway-to-centre lanes kept clear
 RoomFit.LaneDepth = 9 -- how far into the room a doorway's lane runs
 RoomFit.WallItemClear = 6.5 -- wall item centre to a doorway's centre, along the wall
@@ -140,11 +144,25 @@ function RoomFit.fit(template, source, inner, doors)
 	end
 	local kept = {} -- boxes of solid props placed so far
 	local dropped = {}
-	-- The clear middle: everything further than the band from every wall.
-	local mx, mz = math.max(0, inner.x - RoomFit.Band), math.max(0, inner.z - RoomFit.Band)
+	-- The clear middle: everything further than the band from every wall (a
+	-- narrower band when something sits at the heart, RoomFit.IslandBand).
+	local band = RoomFit.Band
+	for _, prop in template.props or {} do
+		if prop.middle then
+			band = RoomFit.IslandBand
+		end
+	end
+	local mx, mz = math.max(0, inner.x - band), math.max(0, inner.z - band)
 	local middle = { x0 = -mx, x1 = mx, z0 = -mz, z1 = mz }
 
-	local function clear(cx: number, cz: number, ex: number, ez: number, isSolid: boolean): boolean
+	local function clear(
+		cx: number,
+		cz: number,
+		ex: number,
+		ez: number,
+		isSolid: boolean,
+		allowMiddle: boolean?
+	): boolean
 		if math.abs(cx) + ex > inner.x + 0.01 or math.abs(cz) + ez > inner.z + 0.01 then
 			return false
 		end
@@ -155,7 +173,9 @@ function RoomFit.fit(template, source, inner, doors)
 			end
 		end
 		if isSolid then
-			if overlaps(b, middle, 0) then
+			-- (A `middle` prop, the dining table and its chairs, may sit there:
+			-- the walkers' graph goes round it, Logic/NavGraph islands.)
+			if not allowMiddle and overlaps(b, middle, 0) then
 				return false
 			end
 			for _, k in kept do
@@ -169,7 +189,15 @@ function RoomFit.fit(template, source, inner, doors)
 
 	-- Slide a box along a wall (or across the room) from x, z until it is
 	-- inside the room and clear of the lanes and of what is already placed.
-	local function slide(x: number, z: number, ex: number, ez: number, isSolid: boolean, alongX: boolean)
+	local function slide(
+		x: number,
+		z: number,
+		ex: number,
+		ez: number,
+		isSolid: boolean,
+		alongX: boolean,
+		allowMiddle: boolean?
+	)
 		local reach = 2 * math.ceil(alongX and inner.x or inner.z)
 		for step = 0, 2 * reach do
 			local shift = (step % 2 == 0 and 1 or -1) * math.ceil(step / 2)
@@ -179,7 +207,7 @@ function RoomFit.fit(template, source, inner, doors)
 			else
 				cz += shift
 			end
-			if clear(cx, cz, ex, ez, isSolid) then
+			if clear(cx, cz, ex, ez, isSolid, allowMiddle) then
 				return cx, cz
 			end
 		end
@@ -191,9 +219,25 @@ function RoomFit.fit(template, source, inner, doors)
 	-- the floor nearest where it was. Returns x, z and its turn in degrees.
 	local function place(prop, x: number, z: number, isSolid: boolean, wide: boolean)
 		local ry = prop.ry or 0
+		local allowMiddle = prop.middle == true
 		local ex, ez = RoomFit.footprint(prop.kind, ry)
 		local alongX = math.abs(z) / inner.z >= math.abs(x) / inner.x
-		local px, pz = slide(x, z, ex, ez, isSolid, alongX)
+		local px, pz
+		if allowMiddle then
+			-- At the heart: slid along whichever axis moves it least (a lane
+			-- that reaches a stride too far needs a stride, not a wall).
+			local ax, az = slide(x, z, ex, ez, isSolid, true, true)
+			local bx, bz = slide(x, z, ex, ez, isSolid, false, true)
+			local da = ax and (math.abs(ax - x) + math.abs(az - z)) or math.huge
+			local db = bx and (math.abs(bx - x) + math.abs(bz - z)) or math.huge
+			if da <= db then
+				px, pz = ax, az
+			else
+				px, pz = bx, bz
+			end
+		else
+			px, pz = slide(x, z, ex, ez, isSolid, alongX, allowMiddle)
+		end
 		if px or not wide then
 			return px, pz, ry
 		end
@@ -214,7 +258,7 @@ function RoomFit.fit(template, source, inner, doors)
 						cx = (side == "W" and -1 or 1) * (inner.x - gap - wx)
 						cz, onX = 0, false
 					end
-					local sx, sz = slide(cx, cz, wx, wz, isSolid, onX)
+					local sx, sz = slide(cx, cz, wx, wz, isSolid, onX, allowMiddle)
 					if sx then
 						return sx, sz, turn
 					end
@@ -224,7 +268,7 @@ function RoomFit.fit(template, source, inner, doors)
 		-- Anywhere, nearest first.
 		for _, offset in SPIRAL do
 			local cx, cz = x + offset[1], z + offset[2]
-			if clear(cx, cz, ex, ez, isSolid) then
+			if clear(cx, cz, ex, ez, isSolid, allowMiddle) then
 				return cx, cz, ry
 			end
 		end
@@ -276,7 +320,8 @@ function RoomFit.fit(template, source, inner, doors)
 				local z = anchor.z - dx * s + dz * c
 				ry = (prop.ry or 0) + math.deg(turn)
 				local ex, ez = RoomFit.footprint(prop.kind, ry)
-				if clear(x, z, ex, ez, isSolid) then
+				-- (Chairs round a `middle` table sit in the middle with it.)
+				if clear(x, z, ex, ez, isSolid, original.middle == true) then
 					px, pz = x, z
 				end
 			end
