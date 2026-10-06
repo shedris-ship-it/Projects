@@ -439,6 +439,9 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		return a.count > b.count
 	end)
 	local stalkLines = services.StalkerService:ErrandLines()
+	-- A hunt still on when the run ends (the final one, or the squad lost in
+	-- one) ends with the run, for the numbers.
+	services.RunLogService:Hunt(false, won and "escaped" or "lost")
 	services.StalkerService:Stop()
 	self:_setPhase(Phases.Debrief, Config.Run.DebriefSeconds)
 
@@ -459,6 +462,36 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	if summary.escape then
 		-- Who did what (Services/RunLogService).
 		summary.escape.lines = services.RunLogService:Lines()
+	end
+	-- The night in numbers (Logic/RunStats): the Dossier, the Output window
+	-- and Telemetry, so a playtest can be read back afterwards.
+	local stats = services.RunLogService:Summary()
+	if stats then
+		summary.stats = services.RunLogService:SummaryLines()
+		print("[Consensus:summary] seed " .. tostring(run.seed))
+		for _, line in summary.stats do
+			print("[Consensus:summary]   " .. line)
+		end
+		local hunts = {}
+		for _, h in stats.hunts do
+			table.insert(hunts, { at = math.floor(h.at), reason = h.reason, how = h.how, catches = h.catches })
+		end
+		services.Telemetry:Log("RunSummary", {
+			seconds = math.floor(stats.seconds),
+			act = stats.act,
+			tierScore = math.floor(stats.tierScore * 100) / 100,
+			highTierShare = math.floor(stats.highTierShare * 100) / 100,
+			silentMinutes = math.floor(stats.silentTotal / 6) / 10,
+			silentLongest = math.floor(stats.silentLongest),
+			scares = stats.scareTotal,
+			hunts = hunts,
+			falseAlarms = stats.falseAlarms,
+			stareDowns = stats.stareDowns,
+			freezes = stats.freezes,
+			downs = stats.downs,
+			catches = stats.catches,
+			firstProgressAt = stats.firstProgressAt and math.floor(stats.firstProgressAt) or nil,
+		})
 	end
 	for _, player in run.players do
 		if player.Parent then

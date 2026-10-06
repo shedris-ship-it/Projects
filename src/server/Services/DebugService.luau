@@ -48,7 +48,7 @@ end
 
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto>",
-	"start · end · skip (to Investigation) · resolve (serve the dinner)",
+	"start · end · skip (to Investigation) · resolve (serve the dinner) · summary (the run in numbers, to Output)",
 	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
@@ -130,6 +130,18 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "overlay" then
 		watchers[player] = args[2] ~= "off" or nil
 		reply(player, "overlay " .. (watchers[player] and "on" or "off"))
+	elseif command == "summary" then
+		-- The run in numbers so far (Logic/RunStats), to the Output window.
+		local lines = services.RunLogService:SummaryLines()
+		if #lines == 0 then
+			reply(player, "no run")
+		else
+			print("[Consensus:summary] so far")
+			for _, line in lines do
+				print("[Consensus:summary]   " .. line)
+			end
+			reply(player, table.concat(lines, "\n"))
+		end
 	elseif command == "drift" then
 		local value = tonumber(args[2])
 		if value then
@@ -919,6 +931,7 @@ function DebugService:Snapshot()
 		drift = services.DriftService:Value(),
 		driftSources = sources,
 		stalker = services.StalkerService:DebugState(),
+		stats = services.RunLogService:OverlayLines(),
 		signals = signals,
 		version = Build.id,
 		buildSeconds = services.WorldService.lastBuildSeconds,

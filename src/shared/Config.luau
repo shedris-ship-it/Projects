@@ -694,6 +694,12 @@ Config.Pacing = {
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
+-- The run in numbers (Logic/RunStats; Services/RunLogService): the F2
+-- overlay and the Dossier's "THE NIGHT IN NUMBERS".
+Config.Stats = {
+	SilentSeconds = 60, -- a stretch this long with nothing happening counts as silent minutes
+}
+
 -- The Guest wants his dinner (Logic/Scent, Logic/Dinner; docs/plans/
 -- gameplay-rework.md, R2c): the heirlooms are his.
 Config.Scent = {

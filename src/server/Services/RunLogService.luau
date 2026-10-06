@@ -9,7 +9,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local RunStats = require(Shared.Logic.RunStats)
 
 local States = Constants.PlayerStates
 
@@ -46,7 +48,7 @@ function RunLogService:Start()
 	services.LockService.Unlocked:Connect(function(seamId, lock, player)
 		self:_unlocked(seamId, lock, player)
 	end)
-	services.LockService.RegionEntered:Connect(function(_region, player, rooms)
+	services.LockService.RegionEntered:Connect(function(region, player, rooms)
 		local log = self.log
 		if log then
 			log.regions += 1
@@ -55,6 +57,7 @@ function RunLogService:Start()
 				count += 1
 			end
 			self.Telemetry:Log("RegionEntered", { at = self:_seconds(), rooms = count }, player)
+			self:_progress("region", tostring(region))
 		end
 	end)
 	services.PuzzleService.Solved:Connect(function(id, player)
@@ -62,6 +65,14 @@ function RunLogService:Start()
 	end)
 	services.ItemService.HeirloomTaken:Connect(function(player, token)
 		self:_taken(player, token)
+	end)
+	services.ItemService.Found:Connect(function(_player, token, kind)
+		self:_progress("found", kind or token)
+	end)
+	services.PlayerStateService.Downed:Connect(function(player)
+		if self.stats then
+			self.stats:Down(os.clock(), player.DisplayName)
+		end
 	end)
 	services.ItemService.Tidied:Connect(function(_token, label)
 		if self.log then
@@ -105,10 +116,81 @@ function RunLogService:Begin()
 		acts = {}, -- { act, at }
 		closest = nil, -- { name, distance, label }
 	}
+	-- The run in numbers (Logic/RunStats): the overlay and the summary.
+	self.stats = RunStats.new(os.clock(), Config.Stats)
 end
 
 function RunLogService:End()
 	self.log = nil
+	self.stats = nil
+end
+
+-- The numbers (Logic/RunStats) ----------------------------------------------------
+
+function RunLogService:_progress(kind: string, detail: string?)
+	if self.stats then
+		self.stats:Progress(os.clock(), kind, detail)
+	end
+end
+
+-- Something happened for the squad (a scare, a tell, a sighting...): the
+-- quiet is broken.
+function RunLogService:Beat(kind: string, detail: string?)
+	if self.stats then
+		self.stats:Beat(os.clock(), kind, detail)
+	end
+end
+
+function RunLogService:Scare(id: string)
+	if self.stats then
+		self.stats:Scare(os.clock(), id)
+	end
+end
+
+function RunLogService:Sighting(who: string?)
+	if self.stats then
+		self.stats:Sighting(os.clock(), who)
+	end
+end
+
+function RunLogService:Arrived()
+	if self.stats then
+		self.stats:Arrived(os.clock())
+	end
+end
+
+function RunLogService:FalseAlarm()
+	if self.stats then
+		self.stats:FalseAlarm(os.clock())
+	end
+end
+
+function RunLogService:StareDown(inHunt: boolean)
+	if self.stats then
+		self.stats:StareDown(os.clock(), inHunt)
+	end
+end
+
+function RunLogService:Catch(who: string?, how: string?)
+	if self.stats then
+		self.stats:Catch(os.clock(), who, how)
+	end
+end
+
+function RunLogService:Summary()
+	return self.stats and self.stats:Summary(os.clock()) or nil
+end
+
+-- For the F2 overlay (Services/DebugService).
+function RunLogService:OverlayLines(): { string }
+	local summary = self:Summary()
+	return summary and RunStats.overlay(summary) or {}
+end
+
+-- For the Dossier, the Output window and F2 `summary`.
+function RunLogService:SummaryLines(): { string }
+	local summary = self:Summary()
+	return summary and RunStats.lines(summary) or {}
 end
 
 function RunLogService:_seconds(): number
@@ -137,6 +219,7 @@ function RunLogService:_unlocked(_seamId: string, lock, player: Player?)
 		room = self:_roomName(lock and lock.inside),
 	})
 	self.Telemetry:Log("LockOpened", { at = self:_seconds(), kind = kind }, player)
+	self:_progress("lock", kind)
 end
 
 function RunLogService:_solved(id: string, player: Player?)
@@ -148,6 +231,7 @@ function RunLogService:_solved(id: string, player: Player?)
 	local kind = session and session.kind or "?"
 	table.insert(log.solved, { at = self:_seconds(), name = player and player.DisplayName or "someone", kind = kind })
 	self.Telemetry:Log("PuzzleSolved", { at = self:_seconds(), kind = kind }, player)
+	self:_progress("puzzle", kind)
 end
 
 function RunLogService:_taken(player: Player, token: string)
@@ -172,6 +256,7 @@ function RunLogService:Set(token: string, player: Player)
 	if log then
 		log.set[token] = player.DisplayName
 		self.Telemetry:Log("HeirloomSet", { at = self:_seconds(), token = token }, player)
+		self:_progress("place", token)
 	end
 end
 
@@ -181,19 +266,34 @@ function RunLogService:Act(act: number)
 	if log then
 		table.insert(log.acts, { act = act, at = self:_seconds() })
 		self.Telemetry:Log("ActBegan", { act = act, at = self:_seconds() })
+		if self.stats then
+			self.stats:Act(os.clock(), act)
+		end
 	end
 end
 
--- A hunt began or ended (Stalker/Director). Everyone not lost by its end
+-- A hunt began (`reason`: what woke it) or ended (`how`: "survived", "stared
+-- down", "escaped", "lost"; Stalker/Director). Everyone not lost by its end
 -- survived it.
-function RunLogService:Hunt(began: boolean)
+function RunLogService:Hunt(began: boolean, why: string?)
 	local log = self.log
 	if not log then
 		return
 	end
 	if began then
 		log.hunts += 1
+		log.huntOpen = true
+		if self.stats then
+			self.stats:HuntBegan(os.clock(), why)
+		end
 		return
+	end
+	if not log.huntOpen then
+		return -- nothing to end (the run ending between hunts)
+	end
+	log.huntOpen = false
+	if self.stats then
+		self.stats:HuntEnded(os.clock(), why)
 	end
 	local playerState = self.services.PlayerStateService
 	for _, player in playerState:RunPlayers() do
@@ -209,6 +309,10 @@ function RunLogService:_sample()
 	local services = self.services
 	if not log or not services.StalkerService.active then
 		return
+	end
+	if self.stats then
+		local stalker = services.StalkerService
+		self.stats:Tick(os.clock(), stalker:TierNow(), stalker:IsFrozen())
 	end
 	local guest = services.StalkerService:GetPosition()
 	if not guest then

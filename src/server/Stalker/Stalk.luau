@@ -1305,16 +1305,22 @@ function Stalk:_tells(now: number, ctx)
 	if now >= (self.nextBreath[target] or 0) then
 		self.nextBreath[target] = now + self.rng:NextNumber(G.BreathInterval[1], G.BreathInterval[2])
 		Net.get("GuestEvent"):FireClient(target, { kind = "breath", position = head })
+		self.services.RunLogService:Beat("breath", target.DisplayName)
 		warn()
 	end
 	if now >= (self.nextCreak[target] or 0) and self.body.root.AssemblyLinearVelocity.Magnitude > 0.3 then
 		self.nextCreak[target] = now + self.rng:NextNumber(G.CreakInterval[1], G.CreakInterval[2])
 		local foot = self.body.root.Position - Vector3.new(0, self.body.built.groundOffset, 0)
+		local heard = false
 		for _, player in self.services.PlayerStateService:RunPlayers() do
 			local pos = self.services.PlayerStateService:Position(player)
 			if pos and (pos - foot).Magnitude < self.services.WorldService:AudibleRadius(40, foot, pos) then
 				Net.get("GuestEvent"):FireClient(player, { kind = "creak", position = foot })
+				heard = true
 			end
+		end
+		if heard then
+			self.services.RunLogService:Beat("creak")
 		end
 		warn()
 	end

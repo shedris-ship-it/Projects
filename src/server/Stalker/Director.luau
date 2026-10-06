@@ -90,16 +90,18 @@ function Director:Disarm(forGood: boolean?)
 	end
 end
 
--- A hunt has begun: whatever woke it is spent.
-function Director:HuntBegan()
-	self.services.RunLogService:Hunt(true)
+-- A hunt has begun: whatever woke it is spent. `reason` is what woke it, for
+-- the run's numbers (Logic/RunStats).
+function Director:HuntBegan(reason: string?)
+	self.services.RunLogService:Hunt(true, reason)
 	self.forced = false
 	self.armedAt, self.armedRooms, self.armedReason = nil, nil, nil
 	self.lanternHeld = false
 end
 
-function Director:HuntEnded(now: number)
-	self.services.RunLogService:Hunt(false)
+-- `how`: "survived", "stared down", "escaped" or "lost" (Logic/RunStats).
+function Director:HuntEnded(now: number, how: string?)
+	self.services.RunLogService:Hunt(false, how or "survived")
 	self.lastHuntEnded = now
 	self.retreatUntil = now + Config.Stalker.RetreatTierSeconds
 	self.forced = false

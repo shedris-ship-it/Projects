@@ -247,6 +247,19 @@ function StalkerService:IsHunting(): boolean
 	return self.active and (self.mode == Modes.Hunting or self.mode == Modes.Telegraph)
 end
 
+-- His tier right now, 4 in a hunt (for the run's numbers, Logic/RunStats).
+function StalkerService:TierNow(): number
+	if not self.active or not self.arrived then
+		return 0
+	end
+	return self.mode == Modes.Hunting and 4 or self.tier
+end
+
+-- Two watchers hold him right now.
+function StalkerService:IsFrozen(): boolean
+	return self.active and self.watchers ~= nil and StalkRules.frozen(#self.watchers)
+end
+
 function StalkerService:ForceHunt(reason: string?)
 	if not self.active or self.resolved then
 		return
@@ -721,6 +734,10 @@ function StalkerService:_updateVisibility(now: number)
 			if not self.sight:Sees(player, points[1], 130) and not self.sight:Sees(player, points[2], 130) then
 				self.visibleTo[player] = want
 				Net.get("StalkerVisibility"):FireClient(player, want)
+				if want then
+					-- He can be seen by someone: a beat in the run's numbers.
+					self.services.RunLogService:Sighting(player.DisplayName)
+				end
 			end
 		end
 	end
@@ -850,6 +867,7 @@ function StalkerService:_direct()
 	end
 	local card = self.director:MaybeScare(self.tier)
 	if card then
+		self.services.RunLogService:Scare(card.id)
 		self:_scare(card)
 	end
 	self:_publish()
@@ -1087,6 +1105,7 @@ function StalkerService:_updateArrival(now: number)
 			self.arrived = true
 			Net.get("GuestEvent"):FireAllClients({ kind = "arrive", position = floor })
 			services.Telemetry:Log("GuestArrived", { runTime = math.floor(now - self.runStart) })
+			services.RunLogService:Arrived()
 			return
 		end
 	end
@@ -1098,7 +1117,7 @@ end
 
 function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
 	local duration = seconds or self.rng:NextNumber(S.TelegraphSeconds[1], S.TelegraphSeconds[2])
-	self.director:HuntBegan()
+	self.director:HuntBegan(reason or self.forceReason or "?")
 	self.services.Telemetry:Log("HuntStarted", {
 		reason = reason or self.forceReason or "?",
 		drift = math.floor(self.services.DriftService:Value()),
@@ -1203,6 +1222,7 @@ end
 function StalkerService:_catch(player: Player, now: number, how: string?)
 	local services = self.services
 	services.SquadProfileService:RecordCatch(player)
+	services.RunLogService:Catch(player.DisplayName, how or "hunt")
 	services.PlayerStateService:Down(player)
 	Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = how or "hunt" })
 	for _, other in services.PlayerStateService:RunPlayers() do
@@ -1416,7 +1436,7 @@ function StalkerService:_endHunt()
 		Net.get("Notify"):FireAllClients("It's over. For now.", "good")
 	end
 	Net.get("HuntState"):FireAllClients({ state = "end" })
-	self.director:HuntEnded(os.clock())
+	self.director:HuntEnded(os.clock(), "survived")
 	self:_retreat("hunt over")
 end
 
@@ -1426,10 +1446,13 @@ end
 function StalkerService:_retreat(reason: string)
 	local now = os.clock()
 	local wasHunting = self.mode == Modes.Hunting or self.mode == Modes.Telegraph
+	if reason == "stared down" then
+		self.services.RunLogService:StareDown(wasHunting)
+	end
 	if wasHunting and reason == "stared down" and not self.final then
 		self.services.DriftService:Apply("HuntSurvived")
 		Net.get("HuntState"):FireAllClients({ state = "end" })
-		self.director:HuntEnded(now)
+		self.director:HuntEnded(now, "stared down")
 	elseif reason == "stared down" and not self.final then
 		self.director.retreatUntil = now + 30
 	end

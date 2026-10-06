@@ -22,7 +22,7 @@ function DebugOverlay.new(ctx)
 	local panel = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 60),
-		Size = UDim2.fromOffset(420, 520),
+		Size = UDim2.fromOffset(600, 640),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.35,
 		Parent = gui,
@@ -145,6 +145,13 @@ function DebugOverlay:Update(dt: number)
 			table.insert(lines, "target: " .. tostring(s.target) .. " · tactic: " .. tostring(s.tactic))
 			table.insert(lines, "top: " .. table.concat(s.top or {}, " | "))
 			table.insert(lines, "memory: " .. table.concat(s.memories or {}, ", "))
+		end
+		if d.stats and #d.stats > 0 then
+			-- The run in numbers (Logic/RunStats).
+			table.insert(lines, "")
+			for _, line in d.stats do
+				table.insert(lines, line)
+			end
 		end
 		table.insert(lines, "")
 		table.insert(lines, "profile:")

@@ -106,6 +106,13 @@ function Dossier:Show(data)
 			table.insert(lines, "  " .. line)
 		end
 	end
+	if s.stats and #s.stats > 0 then
+		table.insert(lines, "")
+		table.insert(lines, "THE NIGHT IN NUMBERS")
+		for _, line in s.stats do
+			table.insert(lines, "  " .. line)
+		end
+	end
 	table.insert(lines, "")
 	table.insert(lines, "WHAT IT LEARNED ABOUT YOU")
 	for _, habit in d.habits do
