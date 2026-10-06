@@ -1,6 +1,6 @@
 # Overnight run, 2026-10-06: the foundation
 
-Branch `claude/overnight-foundation`, from `b8e7891` (build `2026-10-05.49`). Builds `2026-10-06.101` to `.108`. Kept current as the night went on; the newest entries are at the bottom of each section.
+Branch `claude/overnight-foundation`, from `b8e7891` (build `2026-10-05.49`). Builds `2026-10-06.101` to `.109`. Kept current as the night went on; the newest entries are at the bottom of each section.
 
 ## Baseline (before any change)
 
@@ -83,6 +83,7 @@ Audit Finding 5. `UI/Tips`: one short line when the thing it teaches first comes
 - Readouts: the baseline above; after B2, 3:17 into an `unlock all` run: tier score 2.39, 39% of his time at tier 3, Dread 60 (Drift 8), 5 scares, 1 false alarm.
 - **navtest fast** on seed 61 (solo house, build `.106`) after `unlock all`: 26 legs, 0 failed, 0 with no way, 0 falls, 0 phases, 0 stuck moments, 0 side-steps, 0 re-plans, 0 navmesh fallbacks, 135 s. (Before `unlock all`, 7 legs reported "no way": the rooms behind locks, as designed: a lock is a wall to him.)
 - **The quiet catch's timeline** (client-side sampling of the jumpscare GUI, F2 `guest scare quiet`): black from 0 s; the face resolving from 0.4 s (transparency 0.99 → 0.10 by 1.6 s); the cut at 1.5 s (face 1.0, black 0); black lifting from 2.6 s, gone at 3.6 s. The screenshots missed the one-second window; the sampling confirms the shape.
+- **End of a run** (build `.108`, seed 61): F2 `resolve` served the dinner (Extraction, the final hunt, "The front door is open. Get out."), F2 `end` ended it: the Dossier showed THE HOUSE and THE NIGHT IN NUMBERS ("Hunts: 1 · 1 at 0:22 (final): lost after 0:08"), Output had the `[Consensus:summary]` block and a `RunSummary` event. Console clean. (A dinner served before his knock didn't count as his arrival for the tier clock; fixed in build `.109`: `PlaceAt` and `_forceArrive` now tell the numbers he's in.)
 - **The Guest's AI and the recent room features**, checked by reading: the kettle, washing machine, record player, car horn, wind-up toys, the bell board and the baby monitor all emit sourceless `lure` noises (or none), which his `Investigate` move and tactic treat as lures with wariness; the safe room's steel door is an ordinary power lock to his passage model; the bathroom bolt holds him 4 s like a brace. The house events use the same `lure` kind, so nothing new reaches him by any other channel. Nothing found that needed a change.
 
 ## UNREQUESTED changes

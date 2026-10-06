@@ -401,7 +401,7 @@ The plan was ten stages; each commit says what was checked in Studio and what wa
 | Lantern, Radio (static near him) | Keep | |
 | Phase names | Keep (Investigation = exploring, Resolution = the dinner); rename later if wanted | |
 
-## 15. The foundation pass (2026-10-06, overnight; builds `2026-10-06.101` to `.108`)
+## 15. The foundation pass (2026-10-06, overnight; builds `2026-10-06.101` to `.109`)
 
 The owner's audit of 2026-10-06 found that fear was gated behind failure (a clean run peaked at Drift 10), that the stare was a free win (two watchers froze him in hunts, the Companion always counted, the dark played no part), that a stalled squad got danger but no help, and that the walks were empty. The overnight pass (`docs/progress/2026-10-06-overnight/REPORT.md`) changed the rules, not the structure:
 

@@ -512,6 +512,7 @@ function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?)
 	end
 	self.parked = false
 	self.arrived = true
+	self.services.RunLogService:Arrived()
 end
 
 function StalkerService:EndFinalHunt()
@@ -1217,6 +1218,7 @@ function StalkerService:_forceArrive()
 	self.bodyCtl:Place(best)
 	self.parked = false
 	self.arrived = true
+	self.services.RunLogService:Arrived()
 end
 
 -- The telegraph starts from wherever he is. If he's close to someone, or in
