@@ -17,6 +17,7 @@
 -- the leads put what they keep into rooms with no strong reason first. Pure.
 
 local Graph = require(script.Parent.Graph)
+local Landmarks = require(script.Parent.Landmarks)
 local LockPlanner = require(script.Parent.LockPlanner)
 local Props = require(script.Parent.Parent.Data.Props)
 local Interactables = require(script.Parent.Parent.Data.Interactables)
@@ -146,6 +147,13 @@ function RoomPurpose.base(layout, templatesById)
 			for _, id in cycle do
 				add(out[id].route, "loop")
 			end
+		end
+	end
+	-- Every corridor's landmark (Logic/Landmarks).
+	for _, entry in Landmarks.plan(layout, templatesById) do
+		if out[entry.room] then
+			add(out[entry.room].strong, "landmark: " .. entry.kind.name)
+			out[entry.room].landmark = true
 		end
 	end
 	-- A fixture one a house (the record player): in the room it goes in.

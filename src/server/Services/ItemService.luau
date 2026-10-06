@@ -42,6 +42,7 @@ local Dressing = require(script.Parent.Parent.World.Dressing)
 local Items = require(script.Parent.Parent.World.Items)
 local Junk = require(script.Parent.Parent.World.Junk)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local Notes = require(Shared.Data.Notes)
 local LeadProps = require(script.Parent.Parent.World.LeadProps)
 
 local L = Config.Leads
@@ -196,6 +197,62 @@ function ItemService:Begin(plan, rng, leads)
 	-- The house plans (Logic/HousePlans), on a top in their room.
 	if plan.housePlans then
 		self:PlacePlans(plan.housePlans.room, plan.housePlans.storey, place)
+	end
+	self:_drawings(rng:Fork("drawings"))
+end
+
+-- The children's drawings (docs/plans/level-design.md section 4, L3.6):
+-- pinned up in a child's room, one of the family's children shows where
+-- they hid: a real hiding spot elsewhere in the house, somewhere the squad
+-- gets to early by preference. A lead to safety, and a little story.
+function ItemService:_drawings(rng)
+	local world = self.World.World
+	local child = nil
+	for _, member in self.family and self.family.members or {} do
+		if member.voice == "child" and not child then
+			child = member
+		end
+	end
+	if not world or not child then
+		return
+	end
+	local D = Config.Drawings
+	local rooms, inKids = {}, {}
+	for _, id in self.World:RoomIds() do
+		local record = world.rooms[id]
+		if record and record.template and table.find(D.Rooms, record.template.id) then
+			table.insert(rooms, id)
+			inKids[id] = true
+		end
+	end
+	local spots, early = {}, {}
+	for _, spot in world.hidingSpots do
+		local stage = LockPlanner.stageOf(self.plan, spot.roomId)
+		if spot.roomId and not inKids[spot.roomId] and stage < math.huge then
+			table.insert(spots, spot)
+			if stage <= 1 then
+				table.insert(early, spot)
+			end
+		end
+	end
+	local pool = #early > 0 and early or spots
+	table.sort(pool, function(a, b)
+		return a.id < b.id
+	end)
+	for i = 1, math.min(D.Count, #rooms) do
+		local spot = table.remove(pool, rng:NextInteger(1, math.max(1, #pool)))
+		if not spot then
+			return
+		end
+		local thing = string.lower(spot.label or spot.category or "cupboard")
+		local template = rng:Pick(Notes.drawings)
+		local text = string.gsub(template, "{(%w+)}", {
+			thing = thing,
+			THING = string.upper(thing),
+			room = self:RoomPhrase(spot.roomId),
+			name = child.name,
+		})
+		self:AddNote(rooms[(i - 1) % #rooms + 1], text, rng, nil, true)
 	end
 end
 
@@ -778,9 +835,15 @@ end
 -- A note with `text` in `noteRoom`: lying on a top, else pinned to a wall,
 -- else on the floor. Read with E (ReadNote). `token` is what it's about, if
 -- anything. Other systems leave their hints this way (the fuse box).
-function ItemService:AddNote(noteRoom: number, text: string, rng, token: string?)
+function ItemService:AddNote(noteRoom: number, text: string, rng, token: string?, drawing: boolean?)
 	local onWall = false
-	local at = self:_top(noteRoom, rng)
+	-- (A child's drawing is pinned up, by preference.)
+	local at = nil
+	if drawing then
+		at = self:_wall(noteRoom, rng)
+		onWall = at ~= nil
+	end
+	at = at or self:_top(noteRoom, rng)
 	if not at then
 		at = self:_wall(noteRoom, rng)
 		onWall = at ~= nil
@@ -791,14 +854,14 @@ function ItemService:AddNote(noteRoom: number, text: string, rng, token: string?
 	end
 	self.noteCount = (self.noteCount or 0) + 1
 	local id = "note:" .. self.noteCount
-	local model, sheet = LeadProps.note(at, self.folder, onWall, rng:NextInteger(1, 2 ^ 30))
+	local model, sheet = LeadProps.note(at, self.folder, onWall, rng:NextInteger(1, 2 ^ 30), drawing)
 	model:SetAttribute("NoteId", id)
 	local note = { id = id, token = token, text = text, room = noteRoom, model = model, sheet = sheet }
 	self.notes[id] = note
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ReadPrompt"
-	prompt.ActionText = "Read"
-	prompt.ObjectText = "Note"
+	prompt.ActionText = drawing and "Look" or "Read"
+	prompt.ObjectText = drawing and "Drawing" or "Note"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = L.ReadRange

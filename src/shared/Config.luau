@@ -1092,6 +1092,19 @@ Config.BellBoard = {
 	DoorClear = 7, -- studs from any door's hinge (an open door lies back against the wall)
 }
 
+-- Landmarks on corridor walls (section 4, L3.6; Services/LandmarkService).
+Config.Landmarks = {
+	Clear = 6.5, -- studs from any doorway of its corridor (and so a door's swing)
+	Height = 4.8, -- its middle above the floor
+}
+
+-- The children's drawings (section 4, L3.6; Services/ItemService): where
+-- they hid, pinned up in their rooms.
+Config.Drawings = {
+	Rooms = { "kids_bedroom", "playroom", "nursery" },
+	Count = 2, -- a house, at most (one a child's room)
+}
+
 -- The baby monitor (section 4, L3.6; Services/MonitorService).
 Config.Monitor = {
 	Range = 18, -- studs from the transmitter it hears his steps

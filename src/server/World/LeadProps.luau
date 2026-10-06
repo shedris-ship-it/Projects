@@ -384,10 +384,11 @@ end
 
 -- A sheet of notepaper: pinned to a wall (`onWall`, standing up) or lying on
 -- a top. Returns the model and the sheet (the Read prompt goes on it).
-function LeadProps.note(cf: CFrame, parent: Instance, onWall: boolean, seed: number)
+function LeadProps.note(cf: CFrame, parent: Instance, onWall: boolean, seed: number, drawing: boolean?)
 	local model = Instance.new("Model")
 	model.Name = "Note"
-	local paper = Color3.fromRGB(232, 224, 196)
+	-- (A child's drawing is on whiter paper, crayon on it: LeadProps.crayon.)
+	local paper = drawing and Color3.fromRGB(246, 244, 236) or Color3.fromRGB(232, 224, 196)
 	local sheet
 	if onWall then
 		sheet = part(
@@ -437,6 +438,38 @@ function LeadProps.note(cf: CFrame, parent: Instance, onWall: boolean, seed: num
 	label.TextYAlignment = Enum.TextYAlignment.Top
 	label.Text = scribble(seed)
 	label.Parent = gui
+	if drawing then
+		-- Crayon: a house, a stick figure, a sun, in a child's colours.
+		label.Visible = false
+		local function crayon(x: number, y: number, w: number, h: number, color: Color3, rotation: number?)
+			local f = Instance.new("Frame")
+			f.Position = UDim2.fromOffset(x, y)
+			f.Size = UDim2.fromOffset(w, h)
+			f.BackgroundColor3 = color
+			f.BorderSizePixel = 0
+			f.Rotation = rotation or 0
+			f.Parent = gui
+		end
+		local red, blue, green, yellow =
+			Color3.fromRGB(200, 40, 40),
+			Color3.fromRGB(40, 70, 190),
+			Color3.fromRGB(40, 150, 60),
+			Color3.fromRGB(240, 200, 30)
+		crayon(30, 110, 70, 6, red) -- the house
+		crayon(30, 110, 6, 60, red)
+		crayon(94, 110, 6, 60, red)
+		crayon(30, 166, 70, 6, red)
+		crayon(26, 92, 50, 6, red, -35)
+		crayon(56, 92, 50, 6, red, 35)
+		crayon(56, 140, 16, 30, blue) -- its door
+		crayon(124, 120, 6, 36, blue) -- someone
+		crayon(116, 104, 22, 22, blue)
+		crayon(118, 156, 6, 22, blue, 20)
+		crayon(130, 156, 6, 22, blue, -20)
+		crayon(112, 130, 30, 5, blue)
+		crayon(132, 20, 26, 26, yellow) -- the sun
+		crayon(0, 198, 170, 8, green) -- grass
+	end
 	gui.Parent = sheet
 	model.Parent = parent
 	return model, sheet

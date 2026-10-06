@@ -82,8 +82,10 @@ return function(test, check, Shared, require)
 		}
 		local purposes = RoomPurpose.base(layout, templates)
 		-- Region 0: hides, the bathroom's lures, the clock. Region 1 (the study
-		-- and a corridor): hides, but no lure and no landmark.
-		check.equal(RoomPurpose.kitGaps(purposes, plan), 2)
+		-- and a corridor): hides, and the corridor's landmark (Logic/Landmarks),
+		-- but no lure.
+		check.truthy(purposes[5].landmark, "the corridor has its landmark")
+		check.equal(RoomPurpose.kitGaps(purposes, plan), 1)
 	end)
 
 	test("every mansion template has somewhere to hide, unless it's a way through", function()

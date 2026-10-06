@@ -107,7 +107,8 @@ function MapService:_seeDoor(seamId: string, tried: boolean?, close: boolean?)
 end
 
 -- Another system's fact, shown as a mark (a kind the client knows how to
--- draw): `key` is unique to the thing, `info` { kind, position, label?, done? }.
+-- draw): `key` is unique to the thing, `info` { kind, position, label?, done?,
+-- room? (only once someone has been in that room: a landmark) }.
 function MapService:Mark(key: string, info)
 	self.marks[key] = info
 end
@@ -340,6 +341,9 @@ function MapService:State()
 		end
 	end
 	for key, mark in self.marks do
+		if mark.room and not self.rooms[mark.room] then
+			continue
+		end
 		local at = flat(mark.position)
 		table.insert(state.marks, {
 			key = key,

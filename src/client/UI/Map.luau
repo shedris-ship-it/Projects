@@ -53,6 +53,8 @@ local MARKS = {
 	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
 	-- A step's chest or fridge, chained or nailed shut (its label says which).
 	piece = { text = "SHUT", color = Color3.fromRGB(170, 160, 150) },
+	-- A corridor's landmark (its label is its name: "Stag's head").
+	landmark = { text = "LANDMARK", color = Color3.fromRGB(200, 186, 150) },
 }
 local TICK = Color3.fromRGB(150, 205, 150)
 
@@ -354,10 +356,10 @@ function Map:_renderMap()
 	end
 	for _, mark in state.marks do
 		local look = MARKS[mark.kind] or { text = mark.label or mark.kind, color = Ui.Theme.text }
-		local text = mark.kind == "piece" and mark.label or look.text
+		local text = (mark.kind == "piece" or mark.kind == "landmark") and mark.label or look.text
 		local x, y = toMap(mark.x, mark.z, mark.floor)
 		local color = mark.done and Ui.Theme.textDim or look.color
-		if not mark.done then
+		if not mark.done and mark.kind ~= "landmark" then
 			self:_ring(canvas, x, y, 18, color)
 		end
 		self:_dot(canvas, x, y, 8, color, text .. (mark.done and " (done)" or ""))

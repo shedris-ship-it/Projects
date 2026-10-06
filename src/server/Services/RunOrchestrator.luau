@@ -255,7 +255,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.InteractService:Begin()
 		-- Wind-up toys in the children's rooms (docs/plans/level-design.md 4).
 		services.ToyService:Begin(rng:Fork("toys"))
-		-- The servants' bell board.
+		-- A landmark in every corridor, then the servants' bell board.
+		services.LandmarkService:Begin(rng:Fork("landmarks"))
 		services.BellBoardService:Begin(rng:Fork("bell board"))
 		services.LockService:Begin(plan)
 		-- The crowbar and the bolt cutters where the plan keeps them (L3.3).

@@ -94,4 +94,12 @@ return {
 			},
 		},
 	},
+	-- The children's crayon drawings (docs/plans/level-design.md section 4,
+	-- L3.6; Services/ItemService): where they hid. {thing} is the hiding
+	-- place ("wardrobe"), {room} its room, {name} the child.
+	drawings = {
+		"MY HIDING PLACE\n\nthe {thing} in {room}\n\nhe never finds me there\n\n{name}",
+		"WHEN THE MAN COMES I GO IN THE {THING}\n\n({room})\n\nshhh\n\n{name}",
+		"hide and seek champion!!\n\n{name} - in the {thing} in {room}\n\nnobody found me ALL DAY",
+	},
 }

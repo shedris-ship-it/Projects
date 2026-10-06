@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (413 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
+> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (414 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
 
 ---
 
@@ -95,6 +95,7 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
    - **The safe room (optional).** A steel door marked SAFE ROOM, powered from the fuse box. Inside: batteries (a fresh set each), a Lantern, a Radio or the plans of another floor. The run never needs it: it's a gamble of time and noise.
    - **The rooms' own lures.** A kettle that shrieks 20 s after you set it, a washing machine that also hides your footsteps, a record player, the car horn (once), wind-up toys that walk off ticking.
    - **Knowing where he is.** The servants' bell board rings and drops a flag when he walks into a room with a bell pull; the nursery's baby monitor lets you hear a room you've left the transmitter in. A bathroom door bolts from inside (F) and holds him a few seconds.
+   - **Landmarks.** Every corridor has something you can name on its wall (a stag's head, the big portrait, a tapestry, a stopped clock, a ship's wheel), on the map once you've been there. The children's crayon drawings say where they hid.
    - **Doors swing away from you.** Press E on a shut door from the side it opens towards and it swings the other way, into the next room.
    - **The house key.** One key a run isn't used up: its mark is also on a side room or two you passed earlier, each with an heirloom inside. Go back for them.
    - **Keys** go on your own ring and are used up at their door; drop one for a friend from the journal, which also says where each key's door is once someone has seen it. **Bolts** slide back only from their own side: shortcuts ("Bolted from the other side. There must be another way round.").
@@ -125,7 +126,7 @@ puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journ
 switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]
-furniture open|shut [all] · block <room> <room> · block off · plans [read] (the house plans: where, or read them) · saferoom · use [name] (the nearest fixture, or `use toy`) · bell [room] · monitor
+furniture open|shut [all] · block <room> <room> · block off · plans [read] (the house plans: where, or read them) · saferoom · use [name] (the nearest fixture, or `use toy`) · bell [room] · monitor · landmarks
 navtest [fast] · navtest room <id> [fast] · navtest retreat [n]
 down [name] · revive [name] · steps · clip
 guest here [studs] · guest walk · guest pose <name> · guest form <0-2> · guest smile <0-1>
