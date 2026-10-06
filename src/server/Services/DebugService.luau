@@ -56,6 +56,7 @@ local HELP = table.concat({
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · bell [room] · monitor · landmarks · fling <room> <room> <speed>",
+	"event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -147,6 +148,22 @@ function DebugService:Run(player: Player, text: string)
 					state.coStare
 				)
 			)
+		end
+	elseif command == "event" then
+		-- A house event where you stand (Services/HouseEventService): `event
+		-- radioOn|phoneRings|lightsDie|overhead|doorAjar|knockInside|clockStrikes`.
+		local pos = services.PlayerStateService:Position(player)
+		local id = args[2]
+		if not id then
+			reply(player, "event radioOn|phoneRings|lightsDie|overhead|doorAjar|knockInside|clockStrikes")
+		elseif not pos then
+			reply(player, "no character")
+		else
+			local ok = services.HouseEventService:Play(id, player, pos)
+			if ok then
+				services.RunLogService:Scare(id)
+			end
+			reply(player, string.format("%s: %s", id, ok and "played" or "nothing to play it on here"))
 		end
 	elseif command == "summary" then
 		-- The run in numbers so far (Logic/RunStats), to the Output window.

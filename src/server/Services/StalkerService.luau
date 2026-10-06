@@ -883,8 +883,11 @@ function StalkerService:_direct()
 	end
 	local card = self.director:MaybeScare(self.tier)
 	if card then
-		self.services.RunLogService:Scare(card.id)
-		self:_scare(card)
+		if self:_scare(card) == false then
+			self.director:Unplayed(card)
+		else
+			self.services.RunLogService:Scare(card.id)
+		end
 	end
 	self:_publish()
 end
@@ -906,6 +909,10 @@ function StalkerService:_scare(card)
 	local pos = services.PlayerStateService:Position(victim)
 	if not pos then
 		return
+	end
+	-- The house's own scares (Services/HouseEventService).
+	if card.house then
+		return services.HouseEventService:Play(card.id, victim, pos)
 	end
 	local divergence = services.DivergenceService
 	local angle = self.rng:NextNumber(0, math.pi * 2)
@@ -953,6 +960,7 @@ function StalkerService:_scare(card)
 	elseif card.id == "windowFace" then
 		self:_windowFace(victim, pos)
 	end
+	return true
 end
 
 -- A face at a window, for one Witness only, while he's elsewhere: tapping

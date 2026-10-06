@@ -469,6 +469,17 @@ function PerceptionController:_scare(payload)
 	elseif kind == "whisper" then
 		audio:PlayAt("Whisper", payload.position + Vector3.new(0, 4, 0), 0.5, 0.9)
 		audio:Caption("[a whisper behind you]")
+	elseif kind == "overhead" then
+		-- His real footsteps through the floor (Services/HouseEventService).
+		audio:Steps(function()
+			return payload.position
+		end, 7, 0.55)
+		audio:Caption(payload.below and "[footsteps below you]" or "[footsteps overhead]")
+	elseif kind == "phone" then
+		audio:PlayAt("Breath", payload.position, 1, 0.6)
+		audio:Caption("[breathing on the line]")
+	elseif kind == "caption" then
+		audio:Caption(tostring(payload.text))
 	elseif kind == "silence" then
 		audio:Duck(payload.duration or 1.5)
 	end

@@ -30,6 +30,15 @@ local CARDS = {
 	-- by the owner: early on, one Witness may see his face at a window while
 	-- he's elsewhere. Something to argue about.
 	{ id = "windowFace", weight = 1, cooldown = 120, minDrift = 5, big = true },
+	-- The house's own scares (Services/HouseEventService), by act: the deeper
+	-- the squad goes, the more the house does. minDrift is a Dread threshold.
+	{ id = "doorAjar", weight = 2, cooldown = 45, house = true },
+	{ id = "radioOn", weight = 2, cooldown = 90, minDrift = 10, house = true },
+	{ id = "overhead", weight = 2, cooldown = 50, minAct = 2, house = true },
+	{ id = "knockInside", weight = 2, cooldown = 80, minAct = 2, house = true },
+	{ id = "lightsDie", weight = 2, cooldown = 110, minAct = 2, big = true, house = true },
+	{ id = "phoneRings", weight = 1, cooldown = 150, minAct = 2, big = true, house = true },
+	{ id = "clockStrikes", weight = 1, cooldown = 60, minAct = 3, big = true, once = true, house = true },
 }
 
 function Director.new(services, rng, difficulty)
@@ -249,7 +258,14 @@ function Director:MaybeScare(tier: number)
 	if tier <= 0 and dread < 5 then
 		return nil
 	end
-	return self.deck:Draw(now, dread)
+	return self.deck:Draw(now, dread, self.act)
+end
+
+-- The card drawn couldn't be played (StalkerService:_scare): its cooldown
+-- doesn't run, and the next draw comes sooner.
+function Director:Unplayed(card)
+	self.deck:Unplay(card)
+	self.nextScare = math.min(self.nextScare, os.clock() + 8)
 end
 
 return Director

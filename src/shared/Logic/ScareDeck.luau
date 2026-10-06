@@ -5,7 +5,8 @@
 local ScareDeck = {}
 ScareDeck.__index = ScareDeck
 
--- cards: { { id, weight = n (copies in the deck), big = bool, cooldown = s, minDrift = n } }
+-- cards: { { id, weight = n (copies in the deck), big = bool, cooldown = s,
+--   minDrift = n (a Dread threshold since 2026-10-06), minAct = n, once = bool } }
 function ScareDeck.new(cards, rng, bigGap: number)
 	local self = setmetatable({
 		cards = cards,
@@ -29,8 +30,14 @@ function ScareDeck:_reshuffle()
 	self.deck = self.rng:Shuffle(deck)
 end
 
-function ScareDeck:_playable(card, now: number, drift: number): boolean
+function ScareDeck:_playable(card, now: number, drift: number, act: number?): boolean
 	if drift < (card.minDrift or 0) then
+		return false
+	end
+	if (act or 1) < (card.minAct or 1) then
+		return false
+	end
+	if card.once and self.lastPlayed[card.id] then
 		return false
 	end
 	local last = self.lastPlayed[card.id]
@@ -43,14 +50,20 @@ function ScareDeck:_playable(card, now: number, drift: number): boolean
 	return true
 end
 
+-- A card that couldn't be played after all (a house event with nothing near
+-- to play it on): forget it was, so its cooldown doesn't run.
+function ScareDeck:Unplay(card)
+	self.lastPlayed[card.id] = nil
+end
+
 -- Draw the next playable card, or nil if nothing is playable right now.
 -- Unplayable cards stay in the deck for later draws.
-function ScareDeck:Draw(now: number, drift: number)
+function ScareDeck:Draw(now: number, drift: number, act: number?)
 	if #self.deck == 0 then
 		self:_reshuffle()
 	end
 	for i, card in self.deck do
-		if self:_playable(card, now, drift) then
+		if self:_playable(card, now, drift, act) then
 			table.remove(self.deck, i)
 			self.lastPlayed[card.id] = now
 			if card.big then

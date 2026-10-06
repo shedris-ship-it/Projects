@@ -68,6 +68,9 @@ Assets.Sounds = {
 	ServiceBell = "rbxassetid://9125485591", -- PSE "Desk Bell Counter Service Single Ringing Ding 1": a servants' bell
 	ToyWindUp = "rbxassetid://9120219910", -- PSE "Toy Plastic Feet Wind Up 2": wound, then walking
 	MusicBoxNote = "rbxassetid://9117042092", -- PSE "Music Box Swan Lake Single Notes 3": one note, pitched per key
+	-- House events (Services/HouseEventService, 2026-10-06), not yet heard: swap by ear.
+	PhoneRing = "rbxassetid://9117305259", -- PSE "Phone Ring Electronic Consumer Phone 1" (a two-tone 1980s ring): the hall telephone, looped while it rings
+	ClockChime = "rbxassetid://1842312951", -- APM "Tubular Bell Sounds (b)": one strike of the grandfather clock
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

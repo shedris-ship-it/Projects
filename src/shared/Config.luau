@@ -729,6 +729,26 @@ Config.Pacing = {
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
 
+-- The house's own scares (Services/HouseEventService; the owner's audit of
+-- 2026-10-06): cards the Director draws by act and Dread, and the change a
+-- squad finds coming back to an old wing.
+Config.HouseEvents = {
+	RadioRange = 45, -- a radio this near turns itself on, in a room nobody is in
+	RadioSeconds = 20, -- and plays this long
+	PhoneRange = 60, -- the telephone rings when one is this near
+	PhoneSeconds = 14, -- for this long, unanswered
+	PhoneLure = 30, -- how far he hears it (and hears you pick up)
+	LightsRooms = 3, -- the rooms ahead that go dark, one by one...
+	LightsStep = 1.2, -- ...this far apart
+	LightsDark = 40, -- and stay dark this long
+	OverheadRange = 35, -- his steps through the floor carry this far (planar)
+	AjarDegrees = 22, -- a shut door swings this far ajar
+	ChimeGap = 1.1, -- seconds between the clock's thirteen strikes
+	ReturnAfter = 150, -- a wing left this long has changed when you come back
+	ReturnCooldown = 180, -- not again for this long
+	ReturnDark = 60, -- the room that went dark stays so this long
+}
+
 -- The run in numbers (Logic/RunStats; Services/RunLogService): the F2
 -- overlay and the Dossier's "THE NIGHT IN NUMBERS".
 Config.Stats = {

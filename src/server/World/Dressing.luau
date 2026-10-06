@@ -24,6 +24,8 @@ local Dressing = {}
 
 -- An old rotary telephone. `cf` sits on the surface with its LookVector
 -- facing out of the furniture's front, so the front of the phone is -Z.
+-- (Public since 2026-10-06: Services/HouseEventService puts one in the hall
+-- when the dressing placed none, so the telephone can ring in every house.)
 local function telephone(parent, cf: CFrame)
 	local model = Instance.new("Model")
 	model.Name = "Telephone"
@@ -376,5 +378,7 @@ function Dressing.claim(s): CFrame?
 	s.next += 1
 	return s.spots[s.next]
 end
+
+Dressing.telephone = telephone
 
 return Dressing

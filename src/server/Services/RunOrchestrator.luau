@@ -258,6 +258,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- A landmark in every corridor, then the servants' bell board.
 		services.LandmarkService:Begin(rng:Fork("landmarks"))
 		services.BellBoardService:Begin(rng:Fork("bell board"))
+		-- The house's own scares and the change on coming back to a wing.
+		services.HouseEventService:Begin(rng:Fork("house events"))
 		services.LockService:Begin(plan)
 		-- The crowbar and the bolt cutters where the plan keeps them (L3.3).
 		services.ToolService:PlacePlanned(plan, rng:Fork("planned tools"))
