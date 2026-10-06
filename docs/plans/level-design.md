@@ -505,3 +505,39 @@ The owner's solo retest follows L3.0, and the squad playtest follows L3.3 (Gate 
   - On opening: "The umbrella key turns.", then "Nothing left for the umbrella key."
   - Clean console.
 - **Not yet:** a side room holding a later gate's key (a chain), furniture pockets (a locked wardrobe or chest), two clients.
+
+### 11.8 L3.3 as built (build `2026-10-05.42`)
+- **Two tool locks** (`LockPlanner.Gates` `boards` and `chain`, mansions only):
+  - A boarded door: planks nailed across the frame on both faces, tilted, with gaps to see through (`LockService` `boards`).
+  - A chained door: a chain crossed over the door with a padlock (`chain`).
+  - Neither carries a mark.
+- **The tools** (`Data/Tools` Crowbar and BoltCutters, `planned`): one a kind a house.
+  - The plan keeps a tool lock first, like a key (`tool:Crowbar`, `tool:BoltCutters`), and every later door of its kind reuses the same tool (`also`).
+  - `ToolService:PlacePlanned` lays it on a top in that room (a workbench, a counter, a table or a desk first), else on the floor, as an ordinary pickup for slots 2–3. The random supply is the Lantern and the Radio only (`Tools.Supply`).
+  - The squad's house uses no more tool kinds than `MaxTools` (one for one or two players, two for three or four).
+  - Boards and chains are in the run's adventure deck (`Programme.Kinds`), so a run that draws them leans on them.
+- **The work** (`Logic/ToolLocks`, `Config.ToolLocks`, by squad). It's a held prompt ("Boarded door · Pry", "Chained door · Cut") while you carry the tool, in any slot.
+  - **Boards:** a hold a plank (four of 1.5 s; one player gets three of 1.2 s).
+  - **Chain:** one hold of 1.5 s (1.2 s for one player).
+  - **Noise:** each plank screeches (35 studs) and the snap carries 30, so he may come; work already done stays done.
+  - **The planks** fall at the worker's feet as things to pick up and throw.
+  - **Without the tool:** "Boarded up. Something could pry the boards off." Pulling on the door only rattles it.
+  - **The objective line** gives "The crowbar could pry the boards off the door in the Dining Room." once someone carries it and the door has been seen; "... is boarded up." / "... is chained shut." for a tried door. The map tags BOARDS and CHAIN.
+- **The chute:** a tool in your hands goes down it into the basket ("It clatters away down the chute.").
+- **Measured** (searched houses, 30 seeds):
+
+  | Squad | Tool locks a house |
+  | --- | --- |
+  | 1 | median 1 (19 of 30 have one, up to 3) |
+  | 4 | median 2 (up to 4) |
+
+  Target `toolLocks` by squad; lock first unchanged; no idle cellar or attic.
+- **Studio** (one client):
+  - **Seed 7 for one:** the crowbar on the hall floor, the dining room's door to the kitchen boarded (screenshot: three planks with gaps).
+    - Without the crowbar it says so; with it, the line pointed at the door.
+    - Three holds: "A board screeches and comes away. 2 to go." ... "The last board comes away."
+    - Three planks lay at the door as things, and it's an ordinary door after.
+  - **Seed 2 for three:** the chain (screenshot), the bolt cutters from the laundry, one 1.5 s cut, "The chain snaps and falls away."
+  - Clean consoles apart from the known DataStore 403s.
+- **Not checked:** a tool down the chute in Studio (code only), whether he comes to the noise, two clients, how the noise feels.
+- **Not yet:** tool pockets (a boarded side room) and a side room holding a tool, both for L3.4.

@@ -168,6 +168,7 @@ Config.Mansion = {
 			-- Side rooms behind the house key (docs/plans/level-design.md
 			-- section 11, L3.2): fewest and most a house.
 			pockets = { 0, 1 },
+			maxTools = 1, -- one tool kind a run
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
 		},
@@ -176,6 +177,7 @@ Config.Mansion = {
 			regions = 2,
 			heirlooms = { 2, 3 },
 			pockets = { 1, 1 },
+			maxTools = 1,
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
 		},
@@ -185,6 +187,7 @@ Config.Mansion = {
 			regions = 3,
 			heirlooms = { 3, 3 },
 			pockets = { 1, 2 },
+			maxTools = 2,
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -193,6 +196,7 @@ Config.Mansion = {
 			regions = 3,
 			heirlooms = { 3, 3 },
 			pockets = { 2, 2 },
+			maxTools = 2,
 			storeys = { cellar = 1, attic = 1 },
 			flavours = { double = 1.5 },
 		},
@@ -243,10 +247,20 @@ Config.Mansion = {
 	-- need placed first, rooms with a landmark or a lure ahead of plain ones.
 	-- Enabled is Config.Progression.Enabled (set below).
 	Programme = {
-		Kinds = { "padlock", "power", "crank", "safe", "musicbox", "dumbwaiter" }, -- in draw order
+		Kinds = { "padlock", "power", "crank", "safe", "musicbox", "dumbwaiter", "boards", "chain" }, -- in draw order
 		-- (The dumbwaiter was 0.5 while the planner could pick a wall that furniture
-		-- then filled; it now only picks spots clear of the fitted furniture.)
-		Weights = { padlock = 3, power = 2, crank = 1.5, safe = 2, musicbox = 2, dumbwaiter = 1.5 },
+		-- then filled; it now only picks spots clear of the fitted furniture.
+		-- Boards and chains: docs/plans/level-design.md section 11, L3.3.)
+		Weights = {
+			padlock = 3,
+			power = 2,
+			crank = 1.5,
+			safe = 2,
+			musicbox = 2,
+			dumbwaiter = 1.5,
+			boards = 3,
+			chain = 2,
+		},
 		DeckSize = { 2, 2, 3, 3 }, -- kinds a run wants, by squad size
 		DrawBonus = 2, -- a room with a landmark or a lure comes up this much more
 		Always = { "laundry" }, -- rooms every house wants (the laundry chute's bottom)
@@ -841,6 +855,21 @@ Config.Guest = {
 	BrainHz = 4,
 }
 
+-- Tool locks (Logic/ToolLocks, docs/plans/level-design.md section 11, L3.3):
+-- by squad size, one to four. One player's work is shorter (nobody to keep
+-- watch); everyone's is loud.
+Config.ToolLocks = {
+	Boards = {
+		Planks = { 3, 4, 4, 4 }, -- a hold each
+		Seconds = { 1.2, 1.5, 1.5, 1.5 }, -- each hold
+		Noise = 35, -- studs each plank carries
+	},
+	Chain = {
+		Seconds = { 1.2, 1.5, 1.5, 1.5 },
+		Noise = 30, -- the snap
+	},
+}
+
 Config.Tools = {
 	LanternLightSeconds = 2,
 	LanternLightSecondsNoTool = 8,
@@ -888,7 +917,8 @@ Config.Progression = {
 	-- section 11).
 	UnseenStation = 0.3,
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
+	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0, boards = 1, chain = 0.7 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
+	MaxTools = 2, -- tool kinds a house's tool locks use (docs/plans/level-design.md 11, L3.3; by squad)
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
 	Enabled = {
 		key = true,
@@ -899,6 +929,8 @@ Config.Progression = {
 		crank = true,
 		dumbwaiter = true,
 		double = true,
+		boards = true,
+		chain = true,
 	},
 	Keepers = { container = 4, safe = 2, musicbox = 3, dumbwaiter = 2 }, -- what keeps an heirloom (weights; LockPlanner.Keepers)
 	MaxPuzzles = 4,
@@ -950,6 +982,8 @@ Config.LevelDesign = {
 		-- Side rooms behind the house key (section 11, L3.2), by squad: a
 		-- house that can't fit them costs a little.
 		pockets = { band = { 1, 2 }, bySquad = { { 0, 1 }, { 1, 1 }, { 1, 2 }, { 1, 2 } }, weight = 2 },
+		-- Boarded and chained doors (section 11, L3.3): loud work for a lookout.
+		toolLocks = { band = { 1, 3 }, bySquad = { { 1, 2 }, { 1, 2 }, { 1, 3 }, { 2, 4 } }, weight = 1 },
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)
@@ -1352,6 +1386,21 @@ Config.ViewModel = {
 			wrist = { 0.12, -0.28, 0.22 },
 			yaw = 22,
 			tilt = 26,
+		},
+		-- The tools for tool locks (docs/plans/level-design.md section 11, L3.3).
+		Crowbar = {
+			at = { 0.48, -0.3, 1.3 },
+			turn = { 15, -4, 0 },
+			wrist = { 0.03, -0.2, 0.3 },
+			yaw = 14,
+			tilt = 24,
+		},
+		BoltCutters = {
+			at = { 0.46, -0.3, 1.3 },
+			turn = { 12, -4, 0 },
+			wrist = { 0.03, -0.2, 0.32 },
+			yaw = 14,
+			tilt = 24,
 		},
 	},
 	ArmHandForward = 0.18, -- the hand's middle sits this far (unscaled) in front of the wrist

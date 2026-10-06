@@ -214,7 +214,63 @@ local function radio(): Model
 	return model
 end
 
-local BUILDERS = { Lantern = lantern, Radio = radio }
+-- The crowbar: a bar of red-painted steel with a hooked claw at one end and a
+-- flat chisel at the other (docs/plans/level-design.md section 11, L3.3).
+local function crowbar(): Model
+	local model, root = newModel("Crowbar")
+	local paint = { Color = Color3.fromRGB(150, 44, 36), Material = Enum.Material.Metal }
+	part(model, root, "Bar", Vector3.new(0.12, 0.12, 1.7), CFrame.new(), paint)
+	part(
+		model,
+		root,
+		"Claw",
+		Vector3.new(0.12, 0.12, 0.42),
+		CFrame.new(0, 0.16, -0.95) * CFrame.Angles(math.rad(55), 0, 0),
+		paint
+	)
+	part(
+		model,
+		root,
+		"Chisel",
+		Vector3.new(0.16, 0.05, 0.24),
+		CFrame.new(0, -0.03, 0.94) * CFrame.Angles(math.rad(-12), 0, 0),
+		{
+			Color = Color3.fromRGB(120, 120, 124),
+			Material = Enum.Material.Metal,
+		}
+	)
+	return model
+end
+
+-- Bolt cutters: long handles with rubber grips, short heavy jaws.
+local function boltCutters(): Model
+	local model, root = newModel("BoltCutters")
+	local steel = { Color = Color3.fromRGB(120, 122, 126), Material = Enum.Material.Metal }
+	local grip = { Color = Color3.fromRGB(200, 110, 30), Material = Enum.Material.SmoothPlastic }
+	for _, side in { -1, 1 } do
+		part(
+			model,
+			root,
+			"Handle",
+			Vector3.new(0.07, 0.07, 1.1),
+			CFrame.new(side * 0.08, 0, 0.35) * CFrame.Angles(0, side * math.rad(4), 0),
+			steel
+		)
+		part(
+			model,
+			root,
+			"Grip",
+			Vector3.new(0.1, 0.1, 0.45),
+			CFrame.new(side * 0.1, 0, 0.7) * CFrame.Angles(0, side * math.rad(4), 0),
+			grip
+		)
+		part(model, root, "Jaw", Vector3.new(0.09, 0.14, 0.3), CFrame.new(side * 0.04, 0, -0.35), steel)
+	end
+	part(model, root, "Pivot2", Vector3.new(0.22, 0.16, 0.12), CFrame.new(0, 0, -0.2), steel)
+	return model
+end
+
+local BUILDERS = { Lantern = lantern, Radio = radio, Crowbar = crowbar, BoltCutters = boltCutters }
 
 function ToolModel.tool(id: string): Model?
 	local builder = BUILDERS[id]

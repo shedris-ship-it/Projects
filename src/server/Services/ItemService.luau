@@ -147,6 +147,9 @@ function ItemService:Begin(plan, rng, leads)
 	table.sort(ids)
 	for _, id in ids do
 		local token = plan.tokens[id]
+		if token.kind == "tool" then
+			continue -- lies in plain sight (Services/ToolService)
+		end
 		if token.kind == "heirloom" then
 			heirlooms += 1
 			self.heirloomKinds[id] = kinds[(heirlooms - 1) % #kinds + 1]

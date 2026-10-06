@@ -182,9 +182,14 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	m.doorTokens, m.blindTokens, m.heldKeyBlind = 0, 0, 0
 	-- Side rooms behind the house key, and the doors it opens (section 11, L3.2).
 	m.pockets, m.pocketReturns, m.houseKeyDoors = 0, 0, 0
+	-- Boarded and chained doors (section 11, L3.3).
+	m.toolLocks = 0
 	for _, lock in plan.locks do
 		if lock.pocket then
 			m.pockets += 1
+		end
+		if lock.kind == "boards" or lock.kind == "chain" then
+			m.toolLocks += 1
 		end
 		for _, need in lock.needs or {} do
 			if plan.tokens[need] and plan.tokens[need].reusable then

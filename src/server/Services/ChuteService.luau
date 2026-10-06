@@ -296,6 +296,17 @@ function ChuteService:Use(player: Player): string
 		notify(player, "It rattles away down the chute.")
 		return "dropped down"
 	end
+	-- A tool in your hands (the crowbar for a friend below: docs/plans/
+	-- level-design.md section 11, L3.3) goes down the same way.
+	local tools = self.services.ToolService
+	if tools and tools:SendHeld(player, CFrame.new(chute.basketTop)) then
+		task.delay(C.SlideSeconds, function()
+			Sfx.play("Thud", chute.mouthAt, 0.7, 0.9)
+			self.Noise:Emit(chute.mouthAt, C.DropNoise, player, "chute")
+		end)
+		notify(player, "It clatters away down the chute.")
+		return "dropped a tool down"
+	end
 	-- Yourself: a short dark slide, and a landing everyone near hears.
 	notify(player, "You slide down the chute.")
 	task.delay(C.SlideSeconds, function()

@@ -310,7 +310,7 @@ function DoorService:Drag(door, degrees: number, player: Player, release: number
 		if degrees > D.LatchAngle * 2 and os.clock() - (door.triedAt or 0) > 1.2 then
 			door.triedAt = os.clock()
 			if self.LockHandler then
-				self.LockHandler(door, player)
+				self.LockHandler(door, player, "pull")
 			end
 		end
 		return false
@@ -387,7 +387,7 @@ function DoorService:Toggle(door, player: Player?)
 	if door.locked then
 		-- The escape's locks (Services/LockService) decide: a key, a code, a bolt.
 		if self.LockHandler then
-			self.LockHandler(door, player)
+			self.LockHandler(door, player, "prompt")
 		end
 		return
 	end
@@ -452,6 +452,12 @@ function DoorService:RefreshPrompt(door)
 		-- A hidden door still shut: what it looks like (Services/LockService).
 		door.prompt.ObjectText = door.disguise
 		door.prompt.ActionText = "Search"
+		return
+	end
+	if door.locked and door.lockText then
+		-- A boarded or chained door (Services/LockService, Logic/ToolLocks).
+		door.prompt.ObjectText = door.lockText.object
+		door.prompt.ActionText = door.lockText.action
 		return
 	end
 	door.prompt.ObjectText = door.locked and "Locked door" or "Door"

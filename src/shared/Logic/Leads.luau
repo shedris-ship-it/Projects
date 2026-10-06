@@ -70,7 +70,8 @@ end
 local function sortedTokens(plan): { string }
 	local ids = {}
 	for id, token in plan.tokens do
-		if token.producer.kind == "container" then
+		-- (A tool lies in plain sight on a top: Services/ToolService.)
+		if token.producer.kind == "container" and token.kind ~= "tool" then
 			table.insert(ids, id)
 		end
 	end

@@ -163,7 +163,9 @@ function Family.markDoors(family, plan, label: (string, string, number?) -> stri
 	for _, r in plan.order do
 		local gate = plan.regions[r].gate
 		local lock = gate and plan.locks[gate]
-		if lock and lock.needs then
+		-- (A tool lock shows its boards or chain, not a charm.)
+		local tool = lock and lock.needs and plan.tokens[lock.needs[1]].kind == "tool"
+		if lock and lock.needs and not tool then
 			local counts = {}
 			for _, id in plan.regions[r].rooms do
 				local owner = family.roomOwner[id]

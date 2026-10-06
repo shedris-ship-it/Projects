@@ -20,6 +20,25 @@ local Tools = {
 		color = { 150, 200, 170 },
 		homes = { "Dresser", "Counter", "Piano", "Table" },
 	},
+	-- Tools that open tool locks (docs/plans/level-design.md section 11,
+	-- L3.3): the escape plan puts them where they're found (`planned`), not
+	-- the random supply above. Carry one and work the lock it opens.
+	{
+		id = "Crowbar",
+		name = "Crowbar",
+		description = "Pries the boards off a boarded door, one by one. Loud: keep a lookout.",
+		color = { 150, 60, 50 },
+		homes = { "Workbench", "Counter", "Table", "Desk" },
+		planned = true,
+	},
+	{
+		id = "BoltCutters",
+		name = "Bolt cutters",
+		description = "Cuts the chain on a chained door in one loud snap.",
+		color = { 200, 120, 40 },
+		homes = { "Workbench", "Counter", "Table", "Desk" },
+		planned = true,
+	},
 }
 
 local byId = {}
@@ -28,9 +47,14 @@ for _, tool in Tools do
 end
 
 -- The ids in list order, and each tool's homes by id, for Logic/ToolPlacement.
-local ids, homes = {}, {}
+-- `Supply` is what the house leaves lying about at random; the planned ones
+-- (the crowbar, the bolt cutters) go where the escape plan says.
+local ids, supply, homes = {}, {}, {}
 for _, tool in Tools do
 	table.insert(ids, tool.id)
+	if not tool.planned then
+		table.insert(supply, tool.id)
+	end
 	homes[tool.id] = tool.homes
 end
 
@@ -38,5 +62,6 @@ return {
 	List = Tools,
 	ById = byId,
 	Ids = ids,
+	Supply = supply,
 	Homes = homes,
 }

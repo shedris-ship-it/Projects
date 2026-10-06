@@ -235,6 +235,23 @@ function ToolService:DropHeld(player: Player)
 	end
 end
 
+-- The tool in this player's hands goes somewhere else (down the laundry
+-- chute): out of their slots, lying at `cframe`. Returns its id, or nil
+-- when their hands hold no found tool.
+function ToolService:SendHeld(player: Player, cframe: CFrame): string?
+	local inv = inventories[player]
+	if not inv or not Inventory.isToolSlot(inv.active) then
+		return nil
+	end
+	local item = Inventory.drop(inv, inv.active)
+	if not item then
+		return nil
+	end
+	self:_makePickup(item, cframe, 0)
+	self:_publish(player)
+	return item.id
+end
+
 function ToolService:_dropAll(player: Player)
 	local inv = inventories[player]
 	if not inv then
@@ -366,7 +383,7 @@ function ToolService:_spawnWorldTools(rng, squadSize: number)
 	end
 	local distances = start and self.World:Distances(start) or {}
 	local surfaces = ToolPickups.surfaces(world, distances)
-	local supply = ToolPlacement.supply(squadSize, Tools.Ids, Config.Tools)
+	local supply = ToolPlacement.supply(squadSize, Tools.Supply, Config.Tools)
 	local placed = ToolPlacement.plan(rng, surfaces, supply, Tools.Homes, Config.Tools)
 	for _, entry in placed do
 		local spot = Dressing.claim(entry.surface.source)
@@ -375,6 +392,68 @@ function ToolService:_spawnWorldTools(rng, squadSize: number)
 			self:_makePickup(item, spot, rng:NextNumber(-0.5, 0.5))
 		end
 	end
+end
+
+-- The tools the escape plan needs (the crowbar and the bolt cutters for
+-- tool locks: Logic/ToolLocks, docs/plans/level-design.md section 11, L3.3),
+-- lying in plain sight on a top in the room the plan keeps them in (one it
+-- makes sense on first), else on that room's floor.
+function ToolService:PlacePlanned(plan, rng)
+	local world = self.World.World
+	if not world or not plan then
+		return
+	end
+	local surfaces = ToolPickups.surfaces(world, {})
+	local ids = {}
+	for id, token in plan.tokens do
+		if token.kind == "tool" then
+			table.insert(ids, id)
+		end
+	end
+	table.sort(ids)
+	for _, id in ids do
+		local token = plan.tokens[id]
+		local room = token.producer.room
+		local homes, any = {}, {}
+		for _, surface in surfaces do
+			if surface.room == room and surface.free > 0 then
+				table.insert(any, surface)
+				if table.find(Tools.Homes[token.tool] or {}, surface.kind) then
+					table.insert(homes, surface)
+				end
+			end
+		end
+		local pool = #homes > 0 and homes or any
+		local spot = #pool > 0 and Dressing.claim(rng:Pick(pool).source) or nil
+		if not spot then
+			spot = CFrame.new(self.World:RandomPointIn(room, rng))
+		end
+		self:_makePickup({ id = token.tool, uid = newUid() }, spot, rng:NextNumber(-0.5, 0.5))
+	end
+end
+
+-- Does this player carry this tool, in any slot?
+function ToolService:Carries(player: Player, toolId: string): boolean
+	local inv = inventories[player]
+	if not inv then
+		return false
+	end
+	for _, id in Inventory.ids(inv) do
+		if id == toolId then
+			return true
+		end
+	end
+	return false
+end
+
+-- Who carries this tool now, if anyone.
+function ToolService:Holder(toolId: string): Player?
+	for player in inventories do
+		if player.Parent and self:Carries(player, toolId) then
+			return player
+		end
+	end
+	return nil
 end
 
 function ToolService:LightShrine(shrine, player: Player?)

@@ -28,6 +28,8 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
+local Physical = require(Shared.Data.Physical)
+local ToolLocks = require(Shared.Logic.ToolLocks)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
 
@@ -63,8 +65,8 @@ function LockService:Init(services)
 end
 
 function LockService:Start()
-	self.Doors.LockHandler = function(door, player)
-		self:_try(door, player)
+	self.Doors.LockHandler = function(door, player, how)
+		self:_try(door, player, how)
 	end
 	self.World.Cleared:Connect(function()
 		self:_clear()
@@ -248,6 +250,91 @@ local function plate(door, lock)
 	return folder
 end
 
+-- Boards nailed across a doorway on both faces (a tool lock, Logic/
+-- ToolLocks): `steps` planks, with gaps to see through. They're on the frame,
+-- not the door, so they don't swing. Each is tagged with its step (the
+-- highest comes off first).
+local function boards(door, steps: number, parent: Instance): Model
+	local model = Instance.new("Model")
+	model.Name = "Boards"
+	local slab = door.slab
+	local closed = door.closedCFrame
+	local floorY = slab.Position.Y - slab.Size.Y / 2
+	local spacing = 6.4 / steps
+	for i = 1, steps do
+		local y = floorY + 1.4 + (i - 1) * spacing
+		for _, side in { -1, 1 } do
+			local p = Instance.new("Part")
+			p.Name = "Plank"
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanTouch = false
+			p.CanQuery = false
+			p.Material = Enum.Material.WoodPlanks
+			p.Color = Color3.fromRGB(112, 84, 56)
+			p.Size = Vector3.new(slab.Size.X + 1.4, 0.55, 0.14)
+			local tilt = math.rad((i % 2 == 0 and 1 or -1) * 6)
+			local at = Vector3.new(closed.Position.X, y, closed.Position.Z)
+			p.CFrame = (closed.Rotation + at) * CFrame.new(0, 0, side * 0.66) * CFrame.Angles(0, 0, tilt)
+			p:SetAttribute("Step", i)
+			p.Parent = model
+		end
+	end
+	model:SetAttribute("RunContent", true)
+	model.Parent = parent
+	return model
+end
+
+-- A chain through the handles on both faces, crossed, with a padlock.
+local function chain(door, parent: Instance): Model
+	local model = Instance.new("Model")
+	model.Name = "Chain"
+	local slab = door.slab
+	local closed = door.closedCFrame
+	local floorY = slab.Position.Y - slab.Size.Y / 2
+	local centre = Vector3.new(closed.Position.X, floorY + 3.6, closed.Position.Z)
+	local steel = Color3.fromRGB(96, 96, 100)
+	for _, side in { -1, 1 } do
+		for _, slope in { -1, 1 } do
+			-- Overlapping links along the diagonal, each turned a quarter
+			-- round the chain from the last (flat, edge-on, flat...).
+			local angle = slope * math.atan(0.7)
+			for k = -6, 6 do
+				local link = Instance.new("Part")
+				link.Name = "Link"
+				link.Anchored = true
+				link.CanCollide = false
+				link.CanTouch = false
+				link.CanQuery = false
+				link.Material = Enum.Material.Metal
+				link.Color = steel
+				link.Size = Vector3.new(0.5, 0.2, 0.07)
+				local along = k * 0.36
+				link.CFrame = (closed.Rotation + centre)
+					* CFrame.new(0, 0, side * 0.7)
+					* CFrame.Angles(0, 0, angle)
+					* CFrame.new(along, 0, 0)
+					* CFrame.Angles((k % 2) * math.rad(90), 0, 0)
+				link.Parent = model
+			end
+		end
+		local lock = Instance.new("Part")
+		lock.Name = "Padlock"
+		lock.Anchored = true
+		lock.CanCollide = false
+		lock.CanTouch = false
+		lock.CanQuery = false
+		lock.Material = Enum.Material.Metal
+		lock.Color = Color3.fromRGB(70, 70, 74)
+		lock.Size = Vector3.new(0.5, 0.6, 0.25)
+		lock.CFrame = (closed.Rotation + centre) * CFrame.new(0, -0.15, side * 0.82)
+		lock.Parent = model
+	end
+	model:SetAttribute("RunContent", true)
+	model.Parent = parent
+	return model
+end
+
 -- The plan's locks on the built house. Called by RunOrchestrator after the
 -- house is built and DoorService has set up its doors.
 function LockService:Begin(plan)
@@ -264,9 +351,22 @@ function LockService:Begin(plan)
 			self.Doors:SetLocked(door, true)
 			local entry = { lock = lock, door = door, seam = seam, open = false }
 			door.lockId = seamId
+			if ToolLocks.is(lock.kind) then
+				-- Boards or a chain, on the frame (Logic/ToolLocks); held work.
+				local info = ToolLocks.Kinds[lock.kind]
+				local orchestrator = self.services.RunOrchestrator
+				local squad = orchestrator and orchestrator.run and orchestrator.run.squad
+				entry.work = ToolLocks.work(lock.kind, squad, Config.ToolLocks)
+				entry.state = ToolLocks.start(entry.work)
+				local parent = self.World.content or workspace
+				entry.fixings = lock.kind == "boards" and boards(door, entry.work.steps, parent) or chain(door, parent)
+				door.lockText = { object = info.object, action = info.action }
+				door.prompt.HoldDuration = entry.work.seconds
+			else
+				entry.plate = plate(door, lock)
+				self.Doors:Adopt(door, entry.plate)
+			end
 			self.Doors:RefreshPrompt(door)
-			entry.plate = plate(door, lock)
-			self.Doors:Adopt(door, entry.plate)
 			self.locks[seamId] = entry
 		else
 			warn("[Consensus] lock on " .. seamId .. " has no door")
@@ -542,8 +642,72 @@ function LockService:_sideOf(entry, player: Player): number?
 	return (position - seam.floorPosition):Dot(seam.normal) < 0 and seam.a or seam.b
 end
 
--- Someone pressed on or pulled a locked door.
-function LockService:_try(door, player: Player?)
+-- One hold's work on a tool lock: a plank pried off (it falls at the
+-- worker's feet, something to throw) or the chain cut. Loud either way.
+function LockService:_toolStep(seamId: string, entry, player: Player)
+	local info = ToolLocks.Kinds[entry.lock.kind]
+	local door = entry.door
+	local done = ToolLocks.step(entry.state)
+	if entry.lock.kind == "boards" then
+		local step = entry.state.left + 1
+		local closed = door.closedCFrame
+		local position = self.PlayerState:Position(player)
+		local worker = position and (position - closed.Position):Dot(closed.LookVector) or 0
+		for _, plank in entry.fixings and entry.fixings:GetChildren() or {} do
+			if plank:GetAttribute("Step") == step then
+				-- The one on the worker's side comes away into the room.
+				if ((plank.Position - closed.Position):Dot(closed.LookVector) >= 0) == (worker >= 0) then
+					self:_loosePlank(plank)
+				end
+				plank:Destroy()
+			end
+		end
+		Sfx.play("CreakAlt", door.position, 1, 0.5)
+		task.delay(0.25, function()
+			Sfx.play("Thud", door.position, 0.8, 1.15)
+		end)
+	else
+		if entry.fixings then
+			entry.fixings:Destroy()
+			entry.fixings = nil
+		end
+		Sfx.play("Snap", door.position, 1, 0.6)
+		Sfx.play("DoorLatch", door.position, 0.7, 0.55)
+	end
+	self.Noise:Emit(door.position, entry.work.noise, player, entry.lock.kind == "boards" and "pry" or "snap")
+	if done then
+		self:Unlock(seamId, player, info.done)
+	elseif info.step then
+		notify(player, info.step .. " " .. entry.state.left .. " to go.")
+	end
+end
+
+-- A board off a door, lying at its foot: a thing to pick up and throw.
+function LockService:_loosePlank(plank: BasePart)
+	local hands = self.services.HandsService
+	local parent = self.World.content
+	if not hands or not parent then
+		return
+	end
+	local model = Instance.new("Model")
+	model.Name = "Plank"
+	local copy = plank:Clone()
+	copy:SetAttribute("Step", nil)
+	copy.Size = Vector3.new(plank.Size.X * 0.8, 0.14, 0.55)
+	local floor = plank.Position.Y
+	local ray = workspace:Raycast(plank.Position, Vector3.new(0, -12, 0))
+	if ray then
+		floor = ray.Position.Y
+	end
+	copy.CFrame = CFrame.new(plank.Position.X, floor + 0.08, plank.Position.Z) * plank.CFrame.Rotation
+	copy.Parent = model
+	model.PrimaryPart = copy
+	model.Parent = parent
+	hands:AddThing(model, { class = Physical.Dressing.Plank.class, label = Physical.Dressing.Plank.label })
+end
+
+-- Someone pressed on or pulled a locked door (`how`: "prompt" or "pull").
+function LockService:_try(door, player: Player?, how: string?)
 	local entry = door.lockId and self.locks[door.lockId]
 	if not entry or entry.open then
 		return
@@ -657,6 +821,18 @@ function LockService:_try(door, player: Player?)
 		self:_rattle(door)
 		notify(player, "It won't move. Not that way.")
 		return
+	elseif ToolLocks.is(lock.kind) then
+		-- Boards or a chain (section 11, L3.3): held work with the tool, a
+		-- step a hold; pulling on it only rattles.
+		local info = ToolLocks.Kinds[lock.kind]
+		local tools = self.services.ToolService
+		if how ~= "prompt" or not (tools and tools:Carries(player, info.tool)) then
+			self:_rattle(door)
+			notify(player, info.refuse)
+			return
+		end
+		self:_toolStep(door.lockId, entry, player)
+		return
 	end
 	self.Noise:Emit(door.position, 6, player, "door")
 end
@@ -690,6 +866,16 @@ function LockService:Unlock(seamId: string, player: Player?, message: string?)
 		entry.plate = nil
 	end
 	Sfx.play("DoorLatch", entry.door.position, 0.6, 0.75)
+	if entry.fixings then
+		-- (The dinner springs a tool lock too: the boards or the chain go.)
+		entry.fixings:Destroy()
+		entry.fixings = nil
+	end
+	if entry.work then
+		entry.door.lockText = nil
+		entry.door.prompt.HoldDuration = 0
+		self.Doors:RefreshPrompt(entry.door)
+	end
 	if entry.hidden then
 		-- Found: a door like any other from now on, for everyone (him too).
 		entry.seam.found = true

@@ -248,7 +248,9 @@ return function(test, check, Shared, require)
 			end
 			local used, marked = {}, 0
 			for seamId, lock in plan.locks do
-				if lock.needs then
+				-- (A tool lock shows its boards or chain instead: L3.3.)
+				local tool = lock.kind == "boards" or lock.kind == "chain"
+				if lock.needs and not tool then
 					marked += 1
 					local mark = lock.mark and Marks.ById[lock.mark]
 					check.truthy(mark ~= nil, "house " .. i .. ": " .. seamId .. " has a mark")

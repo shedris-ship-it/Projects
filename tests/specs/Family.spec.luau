@@ -91,7 +91,7 @@ return function(test, check, Shared, require)
 			local used = {}
 			for _, r in plan.order do
 				local lock = plan.locks[plan.regions[r].gate]
-				if lock.needs then
+				if lock.needs and lock.kind ~= "boards" and lock.kind ~= "chain" then
 					check.truthy(not used[lock.mark], "seed " .. house.seed .. ": no two doors share " .. lock.mark)
 					used[lock.mark] = true
 					for _, need in lock.needs do
@@ -185,7 +185,7 @@ return function(test, check, Shared, require)
 		})
 		check.truthy(found.layout.family ~= nil, "the layout carries the family")
 		for _, lock in found.plan.locks do
-			if lock.needs then
+			if lock.needs and lock.kind ~= "boards" and lock.kind ~= "chain" then
 				check.truthy(lock.mark ~= nil, "every door that takes something has a charm")
 			end
 		end

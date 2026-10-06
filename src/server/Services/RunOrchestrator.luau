@@ -254,6 +254,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- Toilets, taps, TVs, radios and every room's light switch.
 		services.InteractService:Begin()
 		services.LockService:Begin(plan)
+		-- The crowbar and the bolt cutters where the plan keeps them (L3.3).
+		services.ToolService:PlacePlanned(plan, rng:Fork("planned tools"))
 		services.CrankService:Begin(plan)
 		-- How each key and heirloom is found (Logic/Leads): its own fork.
 		local templates = mansion and Rooms.MansionById or Rooms.ById

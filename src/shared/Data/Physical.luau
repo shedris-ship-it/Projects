@@ -84,6 +84,8 @@ local Dressing = {
 	Key = { class = "light", label = "Key" },
 	Heirloom = { class = "medium", label = "Heirloom" },
 	Printout = { class = "light", label = "Printout" },
+	-- A board pried off a boarded door (docs/plans/level-design.md 11, L3.3).
+	Plank = { class = "medium", label = "Plank" },
 }
 
 -- Every piece of furniture, by prop kind (section 4.6; the owner asked for

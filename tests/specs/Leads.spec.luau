@@ -55,7 +55,8 @@ return function(test, check, Shared, require)
 		for i, house in houses do
 			for id, token in house.plan.tokens do
 				local lead = house.leads.tokens[id]
-				if token.producer.kind == "container" then
+				-- (A tool lies in plain sight: no lead. docs/plans/level-design.md 11.)
+				if token.producer.kind == "container" and token.kind ~= "tool" then
 					check.truthy(lead ~= nil, "house " .. i .. ": " .. id .. " has a lead")
 					local room = token.producer.room
 					if lead.kind == "hook" then

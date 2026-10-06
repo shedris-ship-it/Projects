@@ -304,6 +304,25 @@ LockPlanner.Gates = {
 			return name .. " key"
 		end,
 	},
+	-- Tool locks (docs/plans/level-design.md section 11, L3.3; Logic/
+	-- ToolLocks): one tool a kind a house, found before the first door it
+	-- opens and used again at every later one; loud, slow work. Mansions only.
+	{
+		id = "boards",
+		tool = "Crowbar",
+		mansion = true,
+		label = function()
+			return "crowbar"
+		end,
+	},
+	{
+		id = "chain",
+		tool = "BoltCutters",
+		mansion = true,
+		label = function()
+			return "bolt cutters"
+		end,
+	},
 }
 LockPlanner.GateById = {}
 for _, gate in LockPlanner.Gates do
@@ -940,6 +959,7 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 	-- else about the plan changes.
 	local marks = rng:Fork("marks"):Shuffle(table.clone(Marks.Ids))
 	local marked = 0
+	local toolKinds = 0 -- tool kinds the house's tool locks use so far
 	-- The regions that must be open before each one can be (its door's side
 	-- and wherever what opens it lies, and theirs in turn).
 	local behind = { [0] = {} }
@@ -1050,6 +1070,13 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 							table.insert(options, { gate = kind, weight = weight, rooms = rooms })
 						end
 					end
+				elseif kind.tool then
+					-- A tool lock: a mansion's, and no more tool kinds than the
+					-- squad's house has (its tool may already be in the house).
+					local fresh = plan.tokens["tool:" .. kind.tool] == nil
+					if ctx.mansion and (not fresh or toolKinds < (cfg.MaxTools or 2)) then
+						table.insert(options, { gate = kind, weight = weight })
+					end
 				elseif kind.available == nil or kind.available(ctx, gate) then
 					table.insert(options, { gate = kind, weight = weight })
 				end
@@ -1114,6 +1141,27 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 				}
 				table.insert(needs, token)
 			end
+		elseif kind.tool then
+			-- The tool (section 11, L3.3): found before the first door it opens
+			-- (lock first, like a key), then carried to every later one.
+			local token = "tool:" .. kind.tool
+			local existing = plan.tokens[token]
+			if existing then
+				existing.also = existing.also or {}
+				table.insert(existing.also, gate.id)
+			else
+				local room = keepingRoom(ctx, rng, nearRooms, nil, nil, walk, wings and wings.keyStuds)
+				ctx.kept[room] = true
+				toolKinds += 1
+				plan.tokens[token] = {
+					kind = "tool",
+					tool = kind.tool,
+					opens = gate.id,
+					label = kind.label(),
+					producer = { kind = "container", room = room },
+				}
+			end
+			needs = { token }
 		elseif kind.token then
 			counts[kind.token] = (counts[kind.token] or 0) + 1
 			local token = kind.token .. ":" .. counts[kind.token]

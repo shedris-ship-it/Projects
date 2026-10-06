@@ -34,6 +34,9 @@ local DOORS = {
 	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
 	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },
 	crank = { color = Color3.fromRGB(180, 150, 120), tag = "CRANK" },
+	-- Tool locks (docs/plans/level-design.md section 11, L3.3).
+	boards = { color = Color3.fromRGB(150, 110, 70), tag = "BOARDS" },
+	chain = { color = Color3.fromRGB(160, 160, 170), tag = "CHAIN" },
 }
 local MARKS = {
 	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },

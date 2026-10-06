@@ -135,6 +135,8 @@ function FinaleService:Start()
 		end
 		elapsed = 0
 		self:_lookForStations()
+		-- (A tool picked up or put down changes the line too.)
+		self:_publish()
 	end)
 end
 
@@ -302,12 +304,29 @@ function FinaleService:_lockFacts()
 			})
 		end
 	end
-	return doors, keys
+	-- The crowbar and the bolt cutters, while someone carries them (L3.3).
+	local tools = {}
+	local toolService = self.services.ToolService
+	local ids = {}
+	for id, token in self.plan.tokens do
+		if token.kind == "tool" then
+			table.insert(ids, id)
+		end
+	end
+	table.sort(ids)
+	for _, id in ids do
+		local token = self.plan.tokens[id]
+		local lock = token.opens and self.plan.locks[token.opens]
+		if toolService and toolService:Holder(token.tool) then
+			table.insert(tools, { name = token.label, kind = lock and lock.kind, place = self.Locks:KeyPlace(id) })
+		end
+	end
+	return doors, keys, tools
 end
 
 function FinaleService:_publish()
 	if self.plan then
-		self.facts.doors, self.facts.keys = self:_lockFacts()
+		self.facts.doors, self.facts.keys, self.facts.tools = self:_lockFacts()
 	end
 	local line = Objectives.line(self.facts)
 	if line ~= self.line then

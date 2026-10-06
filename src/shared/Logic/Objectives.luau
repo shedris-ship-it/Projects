@@ -9,6 +9,8 @@
 --     where its door is ("the Study") once someone has seen it
 --   doors: the locked doors someone has tried and nobody has opened, oldest
 --     first: { { mark?, kind, place } } (`place` the room it's seen from)
+--   tools: the tools for tool locks someone carries: { { name, kind, place? } }
+--     (`kind` the lock it works, `place` its next door someone has seen)
 --   stations: the puzzles and locked cases someone has been near, in the
 --     order they were first seen: { { kind, room, solved } }. The newest one
 --     not yet dealt with is mentioned.
@@ -56,7 +58,12 @@ local DOORS = {
 	padlock = "has a padlock.",
 	power = "has no power.",
 	pocket = "is locked.",
+	boards = "is boarded up.",
+	chain = "is chained shut.",
 }
+
+-- What a tool does to its door (Logic/ToolLocks).
+local TOOL_VERBS = { boards = "pry the boards off", chain = "cut the chain on" }
 
 -- One sentence about keys and locks: a key someone holds whose door has
 -- been seen comes first (that's what to do next), then one whose door
@@ -72,6 +79,20 @@ function Objectives.lockLine(facts): string?
 				.. key.place
 				.. "."
 				.. (key.two and " It needs two keys." or "")
+		end
+	end
+	-- A tool someone carries, and a seen door it works.
+	local tools = facts.tools or {}
+	for i = #tools, 1, -1 do
+		local tool = tools[i]
+		if tool.place then
+			return "The "
+				.. tool.name
+				.. " could "
+				.. (TOOL_VERBS[tool.kind] or "open")
+				.. " the door in "
+				.. tool.place
+				.. "."
 		end
 	end
 	if #keys > 0 then

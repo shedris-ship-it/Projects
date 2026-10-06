@@ -27,14 +27,14 @@ return function(test, check, Shared, require)
 	end
 
 	local function plan(seed: number, squad: number?, surfaces)
-		local supply = ToolPlacement.supply(squad or 2, Tools.Ids, C)
+		local supply = ToolPlacement.supply(squad or 2, Tools.Supply, C)
 		return ToolPlacement.plan(Rng.new(seed), surfaces or house(), supply, Tools.Homes, C), supply
 	end
 
 	test("one of each tool, with an extra Lantern for bigger squads", function()
 		local function counts(squad)
 			local n = {}
-			for _, id in ToolPlacement.supply(squad, Tools.Ids, C) do
+			for _, id in ToolPlacement.supply(squad, Tools.Supply, C) do
 				n[id] = (n[id] or 0) + 1
 			end
 			return n
@@ -53,7 +53,7 @@ return function(test, check, Shared, require)
 
 	test("the tool kept near the start is always first in the supply", function()
 		for _, squad in { 1, 3 } do
-			check.equal(ToolPlacement.supply(squad, Tools.Ids, C)[1], C.NearStart, "near-start tool first")
+			check.equal(ToolPlacement.supply(squad, Tools.Supply, C)[1], C.NearStart, "near-start tool first")
 		end
 	end)
 
@@ -117,7 +117,7 @@ return function(test, check, Shared, require)
 			table.insert(desksOnly, { key = room .. ":d", room = room, kind = "Piano", steps = 1, free = 2 })
 		end
 		local placed = plan(5, 2, desksOnly)
-		check.equal(#placed, #Tools.Ids, "every tool found a top")
+		check.equal(#placed, #Tools.Supply, "every tool found a top")
 	end)
 
 	test("surfaces with no free place are never used", function()
