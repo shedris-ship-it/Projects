@@ -49,7 +49,7 @@ local StalkMoves = {
 		signal = "fleeHabit",
 		cooldown = 35,
 		description = "Stands in plain sight and smiles until you look away.",
-		counter = "Get a second Witness on him instead of running.",
+		counter = "Get a second pair of eyes on him, with a light, instead of running.",
 	},
 	{
 		id = "Search",

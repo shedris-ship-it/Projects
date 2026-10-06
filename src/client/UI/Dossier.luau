@@ -13,7 +13,7 @@ Dossier.__index = Dossier
 local REASONS = {
 	Extracted = "You got out.",
 	Collapse = "Drift reached 100. The house came apart around you.",
-	AllLost = "Every Witness was Lost.",
+	AllLost = "Nobody got out.",
 	Abandoned = "The squad left.",
 	Debug = "Ended from the debug console.",
 }

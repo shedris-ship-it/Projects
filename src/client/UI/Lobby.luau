@@ -34,7 +34,7 @@ function Lobby.new(ctx)
 		TextColor3 = Ui.Theme.accent,
 		Parent = panel,
 	})
-	Ui.label("Reality only holds when two of you agree on it.", {
+	Ui.label("A table laid for something already inside. Set its places, then run.", {
 		Position = UDim2.fromOffset(0, 40),
 		Size = UDim2.new(1, 0, 0, 18),
 		TextSize = 13,
@@ -139,7 +139,7 @@ function Lobby:Render()
 		self.contract.Text = string.format("Contract: %s\n%s", lobby.location.name, lobby.location.blurb)
 		self.difficultyButton.Text = "Difficulty: "
 			.. lobby.difficulty
-			.. (lobby.difficulty == "Hard" and "  (faster Drift, more red herrings)" or "")
+			.. (lobby.difficulty == "Hard" and "  (uneasy from the start, more locked wings, quicker hunts)" or "")
 		local lines = {}
 		for _, p in lobby.players do
 			local status = p.state == Constants.PlayerStates.Lobby or p.state == nil

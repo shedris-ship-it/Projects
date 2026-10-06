@@ -177,10 +177,12 @@ function Hud.new(ctx)
 end
 
 local PHASE_TEXT = {
-	Arrival = "ARRIVAL",
-	Investigation = "INVESTIGATION",
-	Resolution = "RESOLUTION",
-	Extraction = "EXTRACTION",
+	-- The escape's phases, in its own words (the clue loop's INVESTIGATION and
+	-- RESOLUTION retired with it).
+	Arrival = "LOCKED IN",
+	Investigation = "THE HOUSE",
+	Resolution = "THE DINNER",
+	Extraction = "GET OUT",
 }
 
 function Hud:_squad()

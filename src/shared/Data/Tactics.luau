@@ -106,7 +106,7 @@ local Tactics = {
 		signal = "stationary",
 		cooldown = 45,
 		description = "Knocks on a door near you, and waits for you to open it.",
-		counter = "Don't answer knocks; Witness the door together.",
+		counter = "Don't answer knocks; watch the door together, in the light.",
 	},
 }
 

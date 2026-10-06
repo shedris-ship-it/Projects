@@ -7,17 +7,14 @@ local Ui = require(script.Parent.Parent.Lib.Ui)
 local Settings = {}
 Settings.__index = Settings
 
+-- Three bullets (the audit of 2026-10-06: the eight-bullet wall taught
+-- nothing). The house teaches the rest as it comes up (UI/Tips).
 local HOW_TO = table.concat({
 	"The front door has locked behind you. The dining table is laid for a guest, with empty places.",
 	"",
-	"• Find the family's heirlooms and set each at its place at the table (carry it there, hold E). Then get out by the front door.",
-	"• Parts of the house are locked. Keys, notes and puzzles open them; bolts slide back from the far side, as shortcuts.",
-	"• Your hands: hold the mouse on a door, drawer or small thing to drag or carry it; right click throws. A good hit stuns him for a moment.",
-	"• Drift is the clock. Stalling, splitting up and getting caught raise it; progress calms it. At 100 the house collapses.",
-	"• Something lives here. When one of you watches it, it waits. When two of you watch it together, it can't move: hold the stare and it backs off.",
-	"• Hide (E) in lockers, wardrobes, beds and behind curtains, or walk into a closet and slide its doors shut. Hold Space to hold your breath when it's close.",
-	"• Slot 1 is your torch, 2 and 3 carry what you find, 4 is your bare hands. Holding anything but the torch clips its light to your shirt.",
-	"• Tab shows the map. Talk to each other (voice, Enter to speak, G to ping, C for callouts): it hears you too.",
+	"• Find the family's heirlooms and set each at its place at the table. Then get out by the front door.",
+	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. Hold the mouse on anything to drag, pull or carry it.",
+	"• Something lives here. Two of you watching it in the light stops it; alone, your beam does, while the battery lasts. Hide (E), hold your breath (Space), and talk: Tab is the map, G pings.",
 }, "\n")
 
 function Settings.new(ctx)
