@@ -81,4 +81,42 @@ return function(test, check, Shared, require)
 		state.tripped = true
 		check.truthy(not Breaker.powered(state, 1), "nothing, tripped")
 	end)
+	test(
+		"a second door on the panel (the safe room): truly labelled, off at first, open for good once powered",
+		function()
+			for seed = 1, 100 do
+				local rng = Rng.new(seed)
+				local gate = rng:NextInteger(2, #LABELS)
+				local extraIndex = gate == #LABELS and 2 or #LABELS
+				local spec = Breaker.generate(rng, {
+					labels = table.clone(LABELS),
+					gate = gate,
+					extra = { index = extraIndex, name = "SAFE ROOM" },
+				})
+				check.equal(spec.extra, extraIndex, "seed " .. seed .. ": on the panel")
+				check.equal(spec.labels[extraIndex], "SAFE ROOM", "seed " .. seed .. ": labelled as it is")
+				for i, label in spec.labels do
+					if i ~= extraIndex then
+						check.truthy(label ~= "SAFE ROOM", "seed " .. seed .. ": no other breaker says so")
+					end
+				end
+				local state = Breaker.start(spec)
+				check.truthy(not state.on[extraIndex], "seed " .. seed .. ": off at the start")
+				-- Make room, then power it: open, and the main door's puzzle isn't.
+				for i = 2, spec.count do
+					if state.on[i] and i ~= spec.gate then
+						Breaker.step(spec, state, { kind = "flip", index = i })
+						break
+					end
+				end
+				local _, events = Breaker.step(spec, state, { kind = "flip", index = extraIndex })
+				check.truthy(state.extraOpen, "seed " .. seed .. ": open")
+				check.equal(events[#events].kind, "extra", "seed " .. seed .. ": says so")
+				check.truthy(not state.solved, "seed " .. seed .. ": the door's puzzle still to do")
+				-- Off again, it stays open.
+				Breaker.step(spec, state, { kind = "flip", index = extraIndex })
+				check.truthy(state.extraOpen, "seed " .. seed .. ": for good")
+			end
+		end
+	)
 end

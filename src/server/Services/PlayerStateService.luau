@@ -509,6 +509,20 @@ end
 -- Which light everyone else sees: the beam from your head while the torch is
 -- in your hand, the weak clip light on your chest while you hold anything
 -- else (ToolService:TorchClipped). Your own client draws its own copy.
+-- A fresh set of batteries (the safe room's, docs/plans/level-design.md
+-- section 11.12): the torch full again. Returns whether it was short.
+function PlayerStateService:RefillBattery(player: Player): boolean
+	local record = records[player]
+	if not record then
+		return false
+	end
+	local full = Config.Player.FlashlightBatterySeconds
+	local short = record.battery < full - 1
+	record.battery = full
+	player:SetAttribute(PA.Battery, 1)
+	return short
+end
+
 function PlayerStateService:RefreshFlashlight(player: Player)
 	local record = records[player]
 	local on = record ~= nil and record.flashlight

@@ -462,6 +462,9 @@ function LockService:Begin(plan)
 				entry.plate = plate(door, lock)
 				self.Doors:Adopt(door, entry.plate)
 			end
+			if lock.vault then
+				self:_steelDoor(door)
+			end
 			self.Doors:RefreshPrompt(door)
 			self.locks[seamId] = entry
 		else
@@ -504,6 +507,53 @@ function LockService:_hidden(layout)
 			end
 		end
 	end
+end
+
+-- The safe room's door (docs/plans/level-design.md section 11.12): steel,
+-- with a stencilled sign on both faces. It stays steel once open.
+function LockService:_steelDoor(door)
+	local steel = Color3.fromRGB(92, 98, 102)
+	for _, p in door.model:GetChildren() do
+		if p:IsA("BasePart") and p.Name ~= "Knob" and p.Name ~= "Latch" and p.Name ~= "Glass" then
+			p.Color = steel
+			p.Material = Enum.Material.DiamondPlate
+		end
+	end
+	local sign = Instance.new("Model")
+	sign.Name = "SafeSign"
+	local slab = door.slab
+	for _, side in { -1, 1 } do
+		-- (Proud of the door's raised panels.)
+		local face = slab.CFrame * CFrame.new(0, slab.Size.Y / 2 - 1.2, side * (slab.Size.Z / 2 + 0.16))
+		local plateMark = Instance.new("Part")
+		plateMark.Name = "Sign"
+		plateMark.Anchored = true
+		plateMark.CanCollide = false
+		plateMark.CanTouch = false
+		plateMark.CanQuery = false
+		plateMark.CastShadow = false
+		plateMark.Material = Enum.Material.Metal
+		plateMark.Color = Color3.fromRGB(196, 170, 60)
+		plateMark.Size = Vector3.new(2.6, 0.55, 0.05)
+		plateMark.CFrame = face * (side > 0 and CFrame.Angles(0, math.pi, 0) or CFrame.identity)
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.CanvasSize = Vector2.new(260, 55)
+		gui.LightInfluence = 1
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBlack
+		label.TextScaled = true
+		label.TextColor3 = Color3.fromRGB(30, 28, 24)
+		label.Text = "SAFE ROOM"
+		label.Parent = gui
+		gui.Parent = plateMark
+		plateMark.Parent = sign
+	end
+	sign:SetAttribute("RunContent", true)
+	sign.Parent = door.model
+	self.Doors:Adopt(door, sign)
 end
 
 -- Rooms the squad can walk to now: from the start and from wherever a

@@ -1057,7 +1057,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			end
 			-- A gate into a wing has glass in it (section 10.7).
 			local lock = layout.progression and layout.progression.locks[seam.id]
-			local glazed = lock ~= nil and Config.Trim.GlassDoor.Kinds[lock.kind] == true
+			-- (Not the safe room's steel door: section 11.12.)
+			local glazed = lock ~= nil and not lock.vault and Config.Trim.GlassDoor.Kinds[lock.kind] == true
 			LevelBuilder.seamDoor(world, seam, record, roomA, midpoint, normal, ajarRng, hidden, glazed)
 		end
 	end

@@ -289,6 +289,8 @@ function MapService:State()
 				local mark = entry.lock.mark and Marks.ById[entry.lock.mark]
 				if mark then
 					label = mark.glyph .. " " .. mark.name
+				elseif entry.lock.vault then
+					label = "SAFE ROOM"
 				end
 			else
 				kind = "unknown" -- a door nobody has tried: it might be locked

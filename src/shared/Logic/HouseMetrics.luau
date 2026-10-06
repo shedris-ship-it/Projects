@@ -185,6 +185,8 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 	-- Boarded and chained doors (section 11, L3.3), and the steps inside a
 	-- wing (L3.4: a side room or a chest a tool opens, not the house key).
 	m.toolLocks, m.wingSteps = 0, 0
+	-- The optional safe room (section 11.12): never part of the walk.
+	m.safeRooms = plan.safeRoom and 1 or 0
 	local pieceIds = sortedKeys(plan.pieces or {})
 	for _, id in pieceIds do
 		m.toolLocks += 1
@@ -211,7 +213,7 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		local token = plan.tokens[id]
 		local lock = token.opens and plan.locks[token.opens]
 		local seam = token.opens and seamById[token.opens]
-		if lock and seam then
+		if lock and seam and not lock.optional then
 			doorRegion[id] = regionOf[lock.side or (lock.inside == seam.a and seam.b or seam.a)]
 		end
 	end
@@ -318,7 +320,7 @@ function HouseMetrics.measure(layout, plan, templatesById, opts)
 		for _, id in lockIds do
 			local lock = plan.locks[id]
 			local seam = seamById[id]
-			if lock.kind ~= "bolt" and not opened[id] and seam then
+			if lock.kind ~= "bolt" and not lock.optional and not opened[id] and seam then
 				local from = lock.side or (lock.inside == seam.a and seam.b or seam.a)
 				local ready = true
 				for _, need in lock.needs or {} do

@@ -8,6 +8,10 @@
 --
 -- Co-op, one at the panel and one at the door calling out its lamp; solo,
 -- a note somewhere already open says which breaker is the door's.
+--
+-- The safe room's steel door (docs/plans/level-design.md section 11.12) is on
+-- the panel too, truly labelled "⌂ SAFE ROOM": a second door (`extra`) when
+-- the house has an electric lock of its own, else the panel's only one.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -59,26 +63,54 @@ function Kind.create(service, id: string, puzzle)
 	local plan = service.plan
 	local rng = Rng.new(puzzle.seed)
 	local wiring = Circuits.plan(roomsOf(world), world.layout.start, world.layout.deliberation, rng:Fork("circuits"), B)
-	-- The door it powers: the gate whose token this panel makes.
+	-- The door it powers: the gate whose token this panel makes; and the safe
+	-- room's, if it's on this panel.
 	local seamId, inside, mark
+	local safeSeam, safeInside = nil, nil
 	for _, token in plan.tokens do
 		if token.producer.kind == "puzzle" and token.producer.id == id and token.opens then
-			seamId = token.opens
-			inside = plan.locks[seamId] and plan.locks[seamId].inside
-			mark = token.mark and Marks.ById[token.mark]
+			if token.optional then
+				safeSeam = token.opens
+				safeInside = plan.locks[safeSeam] and plan.locks[safeSeam].inside
+			else
+				seamId = token.opens
+				inside = plan.locks[seamId] and plan.locks[seamId].inside
+				mark = token.mark and Marks.ById[token.mark]
+			end
 		end
+	end
+	local safeName = "⌂ SAFE ROOM"
+	local onlySafe = seamId == nil and safeSeam ~= nil
+	if onlySafe then
+		-- The panel's only door is the safe room's: no riddle in its label.
+		seamId, inside = safeSeam, safeInside
+		safeSeam = nil
 	end
 	local gate = inside and wiring.roomCircuit[inside] or 2
 	-- Its breaker is labelled by the door's mark, as the door's plate is (the
 	-- room behind it is one nobody has seen: docs/plans/level-design.md 11).
-	local gateName = mark and (mark.glyph .. " " .. string.upper(mark.name) .. " DOOR")
+	local gateName = onlySafe and safeName
+		or mark and (mark.glyph .. " " .. string.upper(mark.name) .. " DOOR")
 		or string.upper(inside and service.World:Room(inside).name or "DOOR")
+	-- The safe room's breaker: its room's circuit, or another than the door's.
+	local extra = nil
+	if safeSeam then
+		local index = safeInside and wiring.roomCircuit[safeInside]
+		if not index or index == gate then
+			index = gate == #wiring.circuits and 2 or #wiring.circuits
+		end
+		if index ~= gate and index >= 2 then
+			extra = { index = index, name = safeName }
+		else
+			safeSeam = nil
+		end
+	end
 	-- Labels: each breaker's own, never another's by mistake (the planted
 	-- mistakes are Breaker.generate's).
 	local labels, used = {}, {}
 	for i, circuit in wiring.circuits do
 		local label = circuit.label
-		if i ~= gate and (label == gateName or used[label]) then
+		if i ~= gate and (label == gateName or label == safeName or used[label]) then
 			label = "LIGHTS " .. i
 		end
 		used[label] = true
@@ -89,8 +121,9 @@ function Kind.create(service, id: string, puzzle)
 		gate = gate,
 		gateName = gateName,
 		capacity = rng:NextInteger(B.Capacity[1], B.Capacity[2]),
-		smudge = B.SmudgeChance,
-		decoy = B.DecoyChance,
+		smudge = onlySafe and 0 or B.SmudgeChance,
+		decoy = onlySafe and 0 or B.DecoyChance,
+		extra = extra,
 	})
 	local session = {
 		id = id,
@@ -100,6 +133,9 @@ function Kind.create(service, id: string, puzzle)
 		room = puzzle.room,
 		circuits = wiring.circuits,
 		seam = seamId,
+		safeSeam = safeSeam,
+		-- (Only the safe room's: the line says so, so nobody thinks it's needed.)
+		optional = onlySafe or nil,
 		reach = 8,
 	}
 	Kind.build(service, session, puzzle.room, rng:Fork("place"))
@@ -107,7 +143,12 @@ function Kind.create(service, id: string, puzzle)
 	if seamId then
 		service.Locks:SetPowered(seamId, false)
 	end
-	Kind.hint(service, session, rng:Fork("hint"))
+	if safeSeam then
+		service.Locks:SetPowered(safeSeam, false)
+	end
+	if not onlySafe then
+		Kind.hint(service, session, rng:Fork("hint"))
+	end
 	return session
 end
 
@@ -187,6 +228,9 @@ function Kind.lights(service, session)
 	if session.seam and not session.state.solved then
 		service.Locks:SetPowered(session.seam, Breaker.powered(state, session.spec.gate))
 	end
+	if session.safeSeam and not state.extraOpen then
+		service.Locks:SetPowered(session.safeSeam, Breaker.powered(state, session.spec.extra))
+	end
 end
 
 -- The solo route: a note somewhere already open says which is the door's.
@@ -237,6 +281,10 @@ function Kind.event(service, session, event, player: Player, position: Vector3)
 		Net.get("Notify"):FireAllClients("A loud clunk somewhere. Every light goes out.", "danger")
 	elseif event.kind == "reset" then
 		Sfx.play("DoorLatch", position, 0.6, 0.7)
+	elseif event.kind == "extra" and session.safeSeam then
+		-- The safe room's steel door, open for good.
+		service.Locks:SetPowered(session.safeSeam, true)
+		service.Locks:Unlock(session.safeSeam, player, "Somewhere, a heavy steel lock clunks open.")
 	end
 	Kind.lights(service, session)
 end

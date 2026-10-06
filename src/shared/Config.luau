@@ -935,6 +935,24 @@ Config.Progression = {
 	-- shut instead (weights; not a hiding spot: nobody loses one).
 	StepPieces = { Chest = 3, Fridge = 2 },
 	PieceWall = Config.Level.WallThickness, -- the walls rooms are furnished inside (Logic/RoomFit)
+	-- The safe room (docs/plans/level-design.md section 11.12): an optional
+	-- objective, a side room behind a steel door the fuse box powers, holding
+	-- things that help (Data/SafeRoom, Logic/SafeRoom).
+	SafeRoom = {
+		-- Rooms that make a good one (weights; any other side room OtherWeight).
+		Templates = {
+			storeroom = 4,
+			pantry = 3,
+			box_room = 3,
+			cold_store = 2,
+			wine_cellar = 2,
+			sewing_room = 2,
+			bathroom = 1.5,
+		},
+		OtherWeight = 0.3,
+		EarlyBonus = 2, -- in the part of the house open from the start or the first wing
+		Count = { 2, 2, 3, 3 }, -- things inside, by squad
+	},
 	-- The gate kinds and producers switched on (R2c adds each as it's built).
 	Enabled = {
 		key = true,
@@ -1002,6 +1020,7 @@ Config.LevelDesign = {
 		toolLocks = { band = { 1, 3 }, bySquad = { { 1, 2 }, { 1, 2 }, { 1, 3 }, { 2, 4 } }, weight = 1 },
 		-- Steps inside a wing (section 11, L3.4): none for one or two players.
 		wingSteps = { band = { 0, 2 }, bySquad = { { 0, 0 }, { 0, 0 }, { 0, 1 }, { 1, 2 } }, weight = 1 },
+		safeRooms = { band = { 1, 1 }, weight = 1 }, -- the optional safe room (section 11.12)
 		gateRepeats = { band = { 0, 0 }, weight = 1 },
 		puzzles = { band = { 1, 9 }, weight = 2 },
 		purposeless = { band = { 0, 0 }, weight = 2 }, -- rooms with no reason to go in (Logic/RoomPurpose)

@@ -195,21 +195,25 @@ function ItemService:Begin(plan, rng, leads)
 	end
 	-- The house plans (Logic/HousePlans), on a top in their room.
 	if plan.housePlans then
-		self:_placePlans(plan.housePlans, place)
+		self:PlacePlans(plan.housePlans.room, plan.housePlans.storey, place)
 	end
 end
 
 local STOREY_WORDS = { [-1] = "the cellar", [0] = "the ground floor", [1] = "the upper floor", [2] = "the attic" }
 
--- The house plans (docs/plans/level-design.md section 11, L3.5): reading
--- them puts their floor's rooms on everyone's map (Services/MapService).
-function ItemService:_placePlans(plans, rng)
-	local at = self:_top(plans.room, rng)
+local PLAN_TITLES = { [-1] = "CELLAR", [0] = "GROUND FLOOR", [1] = "FIRST FLOOR", [2] = "ATTIC" }
+
+-- The house plans (docs/plans/level-design.md section 11, L3.5) for
+-- `storey`, in `room` (at `at`, else on a top there): reading them puts
+-- that floor's rooms on everyone's map (Services/MapService). The safe room
+-- may hold a second set (Services/SafeRoomService).
+function ItemService:PlacePlans(room: number, storey: number, rng, at: CFrame?)
+	at = at or self:_top(room, rng)
 	if not at then
-		local point = self.World:RandomPointIn(plans.room, rng)
+		local point = self.World:RandomPointIn(room, rng)
 		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	end
-	local _, sheet = LeadProps.plans(at, self.folder)
+	local _, sheet = LeadProps.plans(at, self.folder, "PLAN - " .. (PLAN_TITLES[storey] or "FLOOR") .. " - 1961")
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ReadPrompt"
 	prompt.ActionText = "Read"
@@ -220,20 +224,19 @@ function ItemService:_placePlans(plans, rng)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = sheet
 	prompt.Triggered:Connect(function(player)
-		self:ReadPlans(player, sheet)
+		self:ReadPlans(player, sheet, storey)
 	end)
-	self.plansSheet = sheet
+	self.plansSheet = self.plansSheet or sheet
 end
 
-function ItemService:ReadPlans(player: Player, sheet: BasePart)
-	local plans = self.plan and self.plan.housePlans
+function ItemService:ReadPlans(player: Player, sheet: BasePart, storey: number)
 	local position = self.PlayerState:Position(player)
-	if not plans or not position or not sheet.Parent or (position - sheet.Position).Magnitude > L.ReadRange + 3 then
+	if not position or not sheet.Parent or (position - sheet.Position).Magnitude > L.ReadRange + 3 then
 		return
 	end
-	local where = STOREY_WORDS[plans.storey] or "this floor"
+	local where = STOREY_WORDS[storey] or "this floor"
 	Sfx.play("Cloth", sheet.Position, 0.3, 1.3)
-	if self.services.MapService:RevealStorey(plans.storey) then
+	if self.services.MapService:RevealStorey(storey) then
 		notify(player, "The house plans: " .. where .. ", room by room. It's on everyone's map now.", "good")
 		for _, other in Players:GetPlayers() do
 			if other ~= player then

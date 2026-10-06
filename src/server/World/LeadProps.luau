@@ -444,7 +444,7 @@ end
 
 -- The house plans (docs/plans/level-design.md section 11, L3.5): a sheet of
 -- blueprints lying flat, white lines on blue, one corner curling up.
-function LeadProps.plans(cf: CFrame, parent: Instance)
+function LeadProps.plans(cf: CFrame, parent: Instance, title: string?)
 	local model = Instance.new("Model")
 	model.Name = "HousePlans"
 	local blue = Color3.fromRGB(38, 70, 128)
@@ -491,16 +491,16 @@ function LeadProps.plans(cf: CFrame, parent: Instance)
 	line(20, 88, 120, 3)
 	line(140, 60, 3, 80)
 	line(140, 60, 60, 3)
-	local title = Instance.new("TextLabel")
-	title.BackgroundTransparency = 1
-	title.Position = UDim2.fromOffset(24, 142)
-	title.Size = UDim2.fromOffset(172, 16)
-	title.Font = Enum.Font.Code
-	title.TextSize = 12
-	title.TextColor3 = white
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "PLAN - FIRST FLOOR - 1961"
-	title.Parent = gui
+	local caption = Instance.new("TextLabel")
+	caption.BackgroundTransparency = 1
+	caption.Position = UDim2.fromOffset(24, 142)
+	caption.Size = UDim2.fromOffset(172, 16)
+	caption.Font = Enum.Font.Code
+	caption.TextSize = 12
+	caption.TextColor3 = white
+	caption.TextXAlignment = Enum.TextXAlignment.Left
+	caption.Text = title and string.upper(title) or "PLAN - 1961"
+	caption.Parent = gui
 	gui.Parent = sheet
 	model.Parent = parent
 	return model, sheet

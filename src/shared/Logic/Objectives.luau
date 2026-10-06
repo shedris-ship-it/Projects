@@ -13,8 +13,9 @@
 --          thing? (a step's chest, not a door: "chest") } }
 --     (`kind` the lock it works, `place` its next door someone has seen)
 --   stations: the puzzles and locked cases someone has been near, in the
---     order they were first seen: { { kind, room, solved } }. The newest one
---     not yet dealt with is mentioned.
+--     order they were first seen: { { kind, room, solved, optional? } }. The
+--     newest one not yet dealt with is mentioned (an optional one, the safe
+--     room's fuse box, says so).
 --   tidied: he put an heirloom back where it was kept (until it's found again)
 -- }
 
@@ -61,6 +62,8 @@ local DOORS = {
 	pocket = "is locked.",
 	boards = "is boarded up.",
 	chain = "is chained shut.",
+	-- The safe room's (docs/plans/level-design.md section 11.12): optional.
+	vault = "is a steel safe-room door with no power. The fuse box, maybe.",
 }
 
 -- What a tool does to its door (Logic/ToolLocks).
@@ -137,7 +140,10 @@ function Objectives.line(facts): string
 		local station = stations[i]
 		local say = Objectives.Stations[station.kind]
 		if not station.solved and say then
-			table.insert(parts, say(station.room))
+			table.insert(
+				parts,
+				say(station.room) .. (station.optional and " One of its breakers is for a safe room." or "")
+			)
 			break
 		end
 	end

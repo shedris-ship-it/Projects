@@ -264,6 +264,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 			or Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
 		services.ItemService:Begin(plan, rng:Fork("items"), leads)
 		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
+		-- The optional safe room's contents (docs/plans/level-design.md 11.12).
+		services.SafeRoomService:Begin(plan, rng:Fork("safe room"), self.run.squad)
 		services.FinaleService:Begin(plan)
 		-- Last, so the wall and floor spots each Witness's own atmosphere uses
 		-- are the ones nothing else took.

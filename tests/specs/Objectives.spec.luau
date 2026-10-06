@@ -97,6 +97,13 @@ return function(test, check, Shared, require)
 			Objectives.lockLine({ tools = { { name = "crowbar", kind = "boards" } } }) == nil,
 			"a tool with nothing seen to use it on says nothing"
 		)
+		-- The safe room's own fuse box says it's for the safe room (L3, 11.12).
+		local line = Objectives.line({
+			places = 2,
+			placesLeft = 2,
+			stations = { { kind = "breaker", room = "Boiler Room", solved = false, optional = true } },
+		})
+		check.truthy(string.find(line, "One of its breakers is for a safe room.", 1, true) ~= nil, line)
 	end)
 
 	test("once the dinner is served, only the way out", function()

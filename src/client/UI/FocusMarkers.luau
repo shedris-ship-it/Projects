@@ -413,6 +413,8 @@ function FocusMarkers:Update(dt: number)
 		for _, prompt in entry.prompts do
 			signature ..= "|" .. prompt.ActionText
 		end
+		-- (Its name can change too: "Batteries (2)" to "(1)".)
+		signature ..= "|" .. (entry.name or "")
 		if not marker then
 			marker = { object = object, alpha = 0 }
 			self.markers[object] = marker

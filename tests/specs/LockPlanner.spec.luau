@@ -76,7 +76,8 @@ return function(test, check, Shared, require)
 				)
 				local gates = 0
 				for _, lock in plan.locks do
-					if lock.region == r then
+					-- (The safe room's door is optional, not a way in: SafeRoom.spec.)
+					if lock.region == r and not lock.optional then
 						if lock.kind == "bolt" then
 							local side = plan.roomRegion[lock.side]
 							check.equal(side, r, "a bolt opens from inside its region")
@@ -248,9 +249,10 @@ return function(test, check, Shared, require)
 			end
 			local used, marked = {}, 0
 			for seamId, lock in plan.locks do
-				-- (A tool lock shows its boards or chain instead: L3.3.)
+				-- (A tool lock shows its boards or chain instead: L3.3; the safe
+				-- room's steel door says what it is.)
 				local tool = lock.kind == "boards" or lock.kind == "chain"
-				if lock.needs and not tool then
+				if lock.needs and not tool and not lock.vault then
 					marked += 1
 					local mark = lock.mark and Marks.ById[lock.mark]
 					check.truthy(mark ~= nil, "house " .. i .. ": " .. seamId .. " has a mark")

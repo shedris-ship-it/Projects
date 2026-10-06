@@ -211,7 +211,8 @@ function Leads.plan(plan, rooms, rng, cfg)
 		local want = rng:NextInteger(entry.count[1], entry.count[2])
 		local free = {}
 		for _, id in ids do
-			local pocket = plan.pockets and plan.pockets[id]
+			-- (Not in a side room, nor the safe room: its things are its own.)
+			local pocket = (plan.pockets and plan.pockets[id]) or (plan.safeRoom and plan.safeRoom.room == id)
 			if id ~= dining and not pocket and (rooms[id].tops or 0) > 0 and not entry.taken[id] then
 				table.insert(free, id)
 			end

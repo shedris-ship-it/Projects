@@ -137,10 +137,14 @@ function RoomPurpose.of(layout, plan, templatesById, leads)
 			end
 		end
 	end
-	-- The house plans (Logic/HousePlans).
+	-- The house plans (Logic/HousePlans), and the safe room (section 11.12).
 	local plans = plan and plan.housePlans
 	if plans and out[plans.room] then
 		add(out[plans.room].strong, "house plans")
+	end
+	local safe = plan and plan.safeRoom
+	if safe and out[safe.room] then
+		add(out[safe.room].strong, "safe room")
 	end
 	for _, decoy in leads and leads.decoys or {} do
 		if out[decoy.room] then

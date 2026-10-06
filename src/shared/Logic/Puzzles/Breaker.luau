@@ -11,9 +11,15 @@
 -- than three to try (`candidates`, tests/specs/Breaker.spec). A friend
 -- watching the door's lamp, or the rooms going dark, tells you which.
 --
+-- A second door may hang off the panel (the safe room, docs/plans/level-
+-- design.md section 11.12): `extra` { index, name }, truly labelled (it's
+-- optional, not a riddle), off at the start, and open for good the first
+-- time it has power, like the door's.
+--
 -- Pure; the answer (`gate`) stays on the server.
 --   generate(rng, ctx): ctx { labels = { names }, gate = index, gateName,
---     capacity?, smudge?, decoy? } (all optional: a plain six-breaker panel)
+--     capacity?, smudge?, decoy?, extra? } (all optional: a plain
+--     six-breaker panel)
 
 local Breaker = {}
 
@@ -38,6 +44,7 @@ function Breaker.generate(rng, ctx)
 	end
 	local count = #labels
 	local gate = ctx.gate or rng:NextInteger(2, count)
+	local extra = ctx.extra and ctx.extra.index ~= gate and ctx.extra.index <= count and ctx.extra or nil
 	local capacity = math.clamp(ctx.capacity or rng:NextInteger(3, 4), 2, count - 1)
 	-- On at the start: the hall, then others (never the door's) until full.
 	local start = {}
@@ -47,7 +54,7 @@ function Breaker.generate(rng, ctx)
 	start[1] = true
 	local others = {}
 	for i = 2, count do
-		if i ~= gate then
+		if i ~= gate and not (extra and i == extra.index) then
 			table.insert(others, i)
 		end
 	end
@@ -65,6 +72,9 @@ function Breaker.generate(rng, ctx)
 	if rng:Chance(ctx.decoy or 0.5) and #others > 0 then
 		shown[rng:Pick(others)] = gateName
 	end
+	if extra then
+		shown[extra.index] = extra.name
+	end
 	return {
 		count = count,
 		capacity = math.min(capacity, count),
@@ -72,6 +82,7 @@ function Breaker.generate(rng, ctx)
 		gateName = gateName,
 		labels = shown,
 		start = start,
+		extra = extra and extra.index or nil,
 	}
 end
 
@@ -92,7 +103,7 @@ function Breaker.view(spec)
 end
 
 function Breaker.start(spec)
-	return { on = table.clone(spec.start), tripped = false, solved = false }
+	return { on = table.clone(spec.start), tripped = false, solved = false, extraOpen = false }
 end
 
 -- Is breaker `i` giving power (on, and the main not tripped)?
@@ -104,6 +115,11 @@ local function check(spec, state, events)
 	if not state.tripped and state.on[spec.gate] and not state.solved then
 		state.solved = true
 		table.insert(events, { kind = "solved" })
+	end
+	-- The second door (the safe room's), on its own.
+	if spec.extra and not state.tripped and state.on[spec.extra] and not state.extraOpen then
+		state.extraOpen = true
+		table.insert(events, { kind = "extra" })
 	end
 end
 
@@ -146,7 +162,7 @@ function Breaker.solved(state): boolean
 end
 
 function Breaker.public(state, _now: number)
-	return { on = state.on, tripped = state.tripped, solved = state.solved }
+	return { on = state.on, tripped = state.tripped, solved = state.solved, extraOpen = state.extraOpen }
 end
 
 function Breaker.parse(action: string, _word: string?, a: number?, _b: number?, _now: number)
@@ -158,15 +174,20 @@ function Breaker.parse(action: string, _word: string?, a: number?, _b: number?, 
 	return nil
 end
 
--- F2 `solve`: one breaker off to make room, the door's on.
+-- F2 `solve`: breakers off to make room, the door's on (and the safe room's).
 function Breaker.solve(spec, state, _now: number)
 	state.tripped = false
+	local want = spec.extra and 2 or 1
 	for i = spec.count, 2, -1 do
-		if state.on[i] and i ~= spec.gate and countOn(state.on) >= spec.capacity then
+		local door = i == spec.gate or i == spec.extra
+		if state.on[i] and not door and countOn(state.on) > spec.capacity - want then
 			state.on[i] = false
 		end
 	end
 	state.on[spec.gate] = true
+	if spec.extra then
+		state.on[spec.extra] = true
+	end
 	local events = {}
 	check(spec, state, events)
 	return state, events

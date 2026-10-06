@@ -356,10 +356,18 @@ function PuzzleService:DebugSolve(player: Player, id: string?): string
 	if session.state.solved then
 		return session.id .. " is already solved"
 	end
-	PuzzleKinds[session.kind].solve(session.spec, session.state, os.clock())
+	local _, events = PuzzleKinds[session.kind].solve(session.spec, session.state, os.clock())
 	local kind = KINDS[session.kind]
 	if kind.event then
-		kind.event(self, session, { kind = "solved" }, player, session.station.Position)
+		-- What solving it set off (the fuse box's safe room too), and solved.
+		local said = false
+		for _, event in events or {} do
+			said = said or event.kind == "solved"
+			kind.event(self, session, event, player, session.station.Position)
+		end
+		if not said then
+			kind.event(self, session, { kind = "solved" }, player, session.station.Position)
+		end
 	end
 	self:_solved(session, player)
 	return "solved " .. session.id

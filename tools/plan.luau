@@ -235,6 +235,20 @@ if process.args[3] == "locks" then
 	for _, line in steps do
 		print("  step inside a wing: " .. line)
 	end
+	-- The safe room (section 11.12): optional, behind a steel door the fuse box powers.
+	local safe = plan.safeRoom
+	if safe then
+		local puzzle = plan.puzzles[safe.puzzle]
+		print(
+			string.format(
+				"  the safe room: %s behind %s%s, powered from the fuse box in %s (optional)",
+				named(safe.room),
+				safe.seam,
+				safe.addDoor and " (a door put in)" or "",
+				named(puzzle.room)
+			)
+		)
+	end
 	-- The adventure the doors were laid for (Logic/Wings, docs/plans/level-design.md 5.3).
 	local wings = layout.wings
 	if wings and plan.stats.wings then

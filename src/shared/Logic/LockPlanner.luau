@@ -1252,6 +1252,148 @@ local function addWingSteps(ctx, rng, plan, cfg, position)
 	plan.stats.wingSteps = steps
 end
 
+-- The safe room (docs/plans/level-design.md section 11.12; the owner's idea,
+-- 2026-10-05): an optional objective. A small side room (a storeroom, a
+-- pantry, a box room, by preference) behind a steel door on an electric
+-- lock, powered from the fuse box: the house's own (a second door on its
+-- panel), or one put in for it. Inside, things that help (Logic/SafeRoom),
+-- never anything the run needs, so going for it is the squad's gamble: time
+-- and noise at the panel for batteries, a lantern, the plans of a floor.
+--
+--   plan.safeRoom = { room, seam, puzzle = the fuse box's id, addDoor? }
+--   its lock: kind "power", needs { "power:safe" }, optional, vault
+local function addSafeRoom(ctx, rng, plan, cfg, position)
+	local opts = cfg.SafeRoom
+	-- (A house too small for wings stays simply open.)
+	if not opts or not ctx.mansion or not (cfg.Enabled or {}).power or #plan.order == 0 then
+		return
+	end
+	local busy = { [ctx.dining] = true, [ctx.start] = true }
+	if ctx.goal then
+		busy[ctx.goal] = true
+	end
+	for _, token in plan.tokens do
+		for _, room in LockPlanner.producerRooms(plan, token) do
+			busy[room] = true
+		end
+	end
+	for _, puzzle in plan.puzzles do
+		busy[puzzle.room] = true
+		for _, room in puzzle.rooms or {} do
+			busy[room] = true
+		end
+	end
+	local layout = ctx.layout
+	if layout.chute then
+		busy[layout.chute.ground] = true
+		busy[layout.chute.upper] = true
+	end
+	for _, way in layout.passages or {} do
+		for _, seam in way.seams or {} do
+			busy[seam.a] = true
+			busy[seam.b] = true
+		end
+	end
+	for room in plan.pockets or {} do
+		busy[room] = true
+	end
+	for _, piece in plan.pieces or {} do
+		busy[piece.room] = true
+	end
+	local doorways = {}
+	for _, seam in ctx.seams do
+		doorways[seam.a] = doorways[seam.a] or {}
+		doorways[seam.b] = doorways[seam.b] or {}
+		table.insert(doorways[seam.a], seam)
+		table.insert(doorways[seam.b], seam)
+	end
+	-- A side room with a door to lock, in a wing (never the part open from
+	-- the start), the first wing by preference, not one of its hiding spots
+	-- by preference.
+	local candidates = {}
+	for _, id in ctx.ids do
+		local seams = doorways[id] or {}
+		local seam = seams[1]
+		local room = ctx.byId[id]
+		local template = ctx.templatesById[room.template]
+		if
+			#seams == 1
+			and not seam.arch
+			and not busy[id]
+			and not ctx.corridor[id]
+			and room.kind ~= "stair"
+			and not room.tall
+			and not room.lantern
+			and plan.locks[seam.id] == nil
+			and plan.roomRegion[seam.a] == plan.roomRegion[seam.b]
+			and plan.roomRegion[id] ~= 0
+			and template ~= nil
+		then
+			local weight = (opts.Templates or {})[template.id] or opts.OtherWeight or 0.3
+			if position[plan.roomRegion[id]] <= 1 then
+				weight *= opts.EarlyBonus or 1
+			end
+			if ctx.offers[id].hides > 0 then
+				weight *= 0.3
+			end
+			table.insert(candidates, { id = id, seam = seam, weight = weight })
+		end
+	end
+	if #candidates == 0 then
+		return
+	end
+	local pick = rng:WeightedPick(candidates, function(c)
+		return c.weight
+	end)
+	-- Its fuse box: the house's, else one in a service room of its own.
+	local puzzleId = nil
+	for id, puzzle in plan.puzzles do
+		if puzzle.kind == "breaker" then
+			puzzleId = id
+		end
+	end
+	if not puzzleId then
+		if plan.stats.puzzles >= cfg.MaxPuzzles then
+			return
+		end
+		local rooms = {}
+		for _, id in ctx.ids do
+			local shut = plan.pockets and plan.pockets[id]
+			if id ~= pick.id and id ~= ctx.dining and not shut and LockPlanner.Where.service(ctx, id) then
+				table.insert(rooms, id)
+			end
+		end
+		if #rooms == 0 then
+			return
+		end
+		puzzleId = "breaker:1"
+		plan.puzzles[puzzleId] =
+			{ kind = "breaker", room = stationRoom(ctx, rng, rooms), seed = rng:NextInteger(1, 2 ^ 30) }
+		plan.stats.puzzles += 1
+	end
+	local region = plan.roomRegion[pick.id]
+	plan.tokens["power:safe"] = {
+		kind = "power",
+		opens = pick.seam.id,
+		label = "the safe room's power",
+		producer = { kind = "puzzle", id = puzzleId },
+		optional = true,
+	}
+	plan.locks[pick.seam.id] = {
+		kind = "power",
+		needs = { "power:safe" },
+		region = region,
+		inside = pick.id,
+		optional = true,
+		vault = true,
+	}
+	-- (Which floor's plans it may hold is the run's to say: the one the
+	-- house's own plans don't show, Services/SafeRoomService.)
+	-- (A doorway with no door gets one, once this plan is the one kept.)
+	plan.safeRoom = { room = pick.id, seam = pick.seam.id, puzzle = puzzleId, addDoor = not pick.seam.door or nil }
+	plan.stats.safeRooms = 1
+end
+
 -- When a room can first be reached: its region's place in the order, or, for
 -- a pocket, when the house key that opens it is found. Leads and notes go
 -- only where the squad can already get.
@@ -1261,6 +1403,10 @@ function LockPlanner.stageOf(plan, room: number): number
 		position[r] = i
 	end
 	local stage = position[plan.roomRegion[room]] or math.huge
+	-- (The safe room is optional: nothing points into it.)
+	if plan.safeRoom and plan.safeRoom.room == room then
+		return math.huge
+	end
 	local pocket = plan.pockets and plan.pockets[room]
 	if pocket then
 		local key = plan.tokens[pocket.opener]
@@ -1773,6 +1919,8 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 	-- the house key in what's left (each its own fork: nothing else changes).
 	addWingSteps(ctx, rng:Fork("steps"), plan, cfg, position)
 	addPockets(ctx, rng:Fork("pockets"), plan, cfg, position)
+	-- The safe room, an optional objective, in what's left (its own fork).
+	addSafeRoom(ctx, rng:Fork("safe"), plan, cfg, position)
 	return plan
 end
 
@@ -1998,7 +2146,7 @@ function LockPlanner.check(layout, plan, templatesById, cfg, config): { string }
 		local lock = plan.locks[seamId]
 		-- (A side room in an older region opens with a key found later: that's
 		-- what it's for. The solver above proves it can be.)
-		for _, need in not lock.pocket and lock.needs or {} do
+		for _, need in not (lock.pocket or lock.optional) and lock.needs or {} do
 			local token = plan.tokens[need]
 			local rooms = token and LockPlanner.producerRooms(plan, token) or {}
 			local behind = #rooms == 0
@@ -2043,6 +2191,15 @@ function LockPlanner.plan(layout, templatesById, rng, cfg, config, extra: number
 	local tries = 0
 	local lastProblems = {}
 	local rejected = {} -- why attempts failed, for tools/lockstats
+	-- The plan kept: the safe room's doorway gets a door to lock, if it had
+	-- none (so the builder and the walkers' graph both know of it).
+	local function kept(plan)
+		local safe = plan.safeRoom
+		if safe and safe.addDoor and ctx.seamById[safe.seam] then
+			ctx.seamById[safe.seam].door = true
+		end
+		return plan
+	end
 	-- A mansion planned as wings (Logic/Wings) keeps its regions, order and
 	-- gates; only the locks' kinds and the keepers are drawn. Should none of
 	-- those draws pass (or the wings be more than this plan wants), the
@@ -2063,7 +2220,7 @@ function LockPlanner.plan(layout, templatesById, rng, cfg, config, extra: number
 					plan.stats.attempts = tries
 					plan.stats.rejected = rejected
 					plan.stats.wings = true
-					return plan
+					return kept(plan)
 				end
 				for _, problem in problems do
 					local key = "wings: " .. string.gsub(problem, "%d+", "#")
@@ -2085,7 +2242,7 @@ function LockPlanner.plan(layout, templatesById, rng, cfg, config, extra: number
 					plan.stats.attempts = tries
 					plan.stats.problems = #problems > 0 and problems or nil
 					plan.stats.rejected = rejected
-					return plan
+					return kept(plan)
 				end
 				for _, problem in problems do
 					local key = string.gsub(problem, "%d+", "#")

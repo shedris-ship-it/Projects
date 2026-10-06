@@ -168,6 +168,7 @@ function FinaleService:_stations()
 				position = session.station.Position,
 				room = session.room,
 				solved = session.state.solved == true,
+				optional = session.optional,
 			})
 		end
 	end
@@ -217,7 +218,12 @@ function FinaleService:_lookForStations()
 				-- a wing nobody can get to (a playtest's line named a safe in
 				-- the locked attic above).
 				if seen.room == station.room and (seen.at - station.position).Magnitude < 14 then
-					local entry = { kind = station.kind, room = self.World:Room(station.room).name, solved = false }
+					local entry = {
+						kind = station.kind,
+						room = self.World:Room(station.room).name,
+						solved = false,
+						optional = station.optional,
+					}
 					self.seenStations[station.id] = entry
 					table.insert(self.facts.stations, entry)
 					self:_publish()
@@ -328,7 +334,8 @@ function FinaleService:_lockFacts()
 		local entry = self.Locks.locks[seamId]
 		if entry and not entry.open then
 			local mark = entry.lock.mark and Marks.ById[entry.lock.mark]
-			table.insert(doors, { mark = mark and mark.name, kind = entry.lock.kind, place = self:_placeOf(seamId) })
+			local kind = entry.lock.vault and "vault" or entry.lock.kind
+			table.insert(doors, { mark = mark and mark.name, kind = kind, place = self:_placeOf(seamId) })
 		end
 	end
 	local keys = {}

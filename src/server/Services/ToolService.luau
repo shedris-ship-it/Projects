@@ -458,6 +458,11 @@ function ToolService:DebugGive(player: Player, toolId: string): string
 	return "no " .. toolId .. " lying in the house"
 end
 
+-- A tool lying at `cframe` for anyone to take (the safe room's).
+function ToolService:PlaceTool(toolId: string, cframe: CFrame)
+	self:_makePickup({ id = toolId, uid = newUid() }, cframe, 0)
+end
+
 -- Does this player carry this tool, in any slot?
 function ToolService:Carries(player: Player, toolId: string): boolean
 	local inv = inventories[player]
