@@ -55,6 +55,8 @@ Constants.RunState = {
 	Difficulty = "Difficulty",
 	SquadSize = "SquadSize",
 	LobbyCountdown = "LobbyCountdown",
+	LobbyWaiting = "LobbyWaiting", -- the names not ready, while a majority waits on them
+	LobbyStartsAt = "LobbyStartsAt", -- server time when the majority may go in without them
 	Objective = "Objective", -- the HUD's one-line objective (Logic/Objectives)
 }
 

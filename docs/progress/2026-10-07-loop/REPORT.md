@@ -74,6 +74,11 @@ Branch `claude/overnight-foundation` (continued), from `5db62d3` (build `2026-10
 - Studio, seed 165547210 solo, build `.117`: the panel's labels read 1, ⌂ SAFE ROOM, 3 … 8; the plate on the back-stairs power door reads "1 HALL / 2 ⌂ SAFE ROOM / 3 KITCHEN / 4 STUDY / 5 MUSIC ROOM / 6 GUEST ROOM / 7 BATHROOM / 8 ?" on both faces; the fuse box carries "Trace the wiring (hold 6 s, T)". `botrun` on that seed: extracted at 7:22 (13 steps, 0 failed, 0 stuck, the breaker solved as if played, 2 downs crawled out of, **39 waits for him**: between hunts he stands beside a player for long stretches, which a player standing still survives but cannot move through; a note for the Guest-AI rework). Not checked by hand: the reveal's redraw on the open panel (the spec covers the rule) and reading the plate from 8 studs.
 - Specs: Breaker.spec ("the labels at the door").
 
+### WP7. The lobby starts on a majority or a timer (build `2026-10-06.118`)
+- The owner's rule (2026-10-06). `Logic/LobbyRules.start(total, ready, sinceFirstReady, cfg)`: everyone ready starts at once (as before); at least half the hub ready for `Config.Run.LobbyMajoritySeconds` (30) since the first Ready starts the ready ones and leaves the rest in the hub (`LobbyRules.needed`, ⌈n/2⌉). `LobbyService` runs the clock from the first Ready (and looks again when it runs out, with nobody pressing anything), publishes `RunState.LobbyWaiting` (the names not ready) and `LobbyStartsAt` while a majority waits, and the countdown's squad is whoever was ready, so a friend who un-readies during it stops it without stopping the others. The hub panel reads "Waiting for X, Y · going in without them in 12 s", and otherwise "Everyone in the hub must be ready (or half of you, for thirty seconds)."
+- Studio, one client, build `.118`: Ready → the 4, 3, 2, 1 countdown as before, the run began at 6.5 s, no waiting line (alone there is nobody to wait for). The majority itself needs two clients (TC in WP10); the rule is the spec's.
+- Specs: LobbyRules.spec (everyone at once; half for thirty seconds; MinPlayers holds).
+
 ## Evidence
 
 ## UNREQUESTED changes

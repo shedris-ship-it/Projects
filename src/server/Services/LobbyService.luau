@@ -12,6 +12,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Locations = require(Shared.Data.Locations)
+local LobbyRules = require(Shared.Logic.LobbyRules)
 local PropFactory = require(Shared.World.PropFactory)
 
 local PA = Constants.PlayerAttributes
@@ -203,48 +204,97 @@ function LobbyService:SetReady(player: Player, ready: boolean)
 		return
 	end
 	player:SetAttribute(PA.Ready, ready)
+	-- The majority's clock runs from the first Ready (Logic/LobbyRules) and
+	-- stops when nobody is ready any more.
+	local anyReady = false
+	for _, other in self:LobbyPlayers() do
+		if other:GetAttribute(PA.Ready) then
+			anyReady = true
+		end
+	end
+	if anyReady and not self.firstReadyAt then
+		self.firstReadyAt = os.clock()
+		-- Look again when the timer runs out, with nobody pressing anything.
+		task.delay((Config.Run.LobbyMajoritySeconds or 30) + 0.1, function()
+			self:_checkStart()
+		end)
+	elseif not anyReady then
+		self.firstReadyAt = nil
+	end
 	self:Broadcast()
 	self:_checkStart()
+end
+
+-- Who is ready, and who isn't, among the hub's players.
+function LobbyService:_readiness(): ({ Player }, { Player })
+	local ready, waiting = {}, {}
+	for _, player in self:LobbyPlayers() do
+		if player:GetAttribute(PA.Ready) then
+			table.insert(ready, player)
+		else
+			table.insert(waiting, player)
+		end
+	end
+	return ready, waiting
 end
 
 function LobbyService:_checkStart()
 	if not self:InLobby() then
 		return
 	end
+	local runState = ReplicatedStorage.RunState
 	local players = self:LobbyPlayers()
-	local allReady = #players >= Config.Run.MinPlayers
-	for _, player in players do
-		if not player:GetAttribute(PA.Ready) then
-			allReady = false
+	local ready, waiting = self:_readiness()
+	local since = self.firstReadyAt and (os.clock() - self.firstReadyAt) or nil
+	local how = LobbyRules.start(#players, #ready, since, Config.Run)
+	-- The hub's word on it: who it waits for, and when it stops waiting.
+	if how == nil and #ready >= LobbyRules.needed(#players) and #waiting > 0 and self.firstReadyAt then
+		local names = {}
+		for _, player in waiting do
+			table.insert(names, player.DisplayName)
 		end
+		runState:SetAttribute(Constants.RunState.LobbyWaiting, table.concat(names, ", "))
+		runState:SetAttribute(
+			Constants.RunState.LobbyStartsAt,
+			workspace:GetServerTimeNow() + math.max(0, (Config.Run.LobbyMajoritySeconds or 30) - (since or 0))
+		)
+	else
+		runState:SetAttribute(Constants.RunState.LobbyWaiting, nil)
+		runState:SetAttribute(Constants.RunState.LobbyStartsAt, nil)
 	end
-	if allReady and not self.countdownThread then
+	if how and not self.countdownThread then
+		-- The squad is whoever is ready now (everyone, when everyone is);
+		-- the rest stay in the hub (Logic/LobbyRules "majority").
+		local squad = table.clone(ready)
 		self.countdownThread = task.spawn(function()
 			for t = Config.Run.LobbyCountdown, 1, -1 do
-				ReplicatedStorage.RunState:SetAttribute(Constants.RunState.LobbyCountdown, t)
+				runState:SetAttribute(Constants.RunState.LobbyCountdown, t)
 				task.wait(1)
-				local stillReady = #self:LobbyPlayers() >= 1
-				for _, player in self:LobbyPlayers() do
-					if not player:GetAttribute(PA.Ready) then
+				local stillReady = #squad >= 1
+				for _, player in squad do
+					if not player.Parent or not player:GetAttribute(PA.Ready) then
 						stillReady = false
 					end
 				end
 				if not stillReady then
-					ReplicatedStorage.RunState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
+					runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
 					self.countdownThread = nil
+					self:_checkStart()
 					return
 				end
 			end
-			ReplicatedStorage.RunState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
+			runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
+			runState:SetAttribute(Constants.RunState.LobbyWaiting, nil)
+			runState:SetAttribute(Constants.RunState.LobbyStartsAt, nil)
 			self.countdownThread = nil
-			local squad = self:LobbyPlayers()
+			self.firstReadyAt = nil
 			while #squad > Config.Run.MaxPlayers do
 				table.remove(squad)
 			end
 			self.services.RunOrchestrator:StartRun(squad, self.difficulty, self.location)
 		end)
-	elseif not allReady and self.countdownThread then
-		ReplicatedStorage.RunState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
+	elseif not how and self.countdownThread then
+		runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
 	end
 end
 

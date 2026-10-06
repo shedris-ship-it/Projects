@@ -174,8 +174,18 @@ function Lobby:Update()
 	self.gui.Enabled = inLobby
 	if inLobby then
 		local countdown = state:Run(Constants.RunState.LobbyCountdown)
-		self.countdown.Text = countdown and string.format("Entering the house in %d…", countdown)
-			or "Everyone in the hub must be ready."
+		local waiting = state:Run(Constants.RunState.LobbyWaiting)
+		local startsAt = state:Run(Constants.RunState.LobbyStartsAt)
+		if countdown then
+			self.countdown.Text = string.format("Entering the house in %d…", countdown)
+		elseif waiting and startsAt then
+			-- A majority is ready: the rest have this long, then stay behind.
+			local left = math.max(0, startsAt - workspace:GetServerTimeNow())
+			self.countdown.Text =
+				string.format("Waiting for %s · going in without them in %d s", waiting, math.ceil(left))
+		else
+			self.countdown.Text = "Everyone in the hub must be ready (or half of you, for thirty seconds)."
+		end
 	end
 end
 

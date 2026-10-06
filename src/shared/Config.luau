@@ -5,6 +5,11 @@ local Config = {}
 
 Config.Run = {
 	MinPlayers = 1,
+	-- The lobby starts on a majority or a timer (the owner, 2026-10-06): once
+	-- at least half the hub is ready and this long has passed since the
+	-- first Ready, the ready ones go in and the rest stay in the hub (Logic/
+	-- LobbyRules). Everyone ready still starts at once.
+	LobbyMajoritySeconds = 30,
 	MaxPlayers = 4,
 	LobbyCountdown = 5,
 	ArrivalSeconds = 180, -- (doc) 3-4 min
