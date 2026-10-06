@@ -44,6 +44,14 @@ Branch `claude/overnight-foundation` (continued), from `5db62d3` (build `2026-10
 - Studio, seed 165547210 solo, build `.113` (the seed that was lost on `.111`): **extracted at 4:05 with 0 downs** (10 steps, 0 failed, 0 stuck points, 1 nudge, 12 waits for him, 0 crawls). First door 0:31 · dinner 4:05 · out 4:14. On the first try of this build the bot was caught once after waiting ten times for him to move off a corridor and, alone with no light near, bled out in 20 s (lost at 2:22): so the bot now crawls to the nearest hiding place's mouth or lit Lantern room while down (`BotService._crawl`, counted as crawls), and after giving way it backs off eight studs if he still stands there.
 - Not checked in Studio (needs a hand on the keys): the bolt prompt showing V, the phone's caption and his memory of it, the Echo's knock. TCs in WP10.
 
+### WP3. Light is the stare's cost, not a walking cost (build `2026-10-06.114`)
+- **Battery** (`Config.Player.FlashlightBatterySeconds` 300 → 720, `ClipDrainScale` 0.1): twelve minutes of walking light; clipped to your shirt (any slot but 1) it costs a tenth; your beam alone holding him still costs three times (`Config.Stare.BeamDrainScale`); a lit Lantern room charges it whether it's on or off. The outside playtest's torch died at 6 and 13 minutes; the owner's rule is that light pays for the stare, not for walking.
+- **Lanterns taught early and said plainly**: the shrine's bare-handed hold is 5 s (was a silent 8); with the Lantern tool in hand it lights in 2 (`LanternLightSeconds`, finally used: `PromptButtonHoldBegan` on the shrine); every long prompt says "Hold E" (`UI/FocusMarkers`); a `lantern` tip when a shrine is within 14 studs or the Lantern tool is in a slot, and the battery tip at 60% now says to clip it; the Lantern lies within 2 rooms of the start (`NearStartMaxSteps` 3 → 2).
+- **Shrines on the map**: `MapService.State` sends each entered room's shrine as lit or not; the map tags "(Lantern, lit)", "(unlit lantern)" or "(Lantern)" for one not seen yet, and redraws when a lantern is lit (`ToolService.ShrineLit`).
+- **Your torch comes back after a key** (`Inventory.restore`, `ToolService:RestoreSlot`, called from `ItemService._grabbed`'s key branch): taking a key by hand no longer leaves you holding nothing.
+- Studio, seed 61 solo, build `.114`: torch on and clipped (slot 4): battery 0.99745 → 0.99605 over 10 s, 0.00140 lost (a tenth of 10/720 is 0.00139). Torch in hand: battery 0.95695 → 0.94325 over 10 s, 0.01370 lost (10/720 is 0.01389). After `goto 18` (the Guest Room, a lantern room) and `ui map`: the map reads "Guest Room (unlit lantern)". Not checked by eye: "Hold E" on the shrine, the lantern tip, the 2 s light with the tool, the torch returning after a grabbed key (the Inventory spec covers the rule). Client log clean.
+- Specs: Inventory.spec ("restore: a key taken by hand gives your torch back").
+
 ## Evidence
 
 ## UNREQUESTED changes

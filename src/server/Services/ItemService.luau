@@ -934,6 +934,8 @@ function ItemService:_grabbed(player: Player, thing)
 		local position = thing.model:GetPivot().Position
 		self.Hands:Forget(thing, true)
 		self.Locks:GiveKey(player, token, info.label)
+		-- Your hands are empty again: back to what you held (the torch).
+		self.services.ToolService:RestoreSlot(player)
 		Sfx.play("Knock", position, 0.15, 2.2)
 		notify(player, "You take the " .. info.label .. ".", "good")
 	elseif info.kind == "heirloom" then

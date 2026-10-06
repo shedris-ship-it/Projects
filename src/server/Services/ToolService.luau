@@ -22,6 +22,7 @@ local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Tools = require(Shared.Data.Tools)
 local Inventory = require(Shared.Logic.Inventory)
+local Signal = require(Shared.Lib.Signal)
 local ToolPlacement = require(Shared.Logic.ToolPlacement)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
@@ -31,9 +32,12 @@ local ToolPickups = require(script.Parent.Parent.World.ToolPickups)
 
 local PA = Constants.PlayerAttributes
 
-local ToolService = {}
+local ToolService = {
+	ShrineLit = Signal.new(), -- (shrine): the map redraws the room as lit
+}
 
 local lastUse: { [Player]: number } = {}
+local shrineHolds: { [Player]: number } = {} -- a hold on a shrine with the Lantern in hand: when it began
 local lanterns: { [Player]: PointLight } = {}
 local inventories: { [Player]: any } = {}
 local pickups: { [string]: { item: any, model: Model } } = {} -- uid -> the tool lying in the house
@@ -66,6 +70,25 @@ function ToolService:Start()
 				if self.PlayerState:CanAct(player) then
 					self:LightShrine(shrine, player)
 				end
+			end)
+			-- With the Lantern in hand it lights in LanternLightSeconds, not the
+			-- bare-handed hold (the Lightkeeper's one real power).
+			prompt.PromptButtonHoldBegan:Connect(function(player)
+				local inv = inventories[player]
+				if not inv or Inventory.toolId(inv) ~= "Lantern" then
+					return
+				end
+				local began = os.clock()
+				shrineHolds[player] = began
+				task.delay(Config.Tools.LanternLightSeconds, function()
+					if shrineHolds[player] == began and not shrine.lit and self.PlayerState:CanAct(player) then
+						shrineHolds[player] = nil
+						self:LightShrine(shrine, player)
+					end
+				end)
+			end)
+			prompt.PromptButtonHoldEnded:Connect(function(player)
+				shrineHolds[player] = nil
 			end)
 			shrine.prompt = prompt
 		end
@@ -476,6 +499,15 @@ function ToolService:PlaceTool(toolId: string, cframe: CFrame)
 	self:_makePickup({ id = toolId, uid = newUid() }, cframe, 0)
 end
 
+-- Back to the slot you had before your hands took something (a key rings
+-- itself: your torch comes back to your hand).
+function ToolService:RestoreSlot(player: Player)
+	local inv = inventories[player]
+	if inv and Inventory.restore(inv) then
+		self:_publish(player)
+	end
+end
+
 -- Spend a tool from any slot (the salts): gone, not dropped. Whether one was carried.
 function ToolService:Consume(player: Player, toolId: string): boolean
 	local inv = inventories[player]
@@ -528,6 +560,7 @@ function ToolService:LightShrine(shrine, player: Player?)
 	if shrine.prompt then
 		shrine.prompt.Enabled = false
 	end
+	self.ShrineLit:Fire(shrine)
 	local room = self.World:Room(shrine.roomId)
 	Net.get("Notify"):FireAllClients(
 		string.format(

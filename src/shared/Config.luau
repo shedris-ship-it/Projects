@@ -129,7 +129,13 @@ Config.Player = {
 	BreathMax = 100,
 	BreathDrainPerSecond = 12,
 	BreathRegenPerSecond = 25,
-	FlashlightBatterySeconds = 300,
+	-- Light is the stare's cost, not a walking cost (docs/progress/2026-10-07-loop/
+	-- REPORT.md, WP3; the outside playtest's torch died at 6 and 13 minutes):
+	-- twelve minutes of walking light, a tenth of that drain while it's
+	-- clipped to your shirt, three times while your beam alone holds him
+	-- (Config.Stare.BeamDrainScale), and a lit Lantern room recharges it on or off.
+	FlashlightBatterySeconds = 720,
+	ClipDrainScale = 0.1,
 	FlashlightRechargePerSecond = 4, -- inside a lit Lantern room
 	SprintNoiseRadius = 28,
 	WalkNoiseRadius = 6,
@@ -990,15 +996,15 @@ Config.ToolLocks = {
 }
 
 Config.Tools = {
-	LanternLightSeconds = 2,
-	LanternLightSecondsNoTool = 8,
+	LanternLightSeconds = 2, -- with the Lantern tool in hand
+	LanternLightSecondsNoTool = 5, -- bare-handed (was 8: a hidden wait nobody was told about)
 	RadioRange = 80,
 	-- Tools are found around the house (owner, 2026-10-04): one of each, and
 	-- squads of ExtraCopiesFromSquad or more get these extra copies as well.
 	ExtraCopiesFromSquad = 3,
 	ExtraCopies = { Lantern = 1 },
 	NearStart = "Lantern", -- this tool lies within NearStartMaxSteps rooms of where you start, so a solo player finds it
-	NearStartMaxSteps = 3,
+	NearStartMaxSteps = 2,
 	PickupRange = 9, -- studs; the server re-checks it on every pickup
 	PickupScale = 0.8, -- a tool lying on a table is this size next to the one in your hand
 }

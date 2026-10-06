@@ -280,7 +280,12 @@ function FocusMarkers:_build(marker)
 	end
 	for _, prompt in marker.prompts do
 		order += 1
-		self:_row(actions, order, keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode), prompt.ActionText, function()
+		-- A long hold says so ("Hold E"): the shrine's wait was a secret before.
+		local key = keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
+		if key and prompt.HoldDuration >= 0.5 then
+			key = "Hold " .. key
+		end
+		self:_row(actions, order, key, prompt.ActionText, function()
 			prompt:InputHoldBegin()
 		end, function()
 			prompt:InputHoldEnd()

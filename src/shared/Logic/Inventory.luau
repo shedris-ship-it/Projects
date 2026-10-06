@@ -65,7 +65,20 @@ function Inventory.select(inv, slot: number): boolean
 	if slot ~= math.floor(slot) or slot < 1 or slot > Inventory.SLOTS or slot == inv.active then
 		return false
 	end
+	inv.previous = inv.active
 	inv.active = slot
+	return true
+end
+
+-- Back to the slot before the last select, if it still holds something (a
+-- key taken by hand rings itself, and your torch comes back to your hand).
+function Inventory.restore(inv): boolean
+	local previous = inv.previous
+	if not previous or previous == inv.active or not inv.slots[previous] then
+		return false
+	end
+	inv.previous = inv.active
+	inv.active = previous
 	return true
 end
 

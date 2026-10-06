@@ -70,6 +70,10 @@ function MapService:Start()
 			door.open = true
 		end
 	end)
+	-- A lantern lit: its room redraws as lit.
+	self.services.ToolService.ShrineLit:Connect(function()
+		self:_publish(true)
+	end)
 	self.Items.NoteRead:Connect(function(_, note)
 		if not self.notes[note.id] then
 			self.notes[note.id] = true
@@ -268,6 +272,14 @@ function MapService:State()
 	end
 	table.sort(state.rooms)
 	state.done = self:_doneRooms()
+	-- Lantern shrines in rooms somebody has entered: lit or not (WP3).
+	state.lanterns = {}
+	for id in self.rooms do
+		local shrine = world.shrines and world.shrines[id]
+		if shrine then
+			table.insert(state.lanterns, { room = id, lit = shrine.lit == true })
+		end
+	end
 	-- Stuck-assist (Services/FinaleService): the room the line points at.
 	state.hint = self.Finale.hintRoom
 	state.plans = {}

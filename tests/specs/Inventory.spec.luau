@@ -8,6 +8,24 @@ return function(test, check, Shared, require)
 		return { id = id, uid = uid }
 	end
 
+	test("restore: a key taken by hand gives your torch back", function()
+		local inv = Inventory.new()
+		check.truthy(Inventory.select(inv, 4), "hands out for the key")
+		check.equal(Inventory.heldId(inv), "Hands", "holding nothing")
+		check.truthy(Inventory.restore(inv), "back to what you had")
+		check.equal(Inventory.heldId(inv), "Flashlight", "the torch again")
+		check.equal(Inventory.restore(inv), true, "and back to your hands, if you ask")
+		check.equal(Inventory.heldId(inv), "Hands", "hands")
+		local fresh = Inventory.new()
+		check.equal(Inventory.restore(fresh), false, "nothing to go back to at the start")
+		-- A slot emptied in the meantime is no place to return to.
+		Inventory.pickup(fresh, tool("Radio", "tool:1"))
+		Inventory.select(fresh, 2)
+		Inventory.select(fresh, 4)
+		Inventory.drop(fresh, 2)
+		check.equal(Inventory.restore(fresh), false, "the radio is gone")
+	end)
+
 	test("you start with the torch in your hands, your hands in slot 4 and nothing else", function()
 		local inv = Inventory.new()
 		check.equal(Inventory.heldId(inv), "Flashlight", "holding the torch")

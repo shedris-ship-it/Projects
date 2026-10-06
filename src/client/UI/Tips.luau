@@ -5,6 +5,7 @@
 -- dying torch, your beam holding him. Each shows once a session, never two
 -- within twenty seconds, and the "Show tips" setting turns them off.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,6 +17,25 @@ local PA = Constants.PlayerAttributes
 local RS = Constants.RunState
 
 local player = Players.LocalPlayer
+
+-- A Lantern shrine within a few strides, or the Lantern tool in a slot.
+local function lanternNear(): boolean
+	for _, slot in { "Slot2", "Slot3" } do
+		if player:GetAttribute(slot) == "Lantern" then
+			return true
+		end
+	end
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return false
+	end
+	for _, glass in CollectionService:GetTagged(Constants.Tags.LanternShrine) do
+		if glass:IsA("BasePart") and (glass.Position - root.Position).Magnitude < 14 then
+			return true
+		end
+	end
+	return false
+end
 
 local Tips = {}
 Tips.__index = Tips
@@ -79,11 +99,16 @@ local TIPS = {
 		urgent = true,
 	},
 	{
+		id = "lantern",
+		text = "A Lantern shrine: hold E to light it. A lit Lantern room recharges your torch, and he can't start a hunt on you there.",
+		when = lanternNear,
+	},
+	{
 		id = "battery",
-		text = "Your torch is dying. A lit Lantern room recharges it; the safe room keeps batteries.",
+		text = "Your torch is going. Clip it (any slot but 1) to spare it; a lit Lantern room recharges it; the safe room keeps batteries.",
 		when = function()
 			local battery = player:GetAttribute(PA.Battery)
-			return type(battery) == "number" and battery < 0.25
+			return type(battery) == "number" and battery < 0.6
 		end,
 	},
 }

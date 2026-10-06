@@ -294,6 +294,10 @@ function Map:_renderMap()
 				Parent = canvas,
 			})
 		end
+		local lanterns = {}
+		for _, entry in state.lanterns or {} do
+			lanterns[entry.room] = entry.lit
+		end
 		for _, room in shown do
 			local bottom = room.floor or 0
 			local roof = room.tall and (room.top or bottom + 1) or bottom
@@ -302,6 +306,7 @@ function Map:_renderMap()
 					done = done[room.id] == true,
 					planned = planned[room.id] == true,
 					hint = state.hint == room.id,
+					lantern = lanterns[room.id],
 				})
 			end
 		end
@@ -456,7 +461,8 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 		or room.kind == "stair" and " (Stairs)"
 		or ""
 	if room.lantern then
-		tag ..= " (Lantern)"
+		-- Seen lit, seen unlit, or not seen yet (WP3: the map says which).
+		tag ..= o.lantern == true and " (Lantern, lit)" or o.lantern == false and " (unlit lantern)" or " (Lantern)"
 	end
 	Ui.new("TextLabel", {
 		Position = UDim2.fromOffset(x0 + 2, z0 + 2),
