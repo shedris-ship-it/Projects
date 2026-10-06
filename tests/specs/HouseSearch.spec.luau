@@ -13,8 +13,8 @@ return function(test, check, Shared, require)
 	-- Fewer candidates than a run, to keep the suite quick.
 	local CANDIDATES = 5
 
-	local function options(squad: number, candidates: number)
-		local mansion, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
+	local function options(squad: number, candidates: number, profile: string?)
+		local mansion, progression = HouseSize.config(Config.Mansion, Config.Progression, squad, 0, profile)
 		return {
 			templates = Rooms.Mansion,
 			templatesById = Rooms.MansionById,
@@ -28,6 +28,30 @@ return function(test, check, Shared, require)
 			candidates = candidates,
 		}
 	end
+
+	test("the short night (WP8): a small house, one locked wing, two heirlooms, found every time", function()
+		local fallbacks = 0
+		for seed = 1, 20 do
+			local found = HouseSearch.run(seed * 7 + 3, options(1, CANDIDATES, "short"))
+			local layout, plan = found.layout, found.plan
+			check.truthy(layout ~= nil and plan ~= nil, "seed " .. seed .. ": a house and a plan")
+			if layout.fallback then
+				fallbacks += 1 -- (the frozen fallback is the full house: not short)
+			else
+				check.atMost(#layout.rooms, 16, "seed " .. seed .. ": a short house (" .. #layout.rooms .. " rooms)")
+			end
+			check.equal(#plan.finale.heirlooms, 2, "two heirlooms")
+			local regions = 0
+			for id in plan.regions do
+				if id ~= 0 then
+					regions += 1
+				end
+			end
+			check.atMost(regions, 1, "one locked wing after the first")
+			check.equal(plan.stats.pockets or 0, 0, "no pockets")
+		end
+		check.atMost(fallbacks, 2, "fallbacks: " .. fallbacks .. " of 20")
+	end)
 
 	test("the same seed and squad keep the same house, plan and leads", function()
 		local a = HouseSearch.run(4242, options(4, 3))

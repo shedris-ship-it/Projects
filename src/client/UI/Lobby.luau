@@ -48,11 +48,22 @@ function Lobby.new(ctx)
 	)
 	self.difficultyButton = Ui.button(
 		"Difficulty: Normal",
-		{ Position = UDim2.fromOffset(0, 114), Size = UDim2.new(1, 0, 0, 34), TextSize = 14, Parent = panel },
+		{ Position = UDim2.fromOffset(0, 114), Size = UDim2.new(0.62, -4, 0, 34), TextSize = 14, Parent = panel },
 		function()
 			local lobby = ctx.state.lobby
 			local current = lobby and lobby.difficulty or "Normal"
 			Net.get("SetDifficulty"):FireServer(current == "Normal" and "Hard" or "Normal")
+		end
+	)
+	-- The length of the night (WP8): the squad's full house, or a short one
+	-- (one wing, two heirlooms) for a first run or a late night.
+	self.nightButton = Ui.button(
+		"Night: Full",
+		{ Position = UDim2.new(0.62, 4, 0, 114), Size = UDim2.new(0.38, -4, 0, 34), TextSize = 14, Parent = panel },
+		function()
+			local lobby = ctx.state.lobby
+			local current = lobby and lobby.night or "full"
+			Net.get("SetNight"):FireServer(current == "full" and "short" or "full")
 		end
 	)
 
@@ -139,7 +150,8 @@ function Lobby:Render()
 		self.contract.Text = string.format("Contract: %s\n%s", lobby.location.name, lobby.location.blurb)
 		self.difficultyButton.Text = "Difficulty: "
 			.. lobby.difficulty
-			.. (lobby.difficulty == "Hard" and "  (uneasy from the start, more locked wings, quicker hunts)" or "")
+			.. (lobby.difficulty == "Hard" and "  (uneasy, more wings, quicker hunts)" or "")
+		self.nightButton.Text = lobby.night == "short" and "Night: Short" or "Night: Full"
 		local lines = {}
 		for _, p in lobby.players do
 			local status = p.state == Constants.PlayerStates.Lobby or p.state == nil

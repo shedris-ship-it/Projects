@@ -34,6 +34,7 @@ local DEFINITIONS = {
 	Throw = "RemoteEvent", -- (aim): throw what you're carrying
 	SetReady = "RemoteEvent",
 	SetDifficulty = "RemoteEvent",
+	SetNight = "RemoteEvent", -- ("full" | "short"): the next run's length (Config.Mansion.Profiles)
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",

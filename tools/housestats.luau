@@ -2,7 +2,7 @@
 -- section 5.1) over many houses: the spread of every metric and of the score
 -- against Config.LevelDesign.Targets. Run from the repository root:
 --
---     lune run tools/housestats [count] [squad] [single]
+--     lune run tools/housestats [count] [squad] [single|short] [short]
 --
 -- The squad size (1-4, default 4) sizes the house (Config.Mansion.BySquad)
 -- and picks the targets' bands. Each house is the best of several, as a run
@@ -24,9 +24,22 @@ local NavGraph = Harness.require(Shared.Logic.NavGraph)
 local count = tonumber(process.args[1]) or 50
 local squad = tonumber(process.args[2]) or 4
 local single = process.args[3] == "single"
+-- "short": the short night's profile laid over the squad's house (WP8).
+local profile = (process.args[3] == "short" or process.args[4] == "short") and "short" or nil
 local design = Config.LevelDesign
 local nav = NavGraph.options(Config)
-local config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad)
+local config, progression = HouseSize.config(Config.Mansion, Config.Progression, squad, 0, profile)
+if profile then
+	print(
+		string.format(
+			"profile: %s (rooms %d-%d, %d region after the first)",
+			profile,
+			config.RoomCount[1],
+			config.RoomCount[2],
+			config.Regions
+		)
+	)
+end
 
 local values = {} -- metric -> { values }
 local scores = {}
@@ -76,7 +89,14 @@ local function spread(list)
 		end
 		return math.floor(v) == v and tostring(v) or string.format("%.2f", v)
 	end
-	return string.format("min %8s  p25 %8s  median %8s  p75 %8s  max %8s", show(list[1]), show(at(0.25)), show(at(0.5)), show(at(0.75)), show(list[#list]))
+	return string.format(
+		"min %8s  p25 %8s  median %8s  p75 %8s  max %8s",
+		show(list[1]),
+		show(at(0.25)),
+		show(at(0.5)),
+		show(at(0.75)),
+		show(list[#list])
+	)
 end
 
 print(string.format("%d mansions, squad %d (%.0f ms a house)", count, squad, elapsed * 1000 / count))
@@ -93,7 +113,13 @@ for _, key in keys do
 			"%-17s %s%s",
 			key,
 			spread(values[key]),
-			band and string.format("   band %s-%s, missed by %d", tostring(band[1]), tostring(band[2]), misses[key] or 0)
+			band
+					and string.format(
+						"   band %s-%s, missed by %d",
+						tostring(band[1]),
+						tostring(band[2]),
+						misses[key] or 0
+					)
 				or ""
 		)
 	)

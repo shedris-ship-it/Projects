@@ -59,6 +59,7 @@ local HELP = table.concat({
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · bell [room] · monitor · landmarks · fling <room> <room> <speed>",
 	"event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)",
 	"botrun [fast] [flee|hide] (the bot plays the run with your character; again stops it) · botrun plan (the steps, to Output)",
+	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -322,6 +323,14 @@ function DebugService:Run(player: Player, text: string)
 		local mode = ({ cells = "Cells", mansion = "Mansion" })[args[2] or ""]
 		orchestrator:SetLayoutMode(mode)
 		reply(player, "next run layout " .. (mode or ("default (" .. Config.Level.Mode .. ")")))
+	elseif command == "night" then
+		-- The next run's length: "full" or a Config.Mansion.Profiles name ("short").
+		local name = args[2] or "full"
+		if orchestrator:SetNight(name) then
+			reply(player, "next run: a " .. name .. " night")
+		else
+			reply(player, "usage: night full|short")
+		end
 	elseif command == "squad" then
 		-- The squad size the next mansion is built for (docs/plans/level-design.md
 		-- section 5.2), so a solo test can build a four-player house.

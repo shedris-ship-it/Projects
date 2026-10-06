@@ -181,7 +181,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 				Config.Mansion,
 				Config.Progression,
 				self.run.squad,
-				difficultyName == "Hard" and 1 or 0
+				difficultyName == "Hard" and 1 or 0,
+				self:Night() ~= "full" and self:Night() or nil
 			)
 			local began = os.clock()
 			found = HouseSearch.run(seed, {
@@ -608,6 +609,21 @@ end
 -- number of players.
 function RunOrchestrator:SetSquadSize(size: number?)
 	self.squadSize = size
+end
+
+-- The length of the next night: "full", or a profile in
+-- Config.Mansion.Profiles ("short"). Unknown names are ignored.
+function RunOrchestrator:SetNight(name: string?): boolean
+	if name ~= "full" and not (Config.Mansion.Profiles and Config.Mansion.Profiles[name]) then
+		return false
+	end
+	self.night = name
+	ReplicatedStorage.RunState:SetAttribute(RS.Night, name)
+	return true
+end
+
+function RunOrchestrator:Night(): string
+	return self.night or Config.Run.Night or "full"
 end
 
 function RunOrchestrator:Run()

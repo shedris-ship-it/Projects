@@ -170,6 +170,12 @@ function LobbyService:Start()
 	Net.onServer("SetReady", { interval = 0.2, types = { "boolean" } }, function(player, ready)
 		self:SetReady(player, ready == true)
 	end)
+	Net.onServer("SetNight", { interval = 0.3, types = { "string" } }, function(_, night)
+		-- The next run's length (WP8), from the hub's Night button.
+		if self:InLobby() and self.services.RunOrchestrator:SetNight(night) then
+			self:Broadcast()
+		end
+	end)
 	Net.onServer("SetDifficulty", { interval = 0.3, types = { "string" } }, function(player, difficulty)
 		self:SetDifficulty(player, difficulty)
 	end)
@@ -331,6 +337,7 @@ function LobbyService:Broadcast()
 	Net.get("LobbyState"):FireAllClients({
 		players = list,
 		difficulty = self.difficulty,
+		night = self.services.RunOrchestrator:Night(),
 		location = { id = location.id, name = location.name, blurb = location.blurb },
 		locations = Locations.List,
 		inLobby = self:InLobby(),

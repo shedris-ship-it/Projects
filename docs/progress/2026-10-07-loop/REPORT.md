@@ -79,6 +79,12 @@ Branch `claude/overnight-foundation` (continued), from `5db62d3` (build `2026-10
 - Studio, one client, build `.118`: Ready → the 4, 3, 2, 1 countdown as before, the run began at 6.5 s, no waiting line (alone there is nobody to wait for). The majority itself needs two clients (TC in WP10); the rule is the spec's.
 - Specs: LobbyRules.spec (everyone at once; half for thirty seconds; MinPlayers holds).
 
+### WP8. The short night (build `2026-10-06.119`)
+- `Config.Mansion.Profiles.short` (13–15 rooms, one locked wing, two heirlooms, no pockets, tools or wing steps, neither cellar nor attic, one stairwell and the plainest plan) is laid over the squad's entry by `HouseSize.config(..., profile)`; `Config.Run.Night` ("full") is the default; the run reads `RunOrchestrator:Night()`, F2 `night full|short` and the hub's **Night: Full / Short** button (beside Difficulty; the `SetNight` remote, whitelisted) set it for the next run; `RunState.Night` carries it. `tools/housestats [count] [squad] short` measures it.
+- Measured (30 short houses for one): rooms 13–15 (one fallback of 21), one region after the first in 29 of 30, heirlooms in two regions, dead ends ≤ 3, no pockets, the finale run 85–389 studs (median 328); the targets a full house is held to (wings, returns, the start's share) are the ones it misses, as it should: the search still keeps the best of twelve.
+- Studio, seed 61 solo, build `.119`: `night short` → "a short night", the hub button reads Night: Short, the run built **14 rooms, 1 region, 3 locks, 2 heirlooms** (house 12 of 12 kept); the bot's plan is 9 steps; `botrun`: **extracted at 4:48** (9 steps: the terminal, the padlock door, an heirloom in the mudroom, the safe's heirloom, the table twice, out; 0 failed, 0 stuck, 1 down crawled out of, 26 waits for him). Finish line: first door 0:29 · dinner 4:02 · out 4:58 · torch dead 0 · hints 0 · longest without progress 2:07 (the target was a dinner under 12 minutes and out under 15).
+- Specs: HouseSearch.spec ("the short night": 20 houses, found every time, ≤ 16 rooms unless the fallback, two heirlooms, one wing, no pockets).
+
 ## Evidence
 
 ## UNREQUESTED changes

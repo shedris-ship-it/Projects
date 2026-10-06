@@ -14,9 +14,27 @@ end
 -- The run's configs for a squad: (mansion config, progression config).
 -- `extra` adds regions (Hard). The mansion's own copy carries the squad
 -- size and the number of regions, for its wings (Logic/Wings).
-function HouseSize.config(mansion, progression, squad: number?, extra: number?)
+function HouseSize.config(mansion, progression, squad: number?, extra: number?, profile: string?)
 	local clamped = HouseSize.clamp(squad, mansion.BySquad)
 	local size = mansion.BySquad[clamped]
+	-- A profile (the short night, Config.Mansion.Profiles) lays its fields
+	-- over the squad's entry; a field it leaves out stays the squad's.
+	local overlay = profile and mansion.Profiles and mansion.Profiles[profile]
+	if overlay then
+		local merged = table.clone(size)
+		for key, value in overlay do
+			if key == "mansion" and size.mansion then
+				local knobs = table.clone(size.mansion)
+				for k, v in value do
+					knobs[k] = v
+				end
+				merged.mansion = knobs
+			else
+				merged[key] = value
+			end
+		end
+		size = merged
+	end
 	local regions = size.regions + (extra or 0)
 	local m = table.clone(mansion)
 	m.RoomCount = size.rooms

@@ -10,6 +10,11 @@ Config.Run = {
 	-- first Ready, the ready ones go in and the rest stay in the hub (Logic/
 	-- LobbyRules). Everyone ready still starts at once.
 	LobbyMajoritySeconds = 30,
+	-- The length of the night (docs/progress/2026-10-07-loop/REPORT.md, WP8):
+	-- "full" is the squad's house; "short" lays Config.Mansion.Profiles.short
+	-- over it (a dinner in about ten minutes: a first run, a late night). The
+	-- lobby's Night button and F2 `night` pick it for the next run.
+	Night = "full",
 	MaxPlayers = 4,
 	LobbyCountdown = 5,
 	ArrivalSeconds = 180, -- (doc) 3-4 min
@@ -212,6 +217,21 @@ Config.Mansion = {
 	-- `rooms` counts the main floors; the cellar's and the attic's come on
 	-- top, each a wing more (`storeys`: one of them for one or two players,
 	-- both for three or four; docs/plans/level-design.md section 10).
+	-- Profiles laid over the squad's entry (Logic/HouseSize.config): the
+	-- short night (WP8): one locked wing, two heirlooms, no pockets, tools or
+	-- steps, neither the cellar nor the attic, the plainest plan.
+	Profiles = {
+		short = {
+			rooms = { 13, 15 },
+			regions = 1,
+			heirlooms = { 2, 2 },
+			pockets = { 0, 0 },
+			maxTools = 0,
+			wingSteps = { 0, 0 },
+			storeys = { cellar = 0, attic = 0, onlyOne = true },
+			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0, TurnChance = 0, StackChance = 0 },
+		},
+	},
 	BySquad = {
 		{
 			rooms = { 15, 18 },
