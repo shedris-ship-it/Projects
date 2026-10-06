@@ -377,7 +377,9 @@ local function revertAll()
 end
 
 function PerceptionController:_evaluate(dt: number)
-	local drift = self.state:Drift()
+	-- Rules wake with Dread (Logic/Dread), so a squad that plays well meets
+	-- them too, deeper in the house.
+	local drift = self.state:Dread()
 	for _, rule in rules do
 		local active = shouldBeActive(rule, drift)
 		local handle = applied[rule.id]

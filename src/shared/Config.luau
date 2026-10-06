@@ -709,11 +709,22 @@ Config.PostFX = {
 Config.Pacing = {
 	Act2At = 0.15, -- of everything there is to do (Acts.progress)
 	Act3At = 0.6,
-	ActHeat = { 0, 25, 40, 40 }, -- added to Drift when picking his tier, by act: later acts bring him closer
-	ArmDelay = { 60, 120 }, -- seconds from the progress that wakes a hunt to the hunt
-	MinHuntGap = 180, -- a woken hunt waits at least this long after the last one ended
+	-- Dread's floor by act (Logic/Dread; the owner's audit of 2026-10-06): the
+	-- deeper the squad goes, the worse the house gets, whatever Drift says.
+	-- Act 2 (the first door opened) brings tier 2 and the first atmosphere;
+	-- act 3 (most of the way) brings tier 3, his cracked face and every light
+	-- flickering, so a clean run meets the lunge in its second half.
+	ActDread = { 0, 40, 60, 75 },
+	DreadRamp = 90, -- seconds a new act's floor takes to ease in
+	ArmDelay = { 45, 150 }, -- seconds from the progress that wakes a hunt to the hunt
+	MinHuntGap = 180, -- a woken hunt waits about this long after the last one ended...
+	HuntGapJitter = 0.4, -- ...give or take this share, drawn afresh after every hunt, so they never come on a clock
+	FalseAlarmChance = 0.3, -- a woken hunt that is only its telegraph: the hum rises, nothing comes...
+	FalseAlarmFollow = { 30, 80 }, -- ...and the real one follows this much later
+	ReturnChance = 0.25, -- after a hunt, he sometimes comes straight back...
+	ReturnDelay = { 40, 75 }, -- ...this soon, gap or no gap
 	LanternRelease = { 5, 15 }, -- leaving a Lantern room, a woken hunt waits this much more
-	HuntDriftFull = 80, -- hunts last their longest from this Drift (Config.Stalker.HuntDuration)
+	HuntDreadFull = 80, -- hunts last their longest from this Dread (Config.Stalker.HuntDuration)
 	HuntJitter = 8, -- seconds either way
 	ProwlBonus = 25, -- how much he favours the rooms a woken hunt is coming to (Stalk:_farPoint)
 }
@@ -1390,6 +1401,10 @@ Config.Difficulty = {
 		DriftMultiplier = 1.25,
 		StalkerSpeedMultiplier = 1.04,
 		HuntIntervalMultiplier = 0.8,
+		-- Scarier, not only longer (the audit): the house starts uneasy, so
+		-- the atmosphere is on from act 1, and his telegraphs are shorter.
+		DreadFloor = 20,
+		TelegraphScale = 0.7,
 	},
 }
 

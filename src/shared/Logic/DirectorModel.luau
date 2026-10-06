@@ -7,48 +7,64 @@
 -- newly entered region, a new act or the first heirloom found): it comes a
 -- minute or two later, wherever the squad has got to. And Drift, which only
 -- measures stalling, starts them on an interval once it reaches Breaking, so
--- a squad that stalls is hunted more and more. The act raises the tier too
--- (Logic/Acts.heat), so a good squad still meets more of him as the night
--- goes on.
+-- a squad that stalls is hunted more and more. His tier follows Dread
+-- (Logic/Dread: Drift or the act's floor, whichever is worse), so a good
+-- squad still meets more of him as the night goes on.
+--
+-- Hunts never come on a clock (the owner's audit, 2026-10-06): the gap after
+-- a hunt is drawn afresh each time, a woken hunt is sometimes only its
+-- telegraph (a false alarm, with the real one soon after), and sometimes he
+-- comes straight back after a hunt, gap or no gap.
 
 local DirectorModel = {}
 
--- Tier from Drift (doc section 2 table), plus the act's heat.
-function DirectorModel.tierForDrift(drift: number): number
+-- Tier from Dread (doc section 2 table).
+function DirectorModel.tierFor(dread: number): number
 	-- Tier 1 starts a couple of minutes in (after the 90-second calm), so the
 	-- first "figure at the end of the hall" lands early in Arrival.
-	if drift < 5 then
+	if dread < 5 then
 		return 0
-	elseif drift < 40 then
+	elseif dread < 40 then
 		return 1
-	elseif drift < 60 then
+	elseif dread < 60 then
 		return 2
 	end
 	return 3
 end
+DirectorModel.tierForDrift = DirectorModel.tierFor
 
--- How long a hunt lasts: longer the higher Drift is (full length at
--- Pacing.HuntDriftFull), within Stalker.HuntDuration. `jitter` is -1..1.
-function DirectorModel.huntDuration(drift: number, jitter: number, config): number
+-- How long a hunt lasts: longer the higher Dread is (full length at
+-- Pacing.HuntDreadFull), within Stalker.HuntDuration. `jitter` is -1..1.
+function DirectorModel.huntDuration(dread: number, jitter: number, config): number
 	local range = config.Stalker.HuntDuration
-	local t = math.clamp(drift / config.Pacing.HuntDriftFull, 0, 1)
+	local t = math.clamp(dread / config.Pacing.HuntDreadFull, 0, 1)
 	local seconds = range[1] + (range[2] - range[1]) * t + jitter * config.Pacing.HuntJitter
 	return math.clamp(seconds, range[1], range[2])
 end
 
+-- The gap a woken hunt keeps after the last one: MinHuntGap give or take
+-- HuntGapJitter, from a 0..1 roll made when that hunt ended.
+function DirectorModel.huntGap(roll: number, config): number
+	local pacing = config.Pacing
+	local jitter = pacing.HuntGapJitter or 0
+	return pacing.MinHuntGap * (1 - jitter + 2 * jitter * math.clamp(roll, 0, 1))
+end
+
 -- input = {
---   runTime, drift, now, act (1-4, default 1),
+--   runTime, drift, dread (default drift), now, act (1-4, default 1),
 --   lastHuntEnded (time or nil), retreatUntil (time or nil),
 --   armedAt (time or nil): a hunt progress has woken, due at that time,
+--   armedFalse (bool): that hunt is only a telegraph (a false alarm),
+--   armedUrgent (bool): it waits for no gap (he comes straight back),
+--   minGap (seconds, default Pacing.MinHuntGap): the gap after the last hunt,
 --   lastRevive (time or nil), squadInLantern (bool),
 --   stationary (0..1), forced (bool, e.g. the debug console),
 --   difficulty = Config.Difficulty entry,
 -- }
--- returns { tier, huntDue, reason }
+-- returns { tier, huntDue, reason, falseAlarm? }
 function DirectorModel.evaluate(input, config)
 	local runConfig, stalker, pacing = config.Run, config.Stalker, config.Pacing
-	local heat = pacing.ActHeat[input.act or 1] or 0
-	local tier = DirectorModel.tierForDrift(input.drift + heat)
+	local tier = DirectorModel.tierFor(input.dread or input.drift)
 	if input.runTime < runConfig.StalkerDormantSeconds then
 		tier = 0
 	end
@@ -80,10 +96,14 @@ function DirectorModel.evaluate(input, config)
 		return { tier = tier, huntDue = false, reason = "retreating" }
 	end
 	-- Progress woke him: the hunt comes when it's due, never hard on the heels
-	-- of the last one.
+	-- of the last one (unless he's coming straight back).
 	if input.armedAt and input.now >= input.armedAt then
-		if input.lastHuntEnded == nil or input.now - input.lastHuntEnded >= pacing.MinHuntGap then
-			return { tier = tier, huntDue = true, reason = "armed" }
+		local gap = input.minGap or pacing.MinHuntGap
+		if input.armedUrgent or input.lastHuntEnded == nil or input.now - input.lastHuntEnded >= gap then
+			if input.armedFalse then
+				return { tier = tier, huntDue = true, reason = "false alarm", falseAlarm = true }
+			end
+			return { tier = tier, huntDue = true, reason = input.armedUrgent and "back again" or "armed" }
 		end
 		return { tier = tier, huntDue = false, reason = "armed, waiting out the gap" }
 	end

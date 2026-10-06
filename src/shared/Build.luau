@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.102",
-	note = "the stare costs: light, hold-not-end in hunts, the beam instead of the Companion",
+	id = "2026-10-06.103",
+	note = "dread: fear follows progress; hunts off the clock",
 }

@@ -279,7 +279,7 @@ function Hud:Update()
 
 	-- Phase and Drift word
 	local phaseText = PHASE_TEXT[phase] or string.upper(phase)
-	local driftState = state:Run(RS.DriftState)
+	local driftState = state:Run(RS.DreadState) or state:Run(RS.DriftState)
 	local endsAt = state:Run(RS.PhaseEndsAt)
 	local timer = ""
 	if phase == "Extraction" and endsAt then

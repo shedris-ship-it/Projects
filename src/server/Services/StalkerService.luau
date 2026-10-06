@@ -767,7 +767,8 @@ function StalkerService:_setAttr(name: string, value: any)
 end
 
 -- 0 Calm, 1 Fraying, 2 Breaking: the smile opens, then the porcelain cracks
--- (docs/ART.md "The Guest"). The same for everyone: decay is shared.
+-- (docs/ART.md "The Guest"), with Dread (Logic/Dread), so a clean run sees
+-- it too. The same for everyone: decay is shared.
 function StalkerService:_form(): number
 	if self.debugForm then
 		return self.debugForm
@@ -775,9 +776,9 @@ function StalkerService:_form(): number
 	if self.final then
 		return 2
 	end
-	local drift = self.services.DriftService:Value()
+	local dread = self.services.DriftService:Dread()
 	local at = G.FormDrift
-	return drift >= at[2] and 2 or drift >= at[1] and 1 or 0
+	return dread >= at[2] and 2 or dread >= at[1] and 1 or 0
 end
 
 -- Helpers --------------------------------------------------------------------------
@@ -872,7 +873,7 @@ function StalkerService:_direct()
 	end
 	self.tier = decision.tier
 	if decision.huntDue and self.arrived then
-		self:_beginTelegraph(nil, decision.reason)
+		self:_beginTelegraph(nil, decision.reason, decision.falseAlarm)
 		return
 	end
 	local desired = TIER_MODES[self.tier] or Modes.Dormant
@@ -959,7 +960,7 @@ end
 -- only, and never a window he could really be standing behind.
 function StalkerService:_windowFace(victim: Player, pos: Vector3)
 	local services = self.services
-	if services.DriftService:Value() >= G.WindowFaceMaxDrift then
+	if services.DriftService:Dread() >= G.WindowFaceMaxDrift then
 		return
 	end
 	local here = self.body.root.Position
@@ -1145,14 +1146,28 @@ end
 
 -- Tier 4 --------------------------------------------------------------------------
 
-function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
+-- `falseAlarm`: only the telegraph (the hum rises, nothing comes), one of
+-- the ways hunts stay off the clock (Stalker/Director).
+function StalkerService:_beginTelegraph(seconds: number?, reason: string?, falseAlarm: boolean?)
 	local duration = seconds or self.rng:NextNumber(S.TelegraphSeconds[1], S.TelegraphSeconds[2])
-	self.director:HuntBegan(reason or self.forceReason or "?")
-	self.services.Telemetry:Log("HuntStarted", {
-		reason = reason or self.forceReason or "?",
-		drift = math.floor(self.services.DriftService:Value()),
-		act = self.director.act,
-	})
+	if not seconds and self.difficulty and self.difficulty.TelegraphScale then
+		duration *= self.difficulty.TelegraphScale
+	end
+	if falseAlarm then
+		self.services.Telemetry:Log("FalseAlarm", {
+			drift = math.floor(self.services.DriftService:Value()),
+			dread = math.floor(self.services.DriftService:Dread()),
+			act = self.director.act,
+		})
+	else
+		self.director:HuntBegan(reason or self.forceReason or "?")
+		self.services.Telemetry:Log("HuntStarted", {
+			reason = reason or self.forceReason or "?",
+			drift = math.floor(self.services.DriftService:Value()),
+			dread = math.floor(self.services.DriftService:Dread()),
+			act = self.director.act,
+		})
+	end
 	-- The final hunt can't wait for the knock: he's simply there. And behind a
 	-- locked door from them (the escape), he's moved, unseen, to their side.
 	if not self.arrived or not self:_squadCanReach(self.bodyCtl.root.Position) then
@@ -1161,7 +1176,7 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?)
 	self.mode = Modes.Telegraph
 	self.hold = { held = 0, spent = false, unwatched = 0 }
 	local now = os.clock()
-	self.data = { telegraphUntil = now + duration, startedAt = now }
+	self.data = { telegraphUntil = now + duration, startedAt = now, falseAlarm = falseAlarm == true }
 	Net.get("HuntState")
 		:FireAllClients({ state = "telegraph", duration = duration, final = self.final, reason = self.forceReason })
 	self.forceReason = nil
@@ -1211,6 +1226,15 @@ function StalkerService:_updateTelegraph(now: number)
 		body:SetPose(Poses.Hold)
 	end
 	local ready = near >= G.HuntStartMinDistance and not seen
+	if self.data.falseAlarm and now >= self.data.telegraphUntil then
+		-- Nothing comes. The hum fades; the real one follows soon.
+		Net.get("HuntState"):FireAllClients({ state = "end" })
+		self.director:FalseAlarmDone(now)
+		self.data = {}
+		self.mode = TIER_MODES[self.tier] or Modes.Dormant
+		self:_publish()
+		return
+	end
 	if now >= self.data.telegraphUntil and (ready or now >= self.data.telegraphUntil + G.HuntStartMaxWait) then
 		self.mode = Modes.Hunting
 		self.huntCount += 1

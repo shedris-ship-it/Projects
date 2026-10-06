@@ -546,6 +546,8 @@ function RunOrchestrator:_returnToLobby()
 		{
 			RS.Drift,
 			RS.DriftState,
+			RS.Dread,
+			RS.DreadState,
 			RS.Tier,
 			RS.StalkerMode,
 			RS.Hunting,

@@ -49,7 +49,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto> · watch (the stare right now)",
 	"start · end · skip (to Investigation) · resolve (serve the dinner) · summary (the run in numbers, to Output)",
-	"act (the run's act, and any woken hunt) · arm [seconds] (wake a hunt) · goto <room> | <x> <y> <z>",
+	"act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
@@ -884,8 +884,10 @@ function DebugService:Run(player: Player, text: string)
 			reply(
 				player,
 				string.format(
-					"act %d · progress %.0f%% (gates %d/%d, heirlooms found %d/%d, places %d/%d) · %s",
+					"act %d · dread %.0f (drift %.0f) · progress %.0f%% (gates %d/%d, heirlooms found %d/%d, places %d/%d) · %s",
 					director.act,
+					services.DriftService:Dread(),
+					services.DriftService:Value(),
 					Acts.progress(facts) * 100,
 					facts.gatesOpened,
 					facts.gates,
@@ -902,8 +904,17 @@ function DebugService:Run(player: Player, text: string)
 		local director = services.StalkerService.director
 		if director then
 			local seconds = tonumber(args[2]) or 10
-			director:ArmIn(seconds)
-			reply(player, string.format("a hunt is woken, due in %ds (still waits out the usual rules)", seconds))
+			-- `arm 5 false`: only the telegraph (a false alarm), the real one after.
+			local falseAlarm = args[3] == "false"
+			director:ArmIn(seconds, falseAlarm)
+			reply(
+				player,
+				string.format(
+					"%s is woken, due in %ds (still waits out the usual rules)",
+					falseAlarm and "a false alarm" or "a hunt",
+					seconds
+				)
+			)
 		end
 	elseif command == "gatea" then
 		-- Gate A: the builder's parts, hashed (World/PartDump). Run it before

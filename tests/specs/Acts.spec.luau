@@ -29,12 +29,12 @@ return function(test, check, Shared, require)
 		check.equal(Acts.progress({}), 0, "an empty plan is no progress, not a crash")
 	end)
 
-	test("heat only rises through the acts", function()
+	test("the dread floor only rises through the acts", function()
 		local last = -1
 		for act = 1, 4 do
-			local heat = Acts.heat(act, P)
-			check.atLeast(heat, last, "act " .. act)
-			last = heat
+			local floor = Acts.dread(act, P)
+			check.atLeast(floor, last, "act " .. act)
+			last = floor
 		end
 	end)
 end

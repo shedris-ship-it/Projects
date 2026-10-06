@@ -41,10 +41,10 @@ function Acts.of(facts, cfg): number
 	return 1
 end
 
--- How much an act adds to Drift when picking The Guest's tier (only the
--- tier: Drift itself still measures stalling).
-function Acts.heat(act: number, cfg): number
-	return cfg.ActHeat[act] or cfg.ActHeat[#cfg.ActHeat] or 0
+-- The act's floor under Dread (Logic/Dread; Config.Pacing.ActDread): how bad
+-- the house is at least, this far in. Drift itself still measures stalling.
+function Acts.dread(act: number, cfg): number
+	return cfg.ActDread[act] or cfg.ActDread[#cfg.ActDread] or 0
 end
 
 return Acts

@@ -42,6 +42,10 @@ Constants.RunState = {
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",
+	-- How bad the house is (Logic/Dread): Drift or the act's floor, whichever
+	-- is worse. Every escalation clients draw reads this, and its word.
+	Dread = "Dread",
+	DreadState = "DreadState",
 	Seed = "Seed",
 	Tier = "Tier",
 	StalkerMode = "StalkerMode",

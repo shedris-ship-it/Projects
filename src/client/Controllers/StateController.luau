@@ -104,6 +104,12 @@ function StateController:Drift(): number
 	return self.runState:GetAttribute(RS.Drift) or 0
 end
 
+-- How bad the house is (Logic/Dread: Drift or the act's floor): what every
+-- escalation on this client reads.
+function StateController:Dread(): number
+	return self.runState:GetAttribute(RS.Dread) or self:Drift()
+end
+
 function StateController:Run(name: string): any
 	return self.runState:GetAttribute(name)
 end

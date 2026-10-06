@@ -390,7 +390,7 @@ function EffectsController:Start()
 	local nextRandomFlicker = 0
 	RunService.RenderStepped:Connect(function(dt)
 		self:_update(dt)
-		local drift = self.state:InRun() and self.state:Drift() or 0
+		local drift = self.state:InRun() and self.state:Dread() or 0
 		local arc = Config.DriftArc
 		if drift >= arc.UtilityFlickerAt and os.clock() >= nextRandomFlicker then
 			nextRandomFlicker = os.clock() + math.random(8, 20) * (1.4 - drift / 100)
@@ -494,7 +494,8 @@ end
 function EffectsController:_update(dt: number)
 	local settings = self.state.settings
 	local inRun = self.state:InRun()
-	local drift = inRun and self.state:Drift() or 0
+	-- Dread, not Drift (Logic/Dread): the house decays with progress too.
+	local drift = inRun and self.state:Dread() or 0
 	local t = drift / 100
 	local playerState = self.state:PlayerState()
 	local downed = playerState == Constants.PlayerStates.Downed

@@ -1,6 +1,10 @@
 -- Owns the run's DriftModel and publishes it on ReplicatedStorage.RunState so
 -- clients can drive effects from it. Drift is never shown as a bar (doc
 -- section 8); the world shows it.
+--
+-- Also publishes Dread (Logic/Dread): Drift or the act's floor, whichever is
+-- worse, which is what every escalation clients draw reads since the owner's
+-- audit (2026-10-06). Stalker/Director tells it the act.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Signal = require(Shared.Lib.Signal)
+local Dread = require(Shared.Logic.Dread)
 local DriftModel = require(Shared.Logic.DriftModel)
 
 local RS = Constants.RunState
@@ -24,6 +29,9 @@ function DriftService:Init(services)
 	self.model = nil
 	self.running = false
 	self.lastState = nil
+	self.difficulty = nil
+	self.act = 1
+	self.actSince = nil
 end
 
 function DriftService:Start()
@@ -45,6 +53,9 @@ end
 
 function DriftService:Begin(difficulty)
 	self.model = DriftModel.new(Config.Drift, difficulty.DriftMultiplier)
+	self.difficulty = difficulty
+	self.act = 1
+	self.actSince = os.clock()
 	self.running = true
 	self.lastState = nil
 	self.collapsed = false
@@ -93,11 +104,38 @@ function DriftService:Sources()
 	return self.model and self.model.sources or {}
 end
 
+-- The run's act (Stalker/Director): Dread's floor rises with it.
+function DriftService:SetAct(act: number)
+	if act ~= self.act then
+		self.act = act
+		self.actSince = os.clock()
+		if self.running then
+			self:_publish()
+		end
+	end
+end
+
+-- How bad the house is right now (Logic/Dread).
+function DriftService:Dread(): number
+	if not self.model or not self.running then
+		return 0
+	end
+	local since = self.actSince and os.clock() - self.actSince or math.huge
+	return Dread.value(self.model.value, self.act, since, Config.Pacing, self.difficulty)
+end
+
+function DriftService:DreadStateName(): string
+	return (DriftModel.stateFor(Config.Drift, self:Dread()))
+end
+
 function DriftService:_publish()
 	local value = self.model.value
 	local stateName = self.model:State()
 	self.runState:SetAttribute(RS.Drift, math.floor(value * 10 + 0.5) / 10)
 	self.runState:SetAttribute(RS.DriftState, stateName)
+	local dread = self:Dread()
+	self.runState:SetAttribute(RS.Dread, math.floor(dread * 10 + 0.5) / 10)
+	self.runState:SetAttribute(RS.DreadState, (DriftModel.stateFor(Config.Drift, dread)))
 	self.Changed:Fire(value)
 	if stateName ~= self.lastState then
 		self.lastState = stateName

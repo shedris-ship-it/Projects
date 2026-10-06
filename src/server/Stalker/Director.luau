@@ -47,6 +47,9 @@ function Director.new(services, rng, difficulty)
 		armedAt = nil,
 		armedRooms = nil,
 		armedReason = nil,
+		armedFalse = false, -- the woken hunt is only its telegraph
+		armedUrgent = false, -- it waits for no gap (he comes straight back)
+		nextGap = Config.Pacing.MinHuntGap, -- drawn afresh after every hunt
 		act = 1,
 		lanternHeld = false,
 		lastDecision = nil,
@@ -65,21 +68,39 @@ function Director:Arm(reason: string, rooms: { [number]: boolean }?): number?
 		return nil
 	end
 	local now = os.clock()
-	local delay = self.armRng:NextNumber(Config.Pacing.ArmDelay[1], Config.Pacing.ArmDelay[2])
+	local pacing = Config.Pacing
+	local delay = self.armRng:NextNumber(pacing.ArmDelay[1], pacing.ArmDelay[2])
+	-- Sometimes only the telegraph comes (the real hunt follows soon after).
+	local falseAlarm = self.armRng:NextNumber() < (pacing.FalseAlarmChance or 0)
 	if self.armedAt == nil or now + delay < self.armedAt then
 		self.armedAt = now + delay
 		self.armedReason = reason
 		self.armedRooms = rooms
+		self.armedFalse = falseAlarm
+		self.armedUrgent = false
 	end
 	return self.armedAt - now
 end
 
+-- The telegraph came to nothing (StalkerService): the real hunt follows,
+-- sooner than a fresh arming would.
+function Director:FalseAlarmDone(now: number)
+	self.services.RunLogService:FalseAlarm()
+	local follow = Config.Pacing.FalseAlarmFollow
+	self.armedAt = now + self.armRng:NextNumber(follow[1], follow[2])
+	self.armedReason = "after a false alarm"
+	self.armedFalse = false
+	self.armedUrgent = false
+end
+
 -- F2 `arm`: wake one now, due in `seconds`.
-function Director:ArmIn(seconds: number)
+function Director:ArmIn(seconds: number, falseAlarm: boolean?)
 	self.disarmed = false
 	self.armedAt = os.clock() + seconds
 	self.armedReason = "debug"
 	self.armedRooms = nil
+	self.armedFalse = falseAlarm == true
+	self.armedUrgent = true
 end
 
 -- No more woken hunts (the dinner; while he waits at the table).
@@ -96,15 +117,27 @@ function Director:HuntBegan(reason: string?)
 	self.services.RunLogService:Hunt(true, reason)
 	self.forced = false
 	self.armedAt, self.armedRooms, self.armedReason = nil, nil, nil
+	self.armedFalse, self.armedUrgent = false, false
 	self.lanternHeld = false
 end
 
 -- `how`: "survived", "stared down", "escaped" or "lost" (Logic/RunStats).
+-- The gap before the next woken hunt is drawn afresh, and sometimes he comes
+-- straight back (Config.Pacing.ReturnChance), gap or no gap.
 function Director:HuntEnded(now: number, how: string?)
 	self.services.RunLogService:Hunt(false, how or "survived")
 	self.lastHuntEnded = now
 	self.retreatUntil = now + Config.Stalker.RetreatTierSeconds
 	self.forced = false
+	local pacing = Config.Pacing
+	self.nextGap = DirectorModel.huntGap(self.armRng:NextNumber(), Config)
+	if how == "survived" and not self.disarmed and self.armRng:NextNumber() < (pacing.ReturnChance or 0) then
+		self.armedAt = now + self.armRng:NextNumber(pacing.ReturnDelay[1], pacing.ReturnDelay[2])
+		self.armedReason = "back again"
+		self.armedRooms = nil
+		self.armedFalse = false
+		self.armedUrgent = true
+	end
 end
 
 -- How far the squad has got, from the services that know (Logic/Acts facts).
@@ -160,6 +193,8 @@ function Director:Evaluate(runTime: number)
 	if act > self.act then
 		self.act = act
 		self.services.RunLogService:Act(act)
+		-- Dread's floor rises with the act (Logic/Dread).
+		services.DriftService:SetAct(act)
 		if act < 4 then
 			self.services.StalkerService:HeardProgress(self:Arm("act " .. act))
 		end
@@ -175,8 +210,12 @@ function Director:Evaluate(runTime: number)
 		now = now,
 		runTime = runTime,
 		drift = services.DriftService:Value(),
+		dread = services.DriftService:Dread(),
 		act = self.act,
 		armedAt = self.armedAt,
+		armedFalse = self.armedFalse,
+		armedUrgent = self.armedUrgent,
+		minGap = self.nextGap,
 		lastHuntEnded = self.lastHuntEnded,
 		retreatUntil = self.retreatUntil,
 		lastRevive = services.PlayerStateService.lastRevive,
@@ -192,9 +231,9 @@ function Director:Evaluate(runTime: number)
 	return decision
 end
 
--- How long the next hunt lasts (longer at higher Drift).
+-- How long the next hunt lasts (longer the worse the house is).
 function Director:HuntDuration(): number
-	return DirectorModel.huntDuration(self.services.DriftService:Value(), self.rng:NextNumber(-1, 1), Config)
+	return DirectorModel.huntDuration(self.services.DriftService:Dread(), self.rng:NextNumber(-1, 1), Config)
 end
 
 -- Draw a scare if one is due. Returns the card or nil.
@@ -203,14 +242,14 @@ function Director:MaybeScare(tier: number)
 	if now < self.nextScare then
 		return nil
 	end
-	local drift = self.services.DriftService:Value()
-	-- Higher Drift, shorter gaps.
-	local gap = 35 - drift * 0.2
+	local dread = self.services.DriftService:Dread()
+	-- The worse the house, the shorter the gaps.
+	local gap = 35 - dread * 0.2
 	self.nextScare = now + self.rng:NextNumber(gap * 0.6, gap * 1.2)
-	if tier <= 0 and drift < 5 then
+	if tier <= 0 and dread < 5 then
 		return nil
 	end
-	return self.deck:Draw(now, drift)
+	return self.deck:Draw(now, dread)
 end
 
 return Director

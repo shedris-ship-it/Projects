@@ -190,7 +190,7 @@ end
 
 function AudioController:_updateLayers(dt: number)
 	local inRun = self.state:InRun()
-	local drift = inRun and self.state:Drift() or 0
+	local drift = inRun and self.state:Dread() or 0
 	local hunting = inRun and self.state:Run(Constants.RunState.Hunting) == true
 	local function fade(key, target)
 		local sound = layers[key]
