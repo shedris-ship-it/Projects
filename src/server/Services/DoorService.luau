@@ -64,9 +64,15 @@ function DoorService:Start()
 	self.World.Cleared:Connect(function()
 		table.clear(self.moving)
 	end)
+	local boltCheck = 0
 	RunService.Heartbeat:Connect(function(dt)
 		for door in self.moving do
 			self:_step(door, dt)
+		end
+		boltCheck += dt
+		if boltCheck >= 1 then
+			boltCheck = 0
+			self:_checkBolts()
 		end
 	end)
 end
@@ -312,7 +318,7 @@ function DoorService:Drag(door, degrees: number, player: Player, release: number
 	if not door.state or os.clock() < door.forcedUntil then
 		return false
 	end
-	if door.locked then
+	if door.locked or door.privacy then
 		-- Pulled on: it rattles in its frame (now and then, not 30 times a second).
 		if degrees > D.LatchAngle * 2 and os.clock() - (door.triedAt or 0) > 1.2 then
 			door.triedAt = os.clock()
@@ -398,6 +404,9 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 	if not byPlayer then
 		-- The Guest (or the house) takes it: out of anyone's hands for a moment.
 		door.byGuest = open or nil
+		if open and door.privacy then
+			self:_forceBolt(door)
+		end
 		if self:HeldBy(door) then
 			door.forcedUntil = os.clock() + H.ForcedSeconds
 			self:_dragStopped(door)
@@ -419,7 +428,124 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 	Sfx.play(slam and "DoorSlam" or (open and "DoorOpen" or "DoorClose"), door.position, slam and 1 or 0.6, 1)
 end
 
+-- A bathroom door bolts from inside (docs/plans/level-design.md section 4,
+-- L3.6): a bolt on its inside face that only someone in `roomId` can reach.
+-- Bolted, nobody gets in from outside, and it holds him `PrivacyHold`
+-- seconds more before it gives (then it won't bolt for `PrivacyRelock`).
+-- Nobody left inside, it slides back by itself (it never locks anyone out).
+function DoorService:AddPrivacy(door, roomId: number)
+	if door.hidden or door.privacyRoom then
+		return
+	end
+	door.privacyRoom = roomId
+	local slab = door.slab
+	-- The face toward the room's middle (the slab's +Z is -LookVector).
+	local center = self.World:Room(roomId).center
+	local side = (center - slab.Position):Dot(-slab.CFrame.LookVector) >= 0 and 1 or -1
+	local model = Instance.new("Model")
+	model.Name = "Bolt"
+	local bolt = Instance.new("Part")
+	bolt.Name = "Bolt"
+	bolt.Anchored = true
+	bolt.CanCollide = false
+	bolt.CanTouch = false
+	bolt.CastShadow = false
+	bolt.Material = Enum.Material.Metal
+	bolt.Color = Color3.fromRGB(176, 156, 100)
+	bolt.Size = Vector3.new(0.6, 0.14, 0.1)
+	bolt.CFrame = slab.CFrame * CFrame.new(-slab.Size.X / 2 + 0.7, 0.7, side * (slab.Size.Z / 2 + 0.05))
+	bolt.Parent = model
+	model:SetAttribute("RunContent", true)
+	model.Parent = door.model
+	self:Adopt(door, model)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "BoltPrompt"
+	prompt.ActionText = "Bolt the door"
+	prompt.ObjectText = "Bathroom door"
+	prompt.KeyboardKeyCode = Enum.KeyCode.F
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	prompt.HoldDuration = 0.3
+	prompt.MaxActivationDistance = 6
+	prompt.RequiresLineOfSight = true
+	prompt.Parent = bolt
+	door.privacyPrompt = prompt
+	prompt.Triggered:Connect(function(player)
+		if self.PlayerState:CanAct(player) then
+			self:_bolt(door, player)
+		end
+	end)
+end
+
+-- Someone at the bolt: in the room, it slides home (the door swung shut
+-- first) or back.
+function DoorService:_bolt(door, player: Player)
+	local position = self.PlayerState:Position(player)
+	if not position or self.World:RoomAt(position) ~= door.privacyRoom or door.locked then
+		return
+	end
+	if door.privacy then
+		self:_unbolt(door)
+		Sfx.play("DoorLatch", door.position, 0.5, 1.2)
+		return
+	end
+	if os.clock() < (door.privacyBrokenUntil or 0) then
+		Net.get("Notify"):FireClient(player, "The bolt's bent. It won't go home.", "warning")
+		return
+	end
+	if door.open or (door.state and door.state.value > D.LatchAngle) then
+		self:SetOpen(door, false, player)
+	end
+	door.privacy = true
+	door.privacyPrompt.ActionText = "Slide the bolt back"
+	Sfx.play("LockClick", door.position, 0.6, 1.1)
+end
+
+function DoorService:_unbolt(door)
+	door.privacy = nil
+	if door.privacyPrompt then
+		door.privacyPrompt.ActionText = "Bolt the door"
+	end
+end
+
+-- He forces a bolted door: it gives, loudly, and stays bent a while.
+function DoorService:_forceBolt(door)
+	self:_unbolt(door)
+	door.privacyBrokenUntil = os.clock() + D.PrivacyRelock
+	Sfx.play("DoorBang", door.position, 1, 0.8)
+	self.Noise:Emit(door.position, 30, nil, "slam")
+end
+
+-- Every so often: a bolted door with nobody left in its room slides back.
+function DoorService:_checkBolts()
+	local world = self.World.World
+	for _, door in world and world.doors or {} do
+		if door.privacy then
+			local anyone = false
+			for _, player in self.PlayerState:LivingPlayers() do
+				local position = self.PlayerState:Position(player)
+				if position and self.World:RoomAt(position) == door.privacyRoom then
+					anyone = true
+				end
+			end
+			if not anyone then
+				self:_unbolt(door)
+			end
+		end
+	end
+end
+
 function DoorService:Toggle(door, player: Player?)
+	if door.privacy and player then
+		local position = self.PlayerState:Position(player)
+		if position and self.World:RoomAt(position) == door.privacyRoom then
+			-- From inside: the bolt back, and open.
+			self:_unbolt(door)
+		else
+			Sfx.play("DoorBang", door.position, 0.25, 1.6)
+			Net.get("Notify"):FireClient(player, "Locked from the inside.")
+			return
+		end
+	end
 	if door.locked then
 		-- The escape's locks (Services/LockService) decide: a key, a code, a bolt.
 		if self.LockHandler then
@@ -442,6 +568,10 @@ function DoorService:StalkerDelay(door, rng): number
 	local delay = rng:NextNumber(range[1], range[2])
 	if self:IsBraced(door) then
 		delay += Config.Stalker.BracedDoorSeconds
+	end
+	if door.privacy then
+		-- Bolted from inside: it holds a few seconds more.
+		delay += D.PrivacyHold
 	end
 	return delay
 end
@@ -481,6 +611,13 @@ function DoorService:SetLocked(door, locked: boolean)
 	-- scout the part of the house the squad hasn't opened (R2c fairness).
 	door.slab.CollisionGroup = locked and "Default" or Constants.CollisionGroups.Door
 	door.bracePrompt.Enabled = not locked and not door.open
+	if door.privacyPrompt then
+		-- (A plan's lock on it: the bathroom's bolt is no use.)
+		door.privacyPrompt.Enabled = not locked
+		if locked then
+			self:_unbolt(door)
+		end
+	end
 end
 
 function DoorService:RefreshPrompt(door)

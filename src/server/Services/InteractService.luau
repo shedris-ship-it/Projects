@@ -84,6 +84,18 @@ function InteractService:Begin()
 	end
 	self:_placed(world)
 	self:_switches(world)
+	-- Bathroom doors bolt from inside (docs/plans/level-design.md section 4).
+	for _, roomId in self.World:RoomIds() do
+		local record = world.rooms[roomId]
+		if record and record.template and record.template.id == "bathroom" then
+			for _, other in self.World:Neighbours(roomId) do
+				local seam = self.World:SeamBetween(roomId, other)
+				if seam and seam.connected and seam.door then
+					self.services.DoorService:AddPrivacy(seam.door, roomId)
+				end
+			end
+		end
+	end
 end
 
 -- Rooms' own fixtures that aren't furniture (docs/plans/level-design.md

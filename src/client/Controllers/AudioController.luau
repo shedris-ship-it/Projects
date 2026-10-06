@@ -117,6 +117,7 @@ function AudioController:Start()
 		radio:Play()
 		layers.Radio = radio
 	end
+	self:_monitor()
 
 	Net.get("HuntState").OnClientEvent:Connect(function(payload)
 		if payload.state == "telegraph" then
@@ -448,6 +449,52 @@ function AudioController:_heirlooms()
 		watch(model)
 	end
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.Grabbable):Connect(watch)
+end
+
+-- The baby monitor's receiver (Services/MonitorService), while you carry it:
+-- a hiss of static, and when he's near the transmitter, his footsteps through
+-- it, louder the nearer (`level` 0..1; nil: not yours any more).
+function AudioController:_monitor()
+	local hiss = newSound("RadioStatic", 0, 1.1, "SFX")
+	if not hiss then
+		return
+	end
+	hiss.Looped = true
+	hiss.Parent = SoundService
+	local level = nil
+	local nextStep = 0
+	local captioned = false
+	Net.get("MonitorHear").OnClientEvent:Connect(function(value)
+		level = value
+		if level == nil then
+			hiss:Stop()
+			captioned = false
+			return
+		end
+		if not hiss.IsPlaying then
+			hiss:Play()
+		end
+		hiss.Volume = 0.04 + level * 0.12
+		if level >= 0.3 and not captioned then
+			captioned = true
+			self:Caption("[the baby monitor: footsteps]")
+		elseif level < 0.1 then
+			captioned = false
+		end
+	end)
+	RunService.Heartbeat:Connect(function()
+		if level and level > 0.05 and os.clock() >= nextStep then
+			nextStep = os.clock() + 0.75 - level * 0.25
+			local step = newSound("Footstep", 0.15 + level * 0.45, 0.75, "SFX")
+			if step then
+				step.Parent = SoundService
+				step:Play()
+				step.Ended:Once(function()
+					step:Destroy()
+				end)
+			end
+		end
+	end)
 end
 
 -- Fixtures left running (Services/InteractService): a part tagged SoundLoop

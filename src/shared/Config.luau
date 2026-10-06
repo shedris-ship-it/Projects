@@ -894,6 +894,11 @@ Config.Tools = {
 -- gameplay-rework.md section 4.5). 0 is shut.
 Config.Doors = {
 	OpenAngle = 100, -- fully open, against the wall
+	-- A bathroom door bolted from inside (docs/plans/level-design.md section
+	-- 4, L3.6): it holds him this many seconds more, then gives; it can't be
+	-- bolted again for a while.
+	PrivacyHold = 4,
+	PrivacyRelock = 60,
 	PassAngle = 55, -- open this far or more and you (and he) can walk through
 	LatchAngle = 3, -- swung back within this of shut, it snaps shut and latches
 	SwingRate = 285, -- degrees a second: a full swing in about a third of a second
@@ -1078,6 +1083,22 @@ Config.Leads = {
 
 -- Fixtures you can work and the lights' wall switches (Services/
 -- InteractService, Data/Interactables, Logic/SwitchSpots).
+-- The servants' bell board (docs/plans/level-design.md section 4, L3.6;
+-- Services/BellBoardService).
+Config.BellBoard = {
+	Bells = 6, -- rooms with a bell pull, at most (two rows of three)
+	DownSeconds = 8, -- a rung bell's flag stays down this long
+	CheckSeconds = 0.3, -- how often it looks where he is
+	DoorClear = 7, -- studs from any door's hinge (an open door lies back against the wall)
+}
+
+-- The baby monitor (section 4, L3.6; Services/MonitorService).
+Config.Monitor = {
+	Range = 18, -- studs from the transmitter it hears his steps
+	Storey = 6, -- and no further up or down than this
+	Hz = 2, -- updates a second
+}
+
 -- Wind-up toys (docs/plans/level-design.md section 4, L3.6; Services/ToyService).
 Config.Toys = {
 	WindSeconds = 0.8, -- the hold to wind one

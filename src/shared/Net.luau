@@ -49,6 +49,9 @@ local DEFINITIONS = {
 	Pinged = "RemoteEvent",
 	CalloutHeard = "RemoteEvent",
 	Notify = "RemoteEvent",
+	-- The baby monitor's receiver (Services/MonitorService): what the
+	-- transmitter's room sounds like, 0..1, or nil when it's no longer yours.
+	MonitorHear = "RemoteEvent",
 	NoteText = "RemoteEvent", -- S->C ({ id, text, title? }): a note or printout you read (UI/Reader)
 	MapState = "RemoteEvent", -- S->C (state?): the house as the squad knows it (Services/MapService, UI/Map)
 	Scare = "RemoteEvent",

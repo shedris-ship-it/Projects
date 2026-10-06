@@ -255,6 +255,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.InteractService:Begin()
 		-- Wind-up toys in the children's rooms (docs/plans/level-design.md 4).
 		services.ToyService:Begin(rng:Fork("toys"))
+		-- The servants' bell board.
+		services.BellBoardService:Begin(rng:Fork("bell board"))
 		services.LockService:Begin(plan)
 		-- The crowbar and the bolt cutters where the plan keeps them (L3.3).
 		services.ToolService:PlacePlanned(plan, rng:Fork("planned tools"))
@@ -265,6 +267,8 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		local leads = found and found.leads
 			or Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
 		services.ItemService:Begin(plan, rng:Fork("items"), leads)
+		-- The nursery's baby monitor (on its tops, after the leads take theirs).
+		services.MonitorService:Begin(rng:Fork("monitor"))
 		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
 		-- The optional safe room's contents (docs/plans/level-design.md 11.12).
 		services.SafeRoomService:Begin(plan, rng:Fork("safe room"), self.run.squad)

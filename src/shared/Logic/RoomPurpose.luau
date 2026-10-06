@@ -56,7 +56,7 @@ function RoomPurpose.placedRooms(layout, templatesById, name: string): { number 
 	for _, templateId in info and info.placed and info.placed.rooms or {} do
 		for _, room in rooms do
 			local template = templatesById[room.template]
-			if template and template.id == templateId and hasTop(template) then
+			if template and template.id == templateId and (info.placed.wall or hasTop(template)) then
 				table.insert(out, room.id)
 			end
 		end
@@ -101,8 +101,8 @@ function RoomPurpose.base(layout, templatesById)
 			local placed = template and info.placed
 			local here = placed and placed.rooms and not placed.one and table.find(placed.rooms, template.id)
 			if here or (placed and placed.room == template.id) then
-				add(entry.strong, "lure: " .. name)
-				entry.lure = true
+				add(entry.strong, info.reason or ("lure: " .. name))
+				entry.lure = entry.lure or info.reason == nil
 			end
 		end
 		if template and LockPlanner.offers(template, mansion).hides > 0 then
@@ -154,8 +154,8 @@ function RoomPurpose.base(layout, templatesById)
 			if info.placed and info.placed.one then
 				local first = RoomPurpose.placedRooms(layout, templatesById, name)[1]
 				if first and out[first] then
-					add(out[first].strong, "lure: " .. name)
-					out[first].lure = true
+					add(out[first].strong, info.reason or ("lure: " .. name))
+					out[first].lure = out[first].lure or info.reason == nil
 				end
 			end
 		end

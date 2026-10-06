@@ -20,8 +20,9 @@
 --   placed        not furniture of its own: put there each run (Services/
 --                 InteractService) `on` a prop kind (else on a top in `room`),
 --                 or on a top in the first of `rooms` (template ids, in order)
---                 that has one (`one`: one a house); Logic/RoomPurpose counts
---                 it as a lure there
+--                 that has one (`one`: one a house; `wall`: on a wall, not a
+--                 top); Logic/RoomPurpose counts it as a lure there, or as
+--                 its `reason`
 
 return {
 	Toilet = {
@@ -136,5 +137,21 @@ return {
 		object = "Wind-up toy",
 		toy = true,
 		placed = { rooms = { "kids_bedroom", "playroom", "nursery" } },
+	},
+	-- Not lures: things that tell you where he is (Services/BellBoardService,
+	-- Services/MonitorService).
+	BellBoard = {
+		object = "Bell board",
+		reason = "bell board",
+		placed = {
+			rooms = { "service_corridor", "kitchen", "servants_room", "pantry", "mudroom" },
+			one = true,
+			wall = true,
+		},
+	},
+	BabyMonitor = {
+		object = "Baby monitor",
+		reason = "baby monitor",
+		placed = { rooms = { "nursery" }, one = true, wall = true },
 	},
 }

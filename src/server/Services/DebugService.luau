@@ -55,7 +55,7 @@ local HELP = table.concat({
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
-	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · fling <room> <room> <speed>",
+	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · bell [room] · monitor · fling <room> <room> <speed>",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
@@ -571,6 +571,16 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "use" then
 		-- The nearest fixture (or one by name: `use kettle`, `use toy`).
 		reply(player, services.InteractService:DebugUse(player, args[2]))
+	elseif command == "bell" then
+		-- The bell board (`bell <room>` rings that room's bell).
+		local room = tonumber(args[2])
+		if room then
+			reply(player, services.BellBoardService:Ring(room) and ("rang " .. room) or "no bell for that room")
+		else
+			reply(player, services.BellBoardService:Describe())
+		end
+	elseif command == "monitor" then
+		reply(player, services.MonitorService:Describe())
 	elseif command == "saferoom" then
 		-- Where the safe room is and what's in it.
 		reply(player, services.SafeRoomService:Describe())
