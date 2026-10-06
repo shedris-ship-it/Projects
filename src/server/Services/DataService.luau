@@ -186,6 +186,8 @@ function DataService:Start()
 				"masterVolume",
 				"sfxVolume",
 				"ambientVolume",
+				"musicVolume",
+				"tips",
 				"seenIntro",
 			}
 		do

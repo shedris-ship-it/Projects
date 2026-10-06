@@ -684,9 +684,9 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		services.DivergenceService:Scare(player, { kind = "windowFace", glass = best })
 		return string.format("face at the window %.0f studs away", bestDistance)
 	elseif sub == "scare" then
-		-- Preview the jumpscare without being caught.
-		Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = "debug" })
-		return "boo"
+		-- Preview the jumpscare without being caught: `guest scare [quiet|rush]`.
+		Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = "debug", catch = args[3] })
+		return "boo" .. (args[3] and (" (" .. args[3] .. ")") or "")
 	elseif sub == "move" then
 		return self.stalk:DebugMove(args[3])
 	elseif sub == "peeks" then

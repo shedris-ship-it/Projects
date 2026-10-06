@@ -380,16 +380,25 @@ function GuestController:_event(event)
 	elseif kind == "unheld" then
 		audio:Caption("[the light isn't enough any more. It comes on]")
 	elseif kind == "catch" then
-		self:_jumpscare()
+		self:_jumpscare(event.catch)
 	end
 end
 
--- Caught: his face, grinning wide open, rushes in to fill your screen, then
--- black. It's a picture, not the camera: nothing moves your view (comfort
--- rule, doc section 4), and it works when he took you from behind.
-function GuestController:_jumpscare()
+-- Caught. Two ways (Config.Guest.Catch): "rush", his face grinning wide open
+-- rushes in to fill your screen, then black; "quiet", black and a breath in
+-- your ear, then his face resolving slowly out of the dark, lit from below,
+-- then the sting and black. Either is a picture, not the camera: nothing
+-- moves your view (comfort rule, doc section 4), and it works when he took
+-- you from behind.
+function GuestController:_jumpscare(mode: string?)
 	local audio = self.controllers.AudioController
-	audio:PlayFor("Sting", nil, 1, 1, 2.2)
+	mode = (mode == "quiet" or mode == "rush") and mode or G.Catch or "rush"
+	local quiet = mode == "quiet"
+	if quiet then
+		audio:PlayFor("Breath", nil, 1, 0.55, 1.4)
+	else
+		audio:PlayFor("Sting", nil, 1, 1, 2.2)
+	end
 	if not guest or not guest.head.Parent then
 		return
 	end
@@ -405,16 +414,18 @@ function GuestController:_jumpscare()
 	local black = Instance.new("Frame")
 	black.Size = UDim2.fromScale(1, 1)
 	black.BackgroundColor3 = Color3.new(0, 0, 0)
-	black.BackgroundTransparency = 0.35
+	black.BackgroundTransparency = quiet and 0 or 0.35
 	black.BorderSizePixel = 0
 	black.Parent = gui
 	local viewport = Instance.new("ViewportFrame")
 	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.BackgroundTransparency = 1
-	-- Dark, lit harshly from below.
-	viewport.Ambient = Color3.fromRGB(34, 30, 28)
-	viewport.LightColor = Color3.fromRGB(215, 190, 160)
-	viewport.LightDirection = Vector3.new(-0.25, 0.75, -0.6)
+	-- Dark, lit harshly from below (dimmer and lower still for the quiet one:
+	-- a face in a cellar, not a mask under a lamp).
+	viewport.Ambient = quiet and Color3.fromRGB(14, 12, 12) or Color3.fromRGB(34, 30, 28)
+	viewport.LightColor = quiet and Color3.fromRGB(150, 128, 104) or Color3.fromRGB(215, 190, 160)
+	viewport.LightDirection = quiet and Vector3.new(-0.1, 0.9, -0.4) or Vector3.new(-0.25, 0.75, -0.6)
+	viewport.ImageTransparency = quiet and 1 or 0
 	viewport.Parent = gui
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 45
@@ -447,8 +458,31 @@ function GuestController:_jumpscare()
 	end
 	local started = os.clock()
 	local connection
+	local stung = false
 	connection = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - started
+		if quiet then
+			-- Black and a breath; from 0.4 s his face resolves out of the dark
+			-- over a second, farther off and drifting closer, no tremble; at
+			-- 1.5 s the sting and a hard cut to black, which holds, then lifts.
+			local reveal = math.clamp((t - 0.4) / 1.0, 0, 1)
+			local distance = 7.5 - 1.3 * reveal
+			local cf = CFrame.new(0.1, 0.25, -distance) * CFrame.Angles(0, math.pi, math.rad(-9))
+			for _, piece in pieces do
+				piece.part.CFrame = cf * piece.rel
+			end
+			viewport.ImageTransparency = t < 1.5 and (1 - reveal * 0.9) or 1
+			if t >= 1.5 and not stung then
+				stung = true
+				audio:PlayFor("Sting", nil, 0.85, 0.9, 2)
+			end
+			black.BackgroundTransparency = t > 2.6 and math.min(1, (t - 2.6) * 1.4) or 0
+			if t > 3.4 then
+				connection:Disconnect()
+				gui:Destroy()
+			end
+			return
+		end
 		-- Rushes in over 0.3 s, then holds, trembling, in your face.
 		local rush = math.clamp(t / 0.3, 0, 1)
 		local distance = 10 - 8 * (1 - (1 - rush) ^ 3)

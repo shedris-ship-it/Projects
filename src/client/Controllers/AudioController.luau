@@ -24,6 +24,7 @@ local AudioController = {}
 
 local groups = {}
 local layers = {}
+local music = {} -- state -> Sound (Assets.Music), crossfaded by _updateMusic
 local duckUntil = 0
 
 local function group(name: string): SoundGroup
@@ -68,6 +69,8 @@ function AudioController:Start()
 	self:_loops()
 	self:_combs()
 	group("UI")
+	group("Music")
+	self:_music()
 	self:_applyVolumes(self.state.settings)
 	self.state.SettingsChanged:Connect(function(settings)
 		self:_applyVolumes(settings)
@@ -166,6 +169,7 @@ function AudioController:Start()
 	local lastRoom = nil
 	RunService.Heartbeat:Connect(function(dt)
 		self:_updateLayers(dt)
+		self:_updateMusic(dt)
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			local room = self.state:RoomAt(root.Position)
@@ -186,6 +190,62 @@ function AudioController:_applyVolumes(settings)
 	group("UI").Volume = master * Config.Audio.UiVolume
 	self.ambientBase = master * (settings.ambientVolume or 0.8)
 	group("Ambient").Volume = self.ambientBase
+	group("Music").Volume = master * (settings.musicVolume or 0.7)
+end
+
+-- Music states (Config.Music, Assets.Music): one of three looping stems
+-- plays, crossfaded: the hunt's while he hunts, the stalking one from tier 2
+-- or Dread 40, else the calm one (after the first quiet seconds). A stem
+-- with no asset id plays nothing, so the house is silent until the owner
+-- chooses them by ear.
+function AudioController:_music()
+	for state, id in Assets.Music do
+		if id ~= "" and not music[state] then
+			local sound = Instance.new("Sound")
+			sound.Name = "Music" .. state
+			sound.SoundId = id
+			sound.Looped = true
+			sound.Volume = 0
+			sound.SoundGroup = group("Music")
+			sound.Parent = SoundService
+			music[state] = sound
+		end
+	end
+end
+
+-- Which stem the moment wants, or nil for none.
+function AudioController:MusicState(): string?
+	local state = self.state
+	if not state:InRun() then
+		return nil
+	end
+	local M = Config.Music
+	if state:Run(Constants.RunState.Hunting) == true then
+		return "Hunt"
+	end
+	local tier = state:Run(Constants.RunState.Tier) or 0
+	if tier >= M.StalkingFromTier or state:Dread() >= M.StalkingFromDread then
+		return "Stalking"
+	end
+	if (state:Run(Constants.RunState.RunTime) or 0) >= M.CalmFromSeconds then
+		return "Calm"
+	end
+	return nil
+end
+
+function AudioController:_updateMusic(dt: number)
+	local wanted = self:MusicState()
+	local M = Config.Music
+	for state, sound in music do
+		local target = state == wanted and (M.Volume[state] or 0.3) or 0
+		local rate = target > sound.Volume and 1 / M.FadeIn or 1 / M.FadeOut
+		sound.Volume += math.clamp(target - sound.Volume, -rate * dt, rate * dt)
+		if sound.Volume > 0.001 and not sound.IsPlaying then
+			sound:Play()
+		elseif sound.Volume <= 0.001 and sound.IsPlaying then
+			sound:Stop()
+		end
+	end
 end
 
 function AudioController:_updateLayers(dt: number)

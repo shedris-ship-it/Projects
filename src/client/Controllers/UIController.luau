@@ -49,6 +49,7 @@ function UIController:Start()
 			"Settings",
 			"Overlays",
 			"DownedMarkers",
+			"Tips",
 			"DebugOverlay",
 		}
 	do

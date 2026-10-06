@@ -836,6 +836,12 @@ Config.Stalker = {
 -- decisions 2026-10-03). Behaviour numbers join this block as they land.
 Config.Guest = {
 	FormDrift = { 40, 60 }, -- the smile opens at Fraying, the porcelain cracks at Breaking
+	-- The catch (Controllers/GuestController): "rush", his grin rushing in to
+	-- fill the screen (as built 2026-10-03); "quiet", black and a breath, then
+	-- his face resolving slowly out of the dark, then the sting (the audit of
+	-- 2026-10-06 found the rush cartoonish). The owner's choice: F2 `guest
+	-- scare quiet|rush` previews either.
+	Catch = "rush",
 	NeckYawMax = 160, -- his head keeps turning to watch you; a person manages about 80
 	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
 	EyeShineRange = 45, -- your torch catches his eyes within this range
@@ -1459,6 +1465,17 @@ Config.Audio = {
 	UiVolume = 0.8, -- the interface group, relative to the master volume
 	DriftMuffleDb = -18, -- how far the Ambient group's highs fall at full Drift
 	HuntFadeSeconds = 0.6,
+}
+
+-- Music states (Controllers/AudioController; Assets.Music): which stem plays,
+-- how loud, and how they cross.
+Config.Music = {
+	Volume = { Calm = 0.22, Stalking = 0.35, Hunt = 0.5 }, -- each stem, before the Music slider
+	FadeIn = 2.5, -- seconds a stem takes to come up
+	FadeOut = 1.8, -- ... and to go
+	StalkingFromTier = 2, -- the stalking stem from this tier...
+	StalkingFromDread = 40, -- ... or this Dread
+	CalmFromSeconds = 20, -- no calm stem in the first seconds of a run: the house is quiet first
 }
 
 -- How movement feels (Logic/Feel, Controllers/FeelController and

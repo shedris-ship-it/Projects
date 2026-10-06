@@ -25,7 +25,7 @@ function Settings.new(ctx)
 	local panel = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(860, 560),
+		Size = UDim2.fromOffset(860, 640),
 		BackgroundColor3 = Ui.Theme.panel,
 		Parent = gui,
 	}, { Ui.corner(10), Ui.stroke(Ui.Theme.accent, 1, 0.4), Ui.padding(20) })
@@ -66,6 +66,7 @@ function Settings.new(ctx)
 			{ key = "colorblind", label = "Colour-blind-safe pings" },
 			{ key = "lowEnd", label = "Low-end graphics (phones)" },
 			{ key = "centerDot", label = "Centre dot (aiming aid)" },
+			{ key = "tips", label = "Show tips in the house" },
 		}
 	do
 		local button = Ui.button(
@@ -86,6 +87,7 @@ function Settings.new(ctx)
 			{ key = "masterVolume", label = "Volume", min = 0, max = 1, step = 0.1 },
 			{ key = "sfxVolume", label = "Effects volume", min = 0, max = 1, step = 0.1 },
 			{ key = "ambientVolume", label = "Ambience volume", min = 0, max = 1, step = 0.1 },
+			{ key = "musicVolume", label = "Music volume", min = 0, max = 1, step = 0.1 },
 		}
 	do
 		local row = Ui.new(

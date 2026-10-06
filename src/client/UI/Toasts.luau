@@ -16,6 +16,7 @@ local KIND_COLORS = {
 	ping = Ui.Theme.textDim,
 	callout = Color3.fromRGB(200, 220, 255),
 	witness = Ui.Theme.accent,
+	tip = Color3.fromRGB(222, 206, 160), -- teaching (UI/Tips)
 	debug = Color3.fromRGB(150, 255, 170),
 }
 

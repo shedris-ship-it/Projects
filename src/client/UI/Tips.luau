@@ -1,0 +1,158 @@
+-- Teaching in the house (the owner's audit of 2026-10-06, Finding 5: an
+-- eight-bullet how-to taught nothing). One short tip at a time, when the
+-- thing it teaches first comes up: your hands, the map, a locked door's
+-- mark, your first key, the first time he shows himself, the first hunt, a
+-- dying torch, your beam holding him. Each shows once a session, never two
+-- within twenty seconds, and the "Show tips" setting turns them off.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Constants = require(Shared.Constants)
+local Net = require(Shared.Net)
+
+local PA = Constants.PlayerAttributes
+local RS = Constants.RunState
+
+local player = Players.LocalPlayer
+
+local Tips = {}
+Tips.__index = Tips
+
+local GAP = 20 -- seconds between tips
+
+-- Each tip: when (a function of the state that says it's time), what.
+local TIPS = {
+	{
+		id = "hands",
+		text = "Hold the left mouse button on a drawer, a door or a small thing to pull, swing or carry it. The family's keys are in the drawers.",
+		when = function(self)
+			return self:_runTime() >= 12
+		end,
+	},
+	{
+		id = "map",
+		text = "Tab opens the map. It only shows what your squad has seen.",
+		when = function(self)
+			return self:_runTime() >= 50
+		end,
+	},
+	{
+		id = "locked",
+		text = "Every locked door wears a mark on its plaque. The key with the same mark opens it: say the mark aloud.",
+		when = function(self)
+			local line = self.state:Run(RS.Objective)
+			return type(line) == "string"
+				and (string.find(line, "is locked", 1, true) or string.find(line, "has a padlock", 1, true)) ~= nil
+		end,
+	},
+	{
+		id = "key",
+		text = "A key goes on your ring (bottom left). Its door wears the same mark.",
+		when = function()
+			local keys = player:GetAttribute(PA.Keys)
+			return type(keys) == "string" and keys ~= ""
+		end,
+	},
+	{
+		id = "guest",
+		text = "Something is watching you. Two of you looking at it in the light stop it. Alone, your beam does, while the battery lasts.",
+		when = function(self)
+			return self.seenGuest
+		end,
+	},
+	{
+		id = "hunt",
+		text = "It's coming. Hide (E on a wardrobe, a bed or a closet) or run and break its line of sight. Staring holds it a few seconds, no more.",
+		when = function(self)
+			return self.huntTelegraphed
+		end,
+		urgent = true,
+	},
+	{
+		id = "beam",
+		text = "Your light is holding it. The battery pays for every second.",
+		when = function()
+			return player:GetAttribute(PA.BeamHold) == true
+		end,
+		urgent = true,
+	},
+	{
+		id = "battery",
+		text = "Your torch is dying. A lit Lantern room recharges it; the safe room keeps batteries.",
+		when = function()
+			local battery = player:GetAttribute(PA.Battery)
+			return type(battery) == "number" and battery < 0.25
+		end,
+	},
+}
+
+function Tips.new(ctx)
+	local self = setmetatable({
+		ctx = ctx,
+		state = ctx.state,
+		shown = {},
+		lastAt = -math.huge,
+		seenGuest = false,
+		huntTelegraphed = false,
+		hunting = false,
+		elapsed = 0,
+	}, Tips)
+	Net.get("StalkerVisibility").OnClientEvent:Connect(function(visible)
+		if visible == true and self.state:InRun() then
+			self.seenGuest = true
+		end
+	end)
+	Net.get("HuntState").OnClientEvent:Connect(function(payload)
+		if payload.state == "telegraph" then
+			self.huntTelegraphed = true
+			self.hunting = true
+		elseif payload.state == "end" then
+			self.hunting = false
+		end
+	end)
+	self.state.PhaseChanged:Connect(function(phase)
+		if phase == "Lobby" or phase == "Generating" then
+			-- A new run teaches again only what hasn't been shown this session.
+			self.seenGuest, self.huntTelegraphed, self.hunting = false, false, false
+		end
+	end)
+	return self
+end
+
+function Tips:_runTime(): number
+	return self.state:Run(RS.RunTime) or 0
+end
+
+function Tips:Update(dt: number)
+	self.elapsed += dt
+	if self.elapsed < 0.5 then
+		return
+	end
+	self.elapsed = 0
+	if not self.state:InRun() or self.state.settings.tips == false then
+		return
+	end
+	if self.state:PlayerState() ~= Constants.PlayerStates.Active then
+		return
+	end
+	local now = os.clock()
+	for _, tip in TIPS do
+		if
+			not self.shown[tip.id]
+			and (tip.urgent or not self.hunting)
+			and now - self.lastAt >= (tip.urgent and 4 or GAP)
+		then
+			local ok, due = pcall(tip.when, self)
+			if ok and due then
+				self.shown[tip.id] = true
+				self.lastAt = now
+				self.ctx.ui:Toast(tip.text, "tip")
+				return
+			end
+		end
+	end
+end
+
+return Tips

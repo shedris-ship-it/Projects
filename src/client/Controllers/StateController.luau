@@ -40,6 +40,8 @@ local StateController = {
 		masterVolume = 1,
 		sfxVolume = 1,
 		ambientVolume = 0.8,
+		musicVolume = 0.7,
+		tips = true, -- teaching in the house (UI/Tips)
 		seenIntro = false,
 	},
 }

@@ -78,6 +78,18 @@ Assets.Sounds = {
 -- iLoveSwiss_0, wood, tile and concrete by Diman_x86. Nothing was uploaded.
 -- A surface with no ids, or none that load (FootstepController drops ids that
 -- never load), falls back to StockFootstep, which ships with the client.
+-- Music (Controllers/AudioController, 2026-10-06): three looping stems the
+-- house crossfades between, calm / stalking / hunt. Empty ids play nothing:
+-- the owner chooses by ear. Free APM candidates found on the Creator Store
+-- (not yet heard): "Tension Repeat Drones 23" 1843866957, "... 29" 1843867314,
+-- "... 39" 1843739491, "Cinematic Tension 16 I" 82017171529095, "... 16 J"
+-- 102730546164558, "Deliberate Pain (Alt Key Bass)" 1837843263.
+Assets.Music = {
+	Calm = "", -- a thin, almost-not-there bed for the house between his visits
+	Stalking = "", -- from tier 2 or Dread 40: a pulse under the quiet
+	Hunt = "", -- the chase
+}
+
 Assets.StockFootstep = "rbxasset://sounds/action_footsteps_plastic.mp3"
 
 Assets.Footsteps = {
