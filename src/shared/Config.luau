@@ -916,6 +916,9 @@ Config.Guest = {
 	LightSnapSeconds = 0.12, -- his head snaps to your light this fast when it lands
 	ExhaleAfter = 2, -- held longer than this, he breathes out when let go
 	UnfoldSeconds = 0.5, -- straightening up past a door frame
+	EyeGlow = { 0.45, 0.6, 0.8 }, -- his eyes glow this much in the dark when he faces you, by form (1 in your torch)
+	EyeGlowRange = 30,
+	GapeRange = 7, -- from Fraying, closer than this his mouth hangs open
 
 	-- Arrival: three knocks at the front door when the quiet start ends.
 	ArrivalKnockLead = 3, -- seconds from the knock until he's inside

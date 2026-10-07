@@ -200,6 +200,12 @@ local function blocked(from: Vector3, to: Vector3, ignore: { Instance }): boolea
 	return hit ~= nil and (hit.Position - to).Magnitude > 1
 end
 
+-- Each mood's sound (Logic/GuestMood's tells), every so many seconds.
+local MOOD_SOUNDS = {
+	Irritated = { key = "GuestCrack", volume = 0.5, pitch = 0.9, every = { 6, 12 } },
+	Playful = { key = "GuestGiggle", volume = 0.4, pitch = 0.92, every = { 12, 24 } },
+}
+
 local FINGER_CURL = {
 	Idle = 0.75,
 	Hold = 0.5,
@@ -310,7 +316,7 @@ function GuestController:_frame(dt: number)
 				"GuestExhale",
 				guest.head.Position,
 				0.6,
-				0.9,
+				0.72,
 				blocked(camera.CFrame.Position, guest.head.Position, { model })
 			)
 		end
@@ -343,7 +349,9 @@ function GuestController:_frame(dt: number)
 		-- In your light he moves like a stop-motion puppet: his joints only
 		-- take their new places every so often. In the dark, smooth.
 		local write = true
-		if beam then
+		local form = model:GetAttribute("GuestForm") or 0
+		-- Broken (Breaking), he moves in stutters even in the dark.
+		if beam or form >= 2 then
 			if now < (guest.nextStutter or 0) then
 				write = false
 			else
@@ -371,7 +379,6 @@ function GuestController:_frame(dt: number)
 			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum)
 		end
 		-- The face.
-		local form = model:GetAttribute("GuestForm") or 0
 		local distance = (guest.head.Position - camera.CFrame.Position).Magnitude
 		local range = G.SmileCloseRange
 		local closeness = 1 - math.clamp((distance - range[1]) / (range[2] - range[1]), 0, 1)
@@ -382,12 +389,46 @@ function GuestController:_frame(dt: number)
 		if override then
 			width, open = GuestPose.smile(form, override, true)
 		end
+		-- From Fraying, up close, the mouth hangs open.
+		if form >= 1 and distance < G.GapeRange then
+			open = math.max(open, 0.6 + 0.4 * (1 - distance / G.GapeRange))
+		end
 		guest.face:SetForm(form)
 		guest.face:SetSmile(width, open)
-		guest.face:SetShine(self:_eyeShine(camera))
+		-- His eyes: caught in your torch, or a faint glow in the dark whenever
+		-- he faces you; they follow you either way.
+		local toFace = guest.head.Position - camera.CFrame.Position
+		local facing = toFace.Magnitude > 0.5 and guest.head.CFrame.LookVector:Dot(-toFace.Unit) >= 0.3
+		local glow = G.EyeGlow[math.clamp(form, 0, 2) + 1]
+		guest.face:SetShine(self:_eyeShine(camera) and 1 or (facing and distance < G.EyeGlowRange and glow or 0))
+		guest.face:LookAt(camera.CFrame.Position)
 	end
 
 	self:_glass(dt, camera, shown)
+
+	-- His mood, by ear (Logic/GuestMood): an irritated Guest's knuckles and
+	-- neck crack; a playful one giggles under his breath; and held past five
+	-- seconds his neck creaks as it tips too far. Only while he's visible to
+	-- you, like his steps.
+	if shown then
+		local audio = self.controllers.AudioController
+		local head = guest.head.Position
+		local muffle = blocked(camera.CFrame.Position, head, { model, player.Character })
+		if pose == "Hold" and (guest.heldFor or 0) > 5 and not guest.neckCracked then
+			guest.neckCracked = true
+			audio:PlayAt("GuestCrack", head, 0.55, 0.8, muffle)
+		elseif pose ~= "Hold" then
+			guest.neckCracked = false
+		end
+		if now >= (guest.nextMoodSound or 0) then
+			local sound = MOOD_SOUNDS[mood or ""]
+			guest.nextMoodSound = now
+				+ (sound and (sound.every[1] + math.random() * (sound.every[2] - sound.every[1])) or 4)
+			if sound and pose ~= "Run" and pose ~= "Lunge" then
+				audio:PlayAt(sound.key, head, sound.volume, sound.pitch + math.random() * 0.08, muffle)
+			end
+		end
+	end
 
 	-- You only hear him walk while he's visible to you (owner, 2026-10-03):
 	-- steps from something you can't see felt unnatural. His breath and
@@ -552,7 +593,9 @@ function GuestController:_jumpscare(mode: string?)
 	local head = guest.head
 	guest.face:SetForm(math.max(guest.model:GetAttribute("GuestForm") or 0, 1))
 	guest.face:SetSmile(math.rad(108), 1)
-	guest.face:SetShine(true) -- his eyes catch the light, right in front of you
+	guest.face:SetShine(1) -- his eyes catch the light, right in front of you
+	-- Staring dead into you.
+	guest.face:LookAt(guest.head.CFrame * Vector3.new(0, 0, -6))
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "GuestJumpscare"
 	gui.IgnoreGuiInset = true
@@ -630,12 +673,14 @@ function GuestController:_jumpscare(mode: string?)
 			end
 			return
 		end
-		-- Rushes in over 0.3 s, then holds, trembling, in your face.
+		-- Rushes in over 0.3 s, then holds, shuddering, in your face; at half
+		-- a second the head jerks over, as far as a neck shouldn't go.
 		local rush = math.clamp(t / 0.3, 0, 1)
-		local distance = 10 - 8 * (1 - (1 - rush) ^ 3)
-		local tremble = t > 0.3 and 0.02 or 0
+		local distance = 10 - 8.4 * (1 - (1 - rush) ^ 3)
+		local tremble = t > 0.3 and 0.05 or 0
+		local jerk = t > 0.5 and math.rad(-38) or math.rad(-16)
 		local cf = CFrame.new((math.random() - 0.5) * tremble, 0.12 + (math.random() - 0.5) * tremble, -distance)
-			* CFrame.Angles(0, math.pi, math.rad(-16))
+			* CFrame.Angles(0, math.pi, jerk)
 		for _, piece in pieces do
 			piece.part.CFrame = cf * piece.rel
 		end

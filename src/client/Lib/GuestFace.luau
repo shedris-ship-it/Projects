@@ -110,24 +110,28 @@ function GuestFace.new(head: BasePart)
 		return part
 	end
 
-	-- Eyes: holes onto the black behind, a darker rim round each, and a pin
-	-- of light that only shows in a torch beam, floating in the dark.
+	-- Eyes: round holes onto the black behind, wide and lidless (the owner,
+	-- 2026-10-07: "like he doesn't have eyelids"), a darker rim round each,
+	-- and a pin of light that only shows in a torch beam, floating in the dark.
 	self.shine = {}
+	self.eyes = {} -- each eye's pin of light, which follows you about
 	for _, eye in GuestPose.Eyes do
 		local spec = GuestPose.piece(a, b, c, eye[1] - 0.1, eye[2], eye[1] + 0.1, eye[2])
 		local rim, rw = piecePart(head, "EyeRim", HOLE_RIM, true)
-		rim.Size = Vector3.new(0.29, 0.15, 0.02)
+		rim.Size = Vector3.new(0.235, 0.235, 0.02)
 		rim.Transparency = 0.35
 		static(rim, rw, localFrame(spec, 0.002))
 		local hole, hw = piecePart(head, "EyeHole", HOLE, true)
-		hole.Size = Vector3.new(0.24, 0.115, 0.02)
+		hole.Size = Vector3.new(0.19, 0.19, 0.02)
 		static(hole, hw, localFrame(spec, 0.004))
 		local shine, shw = piecePart(head, "EyeShine", Color3.new(1, 1, 1), true)
 		shine.Material = Enum.Material.Neon
-		shine.Size = Vector3.new(0.032, 0.032, 0.02)
+		shine.Size = Vector3.new(0.055, 0.055, 0.02)
 		shine.Transparency = 1
-		static(shine, shw, localFrame(spec, 0.008))
+		local frame = localFrame(spec, 0.008)
+		static(shine, shw, frame)
 		table.insert(self.shine, shine)
+		table.insert(self.eyes, { weld = shw, frame = frame, right = v(spec.right), up = v(spec.up) })
 		-- A faint painted brow, arched, a little too high.
 		local side = eye[1] >= 0 and 1 or -1
 		local brow = GuestPose.piece(a, b, c, eye[1] - side * 0.13, eye[2] + 0.26, eye[1] + side * 0.12, eye[2] + 0.26)
@@ -258,9 +262,29 @@ function GuestFace:SetForm(form: number)
 	self:SetSmile(math.rad(62), 0)
 end
 
-function GuestFace:SetShine(on: boolean)
+-- The pins of light in his eyes: 0 none, then a faint glow in the dark,
+-- 1 caught full in your torch.
+function GuestFace:SetShine(level: number | boolean)
+	local amount = level == true and 1 or (level == false and 0 or level :: number)
 	for _, shine in self.shine do
-		shine.Transparency = on and 0.1 or 1
+		shine.Transparency = amount <= 0 and 1 or (1 - amount) * 0.85 + 0.05
+	end
+end
+
+-- Lidless, and they follow you: each pin of light slides inside its eye
+-- towards `point` (where you are).
+function GuestFace:LookAt(point: Vector3)
+	local rel = self.maskCF:PointToObjectSpace(self.head.CFrame:PointToObjectSpace(point))
+	for _, eye in self.eyes do
+		local base = eye.frame.Position
+		local toward = rel - base
+		if toward.Magnitude > 0.01 then
+			local d = toward.Unit
+			local reach = 0.05
+			local offset = eye.right * math.clamp(d:Dot(eye.right) * 1.6, -1, 1) * reach
+				+ eye.up * math.clamp(d:Dot(eye.up) * 1.6, -1, 1) * reach
+			eye.weld.C0 = self.maskCF * CFrame.new(offset) * eye.frame
+		end
 	end
 end
 

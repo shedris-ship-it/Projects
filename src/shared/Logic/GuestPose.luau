@@ -231,8 +231,8 @@ function GuestPose.target(ctx)
 		if pose == P.Hold and (ctx.heldFor or 0) > 0 then
 			-- Frozen but alive (the owner's choice, 2026-10-06): held, he never
 			-- moves a stud, but his head tips further the longer you look,
-			-- from 14 degrees to about 40.
-			add(t, "Neck", 0, 0, d(math.min(26, ctx.heldFor * 3.25)))
+			-- from 14 degrees to about 70: far past where a neck should stop.
+			add(t, "Neck", 0, 0, d(math.min(56, ctx.heldFor * 7)))
 		end
 	elseif pose == P.Walk then
 		clasp(t)

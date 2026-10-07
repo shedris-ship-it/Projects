@@ -44,6 +44,14 @@ Assets.Sounds = {
 	WindUp = "rbxassetid://9114555843", -- the gasp, pitched far down: a sharp intake before the lunge
 	Sting = "rbxassetid://9117322696", -- PSE "Piano Strings Attack 1": the jumpscare
 	GlassTap = "rbxassetid://9119918673", -- PSE "Tap On Glass Window 1"
+	-- The Guest rework (2026-10-07): licensed library audio chosen by its
+	-- description, not yet heard by the owner: swap by ear here.
+	GuestRasp = "rbxassetid://9114571155", -- PSE "Ghost Giggle Breathy Cu Creepy Possessed 3": he has seen you, in a hunt
+	GuestGiggle = "rbxassetid://9114571545", -- PSE "Ghost Giggle Breathy Cu Creepy Possessed 9": a playful Guest, now and then
+	GuestSniff = "rbxassetid://9119305469", -- PSE "Sniff Breathe In 9": he's lost you and sniffs the air
+	GuestKeys = "rbxassetid://9113849492", -- PSE "Coins Or Keys Jingle 6": his key ring at a locked door
+	GuestCrack = "rbxassetid://9113542363", -- PSE "Bone Cracks 10" (dry): his knuckles, his neck tipping too far
+	GuestExhale = "rbxassetid://9113586144", -- PSE "Breath Exhale 17", pitched down: let go after a long stare
 	-- Your own breath, looped: it follows stamina (Controllers/AudioController).
 	PlayerBreath = "rbxassetid://124832136911190", -- Creator Store "Breathing and Tired" (Maz_Rx1)
 	-- Loops for the Drift layers and room tone. Fill these with real assets.

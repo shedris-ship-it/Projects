@@ -211,15 +211,7 @@ function StalkerModel.build(archetype, parent: Instance)
 	skin(lower, "JacketHem", "tube", at(1.3, 1.0, 0.76), at(0, Rig.hipY + 0.4, 0.02), suit, Fabric)
 	for _, sx in { -1, 1 } do
 		-- Narrow shoulders that slope away: no pads, only the cloth over the joint.
-		skin(
-			upper,
-			"ShoulderPad",
-			"ball",
-			at(0.36, 0.24, 0.5),
-			at(sx * 0.56, Rig.shoulderY - 0.12, 0.04),
-			suit,
-			Fabric
-		)
+		skin(upper, "ShoulderPad", "ball", at(0.36, 0.24, 0.5), at(sx * 0.56, Rig.shoulderY - 0.12, 0.04), suit, Fabric)
 		-- Coat tails, hanging behind his thighs.
 		skin(lower, "CoatTail", "block", at(0.5, 1.7, 0.06), at(sx * 0.3, Rig.hipY - 0.55, 0.36), suit, Fabric, {
 			rotation = CFrame.Angles(math.rad(-4), 0, sx * math.rad(-3)),
