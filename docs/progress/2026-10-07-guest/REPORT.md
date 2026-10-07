@@ -76,7 +76,9 @@ The "before" column below is the loop pass's bot runs at build .121/.117. Parked
 - **Before and after:** before, a locked door was a wall at your back. Now it's a door he might come through, and you'll hear him first.
 
 ### WP6. Stairs and stuck points
-The loop pass's wedge on seed 1's Back Stairs (15 nudges) didn't happen again in this pass. Seed 1 had 0 nudges and 0 stuck points, and so did every other run (table below). I didn't change the walker for it; it's watched, not proven fixed.
+The loop pass's wedge on seed 1's Back Stairs (15 nudges) didn't happen again in this pass. The seed 1 bot run had 0 nudges and 0 stuck points. Seed 21's run had 20 nudges, but those were the bot's own walker in a four-player house during hunts, not him. I didn't change the walker for it. F2 `navtest fast` on seed 1 (build .127, keys and passages on):
+- **locked as dealt:** 21 legs, 0 failed, 0 falls, 0 phases, 0 stuck. The 8 "no way" legs are rooms behind locks his keys don't open (a crank shutter, boards).
+- **with `unlock all`:** 21 legs, all clean, the Back Stairs' cellar flight included (13.9 s). Same as the loop pass.
 
 ### WP7. The look: the mask over the dark
 Pictures are in this folder.
@@ -165,7 +167,7 @@ The bot knows the plan and solves puzzles as if played, so its times are a floor
 ## Not verified, and what to watch for in play
 - **Anything by ear:** every new sound, the Host's silence, how loud the giggle is.
 - **Two clients:** MimicVoice (TC-144); after-you with a squad; the door shadow seen from both sides; your beam's stutter seen only by you.
-- **"Closer each time you look back"** in HallwayStand: he stood at the corridor's end in Studio, but my camera test broke before the look-back.
+- **"Closer each time you look back"** in HallwayStand was checked later (seed 61, Hallway 7): he stood at the far end 37 studs off; one look and one look away, and he was 21 studs off. After that the move handed over to a creep from behind rather than waiting for a second look.
 - **Key passes:** seen in telemetry on seed 165547210, three of them, all hidden passages. A key-door pass and its relock haven't been watched by eye.
 - **Whether the new ways come up often enough.** They're all in the menu, weighted by mood: in the bot's runs FingersPeek and HostAction appeared, MakeWay often.
 - **Whether a squad of four finds him too much,** with keys and hunts that track you down.
