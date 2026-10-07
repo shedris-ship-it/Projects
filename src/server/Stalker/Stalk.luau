@@ -2022,7 +2022,9 @@ function Stalk:_choose(ctx)
 			feasibility.HallwayStand = 0
 		end
 	end
-	if #self.services.PlayerStateService:ActivePlayers() < 2 then
+	-- A friend's voice: squads, and on Hard only (the owner, 2026-10-07).
+	local difficulty = self.service.difficulty
+	if #self.services.PlayerStateService:ActivePlayers() < 2 or not (difficulty and difficulty.MimicVoice) then
 		feasibility.MimicVoice = 0
 	end
 	if feasibility.CreepBehind > 0 then

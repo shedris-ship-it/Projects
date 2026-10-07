@@ -905,7 +905,12 @@ Config.Guest = {
 	-- his face resolving slowly out of the dark, then the sting (the audit of
 	-- 2026-10-06 found the rush cartoonish). The owner's choice: F2 `guest
 	-- scare quiet|rush` previews either.
-	Catch = "rush",
+	-- "auto" (the owner, 2026-10-07: "either, dynamically based on
+	-- circumstances"): rush when you were looking at him or he ran you down
+	-- in a chase; quiet when he took you from behind, in the dark, or out of
+	-- a hiding place (StalkerService:_catchStyle). "rush"/"quiet" force one.
+	Catch = "auto",
+	CatchFaceSeconds = 1, -- you looked at him this recently: face to face
 	NeckYawMax = 160, -- his head keeps turning to watch you; a person manages about 80
 	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
 	EyeShineRange = 45, -- your torch catches his eyes within this range
@@ -1575,6 +1580,9 @@ Config.Difficulty = {
 		DreadFloor = 20,
 		TelegraphScale = 0.7,
 		DownsBeforeLost = 2,
+		-- A friend's voice from behind a door (Stalk MimicVoice): Hard only
+		-- (the owner, 2026-10-07).
+		MimicVoice = true,
 	},
 }
 

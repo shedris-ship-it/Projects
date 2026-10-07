@@ -136,6 +136,12 @@ function ActionController:Start()
 		end
 	end, false, nil, Enum.KeyCode.Return, Enum.KeyCode.Slash)
 
+	-- Tab is the map. Roblox's own player list binds Tab ahead of any game
+	-- action (the owner, 2026-10-07: "I can't open my map with tab"), and a
+	-- horror house has no use for a scoreboard: it goes.
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+	end)
 	self:_bind("ConsensusMap", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
 			ui:ToggleMap()

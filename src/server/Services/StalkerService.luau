@@ -1596,7 +1596,8 @@ function StalkerService:_catch(player: Player, now: number, how: string?, contac
 	end
 	services.RunLogService:Catch(player.DisplayName, how or "hunt", cheap)
 	services.PlayerStateService:Down(player)
-	Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = how or "hunt" })
+	Net.get("GuestEvent")
+		:FireClient(player, { kind = "catch", how = how or "hunt", catch = self:_catchStyle(player, how) })
 	for _, other in services.PlayerStateService:RunPlayers() do
 		if other ~= player then
 			Net.get("GuestEvent"):FireClient(other, { kind = "caught", position = self.body.root.Position })
@@ -1771,6 +1772,27 @@ function StalkerService:_keyShut(door)
 	else
 		services.DoorService:GuestKeyShut(door)
 	end
+end
+
+-- How the catch looks (Config.Guest.Catch "auto"): face to face, or run
+-- down in a chase, his face rushes at you; from behind, in the dark or out
+-- of a hiding place, it's black and a breath first, then his face.
+function StalkerService:_catchStyle(player: Player, how: string?): string
+	if G.Catch ~= "auto" then
+		return G.Catch
+	end
+	if how == "inspect" then
+		return "quiet"
+	end
+	local looked = self.perception.lookedAt[player]
+	local facing = looked ~= nil and os.clock() - looked <= G.CatchFaceSeconds
+	local chased = self.mode == Modes.Hunting and self.data and self.data.chasing == player
+	local lit = self.services.WorldService:IsLit(self.body.root.Position)
+		or self.services.PlayerStateService:FlashlightOn(player)
+	if facing or (chased and lit) then
+		return "rush"
+	end
+	return "quiet"
 end
 
 -- He sees you, in a hunt (Logic/HuntPhases "chase"): his head snaps round

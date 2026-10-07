@@ -154,8 +154,11 @@ end
 
 -- An invisible modal button: while its panel is visible, the mouse is
 -- released even in first person, so menus can be clicked.
+-- (A plain table: Roblox can drop an Instance's handle from a weak one while
+-- the Instance lives on. Destroyed buttons are cleared in Ui.modalOpen.)
+local modals = {}
 function Ui.modal(parent: Instance)
-	return Ui.new("TextButton", {
+	local button = Ui.new("TextButton", {
 		Name = "ModalUnlock",
 		Modal = true,
 		Text = "",
@@ -163,6 +166,36 @@ function Ui.modal(parent: Instance)
 		Size = UDim2.fromOffset(0, 0),
 		Parent = parent,
 	})
+	modals[button] = true
+	return button
+end
+
+-- Is a menu that frees the mouse showing right now? (Its modal button and
+-- every frame above it visible, its screen enabled.) Roblox frees the mouse
+-- for one but still reports MouseBehavior as LockCenter, so the cursor rule
+-- asks this instead (the owner, 2026-10-07: no cursor on the puzzle screens).
+function Ui.modalOpen(): boolean
+	for button in modals do
+		if button.Parent == nil then
+			modals[button] = nil
+			continue
+		end
+		local node: Instance? = button
+		local shown = true
+		while shown and node do
+			if node:IsA("GuiObject") and not node.Visible then
+				shown = false
+			elseif node:IsA("LayerCollector") then
+				shown = node.Enabled
+				break
+			end
+			node = node.Parent
+		end
+		if shown and node then
+			return true
+		end
+	end
+	return false
 end
 
 function Ui.color(t: { number }): Color3

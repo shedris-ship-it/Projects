@@ -121,7 +121,7 @@ local StalkMoves = {
 		base = 0.3,
 		signal = "straggling",
 		cooldown = 120,
-		description = "Speaks with a friend's voice from behind a shut door.",
+		description = "Speaks with a friend's voice from behind a shut door (Hard, in a squad).",
 		counter = "Confirm by voice: ask them where they are.",
 	},
 	-- Errands (R2c): never picked by habit; StalkerService sets them.

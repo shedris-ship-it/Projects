@@ -580,7 +580,9 @@ end
 -- you from behind.
 function GuestController:_jumpscare(mode: string?)
 	local audio = self.controllers.AudioController
-	mode = (mode == "quiet" or mode == "rush") and mode or G.Catch or "rush"
+	mode = (mode == "quiet" or mode == "rush") and mode
+		or ((G.Catch == "quiet" or G.Catch == "rush") and G.Catch)
+		or "rush"
 	local quiet = mode == "quiet"
 	if quiet then
 		audio:PlayFor("Breath", nil, 1, 0.55, 1.4)

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.124",
-	note = "the Guest rework documented (TC-138 to TC-152, the report); no target, no freeze; the bot opens what it pries",
+	id = "2026-10-06.125",
+	note = "the map on Tab again (no player list), the cursor on puzzle screens, the voice trick on Hard only, the catch chosen by what happened",
 }

@@ -350,8 +350,10 @@ function FocusMarkers:Update(dt: number)
 	-- hub; in a run only while Active and not hiding.
 	local active = not inRun or (state:IsActive() and not state:IsHidden())
 
-	-- No cursor in first person; menus that free the mouse get it back.
-	UserInputService.MouseIconEnabled = not (inRun and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter)
+	-- No cursor in first person; menus that free the mouse (Ui.modal) get it
+	-- back: a puzzle, the map, a note, the settings.
+	UserInputService.MouseIconEnabled = Ui.modalOpen()
+		or not (inRun and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter)
 
 	-- What each object should show this frame.
 	local wanted = {}
