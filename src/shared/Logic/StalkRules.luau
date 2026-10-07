@@ -110,14 +110,17 @@ end
 
 -- How fast he creeps (studs/s). Faster the more your back is turned
 -- (backAngle: degrees between where you look and where he is, 0..180);
--- painfully slow while one Witness is staring at him at tier 3.
-function StalkRules.creepSpeed(tier: number, backAngle: number, watchers: number, cfg): number
+-- painfully slow while one Witness is staring at him at tier 3. `scale`
+-- (his temperament and mood, Logic/GuestMood) leans it, but never past the
+-- tier's fastest nor the watched pace.
+function StalkRules.creepSpeed(tier: number, backAngle: number, watchers: number, cfg, scale: number?): number
 	local range = tier >= 3 and cfg.CreepSpeedTier3 or cfg.CreepSpeedTier2
 	if watchers >= 1 then
 		return cfg.CreepSpeedWatched
 	end
 	local t = math.clamp((backAngle - 90) / 90, 0, 1)
-	return range[1] + (range[2] - range[1]) * t
+	local speed = range[1] + (range[2] - range[1]) * t
+	return math.min(speed * (scale or 1), range[2])
 end
 
 -- Tier 1: once the Witness has clearly seen him, he's yanked out of sight.
@@ -155,6 +158,9 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 		return false, "protected"
 	elseif ctx.graced then
 		return false, "just back up"
+	elseif ctx.makingWay then
+		-- He stepped aside for you: a promise (StalkRules.makesWay).
+		return false, "making way"
 	elseif ctx.distance > cfg.LungeRadius or ctx.verticalGap > 4 then
 		return false, "out of reach"
 	elseif not ctx.lineOfSight then
@@ -192,6 +198,8 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 		return false, "protected"
 	elseif ctx.graced then
 		return false, "just back up"
+	elseif ctx.makingWay then
+		return false, "making way"
 	elseif not ctx.lineOfSight then
 		return false, "no line"
 	elseif ctx.sinceDownNearby < cfg.NoLungeNearDownSeconds then
@@ -202,8 +210,54 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 		-- He may creep up on you (CloseBehind keeps him outside ContactRadius);
 		-- the contact lunge is for whoever walks into him.
 		return false, "not coming at him"
+	elseif cfg.MakeWayMaxSpeed and (ctx.approachSpeed or math.huge) <= cfg.MakeWayMaxSpeed then
+		-- Walking his way is not rushing him: he makes way instead
+		-- (StalkRules.makesWay). Only a run at him is a contact.
+		return false, "only walking"
 	end
 	return true, nil
+end
+
+-- "After you" (the Guest rework, 2026-10-07): between hunts he never parks
+-- in a player's way. He steps aside, bows and holds out a hand towards the
+-- way on, and while he does he never lunges at them (canLunge, contact).
+-- ctx: tier, hunting, seated (waiting at the table), distance, verticalGap,
+-- nearFor (seconds he has stood within ParkRadius of them), approachSpeed
+-- (their speed towards him, studs/s), visibleToThem, active.
+function StalkRules.makesWay(ctx, cfg): (boolean, string?)
+	if ctx.hunting then
+		return false, "hunting"
+	elseif ctx.seated then
+		return false, "at the table"
+	elseif ctx.tier < 1 or not ctx.visibleToThem or not ctx.active then
+		return false, "not for them"
+	elseif ctx.verticalGap > 4 then
+		return false, "another floor"
+	end
+	local walkingAt = (ctx.approachSpeed or 0) >= cfg.ContactApproachSpeed
+		and ctx.approachSpeed <= cfg.MakeWayMaxSpeed
+		and ctx.distance <= cfg.MakeWayRange
+	if walkingAt then
+		return true, "walking his way"
+	elseif ctx.distance <= cfg.ParkRadius and ctx.nearFor >= cfg.ParkSeconds then
+		return true, "standing too long"
+	end
+	return false, "no need"
+end
+
+-- The presence budget: between hunts he may stand within ParkRadius of one
+-- player for at most ParkBudget seconds in any ParkWindow (a leaky bucket).
+-- Spent, he must move off, and stays off until it has drained by half.
+-- state = { used, spent } per player, kept by the caller. Returns spent.
+function StalkRules.parkBudget(state, near: boolean, dt: number, cfg): boolean
+	local drain = cfg.ParkBudget / cfg.ParkWindow
+	state.used = math.max(0, (state.used or 0) + (near and dt or 0) - dt * drain)
+	if state.used >= cfg.ParkBudget then
+		state.spent = true
+	elseif state.spent and state.used <= cfg.ParkBudget / 2 then
+		state.spent = false
+	end
+	return state.spent == true
 end
 
 -- Did the lunge connect? Only if you're still within reach when it lands.

@@ -68,6 +68,15 @@ function ChatService:_say(player: Player, raw: string)
 	if not ok then
 		return
 	end
+	-- Kept a while: The Guest may say it again, later, from behind a door
+	-- (Stalker/Stalk MimicVoice), filtered again for whoever hears it.
+	self.lines = self.lines or {}
+	local list = self.lines[player] or {}
+	table.insert(list, { t = os.clock(), result = result, whisper = whisper })
+	if #list > 5 then
+		table.remove(list, 1)
+	end
+	self.lines[player] = list
 	for _, listener in Players:GetPlayers() do
 		local listenerRoot = self.PlayerState:Root(listener)
 		local near = listener == player or (listenerRoot and (listenerRoot.Position - origin).Magnitude <= V.HearRange)
@@ -85,6 +94,46 @@ function ChatService:_say(player: Player, raw: string)
 			end
 		end
 	end
+end
+
+-- A line `player` said at least `minAge` seconds ago (their latest such), as
+-- its filter result, or nil.
+function ChatService:RecentLine(player: Player, minAge: number)
+	local list = self.lines and self.lines[player]
+	if not list then
+		return nil
+	end
+	local now = os.clock()
+	for i = #list, 1, -1 do
+		if now - list[i].t >= minAge and not list[i].whisper then
+			return list[i].result
+		end
+	end
+	return nil
+end
+
+-- The Guest says `of`'s old line in their voice from `position`, to each of
+-- `listeners` (filtered for each). True if anyone heard it.
+function ChatService:SpeakAs(of: Player, result, position: Vector3, listeners: { Player }): boolean
+	local any = false
+	for _, listener in listeners do
+		if listener.Parent then
+			local fine, filtered = pcall(function()
+				return result:GetChatForUserAsync(listener.UserId)
+			end)
+			if fine and filtered ~= "" then
+				Net.get("Spoke"):FireClient(listener, {
+					userId = of.UserId,
+					name = of.DisplayName,
+					text = filtered,
+					whisper = false,
+					at = position,
+				})
+				any = true
+			end
+		end
+	end
+	return any
 end
 
 return ChatService

@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Barricade = require(Shared.Logic.Barricade)
 local Config = require(Shared.Config)
+local GuestKeys = require(Shared.Logic.GuestKeys)
 local Sfx = require(Shared.Lib.Sfx)
 
 local Clearance = require(script.Parent.Clearance)
@@ -87,6 +88,10 @@ function Walker.new(services, agent, rng)
 		sidestepUntil = 0,
 		lookaheadAt = 0,
 		canTeleport = nil, -- function() -> bool: nobody could see a nudge
+		onShove = nil, -- function(seamId): he shoved a barricade aside (his mood hears of it)
+		slamDoors = false, -- prowling in a hunt: doors bang open (Logic/HuntPhases)
+		keyPass = nil, -- { seconds(), jingle(door), open(door) -> bool, shut(door) }: his keys (Logic/GuestKeys)
+		keyDoor = nil, -- { door, seam, start, at }: a locked door open for him till he's through
 		allowNudge = true,
 		unreachable = false, -- the last route found no way there
 		routeVersion = 0, -- WorldService.passageVersion when the route was made
@@ -288,6 +293,19 @@ function Walker:_planLeg(goal)
 	end)
 end
 
+-- His signed distance from a doorway along its normal (0 without one).
+function Walker:_doorSide(seam): number
+	if not seam then
+		return 0
+	end
+	local n = Vector3.new(seam.normal.X, 0, seam.normal.Z)
+	if n.Magnitude < 0.01 then
+		return 0
+	end
+	local d = self:Feet() - seam.floorPosition
+	return Vector3.new(d.X, 0, d.Z):Dot(n.Unit)
+end
+
 function Walker:Stop()
 	self.goals = {}
 	self.index = 1
@@ -389,6 +407,10 @@ function Walker:_advanceGoal(now: number)
 		if door.state and door.state.target >= Config.Doors.PassAngle then
 			-- Already swinging open (after a barricade): a moment.
 			self.waitingUntil = now + 0.4
+		elseif self.agent.opensDoors == "stalker" and door.locked and door.guestKey and self.keyPass then
+			-- His keys (Logic/GuestKeys): heard first, then the lock turns.
+			self.keyPass.jingle(door)
+			self.waitingUntil = now + self.keyPass.seconds()
 		elseif self.agent.opensDoors == "stalker" then
 			self.waitingUntil = now + self.Doors:StalkerDelay(door, self.rng)
 		else
@@ -481,6 +503,9 @@ function Walker:_atBarricade(now: number): boolean
 		end
 		if moved then
 			self.stats.shoves = (self.stats.shoves or 0) + 1
+			if self.onShove then
+				self.onShove(pending.seam)
+			end
 			pending.untilT = now + B.ShoveTime + 0.2 -- the heave, then on
 			-- A door the piece held part-open swings the rest of the way.
 			local door = pending.door
@@ -540,16 +565,37 @@ function Walker:Step(now: number): boolean
 	end
 	local humanoid = self.humanoid
 
+	-- A locked door open for him (his keys): shut behind him once he's through.
+	if self.keyDoor then
+		local key = self.keyDoor
+		if GuestKeys.through(key.start, self:_doorSide(key.seam)) or now - key.at > Config.Guest.KeyThroughSeconds then
+			self.keyDoor = nil
+			self.keyPass.shut(key.door)
+		end
+	end
+
 	-- Waiting on a door.
 	if self.pendingDoor then
 		local door = self.pendingDoor
 		if door.open then
 			self.pendingDoor = nil
+		elseif now >= self.waitingUntil and door.locked and door.guestKey and self.keyPass then
+			-- The lock turns, if nobody is near or watching; else another way.
+			if self.keyPass.open(door) then
+				if not self.keyDoor then
+					local seam = self.World.World.seams[door.lockId or ""]
+					self.keyDoor = { door = door, seam = seam, start = self:_doorSide(seam), at = now }
+				end
+				self.waitingUntil = now + 0.5
+			else
+				self.pendingDoor = nil
+				self:_reroute()
+			end
 		elseif now >= self.waitingUntil then
 			local braced = self.agent.opensDoors == "stalker" and self.Doors:IsBraced(door)
 			-- (A player's body walked by the server, F2 `botrun`: the door
 			-- swings away from them like one opened with E, or it stops on them.)
-			self.Doors:SetOpen(door, true, self.agent.player, braced)
+			self.Doors:SetOpen(door, true, self.agent.player, braced or self.slamDoors)
 			self.pendingDoor = nil
 		else
 			if

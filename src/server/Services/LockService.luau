@@ -30,6 +30,7 @@ local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Props = require(Shared.Data.Props)
+local GuestKeys = require(Shared.Logic.GuestKeys)
 local ToolLocks = require(Shared.Logic.ToolLocks)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
@@ -512,6 +513,8 @@ function LockService:Begin(plan)
 			if lock.vault then
 				self:_steelDoor(door)
 			end
+			-- His keys (Logic/GuestKeys): a key, a code, a padlock is his to open.
+			door.guestKey = GuestKeys.opens(lock, Config.Guest) or nil
 			self.Doors:RefreshPrompt(door)
 			self.locks[seamId] = entry
 		else
@@ -544,6 +547,11 @@ function LockService:_hidden(layout)
 				door.lockId = seam.id
 				local entry = { lock = lock, door = door, seam = record, open = false, hidden = true }
 				self.locks[seam.id] = entry
+				-- He knows his own house's passages (Logic/GuestKeys); one he
+				-- comes out of stays found, unless it leads into a wing not
+				-- opened yet (then he shuts it behind him).
+				door.guestKey = GuestKeys.opens(lock, Config.Guest) or nil
+				door.guestReveal = not seam.barred
 				-- Its prompt only shows close up, and names what it looks like.
 				local prompt = door.prompt
 				prompt.ObjectText = kind
@@ -1187,8 +1195,10 @@ function LockService:Unlock(seamId: string, player: Player?, message: string?)
 		return false
 	end
 	entry.open = true
+	self.Doors:GuestKeyRelease(entry.door)
 	self.Doors:SetLocked(entry.door, false)
 	entry.door.lockId = nil
+	entry.door.guestKey = nil
 	self.Doors:RefreshPrompt(entry.door)
 	if entry.plate then
 		entry.plate:Destroy()

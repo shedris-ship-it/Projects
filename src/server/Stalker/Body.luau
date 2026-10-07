@@ -106,10 +106,16 @@ end
 function Body:ExposedPoints(): { Vector3 }
 	local head, chest = GuestPose.exposed(self.pose, self.lean)
 	local cf = self.root.CFrame
-	return {
+	local points = {
 		cf:PointToWorldSpace(Vector3.new(head[1], head[2], head[3])),
 		cf:PointToWorldSpace(Vector3.new(chest[1], chest[2], chest[3])),
 	}
+	if self.pose == Poses.FingersPeek then
+		-- Only his hand on the frame shows (the head and chest are behind it).
+		local hand = GuestPose.fingers(self.lean)
+		table.insert(points, cf:PointToWorldSpace(Vector3.new(hand[1], hand[2], hand[3])))
+	end
+	return points
 end
 
 function Body:EyePosition(): Vector3

@@ -65,6 +65,15 @@ return function(test, check, Shared, require)
 		check.truthy(StalkRules.creepSpeed(2, 180, 0, G) > behind, "tier 2 is quicker than tier 3")
 	end)
 
+	test("his mood leans his creep, never past the tier's fastest nor the watched pace", function()
+		local side = StalkRules.creepSpeed(2, 120, 0, G)
+		check.truthy(StalkRules.creepSpeed(2, 120, 0, G, 1.2) > side, "an irritated Guest creeps faster")
+		check.truthy(StalkRules.creepSpeed(2, 120, 0, G, 0.8) < side, "a patient one slower")
+		check.equal(StalkRules.creepSpeed(2, 180, 0, G, 1.2), G.CreepSpeedTier2[2], "never past the tier's fastest")
+		check.equal(StalkRules.creepSpeed(3, 180, 0, G, 1.2), G.CreepSpeedTier3[2], "nor at tier 3")
+		check.equal(StalkRules.creepSpeed(3, 0, 1, G, 1.2), G.CreepSpeedWatched, "watched: the watched pace")
+	end)
+
 	test("tier 1 flees once spotted; tier 2 backs off when stared at up close", function()
 		check.equal(StalkRules.flees(1, 0.1, G), false, "a glance isn't enough")
 		check.truthy(StalkRules.flees(1, G.SpottedFleeSeconds, G), "clearly seen")
@@ -132,6 +141,79 @@ return function(test, check, Shared, require)
 		check.equal(why, "not coming at him", "reason")
 		check.truthy(StalkRules.contact(touching({ approaching = true }), G), "they came at him")
 		check.truthy(G.CloseBehind > G.ContactRadius, "tier 2 stops outside the contact radius")
+	end)
+
+	test("close contact: running at him is a contact; walking his way he makes way instead", function()
+		check.truthy(StalkRules.contact(touching({ approachSpeed = 19 }), G), "a sprint at him")
+		local ok, why = StalkRules.contact(touching({ approachSpeed = 8 }), G)
+		check.equal(ok, false, "a walk is not rushing him")
+		check.equal(why, "only walking", "reason")
+		check.equal(
+			StalkRules.contact(touching({ approachSpeed = 19, makingWay = true }), G),
+			false,
+			"never while he makes way"
+		)
+		check.equal(StalkRules.canLunge(ready({ makingWay = true }), G), false, "nor the lunge")
+	end)
+
+	-- A making-way context: a player walking his way, close, between hunts.
+	local function passing(overrides)
+		local ctx = {
+			hunting = false,
+			seated = false,
+			tier = 2,
+			visibleToThem = true,
+			active = true,
+			distance = 7,
+			verticalGap = 0,
+			nearFor = 0,
+			approachSpeed = 8,
+		}
+		for k, v in overrides or {} do
+			ctx[k] = v
+		end
+		return ctx
+	end
+
+	test("after you: he steps aside for a player walking his way, or one he has stood beside too long", function()
+		check.truthy(StalkRules.makesWay(passing(), G), "walking his way")
+		check.truthy(
+			StalkRules.makesWay(passing({ approachSpeed = 0, distance = 5, nearFor = G.ParkSeconds }), G),
+			"standing beside them too long"
+		)
+		check.equal(StalkRules.makesWay(passing({ approachSpeed = 0, nearFor = 1 }), G), false, "not yet")
+		check.equal(StalkRules.makesWay(passing({ approachSpeed = 19 }), G), false, "running at him is a contact")
+		check.equal(StalkRules.makesWay(passing({ distance = G.MakeWayRange + 2 }), G), false, "still far off")
+		check.equal(StalkRules.makesWay(passing({ hunting = true }), G), false, "never in a hunt")
+		check.equal(StalkRules.makesWay(passing({ seated = true }), G), false, "not from his place at the table")
+		check.equal(
+			StalkRules.makesWay(passing({ visibleToThem = false }), G),
+			false,
+			"not for someone who can't see him"
+		)
+		check.equal(StalkRules.makesWay(passing({ verticalGap = 8 }), G), false, "not for the floor above")
+		check.truthy(G.MakeWayMaxSpeed >= Config.Player.WindedSpeed, "a winded stagger is still walking")
+		check.truthy(G.MakeWayMaxSpeed < Config.Player.SprintSpeed, "a sprint is not")
+	end)
+
+	test("the presence budget: twelve seconds beside one player in a minute, then he moves off", function()
+		local state = {}
+		local spent = false
+		local t = 0
+		while not spent and t < 60 do
+			spent = StalkRules.parkBudget(state, true, 0.25, G)
+			t += 0.25
+		end
+		check.truthy(spent, "spent standing beside them")
+		check.atLeast(t, G.ParkBudget, "not before the budget")
+		check.atMost(t, G.ParkBudget * 1.6, "not much after it either")
+		-- Away from them it drains; spent until it's down by half.
+		local away = 0
+		while StalkRules.parkBudget(state, false, 0.5, G) do
+			away += 0.5
+		end
+		check.atLeast(away, (G.ParkBudget / 2) / (G.ParkBudget / G.ParkWindow) - 1, "it drains by half first")
+		check.equal(StalkRules.parkBudget(state, false, 0.5, G), false, "free again")
 	end)
 
 	test("a player just pulled up can't be caught again for a moment (revive grace)", function()

@@ -32,6 +32,7 @@ local Config = require(Shared.Config)
 local GuestPose = require(Shared.Logic.GuestPose)
 local BeliefMap = require(Shared.Logic.BeliefMap)
 local GazeHabits = require(Shared.Logic.GazeHabits)
+local GuestMood = require(Shared.Logic.GuestMood)
 local Net = require(Shared.Net)
 local SightMath = require(Shared.Logic.SightMath)
 local PeekSpots = require(Shared.Logic.PeekSpots)
@@ -41,6 +42,12 @@ local UtilityAI = require(Shared.Logic.UtilityAI)
 
 local G = Config.Guest
 local Poses = GuestPose.Poses
+
+-- What he'll set playing himself (HostAction): never the ones that run out.
+local HOST_FIXTURES = { Radio = true, Television = true, ["Record player"] = true }
+
+-- Tier 1, seen (Logic/GuestMood "seen"): his recoil.
+local RECOILS = { Yank = "Yank", Withdraw = "SlowWithdraw", Duck = "Duck" }
 
 local Stalk = {}
 Stalk.__index = Stalk
@@ -82,6 +89,9 @@ function Stalk.new(service)
 		checkedAt = {}, -- player -> memory time he walked to and found empty
 		priorAt = 0,
 		contactLast = {}, -- player -> when he last lunged at them for getting too close
+		nearFor = {}, -- player -> seconds he has stood within ParkRadius of them
+		presence = {}, -- player -> StalkRules.parkBudget state
+		makingWayFor = nil, -- the player he has stepped aside for ("after you")
 		withdrawUntil = 0,
 		lostSince = nil,
 		sensedPos = nil, -- where he believes the target is (nil = lost them)
@@ -106,6 +116,9 @@ function Stalk:_resetFor(world)
 		self.lastRoom = {}
 		self.doorwayPass = {}
 		self.contactLast = {}
+		self.nearFor = {}
+		self.presence = {}
+		self.makingWayFor = nil
 		self.withdrawUntil = 0
 		self.lostSince = nil
 	end
@@ -498,7 +511,7 @@ MOVES.DistantRoam = {
 				-- Stand in the corner facing the wall for a while; longer where
 				-- one of his things is kept.
 				local linger = move.haunt and Config.Scent.HauntLinger or { 3, 7 }
-				move.pausing = now + self.rng:NextNumber(linger[1], linger[2])
+				move.pausing = now + self.rng:NextNumber(linger[1], linger[2]) * self:_number("linger")
 				if move.haunt then
 					self.hauntVisits[move.haunt] = (self.hauntVisits[move.haunt] or 0) + 1
 				end
@@ -630,7 +643,7 @@ MOVES.Peek = {
 			return false
 		end
 		move.goal = move.spot.position
-		move.holdFor = self.rng:NextNumber(G.PeekHoldSeconds[1], G.PeekHoldSeconds[2])
+		move.holdFor = self.rng:NextNumber(G.PeekHoldSeconds[1], G.PeekHoldSeconds[2]) * self:_number("peekHold")
 		return true
 	end,
 	update = function(self, move, now, ctx)
@@ -749,7 +762,8 @@ MOVES.CreepBehind = {
 			self.body:SetPose(Poses.Hold)
 			return now > move.untilT
 		end
-		local speed = StalkRules.creepSpeed(ctx.tier, ctx.backAngle, ctx.watchers, G)
+		-- His temperament and mood lean it, within 0.8-1.2 (Logic/GuestMood).
+		local speed = StalkRules.creepSpeed(ctx.tier, ctx.backAngle, ctx.watchers, G, self:_creepScale())
 		-- Move in short bursts (doc section 8): step, stop, step.
 		local burst = (now * 1.4) % 1 < 0.65
 		if not burst then
@@ -869,8 +883,11 @@ MOVES.Search = {
 		return false
 	end,
 	update = function(self, move, now, ctx)
-		if ctx.known then
-			return true -- a clue: the moves that need a target take over
+		if ctx.known and now >= self.hiddenUntil then
+			-- A clue: the moves that need a target take over. (Not while he's
+			-- unseen between tier-1 appearances: then he walks on to somewhere
+			-- new, or he'd start the search afresh every tick and never move.)
+			return true
 		end
 		if ctx.tier >= 2 and ctx.watchers > 0 then
 			return self:_holdStare(ctx)
@@ -922,6 +939,7 @@ MOVES.Investigate = {
 	end,
 	update = function(self, move, now, ctx)
 		if ctx.known then
+			self.emptyLures = 0
 			return true -- someone to go after instead
 		end
 		if ctx.tier >= 2 and ctx.watchers > 0 then
@@ -935,7 +953,16 @@ MOVES.Investigate = {
 			end
 			return false
 		end
-		return now >= move.pausing
+		if now >= move.pausing then
+			-- Nobody there. Twice running, and he's annoyed (Logic/GuestMood).
+			self.emptyLures = (self.emptyLures or 0) + 1
+			if self.emptyLures >= 2 then
+				self.emptyLures = 0
+				self.service:MoodEvent("luresEmpty")
+			end
+			return true
+		end
+		return false
 	end,
 }
 
@@ -984,7 +1011,7 @@ MOVES.BackAway = {
 	start = function(self, move, ctx)
 		self.service.retreat:Reset()
 		move.untilT = ctx.now + G.BackAwayMaxSeconds
-		move.face = ctx.nearestWatcher or self.target
+		move.face = ctx.face or ctx.nearestWatcher or self.target
 		move.unseenFor = 0
 		return true
 	end,
@@ -1077,6 +1104,734 @@ MOVES.Withdraw = {
 	end,
 }
 
+-- "After you" (StalkRules.makesWay): stepped aside against the wall, a
+-- slight bow, an open hand towards the way on, until they've gone past. He
+-- never lunges at whoever he makes way for, and having made way he leaves
+-- them be for a while (their presence budget is spent).
+MOVES.MakeWay = {
+	start = function(self, move, ctx)
+		local player = ctx.makeWayFor
+		local ps = self.services.PlayerStateService
+		local pos = player and ps:Position(player)
+		if not pos then
+			return false
+		end
+		local here = self.body.root.Position
+		local along = flat(here - pos)
+		if along.Magnitude < 0.1 then
+			local root = ps:Root(player)
+			along = root and flat(root.CFrame.LookVector) or Vector3.new(0, 0, -1)
+		end
+		along = along.Unit
+		move.player = player
+		move.along = along
+		local why = {}
+		move.spot = self:_asideSpot(pos, here, along, why)
+		move.untilT = ctx.now + G.MakeWaySeconds
+		self.makingWayFor = player
+		self.body:FacePlayer(player)
+		self.body:SetGaze(player)
+		self.services.RunLogService:GuestDid("makeWay", player.DisplayName)
+		self.services.Telemetry:Log("GuestMakeWay", {
+			tier = ctx.tier,
+			stepped = move.spot ~= nil,
+			-- Of the twelve spots tried: outside his room, no room for him, no clear way.
+			why = move.spot == nil
+					and string.format("room %d fits %d clear %d", why.room or 0, why.fits or 0, why.clear or 0)
+				or nil,
+		}, player)
+		Net.get("GuestEvent"):FireClient(player, { kind = "usher", position = here })
+		return true
+	end,
+	update = function(self, move, now)
+		local player = move.player
+		local ps = self.services.PlayerStateService
+		local pos = player and player.Parent and ps:IsActive(player) and ps:Position(player)
+		if not pos then
+			return true
+		end
+		local here = self.body.root.Position
+		self.body:FacePlayer(player)
+		self.body:SetGaze(player)
+		if move.spot and not move.aside then
+			move.stepStarted = move.stepStarted or now
+			if planar(here, move.spot) > 0.6 and now - move.stepStarted < 2 then
+				self.body:SetPose(Poses.BackAway)
+				self.body:Step(move.spot, 5)
+				return false
+			end
+			move.aside = true
+		end
+		self.body:Hold()
+		self.body:SetPose(Poses.Usher)
+		-- Gone past him, or gone elsewhere.
+		local beyond = flat(pos - here):Dot(move.along)
+		local far = planar(pos, here) > G.MakeWayRange + 4
+		if beyond > 1.5 or far then
+			move.clearFor = (move.clearFor or 0) + (now - (move.lastT or now))
+		else
+			move.clearFor = 0
+		end
+		move.lastT = now
+		return move.clearFor > 1 or now > move.untilT
+	end,
+	stop = function(self, move)
+		if self.makingWayFor == move.player then
+			self.makingWayFor = nil
+		end
+		if move.player then
+			-- Having made way, he leaves them be for a while.
+			self.nearFor[move.player] = 0
+			local budget = self.presence[move.player] or {}
+			budget.used, budget.spent = G.ParkBudget, true
+			self.presence[move.player] = budget
+		end
+	end,
+}
+
+-- Somewhere a step or two aside, off the line from `from` (where they are)
+-- through `here` (where he stands), in the same room, that his whole body
+-- clears. nil when there's no room (he holds out his hand where he is).
+function Stalk:_asideSpot(from: Vector3, here: Vector3, along: Vector3, why): Vector3?
+	local worldService = self.services.WorldService
+	local room = worldService:RoomAt(here)
+	local right = Vector3.new(-along.Z, 0, along.X)
+	local best, bestScore = nil, -math.huge
+	why = why or {}
+	for _, step in G.MakeWayStep do
+		for _, side in { 1, -1 } do
+			for _, back in { 0, 1.5 } do
+				-- As far aside as his body really gets (a partial step counts).
+				local point = self.body.clearance:Reach(here, here + right * side * step + along * back)
+				local inRoom = worldService:RoomAt(point) == room
+				local fits = inRoom and self.body:Fits(point)
+				local clear = fits and planar(point, here) >= G.MakeWayMinStep
+				why.room = (why.room or 0) + (inRoom and 0 or 1)
+				why.fits = (why.fits or 0) + ((inRoom and not fits) and 1 or 0)
+				why.clear = (why.clear or 0) + ((fits and not clear) and 1 or 0)
+				if clear then
+					local lateral = math.abs(flat(point - from):Dot(right))
+					local score = lateral - step * 0.2 + back * 0.2
+					if lateral >= G.MakeWayMinStep and score > bestScore then
+						best, bestScore = point, score
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- Who he stands beside, and for how long, each tick. Returns a player he
+-- has stood beside long enough this minute (StalkRules.parkBudget), if he
+-- is beside them still.
+function Stalk:_trackPresence(dt: number, here: Vector3): Player?
+	local ps = self.services.PlayerStateService
+	local overstayed = nil
+	for _, player in ps:ActivePlayers() do
+		local pos = ps:Position(player)
+		local near = pos ~= nil and planar(pos, here) <= G.ParkRadius and math.abs(pos.Y - here.Y) < 6
+		self.nearFor[player] = near and (self.nearFor[player] or 0) + dt or 0
+		local budget = self.presence[player] or {}
+		self.presence[player] = budget
+		if StalkRules.parkBudget(budget, near, dt, G) and near then
+			overstayed = player
+		end
+	end
+	return overstayed
+end
+
+-- Should he make way for someone right now? Returns the player.
+function Stalk:_makeWayFor(ctx): Player?
+	local ps = self.services.PlayerStateService
+	local here = self.body.root.Position
+	for _, player in ps:ActivePlayers() do
+		local pos = ps:Position(player)
+		local root = ps:Root(player)
+		if pos and root then
+			local toward = flat(here - pos)
+			local speed = toward.Magnitude > 0.1 and flat(root.AssemblyLinearVelocity):Dot(toward.Unit) or 0
+			local ok = StalkRules.makesWay({
+				hunting = false,
+				seated = false,
+				tier = ctx.tier,
+				visibleToThem = self.service.visibleTo[player] == true,
+				active = true,
+				distance = planar(pos, here),
+				verticalGap = math.abs(pos.Y - here.Y),
+				nearFor = self.nearFor[player] or 0,
+				approachSpeed = speed,
+			}, G)
+			if ok then
+				return player
+			end
+		end
+	end
+	return nil
+end
+
+-- His fingers first (the Guest rework): long fingers curl round the door frame
+-- while the rest of him stays behind the wall. At tier 1 they slide back if
+-- you look; from tier 2 his face follows them out, slowly, while you look.
+MOVES.FingersPeek = {
+	start = function(self, move, ctx)
+		move.spot = self:_findPeek(ctx.tier)
+		if not move.spot then
+			return false
+		end
+		move.goal = move.spot.position
+		move.holdFor = self.rng:NextNumber(G.PeekHoldSeconds[1], G.PeekHoldSeconds[2]) * self:_number("peekHold")
+		move.reveal = 0
+		move.side = move.spot.lean >= 0 and 1 or -1
+		return true
+	end,
+	update = function(self, move, now, ctx)
+		local spot = move.spot
+		if not move.peeking then
+			if ctx.tier >= 2 and ctx.watchers > 0 then
+				return self:_holdStare(ctx)
+			end
+			if relocate(self, move, now) then
+				local feet = self.body.root.Position.Y - self.body.built.groundOffset
+				if planar(self.body.root.Position, spot.position) > 2.5 or math.abs(feet - spot.position.Y) > 3 then
+					return true -- couldn't get there
+				end
+				move.peeking = now
+				self.body:Hold()
+				self.body:FacePoint(spot.position + spot.face * 10)
+				self.body:SetPose(Poses.FingersPeek, move.side)
+				self.body:SetGaze(self.target)
+				self.service.yankTo = spot.hide
+			end
+			return false
+		end
+		local seam = self.services.WorldService.World.seams[spot.seam]
+		local shut = seam and seam.door and not seam.door.open
+		if ctx.tier >= 2 and ctx.targetWatching and not shut then
+			-- His face follows his fingers out, slowly, while you look.
+			move.reveal = math.min(1, move.reveal + ctx.dt / G.FingersRevealSeconds)
+			if move.reveal >= 0.35 then
+				self.body:SetPose(Poses.Peek, spot.lean * move.reveal)
+			end
+			return false
+		end
+		if shut or (now - move.peeking >= move.holdFor and ctx.watchers == 0) then
+			self.body:SetPose(Poses.Idle)
+			self.body:FaceMovement()
+			self.body:Step(spot.hide, G.WalkSpeed)
+			self.service.yankTo = nil
+			return true
+		end
+		return false
+	end,
+	stop = function(self)
+		self.service.yankTo = nil
+	end,
+}
+
+-- At the far end of the corridor you're in, facing you, until you look
+-- away. At tier 1 he's gone when you look back; from tier 2 he's halfway
+-- closer, twice at most, never nearer than the tier allows.
+MOVES.HallwayStand = {
+	start = function(self, move, ctx)
+		local spot = self:_hallSpot(ctx.tier)
+		if not spot then
+			return false
+		end
+		move.goal = spot
+		move.untilT = ctx.now + G.HallwayStandSeconds
+		move.closer = 0
+		return true
+	end,
+	update = function(self, move, now, ctx)
+		if self.body:Busy() then
+			return false
+		end
+		if not move.standing then
+			if ctx.tier >= 2 and ctx.watchers > 0 then
+				return self:_holdStare(ctx)
+			end
+			if relocate(self, move, now) then
+				move.standing = now
+			end
+			return now > move.untilT
+		end
+		self.body:Hold()
+		self.body:SetPose(Poses.Hold)
+		if self.target then
+			self.body:FacePlayer(self.target)
+			self.body:SetGaze(self.target)
+		end
+		if ctx.targetWatching then
+			move.seen = true
+			return false
+		end
+		if move.seen and ctx.watchers == 0 and ctx.targetPos then
+			-- You looked away.
+			if ctx.tier <= 1 or move.closer >= 2 then
+				return true
+			end
+			local here = self.body.root.Position
+			local toward = flat(ctx.targetPos - here)
+			local keep = G.PeekMinDistance[math.clamp(ctx.tier, 1, 3)]
+			local step = math.min(toward.Magnitude * 0.5, toward.Magnitude - keep)
+			if step < 3 then
+				return true
+			end
+			local point = here + toward.Unit * step
+			if
+				self.body:Fits(point)
+				and self.body.clearance:Clear(here, point)
+				and not self.sight:AnyoneSees(self.sight.BodyPoints(point))
+			then
+				move.closer += 1
+				move.seen = false
+				self.body:Zoom(point)
+				return false
+			end
+			return true
+		end
+		return now > move.untilT
+	end,
+}
+
+-- Behind the door you're heading for. The tells: his feet's shadow in the
+-- gap under it, a creak or a breath as you come near, sometimes three slow
+-- knocks. Open it and he's there: a stare, then he backs off (tier 2), or
+-- the shadow was your warning (tier 3, with every other lunge gate).
+-- MimicVoice is the same wait, with a friend's line spoken from behind it.
+local function behindTheDoor(voice: boolean)
+	return {
+		start = function(self, move, ctx)
+			local door, near, far = self:_doorAhead(ctx)
+			if not door then
+				return false
+			end
+			move.door, move.near, move.far = door, near, far
+			move.goal = self.services.WorldService:ApproachPoint(far, near, G.BehindDoorInset)
+			move.untilT = ctx.now + G.BehindDoorSeconds
+			if voice then
+				move.voice = self:_mimicLine(ctx)
+				if not move.voice then
+					return false
+				end
+			end
+			return true
+		end,
+		update = function(self, move, now, ctx)
+			local door = move.door
+			if not move.waiting then
+				if door.open or door.locked then
+					return true
+				end
+				if relocate(self, move, now) then
+					if planar(self.body.root.Position, move.goal) > 2.5 then
+						return true
+					end
+					move.waiting = now
+					self.body:Hold()
+					self.body:SetPose(Poses.Idle)
+					self.body:FacePoint(door.position)
+					self:_doorShadow(move, true)
+					if move.voice then
+						local spoke = self.services.ChatService:SpeakAs(
+							move.voice.of,
+							move.voice.text,
+							self.body:EyePosition(),
+							move.voice.listeners
+						)
+						if spoke then
+							self.services.RunLogService:GuestDid("mimic", move.voice.of.DisplayName)
+							self.services.Telemetry:Log("GuestMimic", { as = move.voice.of.UserId }, self.target)
+						end
+					elseif self.rng:NextNumber() < G.BehindDoorKnockChance then
+						self.services.DoorService:Knock(door)
+					end
+				end
+				return now > move.untilT
+			end
+			if door.open then
+				-- Opened on him. At tier 2 or below: a stare, then he backs off.
+				self:_doorShadow(move, false)
+				if ctx.tier <= 2 then
+					self:_begin("BackAway", ctx)
+					return false
+				end
+				return true
+			end
+			self.body:Hold()
+			self.body:SetPose(Poses.Idle)
+			self:_doorTells(move, now)
+			local pos = ctx.targetPos
+			local gone = not pos or self.services.WorldService:Separation(pos, door.position) > G.BehindDoorLeave
+			return now > move.untilT or gone
+		end,
+		stop = function(self, move)
+			self:_doorShadow(move, false)
+		end,
+	}
+end
+MOVES.BehindTheDoor = behindTheDoor(false)
+MOVES.MimicVoice = behindTheDoor(true)
+
+-- His house, his things (Host and Playful moods): he puts a room's light out
+-- as he leaves it, turns on the radio or the record player, eases a door
+-- ajar. Every one is heard (or seen) from where he really is.
+MOVES.HostAction = {
+	start = function(self, move)
+		local action = self:_hostAction()
+		if not action then
+			return false
+		end
+		move.action = action
+		move.goal = action.stand
+		return true
+	end,
+	update = function(self, move, now)
+		if not move.done then
+			if relocate(self, move, now) then
+				if planar(self.body.root.Position, move.goal) > 4 then
+					return true -- couldn't get there
+				end
+				move.done = now
+				self.body:Hold()
+				self.body:SetPose(Poses.Idle)
+				self.body:FacePoint(move.action.at)
+				self:_doHostAction(move.action)
+			end
+			return false
+		end
+		return now - move.done > self.rng:NextNumber(2, 4)
+	end,
+}
+
+-- Tier 1, clearly seen: not always the yank. A slow withdrawal behind the
+-- frame, still staring, or a sudden duck and glide away. All harmless at
+-- tier 1; which one is his mood's choice (Logic/GuestMood "seen").
+MOVES.SlowWithdraw = {
+	start = function(self, move, ctx)
+		move.point = self.service.yankTo or self:_escapePoint(self.body.root.Position)
+		move.face = self.target or ctx.nearestWatcher
+		self.services.SquadProfileService:RecordSighting(self.target, true)
+		return true
+	end,
+	update = function(self, move, now)
+		if move.face then
+			self.body:FacePlayer(move.face)
+			self.body:SetGaze(move.face)
+		end
+		self.body:SetPose(Poses.BackAway)
+		self.body:Step(move.point, G.SlowWithdrawSpeed)
+		if planar(self.body.root.Position, move.point) < 0.8 or now - move.started > 4 then
+			self.hiddenUntil = now + self.rng:NextNumber(G.Tier1Cooldown[1], G.Tier1Cooldown[2])
+			self.service.yankTo = nil
+			self.body:Hold()
+			return true
+		end
+		return false
+	end,
+}
+
+MOVES.Duck = {
+	start = function(self, move, ctx)
+		move.point = self.service.yankTo or self:_escapePoint(self.body.root.Position)
+		move.zoomAt = ctx.now + G.DuckSeconds
+		self.body:Hold()
+		self.body:SetPose(Poses.Duck)
+		self.services.SquadProfileService:RecordSighting(self.target, true)
+		return true
+	end,
+	update = function(self, move, now)
+		if not move.zoomed then
+			if now < move.zoomAt then
+				return false
+			end
+			move.zoomed = true
+			self.body:Zoom(move.point)
+			Net.get("GuestEvent"):FireAllClients({ kind = "yank", position = self.body.root.Position })
+			return false
+		end
+		if self.body:Busy() then
+			return false
+		end
+		self.hiddenUntil = now + self.rng:NextNumber(G.Tier1Cooldown[1], G.Tier1Cooldown[2])
+		self.service.yankTo = nil
+		return true
+	end,
+}
+
+-- A corridor's room record, or nil: a hallway of the mansion (not a stair,
+-- a passage or the hall).
+function Stalk:_corridor(id: number?)
+	local record = id and self.services.WorldService:Room(id)
+	if not record or not record.rect or record.tall then
+		return nil
+	end
+	if record.kind == "stair" or record.kind == "passage" then
+		return nil
+	end
+	local family = record.template and record.template.family
+	return family == "corridor" and record or nil
+end
+
+-- The far end of a corridor the target is in or beside, in their line of
+-- sight but out of everyone's right now; lit ends first.
+function Stalk:_hallSpot(tier: number): Vector3?
+	local targetPos = self:_targetPos()
+	if not targetPos or not self.target then
+		return nil
+	end
+	local worldService = self.services.WorldService
+	local here = worldService:RoomAt(targetPos)
+	if not here then
+		return nil
+	end
+	local rooms = { here }
+	for _, n in worldService:Neighbours(here) do
+		table.insert(rooms, n)
+	end
+	local head = targetPos + Vector3.new(0, 2.5, 0)
+	local minDistance = G.PeekMinDistance[math.clamp(tier, 1, 3)]
+	local best, bestScore = nil, -math.huge
+	for _, id in rooms do
+		local record = self:_corridor(id)
+		if record then
+			local rect = record.rect
+			local alongX = rect.w >= rect.d
+			local half = (alongX and rect.w or rect.d) / 2 - 3
+			for _, sign in { -1, 1 } do
+				local offset = alongX and Vector3.new(sign * half, 0, 0) or Vector3.new(0, 0, sign * half)
+				local point = record.center + offset
+				local d = worldService:Separation(point, targetPos)
+				if
+					d >= minDistance
+					and d <= 60
+					and self.body:Fits(point)
+					and self.services.WitnessService:ClearLine(
+						head,
+						point + Vector3.new(0, 3.2, 0),
+						{ self.body.model }
+					)
+					and not self.sight:AnyoneSees(self.sight.BodyPoints(point))
+				then
+					local score = d / 10 + (worldService:IsLit(point) and 10 or 0) + self.rng:NextNumber(0, 2)
+					if score > bestScore then
+						best, bestScore = point, score
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- A shut door the target is near and facing, with its far side out of
+-- everyone's sight: { door, the target's room, the far room }.
+function Stalk:_doorAhead(ctx)
+	local targetPos = ctx.targetPos
+	if not targetPos then
+		return nil
+	end
+	local worldService = self.services.WorldService
+	local room = worldService:RoomAt(targetPos)
+	if not room then
+		return nil
+	end
+	local look = ctx.targetLook and flat(ctx.targetLook)
+	local best, bestScore = nil, -math.huge
+	for _, door in worldService.World.doors do
+		if
+			not door.open
+			and not door.locked
+			and (door.a == room or door.b == room)
+			and math.abs(door.position.Y - targetPos.Y) < 8
+		then
+			local d = planar(door.position, targetPos)
+			local far = door.a == room and door.b or door.a
+			if d <= G.BehindDoorRange and d >= 4 and worldService:Room(far) then
+				local stand = worldService:ApproachPoint(far, room, G.BehindDoorInset)
+				if self.body:Fits(stand) and not self.sight:AnyoneSees(self.sight.BodyPoints(stand)) then
+					local facing = 0
+					local toward = flat(door.position - targetPos)
+					if look and look.Magnitude > 0.1 and toward.Magnitude > 0.1 then
+						facing = look.Unit:Dot(toward.Unit)
+					end
+					local score = facing * 2 - d / 10 + self.rng:NextNumber(0, 0.5)
+					if score > bestScore then
+						best, bestScore = { door, room, far }, score
+					end
+				end
+			end
+		end
+	end
+	if not best then
+		return nil
+	end
+	return best[1], best[2], best[3]
+end
+
+-- His feet's shadow in the gap under the door, on the near side, for
+-- everyone (it's really him), or gone.
+function Stalk:_doorShadow(move, on: boolean)
+	if move.shadow == on then
+		return
+	end
+	move.shadow = on
+	local seam = self.services.WorldService:SeamBetween(move.near, move.far)
+	if not seam then
+		return
+	end
+	local into = seam.a == move.near and -seam.normal or seam.normal
+	Net.get("GuestEvent"):FireAllClients({
+		kind = "doorShadow",
+		on = on,
+		position = seam.floorPosition,
+		toward = into, -- the near side: where it's drawn
+		id = move.door.id or tostring(seam.floorPosition),
+	})
+end
+
+-- While he waits behind the door: a creak or a breath for whoever comes
+-- close (counted as the warning, Stalk:_tells and canLunge).
+function Stalk:_doorTells(move, now: number)
+	if now < (move.nextTell or 0) then
+		return
+	end
+	move.nextTell = now + self.rng:NextNumber(G.BehindDoorTell[1], G.BehindDoorTell[2])
+	local ps = self.services.PlayerStateService
+	local foot = self.body.root.Position - Vector3.new(0, self.body.built.groundOffset, 0)
+	for _, player in ps:RunPlayers() do
+		local pos = ps:Position(player)
+		if pos and planar(pos, move.door.position) <= G.BehindDoorTellRadius and math.abs(pos.Y - foot.Y) < 8 then
+			Net.get("GuestEvent"):FireClient(player, { kind = "creak", position = foot })
+			self.service:Noticed(player, now)
+			if player == self.target then
+				local warned = self.warned[player]
+				if warned then
+					warned.last = now
+				else
+					self.warned[player] = { since = now, last = now }
+				end
+			end
+		end
+	end
+end
+
+-- A friend's line to speak from behind a door to the target: an older line
+-- (Config.Guest.MimicMinAge) of someone else in the squad, filtered for each
+-- listener (Services/ChatService). nil alone, or with nothing to say.
+function Stalk:_mimicLine(_ctx)
+	local target = self.target
+	if not target or #self.services.PlayerStateService:ActivePlayers() < 2 then
+		return nil
+	end
+	local chat = self.services.ChatService
+	local options = {}
+	for _, other in self.services.PlayerStateService:LivingPlayers() do
+		if other ~= target then
+			local line = chat:RecentLine(other, G.MimicMinAge)
+			if line then
+				table.insert(options, { of = other, text = line })
+			end
+		end
+	end
+	if #options == 0 then
+		return nil
+	end
+	local pick = self.rng:Pick(options)
+	pick.listeners = { target }
+	return pick
+end
+
+-- Something of his house to do, not far from him: put out the light of a lit
+-- room he's in, start a radio, a television or the record player, or ease a
+-- shut door ajar. { kind, stand, at, ... } or nil.
+function Stalk:_hostAction()
+	local worldService = self.services.WorldService
+	local here = self.body.root.Position
+	local hereRoom = worldService:RoomAt(here)
+	local options = {}
+	local interact = self.services.InteractService
+	-- A radio, a television, the record player: something that plays.
+	for _, fixture in interact and interact.fixtures or {} do
+		local info = fixture.info
+		if info.loop and not fixture.running and fixture.part.Parent and HOST_FIXTURES[info.object] then
+			local d = worldService:Separation(here, fixture.position)
+			if d <= G.HostActionRange then
+				local stand = self:_standBeside(fixture.position)
+				if stand then
+					table.insert(
+						options,
+						{ kind = "fixture", fixture = fixture, stand = stand, at = fixture.position, weight = 1.5 }
+					)
+				end
+			end
+		end
+	end
+	-- The light of the room he's in, if it's lit by its switch.
+	local switch = interact and hereRoom and interact.switches[hereRoom]
+	if switch and not switch.off and worldService.World.rooms[hereRoom].lightOn then
+		local stand = self:_standBeside(switch.plate.Position)
+		if stand then
+			table.insert(
+				options,
+				{ kind = "light", room = hereRoom, stand = stand, at = switch.plate.Position, weight = 1 }
+			)
+		end
+	end
+	-- A shut door near him, eased ajar.
+	for _, door in worldService.World.doors do
+		if not door.open and not door.locked and math.abs(door.position.Y - here.Y) < 8 then
+			local d = planar(door.position, here)
+			if d <= 20 and (door.a == hereRoom or door.b == hereRoom) then
+				local other = door.a == hereRoom and door.b or door.a
+				local stand = worldService:ApproachPoint(hereRoom, other, 2.5)
+				if self.body:Fits(stand) then
+					table.insert(
+						options,
+						{ kind = "door", door = door, stand = stand, at = door.position, weight = 0.8 }
+					)
+				end
+			end
+		end
+	end
+	if #options == 0 then
+		return nil
+	end
+	return self.rng:WeightedPick(options, function(o)
+		return o.weight
+	end)
+end
+
+-- A floor point beside `at` his body fits, at most 3 studs off.
+function Stalk:_standBeside(at: Vector3): Vector3?
+	local worldService = self.services.WorldService
+	local floor = Vector3.new(at.X, worldService:FloorBase(at.Y) + self.body.built.groundOffset, at.Z)
+	for i = 0, 8 do
+		local angle = i / 8 * math.pi * 2
+		local point = i == 0 and floor or floor + Vector3.new(math.cos(angle), 0, math.sin(angle)) * 2.6
+		if self.body:Fits(point) then
+			return point
+		end
+	end
+	return nil
+end
+
+function Stalk:_doHostAction(action)
+	local services = self.services
+	if action.kind == "fixture" then
+		-- His own noise is no lure to him (InteractService byGuest).
+		services.InteractService:Use(action.fixture, nil, true)
+	elseif action.kind == "light" then
+		services.InteractService:Flip(action.room, true, nil)
+	elseif action.kind == "door" then
+		services.DoorService:SetAngle(action.door, G.HostDoorAjar, G.HostDoorRate)
+	end
+	services.RunLogService:GuestDid("host:" .. action.kind)
+	services.RunLogService:Beat("guest", action.kind)
+	services.Telemetry:Log("GuestHost", { kind = action.kind })
+end
+
 -- Nobody he knows of is near enough to help this player.
 function Stalk:_alone(victim: Player): boolean
 	local ps = self.services.PlayerStateService
@@ -1121,9 +1876,10 @@ function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
 			-- he never earns a contact lunge by walking up to someone standing still.
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 			local toward = flat(here - pos)
-			local approaching = false
+			local approaching, approachSpeed = false, 0
 			if root and toward.Magnitude > 0.1 then
-				approaching = flat(root.AssemblyLinearVelocity):Dot(toward.Unit) >= G.ContactApproachSpeed
+				approachSpeed = flat(root.AssemblyLinearVelocity):Dot(toward.Unit)
+				approaching = approachSpeed >= G.ContactApproachSpeed
 			end
 			local ok = StalkRules.contact({
 				tier = ctx.tier,
@@ -1131,6 +1887,8 @@ function Stalk:_contactVictim(now: number, ctx): (Player?, number?)
 				distance = distance,
 				verticalGap = math.abs(pos.Y - here.Y),
 				approaching = approaching,
+				approachSpeed = approachSpeed,
+				makingWay = self.makingWayFor == player,
 				graced = services.PlayerStateService:InReviveGrace(player),
 				lineOfSight = head ~= nil
 					and services.WitnessService:ClearLine(self.body:EyePosition(), head.Position, { self.body.model }),
@@ -1163,6 +1921,24 @@ function Stalk:_holdStare(ctx): boolean
 	return false
 end
 
+-- His temperament's number for `key` (linger, peekHold), 1 without one.
+function Stalk:_number(key: string): number
+	local mood = self.service.mood
+	return mood and GuestMood.number(mood, key) or 1
+end
+
+function Stalk:_creepScale(): number
+	local mood = self.service.mood
+	return mood and GuestMood.creepScale(mood) or 1
+end
+
+-- Tier 1, clearly seen: the yank, a slow withdrawal or a duck, by his mood.
+function Stalk:_recoil(): string
+	local mood = self.service.mood
+	local pick = mood and GuestMood.choose(mood, "seen", self.rng)
+	return RECOILS[pick or "Yank"] or "Yank"
+end
+
 -- Choosing ---------------------------------------------------------------------------------
 
 function Stalk:_signals()
@@ -1177,7 +1953,17 @@ function Stalk:_choose(ctx)
 	end
 	-- Moves that need a target he can place are off while he's lost them;
 	-- then he searches by habit instead (tier 0 just wanders far away).
-	local aimed = { Peek = true, DoorwayStand = true, CreepBehind = true, ShadowBehind = true, StareDown = true }
+	local aimed = {
+		Peek = true,
+		DoorwayStand = true,
+		CreepBehind = true,
+		ShadowBehind = true,
+		StareDown = true,
+		FingersPeek = true,
+		HallwayStand = true,
+		BehindTheDoor = true,
+		MimicVoice = true,
+	}
 	for id in feasibility do
 		if (not self.target or not ctx.known) and aimed[id] then
 			feasibility[id] = 0
@@ -1185,6 +1971,14 @@ function Stalk:_choose(ctx)
 	end
 	if not self.target then
 		feasibility.Search = 0
+	end
+	-- He has stood beside his target long enough this minute (the presence
+	-- budget): nothing that ends at their side until it drains.
+	local budget = self.target and self.presence[self.target]
+	if budget and budget.spent then
+		feasibility.CreepBehind = 0
+		feasibility.DoorwayStand = 0
+		feasibility.StareDown = 0
 	end
 	if ctx.tier == 0 then
 		feasibility.DistantRoam = 1
@@ -1209,6 +2003,21 @@ function Stalk:_choose(ctx)
 	-- above all behind a turned back, and just after you've checked behind
 	-- you (your gaze habits say you won't look again for a while).
 	feasibility.Peek *= ({ [1] = 1, [2] = 0.55, [3] = 0.35 })[ctx.tier] or 1
+	feasibility.FingersPeek *= ({ [1] = 1, [2] = 0.8, [3] = 0.6 })[ctx.tier] or 1
+	-- A corridor to stand at the end of, a friend to sound like.
+	if feasibility.HallwayStand > 0 then
+		local room = self:_targetRoom()
+		local corridor = self:_corridor(room)
+		for _, n in room and self.services.WorldService:Neighbours(room) or {} do
+			corridor = corridor or self:_corridor(n)
+		end
+		if not corridor then
+			feasibility.HallwayStand = 0
+		end
+	end
+	if #self.services.PlayerStateService:ActivePlayers() < 2 then
+		feasibility.MimicVoice = 0
+	end
 	if feasibility.CreepBehind > 0 then
 		local habits = self.target and self.services.SquadProfileService:Gaze(self.target)
 		local window = habits and GazeHabits.creepWindow(habits, ctx.now) or 0.5
@@ -1222,7 +2031,8 @@ function Stalk:_choose(ctx)
 		self.lastUsed,
 		ctx.now,
 		self.rng,
-		self.service.archetype.stalkWeights
+		-- The archetype's, folded with his temperament and mood (Logic/GuestMood).
+		self.service:Weights("stalk")
 	)
 	return id or "DistantRoam", scored
 end
@@ -1242,6 +2052,7 @@ function Stalk:_begin(id: string, ctx, scored)
 	self.move = move
 	self.lastUsed[id] = ctx.now
 	self.counts[id] = (self.counts[id] or 0) + 1
+	self.services.RunLogService:GuestMove(id)
 	local top = {}
 	for i = 1, math.min(3, scored and #scored or 0) do
 		table.insert(top, string.format("%s %.2f", scored[i].id, scored[i].score))
@@ -1299,6 +2110,7 @@ function Stalk:_tells(now: number, ctx)
 		warned = nil
 	end
 	local function warn()
+		self.service:Noticed(target, now)
 		if not self.warned[target] then
 			self.warned[target] = { since = now, last = now }
 		else
@@ -1326,6 +2138,7 @@ function Stalk:_tells(now: number, ctx)
 			local pos = self.services.PlayerStateService:Position(player)
 			if pos and (pos - foot).Magnitude < self.services.WorldService:AudibleRadius(40, foot, pos) then
 				Net.get("GuestEvent"):FireClient(player, { kind = "creak", position = foot })
+				self.service:Noticed(player, now)
 				heard = true
 			end
 		end
@@ -1334,6 +2147,28 @@ function Stalk:_tells(now: number, ctx)
 		end
 		warn()
 	end
+end
+
+-- Standing still beside a still player (Logic/RunStats' parked time).
+function Stalk:_parked(here: Vector3): boolean
+	if flat(self.body.root.AssemblyLinearVelocity).Magnitude > 0.5 then
+		return false
+	end
+	local ps = self.services.PlayerStateService
+	for _, player in ps:ActivePlayers() do
+		local pos = ps:Position(player)
+		local root = ps:Root(player)
+		if
+			pos
+			and root
+			and planar(pos, here) <= G.ParkRadius
+			and math.abs(pos.Y - here.Y) < 6
+			and flat(root.AssemblyLinearVelocity).Magnitude < 1
+		then
+			return true
+		end
+	end
+	return false
 end
 
 -- Should he lunge at the target now?
@@ -1361,6 +2196,7 @@ function Stalk:_lungeCheck(now: number, ctx): boolean
 		hidden = services.HidingService:IsHidden(target),
 		downed = not services.PlayerStateService:IsActive(target),
 		graced = services.PlayerStateService:InReviveGrace(target),
+		makingWay = self.makingWayFor == target,
 		safeRoom = service.perception:InSafeRoom(target),
 		sinceDownNearby = sinceDown,
 		sincePlayerLunge = now - (service.lungeLast[target] or -math.huge),
@@ -1444,6 +2280,15 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 		targetWatching = self.target ~= nil and table.find(playerWatchers, self.target) ~= nil,
 	}
 	self.ctx = ctx
+	self.parkedNow = self:_parked(here)
+	-- A long while seeing nobody: curious, or playful (Logic/GuestMood).
+	if #self.service.perception.visibleList > 0 or not self.lastSawAnyone then
+		self.lastSawAnyone = now
+		self.lonelySent = false
+	elseif not self.lonelySent and now - self.lastSawAnyone >= G.LonelySeconds then
+		self.lonelySent = true
+		self.service:MoodEvent("lonely")
+	end
 	if #watchers > 0 then
 		self.watchedFor += dt
 	else
@@ -1452,22 +2297,44 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 	self.seenFor = ctx.targetWatching and self.seenFor + dt or 0
 
 	local moveId = self.move and self.move.id
-	local busy = moveId == "Yank" or moveId == "Lunge" or moveId == "BackAway" or moveId == "Withdraw"
+	local busy = moveId == "Yank"
+		or moveId == "Lunge"
+		or moveId == "BackAway"
+		or moveId == "Withdraw"
+		or moveId == "SlowWithdraw"
+		or moveId == "Duck"
 	-- Waiting at the table he holds his place: no yank, no backing off.
 	local seated = self.errand ~= nil and self.errand.id == "WaitAtTable" and self.errand.arrived == true
+	-- Who he stands beside, and for how long (the presence budget).
+	local overstayed = self:_trackPresence(dt, here)
 
 	-- Reactions --------------------------------------------------------------------
 	if not busy then
-		-- Walk right up to him and he lunges (before he can flee or hold).
+		-- Run right at him and he lunges (before he can flee or hold).
 		local victim, victimDistance = self:_contactVictim(now, ctx)
+		local usher = not victim and not seated and moveId ~= "MakeWay" and self:_makeWayFor(ctx)
 		if victim then
 			self.contactLast[victim] = now
 			self.target, self.targetSince = victim, now
 			self.sensedPos, self.sensedSeen = self:Known(victim)
 			ctx.contact, ctx.distance = true, victimDistance
 			self:_begin("Lunge", ctx)
+		elseif usher then
+			-- Walking his way, or he has stood beside them too long: "after you".
+			ctx.makeWayFor = usher
+			if not self:_begin("MakeWay", ctx) then
+				self:_begin("BackAway", ctx)
+			end
+		elseif overstayed and not seated and moveId ~= "MakeWay" then
+			-- He has stood beside them long enough this minute: he moves off.
+			ctx.face = overstayed
+			self:_begin("BackAway", ctx)
 		elseif not seated and StalkRules.flees(tier, self.seenFor, G) and not self:Hidden(now) then
-			self:_begin("Yank", ctx)
+			-- Not always the yank: his mood picks the recoil.
+			local recoil = self:_recoil()
+			if not self:_begin(recoil, ctx) and recoil ~= "Yank" then
+				self:_begin("Yank", ctx)
+			end
 		elseif not seated and StalkRules.backsOff(tier, self.watchedFor, nearestDistance, G) then
 			self:_begin("BackAway", ctx)
 		elseif self:_lungeCheck(now, ctx) then
@@ -1482,6 +2349,9 @@ function Stalk:Update(now: number, dt: number, watchers, tier: number)
 			or self.move.id == "Lunge"
 			or self.move.id == "BackAway"
 			or self.move.id == "Withdraw"
+			or self.move.id == "MakeWay"
+			or self.move.id == "SlowWithdraw"
+			or self.move.id == "Duck"
 		)
 	if errand and not busy and (not self.move or self.move.id ~= errand.id) then
 		if self.move and MOVES[self.move.id].stop then
@@ -1669,9 +2539,11 @@ function Stalk:DebugLines(): { string }
 	local last = self.log[#self.log]
 	return {
 		string.format(
-			"move %s · target %s",
+			"move %s · target %s · mood %s (%s)",
 			self.move and self.move.id or "-",
-			self.target and self.target.DisplayName or "-"
+			self.target and self.target.DisplayName or "-",
+			tostring(self.service.mood and self.service.mood.mood or "-"),
+			self.service.temperament and self.service.temperament.id or "-"
 		),
 		last and ("top " .. table.concat(last.top, ", ")) or "",
 		self:_beliefLine(),

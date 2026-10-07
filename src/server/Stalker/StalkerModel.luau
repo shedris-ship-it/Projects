@@ -32,6 +32,8 @@ local function v3(t)
 end
 
 local SHIRT = Color3.fromRGB(210, 204, 190)
+local DARK = Color3.fromRGB(7, 6, 8) -- what is under the mask
+local BONE = Color3.fromRGB(176, 170, 158) -- his wrists, where the sleeves fall short
 local TIE = Color3.fromRGB(48, 22, 26)
 local SHOE = Color3.fromRGB(12, 11, 12)
 local LAPEL = Color3.fromRGB(36, 34, 38)
@@ -188,11 +190,13 @@ function StalkerModel.build(archetype, parent: Instance)
 
 	-- Skin and clothes --------------------------------------------------------
 	local Fabric, Smooth = Enum.Material.Fabric, Enum.Material.SmoothPlastic
-	-- The porcelain head: the one light point on the body.
+	-- The head under the mask is dark (docs/ART.md "The Guest", the mask
+	-- over the dark, 2026-10-07): each client lays the porcelain mask over its
+	-- face (Lib/GuestFace), so where the mask breaks there is only black.
 	head.Transparency = 0
-	head.Color = porcelain
+	head.Color = DARK
 	head.Material = Smooth
-	head.Reflectance = 0.04
+	head.Reflectance = 0
 	head.CanQuery = true
 	head.CastShadow = true
 	local headMesh = Instance.new("SpecialMesh")
@@ -203,10 +207,23 @@ function StalkerModel.build(archetype, parent: Instance)
 
 	-- A suit a size too big: a straight chest, padded but narrow shoulders,
 	-- lapels, and a jacket hanging to the thigh.
-	skin(upper, "Jacket", "tube", at(1.36, 1.95, 0.74), at(0, Rig.waistY + 1.0, 0.02), suit, Fabric)
+	skin(upper, "Jacket", "tube", at(1.2, 1.95, 0.7), at(0, Rig.waistY + 1.0, 0.02), suit, Fabric)
 	skin(lower, "JacketHem", "tube", at(1.3, 1.0, 0.76), at(0, Rig.hipY + 0.4, 0.02), suit, Fabric)
 	for _, sx in { -1, 1 } do
-		skin(upper, "ShoulderPad", "ball", at(0.64, 0.42, 0.74), at(sx * 0.6, Rig.shoulderY - 0.06, 0.02), suit, Fabric)
+		-- Narrow shoulders that slope away: no pads, only the cloth over the joint.
+		skin(
+			upper,
+			"ShoulderPad",
+			"ball",
+			at(0.36, 0.24, 0.5),
+			at(sx * 0.56, Rig.shoulderY - 0.12, 0.04),
+			suit,
+			Fabric
+		)
+		-- Coat tails, hanging behind his thighs.
+		skin(lower, "CoatTail", "block", at(0.5, 1.7, 0.06), at(sx * 0.3, Rig.hipY - 0.55, 0.36), suit, Fabric, {
+			rotation = CFrame.Angles(math.rad(-4), 0, sx * math.rad(-3)),
+		})
 		skin(upper, "Lapel", "block", at(0.09, 1.15, 0.03), at(sx * 0.17, Rig.neckY - 0.6, -0.36), LAPEL, Fabric, {
 			rotation = CFrame.Angles(0, 0, sx * math.rad(16)),
 			shadow = false,
@@ -223,26 +240,37 @@ function StalkerModel.build(archetype, parent: Instance)
 	})
 
 	for _, l in limbs do
-		skin(l.upperArm, "Sleeve", "tube", at(0.4, Rig.upperArm + 0.1, 0.4), l.upperArm.Position, suit, Fabric)
-		skin(l.upperArm, "ElbowCap", "ball", at(0.38, 0.38, 0.38), l.elbow, suit, Fabric)
-		skin(l.lowerArm, "Forearm", "tube", at(0.36, Rig.lowerArm, 0.36), l.lowerArm.Position, suit, Fabric)
+		skin(l.upperArm, "Sleeve", "tube", at(0.32, Rig.upperArm + 0.1, 0.32), l.upperArm.Position, suit, Fabric)
+		skin(l.upperArm, "ElbowCap", "ball", at(0.31, 0.31, 0.31), l.elbow, suit, Fabric)
+		-- Sleeves a little short: the cuff rides up, and a bony wrist shows.
+		local short = 0.32
+		skin(
+			l.lowerArm,
+			"Forearm",
+			"tube",
+			at(0.29, Rig.lowerArm - short, 0.29),
+			l.lowerArm.Position + at(0, short / 2, 0),
+			suit,
+			Fabric
+		)
 		skin(
 			l.lowerArm,
 			"Cuff",
 			"tube",
-			at(0.33, 0.14, 0.33),
-			l.wrist + at(0, 0.1, 0),
+			at(0.27, 0.12, 0.27),
+			l.wrist + at(0, short + 0.04, 0),
 			SHIRT,
 			Smooth,
 			{ shadow = false }
 		)
+		skin(l.lowerArm, "Wrist", "tube", at(0.17, short + 0.06, 0.17), l.wrist + at(0, short / 2, 0), BONE, Smooth)
 		-- Long, narrow, bony hands. The fingers are built on each client.
 		skin(l.hand, "Palm", "ball", at(0.24, Rig.hand, 0.12), l.hand.Position, porcelain, Smooth, {
 			reflectance = 0.03,
 		})
 		skin(l.upperLeg, "Trouser", "tube", at(0.48, Rig.upperLeg + 0.1, 0.48), l.upperLeg.Position, suit, Fabric)
 		skin(l.upperLeg, "KneeCap", "ball", at(0.44, 0.44, 0.44), l.knee, suit, Fabric)
-		skin(l.lowerLeg, "Shin", "tube", at(0.42, Rig.lowerLeg, 0.42), l.lowerLeg.Position, suit, Fabric)
+		skin(l.lowerLeg, "Shin", "tube", at(0.36, Rig.lowerLeg, 0.36), l.lowerLeg.Position, suit, Fabric)
 		skin(l.foot, "Shoe", "ball", at(0.4, 0.3, 1.12), l.foot.Position + at(0, 0.02, -0.04), SHOE, Smooth, {
 			reflectance = 0.1,
 		})

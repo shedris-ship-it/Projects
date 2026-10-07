@@ -13,6 +13,12 @@
 -- moment he arrives (0 Dormant to 4 Hunting), so a run that never leaves
 -- tier 1 scores about 1, and one that spends half its time at tier 3 and in
 -- hunts scores about 2.
+--
+-- The Guest's own numbers (the Guest rework, 2026-10-07): how long he stood
+-- parked beside a still player between hunts, cheap downs (caught with no
+-- look at him, no tell and no step heard in the seconds before: the target
+-- is none), the moves he chose and how often he repeated one, his
+-- temperament for the night and the moods he went through.
 
 local RunStats = {}
 RunStats.__index = RunStats
@@ -58,6 +64,19 @@ function RunStats.new(startedAt: number, cfg)
 		hints = 0,
 		earlyScares = 0, -- scares in the first EarlySeconds
 		f2 = 0, -- debug commands that changed the run
+		-- The Guest (the Guest rework).
+		parkedSeconds = 0,
+		parked = false,
+		cheapDowns = 0,
+		cheap = {}, -- { t, who, how }
+		moves = {}, -- move id -> count
+		moveTotal = 0,
+		lastMove = nil,
+		repeats = 0, -- the same move twice in a row
+		temperament = nil,
+		moods = {}, -- mood id -> times he took it on
+		mood = nil,
+		did = {}, -- kind -> count: things he did (making way, a key, a host's errand ...)
 	}, RunStats)
 end
 
@@ -99,9 +118,9 @@ function RunStats:Arrived(t: number)
 	end
 end
 
--- Once a second or so: his tier (0-3, 4 in a hunt) and whether two watchers
--- hold him frozen.
-function RunStats:Tick(t: number, tier: number, frozen: boolean)
+-- Once a second or so: his tier (0-3, 4 in a hunt), whether two watchers
+-- hold him frozen, and whether he stands parked beside a still player.
+function RunStats:Tick(t: number, tier: number, frozen: boolean, parked: boolean?)
 	self:_gap(t)
 	if not self.arrivedAt then
 		return -- nothing to measure until he's in the house
@@ -114,8 +133,12 @@ function RunStats:Tick(t: number, tier: number, frozen: boolean)
 			if frozen then
 				self.freezeSeconds += dt
 			end
+			if self.parked then
+				self.parkedSeconds += dt
+			end
 		end
 	end
+	self.parked = parked == true
 	self.tierSince = t
 	if frozen and not self.frozen then
 		self.freezes += 1
@@ -214,8 +237,14 @@ function RunStats:StareDown(t: number, inHunt: boolean)
 	self:_event(t, "stareDown", inHunt and "hunt" or "stalk")
 end
 
-function RunStats:Catch(t: number, who: string?, how: string?)
+-- `cheap`: nothing told the victim he was coming (Services/StalkerService:
+-- _catch): no look at him, no tell, no step heard just before.
+function RunStats:Catch(t: number, who: string?, how: string?, cheap: boolean?)
 	self.catches += 1
+	if cheap then
+		self.cheapDowns += 1
+		table.insert(self.cheap, { t = t, who = who, how = how })
+	end
 	local hunt = self.hunts[#self.hunts]
 	if hunt and not hunt.endedAt then
 		hunt.catches += 1
@@ -226,6 +255,49 @@ end
 function RunStats:Down(t: number, who: string?)
 	self.downs += 1
 	self:_event(t, "down", who)
+end
+
+-- A move he began (Stalker/Stalk).
+function RunStats:GuestMove(_t: number, id: string)
+	self.moves[id] = (self.moves[id] or 0) + 1
+	self.moveTotal += 1
+	if self.lastMove == id then
+		self.repeats += 1
+	end
+	self.lastMove = id
+end
+
+function RunStats:Temperament(id: string)
+	self.temperament = id
+end
+
+function RunStats:Mood(t: number, id: string)
+	if self.mood == id then
+		return
+	end
+	self.mood = id
+	self.moods[id] = (self.moods[id] or 0) + 1
+	self:_event(t, "mood", id)
+end
+
+-- Something he did worth counting: "makeWay", "keyPass", "hostAction" ...
+function RunStats:GuestDid(t: number, kind: string, detail: string?)
+	self.did[kind] = (self.did[kind] or 0) + 1
+	self:_event(t, "guest:" .. kind, detail)
+end
+
+local function sortedCounts(counts)
+	local list = {}
+	for id, count in counts do
+		table.insert(list, { id = id, count = count })
+	end
+	table.sort(list, function(a, b)
+		if a.count ~= b.count then
+			return a.count > b.count
+		end
+		return a.id < b.id
+	end)
+	return list
 end
 
 -- The numbers, as of `t`.
@@ -251,16 +323,11 @@ function RunStats:Summary(t: number)
 			catches = h.catches,
 		})
 	end
-	local scares = {}
-	for id, count in self.scares do
-		table.insert(scares, { id = id, count = count })
+	local scares = sortedCounts(self.scares)
+	local distinct = 0
+	for _ in self.moves do
+		distinct += 1
 	end
-	table.sort(scares, function(a, b)
-		if a.count ~= b.count then
-			return a.count > b.count
-		end
-		return a.id < b.id
-	end)
 	return {
 		seconds = seconds,
 		act = self.act,
@@ -296,7 +363,44 @@ function RunStats:Summary(t: number)
 		hints = self.hints,
 		earlyScares = self.earlyScares,
 		f2 = self.f2,
+		-- The Guest.
+		parkedSeconds = self.parkedSeconds,
+		cheapDowns = self.cheapDowns,
+		cheap = table.clone(self.cheap),
+		moves = sortedCounts(self.moves),
+		moveTotal = self.moveTotal,
+		distinctMoves = distinct,
+		repeats = self.repeats,
+		sightingsPerMinute = present > 0 and self.sightings / (present / 60) or 0,
+		temperament = self.temperament,
+		mood = self.mood,
+		moods = sortedCounts(self.moods),
+		did = sortedCounts(self.did),
 	}
+end
+
+-- The Guest in one line.
+function RunStats.guestLine(s): string
+	local moods = {}
+	for _, entry in s.moods or {} do
+		table.insert(moods, string.format("%s ×%d", entry.id, entry.count))
+	end
+	local did = {}
+	for _, entry in s.did or {} do
+		table.insert(did, string.format("%s ×%d", entry.id, entry.count))
+	end
+	return string.format(
+		"The Guest: %s · moods %s · %d moves (%d kinds, %d repeats) · parked %s · cheap downs %d · sightings %.1f/min%s",
+		s.temperament or "-",
+		#moods > 0 and table.concat(moods, ", ") or "-",
+		s.moveTotal or 0,
+		s.distinctMoves or 0,
+		s.repeats or 0,
+		string.format("%d:%02d", math.floor(s.parkedSeconds or 0) // 60, math.floor(s.parkedSeconds or 0) % 60),
+		s.cheapDowns or 0,
+		s.sightingsPerMinute or 0,
+		#did > 0 and (" · " .. table.concat(did, ", ")) or ""
+	)
 end
 
 local function clockOr(seconds: number?, missing: string): string
@@ -413,6 +517,23 @@ function RunStats.lines(s): { string }
 			clock(s.sinceProgress)
 		)
 	)
+	table.insert(lines, RunStats.guestLine(s))
+	local moveWords = {}
+	for i, entry in s.moves or {} do
+		if i > 8 then
+			break
+		end
+		table.insert(moveWords, string.format("%s ×%d", entry.id, entry.count))
+	end
+	if #moveWords > 0 then
+		table.insert(lines, "His moves: " .. table.concat(moveWords, ", "))
+	end
+	for _, entry in s.cheap or {} do
+		table.insert(
+			lines,
+			string.format("  cheap down at %s: %s (%s)", clock(entry.t), entry.who or "?", entry.how or "?")
+		)
+	end
 	table.insert(lines, RunStats.finishLine(s))
 	return lines
 end
@@ -462,6 +583,17 @@ function RunStats.overlay(s): { string }
 			clock(s.longestGap),
 			s.earlyScares,
 			s.f2
+		),
+		string.format(
+			"guest %s / %s · moves %d (%d kinds, %d rep) · parked %s · cheap %d · seen %.1f/min",
+			s.temperament or "-",
+			s.mood or "-",
+			s.moveTotal or 0,
+			s.distinctMoves or 0,
+			s.repeats or 0,
+			clock(s.parkedSeconds or 0),
+			s.cheapDowns or 0,
+			s.sightingsPerMinute or 0
 		),
 	}
 end

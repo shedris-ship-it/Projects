@@ -306,8 +306,14 @@ function WorldService:SeamCost(seamId: string, who: string?): number?
 		return nil
 	end
 	local door = seam.door
-	-- Locked (the escape, Services/LockService): a wall to everyone, him too.
+	-- Locked (the escape, Services/LockService): a wall to everyone, except
+	-- to his keys (Logic/GuestKeys) when it takes a key or a code, at a cost
+	-- (the keys, the lock), and not for a while after he had to turn back.
 	if door and door.locked then
+		local guest = who == "guest" or who == "guestHunt"
+		if guest and door.guestKey and os.clock() >= (door.guestKeyRefusedUntil or 0) then
+			return Config.Guest.KeyPassCost
+		end
 		return nil
 	end
 	-- Something else shut across it (a crank door down: Services/CrankService).

@@ -543,11 +543,13 @@ function BotService:_walkLeg(target: Vector3, within: number?, maxSeconds: numbe
 		-- He stands in the way between hunts: a player stops and lets him
 		-- move off rather than walking into him (the contact lunge is for
 		-- whoever comes at him). Counted, so a Guest who parks in a corridor shows.
+		-- He steps aside and holds out a hand ("after you"): walk on past.
 		local guest = self.services.StalkerService:GetPosition()
 		if
 			guest
 			and pos
 			and not self.services.StalkerService:IsHunting()
+			and not self.services.StalkerService:MakingWayFor(self.player)
 			and (flat(guest) - flat(pos)).Magnitude < B.GiveWay
 			and math.abs(guest.Y - pos.Y) < 6
 		then

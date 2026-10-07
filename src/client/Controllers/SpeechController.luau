@@ -58,9 +58,18 @@ local function ensureListener()
 	wire.Parent = listener
 end
 
-local function speak(userId: number, text: string, whisper: boolean)
+local function speak(userId: number, text: string, whisper: boolean, at: Vector3?)
 	local speaker = Players:GetPlayerByUserId(userId)
 	local head = speaker and speaker.Character and speaker.Character:FindFirstChild("Head")
+	local holder = nil
+	if at then
+		-- From a place, not their head (The Guest's mimicry: a friend's voice
+		-- from behind a door).
+		holder = Instance.new("Attachment")
+		holder.Parent = Workspace.Terrain
+		holder.WorldPosition = at
+		head = holder
+	end
 	if not head then
 		return
 	end
@@ -87,6 +96,9 @@ local function speak(userId: number, text: string, whisper: boolean)
 		task.wait(ok and tts.TimeLength + 1 or 0)
 		tts:Destroy()
 		emitter:Destroy()
+		if holder then
+			holder:Destroy()
+		end
 	end)
 end
 
@@ -126,7 +138,7 @@ function SpeechController:Start()
 		end
 		local who = line.userId == player.UserId and "You" or tostring(line.name)
 		self.controllers.UIController:Toast(string.format("%s: %s", who, line.text), "callout")
-		speak(line.userId, line.text, line.whisper == true)
+		speak(line.userId, line.text, line.whisper == true, typeof(line.at) == "Vector3" and line.at or nil)
 	end)
 	task.spawn(function()
 		local ok, err = pcall(self._watchMic, self)

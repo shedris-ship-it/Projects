@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.121",
-	note = "the loop pass documented: README, TESTING (TC-123 to TC-137), ARCHITECTURE, the rework plan's section 16, the report",
+	id = "2026-10-06.122",
+	note = "the Guest rework: moods and a temperament, after you, new ways, hunts in phases, his keys, the mask over the dark",
 }

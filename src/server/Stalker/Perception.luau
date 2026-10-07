@@ -41,6 +41,7 @@ function Perception.new(services, body, bodyCtl)
 		followed = {}, -- when he went to check one (too many and he gets wary)
 		watchTime = {}, -- player -> seconds continuously watched (in the light)
 		beamHeld = {}, -- player -> seconds their full beam has held him, alone
+		lookedAt = {}, -- player -> when they last looked at him (lit or not): a sign of him
 		lastWatch = nil, -- { lit, dark, beams, roomLit } for the overlay
 		visibleList = {}, -- players he can see this tick, nearest first
 		hearingMultiplier = 1,
@@ -54,6 +55,7 @@ function Perception:Reset()
 	self.followed = {}
 	self.watchTime = {}
 	self.beamHeld = {}
+	self.lookedAt = {}
 	self.visibleList = {}
 end
 
@@ -326,6 +328,9 @@ function Perception:Watchers(dt: number, visibleTo: { [Player]: boolean }): { an
 					break
 				end
 			end
+		end
+		if looking then
+			self.lookedAt[player] = os.clock()
 		end
 		local counts = looking and inLight
 		if looking and not counts then

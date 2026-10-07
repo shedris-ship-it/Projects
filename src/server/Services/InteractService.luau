@@ -55,7 +55,8 @@ function InteractService:Start()
 					self:_stop(fixture)
 				elseif now >= fixture.next then
 					fixture.next = now + fixture.info.every
-					self.Noise:Emit(fixture.position, fixture.info.lure, nil, "lure")
+					-- One he started himself (Stalk's HostAction) is no lure to him.
+					self.Noise:Emit(fixture.position, fixture.info.lure, nil, fixture.byGuest and "guest" or "lure")
 				end
 			end
 		end
@@ -313,9 +314,12 @@ end
 
 -- Work a fixture: a one-shot (a flush, the horn, the kettle set going), or
 -- start or stop one that runs.
-function InteractService:Use(fixture, _player: Player?)
+-- `byGuest`: he worked it himself (Stalker/Stalk HostAction): its noise is
+-- his, and draws nobody but the squad.
+function InteractService:Use(fixture, _player: Player?, byGuest: boolean?)
 	local info = fixture.info
 	local now = os.clock()
+	fixture.byGuest = byGuest == true
 	if info.uses and fixture.uses >= info.uses then
 		return
 	end

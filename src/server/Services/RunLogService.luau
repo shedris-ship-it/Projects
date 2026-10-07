@@ -177,9 +177,36 @@ function RunLogService:StareDown(inHunt: boolean)
 	end
 end
 
-function RunLogService:Catch(who: string?, how: string?)
+-- `cheap`: nothing told the victim he was coming (StalkerService:_catch).
+function RunLogService:Catch(who: string?, how: string?, cheap: boolean?)
 	if self.stats then
-		self.stats:Catch(os.clock(), who, how)
+		self.stats:Catch(os.clock(), who, how, cheap)
+	end
+end
+
+-- The Guest's own numbers (the Guest rework): his moves, his temperament
+-- for the night, his moods, and things he did worth counting.
+function RunLogService:GuestMove(id: string)
+	if self.stats then
+		self.stats:GuestMove(os.clock(), id)
+	end
+end
+
+function RunLogService:Temperament(id: string)
+	if self.stats then
+		self.stats:Temperament(id)
+	end
+end
+
+function RunLogService:Mood(id: string)
+	if self.stats then
+		self.stats:Mood(os.clock(), id)
+	end
+end
+
+function RunLogService:GuestDid(kind: string, detail: string?)
+	if self.stats then
+		self.stats:GuestDid(os.clock(), kind, detail)
 	end
 end
 
@@ -351,7 +378,7 @@ function RunLogService:_sample()
 	end
 	if self.stats then
 		local stalker = services.StalkerService
-		self.stats:Tick(os.clock(), stalker:TierNow(), stalker:IsFrozen())
+		self.stats:Tick(os.clock(), stalker:TierNow(), stalker:IsFrozen(), stalker:ParkedNow())
 	end
 	local guest = services.StalkerService:GetPosition()
 	if not guest then

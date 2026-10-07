@@ -33,6 +33,9 @@ local GuestController = {}
 local guest = nil -- the attached body, see _attach
 local visible = false
 local fade = nil -- { started, duration } while dissolving
+local ushered = 0 -- times he stepped aside for you this session (captioned the first two)
+local shadows = {} -- door id -> the shadow of his feet under it (Stalk BehindTheDoor)
+local spottedTold = 0 -- "[it sees you]" captions so far
 
 function GuestController:Init(controllers)
 	self.controllers = controllers
@@ -58,6 +61,10 @@ end
 
 function GuestController:_detach()
 	-- The face and fingers live inside the model, so they go with it.
+	for id, shadow in shadows do
+		shadow:Destroy()
+		shadows[id] = nil
+	end
 	if guest then
 		for _, connection in guest.connections do
 			connection:Disconnect()
@@ -204,6 +211,10 @@ local FINGER_CURL = {
 	Peek = 0.4,
 	Zoom = 0.05,
 	Lunge = -0.25,
+	Usher = -0.15, -- the open hand, "after you"
+	Duck = 0.6,
+	Listen = 0.1,
+	Stagger = 0.2,
 }
 
 -- How far he ducks for a doorway in the mansion, whose doorways aren't on a
@@ -278,38 +289,94 @@ function GuestController:_frame(dt: number)
 			Config.Level.DoorWidth / 2
 		)
 	local lean = model:GetAttribute("GuestLean") or 0
+	local camera = Workspace.CurrentCamera
+	local now = os.clock()
+	local mood = model:GetAttribute("GuestMood")
+	-- Your beam lands on him: his head snaps to it first, then the body
+	-- follows; and while it's on him he moves in stutters (below).
+	local beam = self:_beamOnHim(camera)
+	if beam and not guest.inBeam then
+		guest.snapUntil = now + G.LightSnapSeconds
+	end
+	guest.inBeam = beam
+	-- Frozen but alive: how long he has been held still and staring.
+	if pose == "Hold" then
+		guest.heldFor = (guest.heldFor or 0) + dt
+	else
+		if (guest.heldFor or 0) > G.ExhaleAfter and (visible or fade ~= nil) then
+			-- Let go: a long breath out.
+			local audio = self.controllers.AudioController
+			audio:PlayAt(
+				"GuestExhale",
+				guest.head.Position,
+				0.6,
+				0.9,
+				blocked(camera.CFrame.Position, guest.head.Position, { model })
+			)
+		end
+		guest.heldFor = 0
+	end
+	-- Unfolding to his full height once a door frame is behind him.
+	if (guest.lastStoop or 0) > 0.4 and stoop < 0.05 then
+		guest.unfoldUntil = now + G.UnfoldSeconds
+	end
+	guest.lastStoop = stoop
+	local unfold = math.clamp(((guest.unfoldUntil or 0) - now) / G.UnfoldSeconds, 0, 1)
 	local values, planted = GuestPose.step(guest.pose, {
 		pose = pose,
 		forward = forward,
-		tilt = model:GetAttribute("HeadTilt") or 14,
+		tilt = (model:GetAttribute("HeadTilt") or 14),
 		lean = lean,
 		stoop = stoop,
 		gazeYaw = gazeYaw,
 		gazePitch = gazePitch,
 		neckYawMax = G.NeckYawMax,
+		mood = mood,
+		heldFor = guest.heldFor,
+		snapNeck = now < (guest.snapUntil or 0),
+		unfold = unfold,
 		random = math.random,
 	}, dt)
 
-	local camera = Workspace.CurrentCamera
 	local shown = visible or fade ~= nil
 	if shown then
-		for name, value in values do
-			local m = guest.motors[name]
-			if m then
-				m.Transform = CFrame.new(value[4], value[5], value[6]) * CFrame.Angles(value[1], value[2], value[3])
+		-- In your light he moves like a stop-motion puppet: his joints only
+		-- take their new places every so often. In the dark, smooth.
+		local write = true
+		if beam then
+			if now < (guest.nextStutter or 0) then
+				write = false
+			else
+				guest.nextStutter = now
+					+ G.StutterSeconds[1]
+					+ math.random() * (G.StutterSeconds[2] - G.StutterSeconds[1])
 			end
 		end
-		-- Fingers: the hand on the jamb grips it while he peeks.
+		if write then
+			for name, value in values do
+				local m = guest.motors[name]
+				if m then
+					m.Transform = CFrame.new(value[4], value[5], value[6]) * CFrame.Angles(value[1], value[2], value[3])
+				end
+			end
+		end
+		-- Fingers: the hand on the jamb grips it while he peeks; held, or
+		-- playful, they drum.
 		local curl = FINGER_CURL[pose] or 0.5
+		local drum = ((pose == "Hold" and (guest.heldFor or 0) > 1.5) or (pose == "Idle" and mood == "Playful"))
+				and 0.35
+			or 0
 		for side, hand in guest.hands do
-			local grip = pose == "Peek" and ((lean >= 0) == (side == "Right"))
-			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random)
+			local grip = (pose == "Peek" or pose == "FingersPeek") and ((lean >= 0) == (side == "Right"))
+			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum)
 		end
 		-- The face.
 		local form = model:GetAttribute("GuestForm") or 0
 		local distance = (guest.head.Position - camera.CFrame.Position).Magnitude
 		local range = G.SmileCloseRange
 		local closeness = 1 - math.clamp((distance - range[1]) / (range[2] - range[1]), 0, 1)
+		-- The longer you hold him, the wider the smile.
+		closeness = math.max(closeness, math.min(1, (guest.heldFor or 0) / 8))
 		local width, open = GuestPose.smile(form, closeness, pose == "BackAway")
 		local override = model:GetAttribute("GuestSmile")
 		if override then
@@ -387,9 +454,81 @@ function GuestController:_event(event)
 		audio:Caption("[it lets you get up. Run.]")
 	elseif kind == "heard" then
 		audio:Caption("[he heard you pick up]")
+	elseif kind == "keys" then
+		-- His keys at a locked door (Logic/GuestKeys): the lock is about to turn.
+		audio:PlayAt("GuestKeys", event.position, 0.8, 1, muffled(event.position))
+		audio:Caption("[keys, at a locked door]")
+	elseif kind == "spotted" then
+		-- A hunt, and he has seen you (Logic/HuntPhases "chase").
+		audio:PlayAt("GuestRasp", event.position, 0.9, 1, muffled(event.position))
+		spottedTold += 1
+		if spottedTold <= G.SpottedCues then
+			audio:Caption("[it sees you]")
+		end
+	elseif kind == "sniff" then
+		-- He lost you and stands listening, sniffing the air.
+		audio:PlayAt("GuestSniff", event.position, 0.7, 1, muffled(event.position))
+		audio:Caption("[a long, slow sniff]")
+	elseif kind == "doorShadow" then
+		self:_doorShadow(event)
+	elseif kind == "usher" then
+		-- He stepped aside for you (Logic/StalkRules.makesWay): said the first
+		-- times, so the promise is learnt.
+		ushered += 1
+		if ushered <= 2 then
+			audio:Caption("[it steps aside, and holds out a hand: after you]")
+		end
 	elseif kind == "catch" then
 		self:_jumpscare(event.catch)
 	end
+end
+
+-- His feet's shadow in the gap under a door he waits behind (Stalker/Stalk
+-- BehindTheDoor): a dark band across the threshold on your side, darker
+-- where his shoes are. It's really him; it goes when he does.
+function GuestController:_doorShadow(event)
+	local id = tostring(event.id)
+	if shadows[id] then
+		shadows[id]:Destroy()
+		shadows[id] = nil
+	end
+	if not event.on or typeof(event.position) ~= "Vector3" or typeof(event.toward) ~= "Vector3" then
+		return
+	end
+	local toward = Vector3.new(event.toward.X, 0, event.toward.Z)
+	if toward.Magnitude < 0.1 then
+		return
+	end
+	toward = toward.Unit
+	local base = event.position + toward * 0.55 + Vector3.new(0, 0.03, 0)
+	local cf = CFrame.lookAt(base, base + toward)
+	local model = Instance.new("Model")
+	model.Name = "GuestDoorShadow"
+	local function piece(size: Vector3, at: CFrame, transparency: number)
+		local p = Instance.new("Part")
+		p.Size = size
+		p.CFrame = at
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = Color3.new(0, 0, 0)
+		p.Transparency = transparency
+		p.Parent = model
+		return p
+	end
+	piece(Vector3.new(2.8, 0.02, 0.8), cf, 0.5)
+	for _, x in { -0.42, 0.42 } do
+		local foot = piece(Vector3.new(0.42, 0.02, 0.62), cf * CFrame.new(x, 0.004, 0.1), 0.2)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Scale = Vector3.new(1, 0.2, 1)
+		mesh.Parent = foot
+	end
+	model.Parent = Workspace
+	shadows[id] = model
 end
 
 -- Caught. Two ways (Config.Guest.Catch): "rush", his face grinning wide open
@@ -572,7 +711,16 @@ end
 -- Two pin-points of light in his eye hollows when your torch beam is on his
 -- face and he's facing you.
 function GuestController:_eyeShine(camera: Camera): boolean
-	if player:GetAttribute(Constants.PlayerAttributes.Flashlight) ~= true then
+	if not guest.inBeam then
+		return false
+	end
+	local toFace = guest.head.Position - camera.CFrame.Position
+	return toFace.Magnitude > 0.5 and guest.head.CFrame.LookVector:Dot(-toFace.Unit) >= 0.35
+end
+
+-- Your torch's beam is on him (on, in its cone, in range, nothing between).
+function GuestController:_beamOnHim(camera: Camera): boolean
+	if not visible or player:GetAttribute(Constants.PlayerAttributes.Flashlight) ~= true then
 		return false
 	end
 	local head = guest.head
@@ -581,11 +729,7 @@ function GuestController:_eyeShine(camera: Camera): boolean
 	if distance > G.EyeShineRange or distance < 0.5 then
 		return false
 	end
-	local direction = toFace.Unit
-	if camera.CFrame.LookVector:Dot(direction) < math.cos(math.rad(G.EyeShineCone)) then
-		return false
-	end
-	if head.CFrame.LookVector:Dot(-direction) < 0.35 then
+	if camera.CFrame.LookVector:Dot(toFace.Unit) < math.cos(math.rad(G.EyeShineCone)) then
 		return false
 	end
 	local ignore = { guest.model }

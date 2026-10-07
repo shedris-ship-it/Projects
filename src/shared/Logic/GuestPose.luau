@@ -32,10 +32,10 @@ GuestPose.Rig = {
 	upperTorsoSize = { 1.35, 2.15, 0.72 },
 	waistY = 4.8,
 	neckY = 6.95,
-	neckLength = 0.32,
-	headSize = { 0.8, 1.15, 0.92 },
-	shoulderX = 0.8,
-	shoulderY = 6.75,
+	neckLength = 0.41, -- a long neck, carried forward (the vulture's neck of the mask, 2026-10-07)
+	headSize = { 0.74, 1.06, 0.84 }, -- small, under the mask
+	shoulderX = 0.78,
+	shoulderY = 6.66, -- low, sloping shoulders
 	upperArm = 2.0,
 	lowerArm = 1.85,
 	hand = 0.55,
@@ -82,6 +82,10 @@ GuestPose.Poses = {
 	Lunge = "Lunge",
 	Bow = "Bow",
 	Stagger = "Stagger", -- hit by something thrown: head snapped aside, hands up, knees buckled
+	Usher = "Usher", -- making way: a slight bow, one open hand held out towards the way on ("after you")
+	FingersPeek = "FingersPeek", -- behind the wall, only his long fingers curled round the frame (lean = side)
+	Duck = "Duck", -- tier 1, seen: a sudden drop low, before he glides away
+	Listen = "Listen", -- hunting, standing still: head cocked far over, listening
 }
 
 -- How quickly each pose is reached (1/s). Fast ones snap; the rest ease.
@@ -97,6 +101,10 @@ local RATE = {
 	Lunge = 28,
 	Bow = 3,
 	Stagger = 22,
+	Usher = 5,
+	FingersPeek = 6,
+	Duck = 26,
+	Listen = 4,
 }
 
 -- Steps: studs travelled per step, swing amplitude, knee bend and lift.
@@ -105,6 +113,17 @@ local GAIT = {
 	Run = { stride = 5.2, hip = 46, knee = 75 },
 	Creep = { stride = 1.5, hip = 16, knee = 30 },
 	BackAway = { stride = 2.0, hip = 20, knee = 26 },
+}
+
+local HUNCHED = {
+	Idle = true,
+	Hold = true,
+	Walk = true,
+	BackAway = true,
+	Usher = true,
+	Listen = true,
+	Peek = true,
+	FingersPeek = true,
 }
 
 local function zero()
@@ -179,14 +198,41 @@ function GuestPose.target(ctx)
 	local P = GuestPose.Poses
 
 	if pose == P.Idle or pose == P.Hold or pose == P.Bow then
-		clasp(t)
+		local mood = ctx.mood
+		if pose ~= P.Bow and mood == "Stalking" then
+			-- Low and loose: knees soft, arms hanging long, fingers spread.
+			hang(t)
+			add(t, "Root", 0, 0, 0, 0, -0.25, 0)
+			add(t, "LeftKnee", d(-14))
+			add(t, "RightKnee", d(-14))
+			add(t, "LeftHip", d(10))
+			add(t, "RightHip", d(10))
+		else
+			clasp(t)
+		end
 		add(t, "Waist", d(pose == P.Bow and -48 or -6))
 		if pose == P.Bow then
 			-- The bow is deep but the face never leaves you.
 			add(t, "Neck", d(52))
 		end
-		if pose == P.Idle then
+		-- Breathing, unless he's patient (dead still) or held (no breath at all).
+		if pose == P.Idle and mood ~= "Patient" then
 			add(t, "Waist", d(1.2) * sin(ctx.breath * TAU))
+		end
+		local clock = ctx.t or 0
+		if pose == P.Idle and mood == "Curious" then
+			-- His head tips slowly one way, then the other.
+			add(t, "Neck", 0, 0, d(16) * sin(clock * 0.8))
+		elseif pose == P.Idle and mood == "Playful" then
+			-- Nodding along to a tune only he hears.
+			add(t, "Neck", d(5) * sin(clock * 4.4))
+			add(t, "Waist", 0, 0, d(2.5) * sin(clock * 2.2))
+		end
+		if pose == P.Hold and (ctx.heldFor or 0) > 0 then
+			-- Frozen but alive (the owner's choice, 2026-10-06): held, he never
+			-- moves a stud, but his head tips further the longer you look,
+			-- from 14 degrees to about 40.
+			add(t, "Neck", 0, 0, d(math.min(26, ctx.heldFor * 3.25)))
 		end
 	elseif pose == P.Walk then
 		clasp(t)
@@ -258,6 +304,52 @@ function GuestPose.target(ctx)
 		add(t, "RightHip", d(6))
 		add(t, "LeftKnee", d(-30))
 		add(t, "RightKnee", d(-16))
+	elseif pose == P.Usher then
+		-- "After you": stepped aside against the wall, a slight bow, the left
+		-- hand at his chest and the right held out, open, towards the way on.
+		add(t, "Waist", d(-14))
+		add(t, "Neck", d(10))
+		add(t, "LeftShoulder", d(30), d(-40), d(3))
+		add(t, "LeftElbow", d(84))
+		add(t, "RightShoulder", d(52), 0, d(30))
+		add(t, "RightElbow", d(14))
+		add(t, "RightWrist", d(-22))
+	elseif pose == P.FingersPeek then
+		-- Behind the wall beside the doorway, upright and still; the near arm
+		-- reaches up and out so only the hand curls round the frame at head
+		-- height (GuestPose.fingers is where).
+		local side = (ctx.lean or 1) >= 0 and 1 or -1
+		add(t, "Waist", d(-4), 0, -side * d(4))
+		add(t, "Neck", d(6), 0, -side * d(10))
+		hang(t)
+		if side > 0 then
+			add(t, "RightShoulder", d(30), 0, d(100))
+			add(t, "RightElbow", d(40))
+			add(t, "RightWrist", d(10))
+		else
+			add(t, "LeftShoulder", d(30), 0, d(-100))
+			add(t, "LeftElbow", d(40))
+			add(t, "LeftWrist", d(10))
+		end
+	elseif pose == P.Duck then
+		-- Dropped low in a blink, folded over his knees, head up at you.
+		add(t, "Root", 0, 0, 0, 0, -0.8, 0)
+		add(t, "Waist", d(-70))
+		add(t, "Neck", d(50))
+		add(t, "LeftShoulder", d(40), 0, d(6))
+		add(t, "RightShoulder", d(40), 0, d(-6))
+		add(t, "LeftHip", d(70))
+		add(t, "RightHip", d(70))
+		add(t, "LeftKnee", d(-120))
+		add(t, "RightKnee", d(-120))
+	elseif pose == P.Listen then
+		-- Stopped dead in a hunt: bent a little forward, the head cocked far
+		-- over to one side (the tilt adds to it), hands open at his sides.
+		add(t, "Waist", d(-12))
+		add(t, "Neck", d(-6), 0, d(26))
+		hang(t)
+		add(t, "LeftShoulder", 0, 0, d(-10))
+		add(t, "RightShoulder", 0, 0, d(10))
 	elseif pose == P.Lunge then
 		add(t, "Root", 0, 0, 0, 0, -0.35, -0.6)
 		add(t, "Waist", d(-34))
@@ -270,6 +362,20 @@ function GuestPose.target(ctx)
 		add(t, "RightHip", d(-24))
 		add(t, "LeftKnee", d(-40))
 		add(t, "RightKnee", d(-20))
+	end
+
+	-- His carriage (the mask over the dark): a slight hunch, the long neck
+	-- carried forward and the face lifted to you.
+	if HUNCHED[pose] then
+		add(t, "Waist", d(-5))
+		add(t, "Neck", d(6))
+	end
+
+	-- Unfolding to his full height once a door frame is behind him.
+	local unfold = ctx.unfold or 0
+	if unfold > 0 then
+		add(t, "Waist", d(6) * unfold)
+		add(t, "Neck", d(-5) * unfold)
 	end
 
 	-- Ducking under door frames: he is taller than every doorway.
@@ -339,7 +445,9 @@ function GuestPose.advance(state, pose: string, forward: number, dt: number): { 
 end
 
 -- One frame. input: { pose, forward, tilt, lean, stoop, gazeYaw, gazePitch,
--- neckYawMax, random = function() -> 0..1 (cosmetic) }.
+-- neckYawMax, mood (Logic/GuestMood), heldFor (seconds held, for "frozen
+-- but alive"), snapNeck (the head snaps to a light this frame), random =
+-- function() -> 0..1 (cosmetic) }.
 -- Returns the smoothed joint values and the feet that landed this frame.
 function GuestPose.step(state, input, dt: number)
 	local pose = GuestPose.Poses[input.pose] and input.pose or "Idle"
@@ -356,6 +464,10 @@ function GuestPose.step(state, input, dt: number)
 		gazeYaw = input.gazeYaw,
 		gazePitch = input.gazePitch,
 		neckYawMax = input.neckYawMax,
+		mood = input.mood,
+		heldFor = input.heldFor,
+		unfold = input.unfold,
+		t = state.t,
 	})
 
 	-- Twitches while still: a sudden jerk of the head or a shoulder that
@@ -370,7 +482,9 @@ function GuestPose.step(state, input, dt: number)
 			values = { d((random() - 0.5) * size), d((random() - 0.5) * size), d((random() - 0.5) * size * 1.4) },
 			untilT = state.t + 0.12 + random() * 0.15,
 		}
-		state.nextTwitch = state.t + 2.5 + random() * 6
+		-- An irritated Guest twitches far more often (Logic/GuestMood).
+		local gap = input.mood == "Irritated" and (0.8 + random() * 1.6) or (2.5 + random() * 6)
+		state.nextTwitch = state.t + gap
 	end
 	local twitch = state.twitch
 	if twitch then
@@ -391,6 +505,9 @@ function GuestPose.step(state, input, dt: number)
 		local v = state.values[joint]
 		-- Twitches and the legs' stepping snap; everything else eases.
 		local a = (twitch and joint == twitch.joint) and snap or alpha
+		if input.snapNeck and joint == "Neck" then
+			a = 1
+		end
 		if GAIT[pose] and (string.find(joint, "Hip") or string.find(joint, "Knee") or string.find(joint, "Ankle")) then
 			a = math.max(a, 1 - math.exp(-18 * dt))
 		end
@@ -454,6 +571,13 @@ function GuestPose.spine(values)
 	joint({ 0, Rig.neckY - Rig.waistY, 0 }, values.Neck)
 	local head = at({ 0, Rig.neckLength + Rig.headSize[2] / 2, 0 })
 	return head, chest
+end
+
+-- Where the hand on the frame is in FingersPeek, in body space relative to
+-- the root's centre (x right, y up, z back): what a Witness can see of him.
+function GuestPose.fingers(lean: number?): { number }
+	local side = (lean or 1) >= 0 and 1 or -1
+	return { side * 2.5, Rig.headY - Rig.rootY - 0.25, -0.2 }
 end
 
 -- Head and chest offsets for a pose as the clients will settle into it.
@@ -583,5 +707,13 @@ GuestPose.Blood = {
 	{ { 0.33, 0.12 }, { 0.31, -0.02 }, { 0.32, -0.16 } },
 }
 GuestPose.Eyes = { { 0.4, 0.2 }, { -0.4, 0.2 } } -- (theta, phi) of each eye hollow
+
+-- Where the mask has come away at Breaking (Lib/GuestFace): thick paths of
+-- (theta, phi) that show the black beneath. One from the brow through the
+-- left eye, one at the right of the jaw.
+GuestPose.Shards = {
+	{ width = 0.13, path = { { -0.62, 0.62 }, { -0.5, 0.5 }, { -0.38, 0.36 }, { -0.47, 0.22 }, { -0.56, 0.02 } } },
+	{ width = 0.1, path = { { 0.3, -0.5 }, { 0.44, -0.38 }, { 0.58, -0.46 }, { 0.66, -0.62 } } },
+}
 
 return GuestPose

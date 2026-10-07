@@ -911,6 +911,11 @@ Config.Guest = {
 	EyeShineRange = 45, -- your torch catches his eyes within this range
 	EyeShineCone = 24, -- half-angle of the torch beam, degrees
 	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28 },
+	-- The look (Controllers/GuestController, the mask over the dark).
+	StutterSeconds = { 0.07, 0.14 }, -- in your beam his joints jump on this often (stop-motion)
+	LightSnapSeconds = 0.12, -- his head snaps to your light this fast when it lands
+	ExhaleAfter = 2, -- held longer than this, he breathes out when let go
+	UnfoldSeconds = 0.5, -- straightening up past a door frame
 
 	-- Arrival: three knocks at the front door when the quiet start ends.
 	ArrivalKnockLead = 3, -- seconds from the knock until he's inside
@@ -1002,6 +1007,56 @@ Config.Guest = {
 	LureWaryWindow = 120, -- lures he followed this recently count against the next
 	LureWaryFactor = 0.6, -- each one makes the next this much less tempting
 	BrainHz = 4,
+
+	-- The Guest rework's numbers (docs/progress/2026-10-07-guest).
+	ParkRadius = 8, -- standing this close to a still player counts as parked
+	CheapNoticeSeconds = 3, -- a catch with no sign of him this long before is a cheap down
+	StepsHeardRange = 24, -- walking studs: his steps count as a sign of him this close
+	-- His moods (Logic/GuestMood) and temperament (Data/Temperaments).
+	MoodSeconds = { 60, 180 }, -- how long a mood lasts before he takes on another
+	LonelySeconds = 90, -- seeing nobody this long makes him curious or playful
+	-- "After you" (StalkRules.makesWay): between hunts he never parks in your way.
+	ParkSeconds = 6, -- standing within ParkRadius of a player this long, he makes way
+	MakeWayRange = 10, -- a player walking his way this close: he makes way
+	MakeWayMaxSpeed = 11, -- walking (8, winded 10); faster than this at him is rushing him (a contact)
+	MakeWayStep = { 2, 3, 4 }, -- how far aside he tries to step
+	MakeWayMinStep = 1.1, -- a step aside shorter than this isn't one (he holds out his hand where he is)
+	MakeWaySeconds = 8, -- he holds his hand out this long at most
+	ParkBudget = 12, -- seconds within ParkRadius of one player...
+	ParkWindow = 60, -- ...in any minute; spent, he moves off
+	-- His ways between hunts (Data/StalkMoves, the Guest rework).
+	FingersRevealSeconds = 3, -- watched this long, his face follows his fingers out
+	HallwayStandSeconds = 40, -- at the end of your corridor at most this long
+	BehindDoorInset = 2.2, -- how far behind the door he stands
+	BehindDoorSeconds = 30, -- he waits behind it this long at most
+	BehindDoorRange = 26, -- for a door within this of the target
+	BehindDoorLeave = 40, -- walking studs: they've gone elsewhere, he gives up
+	BehindDoorKnockChance = 0.35, -- three slow knocks instead of silence
+	BehindDoorTell = { 3, 5 }, -- seconds between creaks for whoever comes close
+	BehindDoorTellRadius = 10,
+	MimicMinAge = 60, -- he only speaks lines someone said this long ago
+	HostActionRange = 60, -- walking studs: something of his house to do, not far off
+	HostDoorAjar = 28, -- degrees he eases a door open (walkable from PassAngle 55)
+	HostDoorRate = 35, -- degrees a second: slowly
+	SlowWithdrawSpeed = 3, -- tier 1, seen: backing out of sight, still staring
+	DuckSeconds = 0.35, -- tier 1, seen: the drop before he glides away
+	-- Hunts in phases (Logic/HuntPhases).
+	ChaseGrace = 0.6, -- out of his sight this long in a chase, and he's lost you
+	LostSeconds = { 1.5, 3 }, -- standing where he lost you, listening
+	LostWalkSeconds = 6, -- at most this long getting back to where he last saw you
+	WidenAfter = 30, -- a hunt this long without seeing anyone: he widens his options
+	ListenEvery = { 6, 10 }, -- prowling, he stops to listen this often...
+	ListenSeconds = 1.2, -- ...for this long
+	SpottedCues = 2, -- "[it sees you]" captioned this many times a session
+	-- His keys (Logic/GuestKeys; the owner's choice, 2026-10-06: "keys and secret ways").
+	Keys = true,
+	KeyKinds = { key = true, pocket = true, double = true, padlock = true, hidden = true },
+	KeyPassCost = 40, -- studs a locked door costs his routes (the keys, the lock): open ways first
+	KeyPassSeconds = 2.5, -- his keys heard this long before the door opens...
+	KeyPassSecondsHunt = 1.8, -- ...or this in a hunt (never under 1.5 s)
+	KeyPassClear = 20, -- walking studs: nobody this near the door, either side
+	KeyRefusedSeconds = 12, -- turned back from a door (someone near): not that way for a while
+	KeyThroughSeconds = 6, -- the door shuts behind him after this at most
 }
 
 -- Tool locks (Logic/ToolLocks, docs/plans/level-design.md section 11, L3.3):

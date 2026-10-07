@@ -174,7 +174,8 @@ function Tactician:Decide(final: boolean)
 		self.lastUsed,
 		now,
 		self.rng,
-		self.archetype.tacticWeights
+		-- The archetype's, folded with his temperament and mood (Logic/GuestMood).
+		self.services.StalkerService:Weights("tactics")
 	)
 	if not id then
 		id = "SweepRooms"

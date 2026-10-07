@@ -31,7 +31,11 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Sfx = require(Shared.Lib.Sfx)
 local Archetypes = require(Shared.Data.Archetypes)
+local Temperaments = require(Shared.Data.Temperaments)
+local GuestKeys = require(Shared.Logic.GuestKeys)
+local GuestMood = require(Shared.Logic.GuestMood)
 local GuestPose = require(Shared.Logic.GuestPose)
+local HuntPhases = require(Shared.Logic.HuntPhases)
 local Net = require(Shared.Net)
 local Scent = require(Shared.Logic.Scent)
 local StalkRules = require(Shared.Logic.StalkRules)
@@ -103,6 +107,9 @@ function StalkerService:Start()
 		if self.active and self.director then
 			self:HeardProgress(self.director:Arm("region " .. region, rooms))
 		end
+	end)
+	services.ItemService.HeirloomTaken:Connect(function()
+		self:MoodEvent("heirloomTaken")
 	end)
 	services.ItemService.Found:Connect(function(_player, _token, kind: string)
 		if self.active and self.director and kind == "heirloom" and not self.heirloomArmed then
@@ -176,6 +183,34 @@ function StalkerService:Begin(ctx)
 		-- The stuck nudge: only while nobody could see any of him.
 		return not self.sight:AnyoneSees(self.bodyCtl:ExposedPoints(), 130)
 	end
+	self.navigator.onShove = function()
+		self:MoodEvent("barricade")
+	end
+	-- His keys (Logic/GuestKeys): the walker asks when it meets a locked door.
+	self.navigator.keyPass = {
+		seconds = function()
+			return GuestKeys.tellSeconds(self.mode == Modes.Hunting or self.mode == Modes.Telegraph, G)
+		end,
+		jingle = function(door)
+			self:_keyJingle(door)
+		end,
+		open = function(door)
+			return self:_keyOpen(door)
+		end,
+		shut = function(door)
+			self:_keyShut(door)
+		end,
+	}
+	-- His temperament for the night and his moods (Logic/GuestMood): no two
+	-- nights, and no two quarters of an hour, meet the same Guest.
+	self.temperament = Temperaments.ById[self.debugTemperament or ""]
+		or GuestMood.temperament(Temperaments.List, self.rng:Fork("temperament"))
+	self.moodRng = self.rng:Fork("mood")
+	self.mood = GuestMood.new(self.temperament)
+	if self.debugMood then
+		self.mood.mood, self.mood.untilT = self.debugMood, math.huge
+	end
+	self.services.RunLogService:Temperament(self.temperament.id)
 	self.tactician = Tactician.new(self.services, self.perception, archetype, self.rng:Fork("tactics"))
 	self.director = Director.new(self.services, self.rng:Fork("director"), ctx.difficulty)
 	self.stalk = Stalk.new(self)
@@ -207,6 +242,7 @@ function StalkerService:Begin(ctx)
 	self.lungeLast = {}
 	self.squadLungeLast = nil
 	self.recentDowns = {}
+	self.notice = {} -- player -> when they last had a sign of him (a look, a tell, a step heard)
 	self.yankTo = nil
 	self.active = true
 	self:_publish()
@@ -268,6 +304,101 @@ function StalkerService:TierNow(): number
 		return 0
 	end
 	return self.mode == Modes.Hunting and 4 or self.tier
+end
+
+-- Standing parked beside a still player between hunts (Logic/RunStats): the
+-- loop pass's bot waited for him 11-39 times a run.
+function StalkerService:ParkedNow(): boolean
+	local hunting = self.mode == Modes.Hunting or self.mode == Modes.Telegraph
+	return self.active == true and not hunting and self.stalk ~= nil and self.stalk.parkedNow == true
+end
+
+-- This player had a sign of him just now: a look at him, a tell, his step
+-- heard. A catch with none in the seconds before is a cheap down
+-- (Config.Guest.CheapNoticeSeconds).
+function StalkerService:Noticed(player: Player?, now: number?)
+	if player and self.notice then
+		self.notice[player] = now or os.clock()
+	end
+end
+
+-- Did anything tell this player he was coming?
+function StalkerService:_wasWarned(player: Player, now: number): boolean
+	local last = self.notice and self.notice[player]
+	return last ~= nil and now - last <= G.CheapNoticeSeconds
+end
+
+-- Looks at him and steps heard, each tick: what counts as a sign of him.
+function StalkerService:_notices(now: number)
+	local perception = self.perception
+	for player, t in perception.lookedAt do
+		if now - t < 0.2 then
+			self:Noticed(player, now)
+		end
+	end
+	-- His steps: heard by whoever he's visible to (GuestController), near
+	-- enough, while he moves.
+	local root = self.body.root
+	if flat(root.AssemblyLinearVelocity).Magnitude < 1.5 then
+		return
+	end
+	local ps = self.services.PlayerStateService
+	for player, shown in self.visibleTo do
+		if shown == true then
+			local pos = ps:Position(player)
+			if pos and self.services.WorldService:Separation(pos, root.Position) <= G.StepsHeardRange then
+				self:Noticed(player, now)
+			end
+		end
+	end
+end
+
+-- He has stepped aside for this player ("after you", StalkRules.makesWay):
+-- walk on past; he won't touch you.
+function StalkerService:MakingWayFor(player: Player): boolean
+	local stalk = self.stalk
+	local hunting = self.mode == Modes.Hunting or self.mode == Modes.Telegraph
+	return self.active == true and not hunting and stalk ~= nil and stalk.makingWayFor == player
+end
+
+-- His mood (Logic/GuestMood) -------------------------------------------------------
+
+-- Something happened that shifts his mood (a key of GuestMood.Events).
+function StalkerService:MoodEvent(kind: string)
+	if not self.active or not self.mood or self.debugMood then
+		return
+	end
+	local changed = GuestMood.event(self.mood, kind, os.clock(), self.moodRng, G)
+	if changed then
+		self:_moodChanged(changed, kind)
+	end
+end
+
+function StalkerService:_moodChanged(id: string, why: string?)
+	self:_setAttr("GuestMood", id)
+	self.services.RunLogService:Mood(id)
+	self.services.Telemetry:Log("GuestMood", { mood = id, why = why or "time", tier = self:TierNow() })
+	if Config.Debug.LogTactics then
+		print(string.format("[Guest] mood %s (%s)", id, why or "time"))
+	end
+end
+
+-- The mood's weights for a menu ("stalk" or "tactics"), with the archetype's.
+function StalkerService:Weights(kind: string)
+	local base = kind == "stalk" and self.archetype.stalkWeights or self.archetype.tacticWeights
+	local weights = self.mood and GuestMood.weights(self.mood, base, kind) or table.clone(base or {})
+	-- In a hunt, what its kind leans on, and more once he's seen nobody a while.
+	local phases = kind == "tactics" and self.data and self.data.phases
+	if phases then
+		for id, w in HuntPhases.weights(phases, os.clock(), G) do
+			weights[id] = (weights[id] or 1) * w
+		end
+	end
+	return weights
+end
+
+function StalkerService:MoodNow(): string?
+	return self.mood and self.mood.mood
 end
 
 -- Two watchers hold him right now.
@@ -353,6 +484,7 @@ function StalkerService:Stun(base: number, by: Player?, at: Vector3?): number
 	if telemetry then
 		telemetry:Log("GuestStunned", { seconds = math.floor(seconds * 100) / 100, by = by and by.UserId })
 	end
+	self:MoodEvent("stunned")
 	return seconds
 end
 
@@ -397,8 +529,17 @@ function StalkerService:HauntRooms(): { [number]: boolean }
 end
 
 -- For the Dossier.
+-- His night in words: the temperament first (Data/Temperaments), then what
+-- he did for himself.
 function StalkerService:ErrandLines(): { string }
-	return self.stalk and self.stalk:ErrandLines() or {}
+	local lines = {}
+	if self.temperament then
+		table.insert(lines, self.temperament.line)
+	end
+	for _, line in self.stalk and self.stalk:ErrandLines() or {} do
+		table.insert(lines, line)
+	end
+	return lines
 end
 
 -- Once a second: what he knows of his heirlooms, and what he wants to do
@@ -542,6 +683,7 @@ function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?)
 	self.parked = false
 	self.arrived = true
 	self.services.RunLogService:Arrived()
+	self.services.RunLogService:Temperament(self.temperament.id)
 end
 
 function StalkerService:EndFinalHunt()
@@ -724,6 +866,48 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		return self.stalk:DebugMove(args[3])
 	elseif sub == "peeks" then
 		return self.stalk:DebugPeeks(self.tier)
+	elseif sub == "mood" then
+		-- `guest mood <id>` holds him in a mood; `guest mood off` lets it run
+		-- again; `guest mood` says which.
+		local wanted = string.lower(args[3] or "")
+		for id in GuestMood.Moods do
+			if string.lower(id) == wanted then
+				self.debugMood = id
+				self.mood.mood = id
+				self.mood.untilT = math.huge
+				self:_moodChanged(id, "debug")
+				return string.format("mood %s: %s", id, GuestMood.Moods[id].tell)
+			end
+		end
+		if wanted == "off" and self.debugMood then
+			self.debugMood = nil
+			self.mood.untilT = 0
+		end
+		return string.format(
+			"mood %s (%s, %s) · moods: %s",
+			tostring(self.mood.mood),
+			self.temperament.id,
+			tostring(self.mood.reason),
+			table.concat(GuestMood.Order, ", ")
+		)
+	elseif sub == "temperament" then
+		-- `guest temperament <id>`: this night's from now; also the next run's.
+		local wanted = string.lower(args[3] or "")
+		for _, t in Temperaments.List do
+			if string.lower(t.id) == wanted then
+				self.debugTemperament = t.id
+				self.temperament = t
+				self.mood.temperament = t
+				self.services.RunLogService:Temperament(t.id)
+				return "temperament " .. t.id .. ": " .. t.line
+			end
+		end
+		self.debugTemperament = nil
+		local names = {}
+		for _, t in Temperaments.List do
+			table.insert(names, t.id)
+		end
+		return "temperament " .. self.temperament.id .. " · " .. table.concat(names, ", ")
 	elseif sub == "arrive" then
 		self.arrivalAt = os.clock()
 		return "knock knock"
@@ -732,7 +916,7 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		self:_setAttr("GuestSmile", nil)
 		return "guest back to normal"
 	end
-	return "guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · peeks · window · scare · off"
+	return "guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · mood [id] · temperament [id] · peeks · window · scare · off"
 end
 
 -- Visibility ---------------------------------------------------------------------
@@ -886,6 +1070,12 @@ function StalkerService:_direct()
 		return
 	end
 	self:_heirlooms(now)
+	if self.arrived and not self.debugMood then
+		local changed = GuestMood.update(self.mood, now, self.moodRng, G)
+		if changed then
+			self:_moodChanged(changed)
+		end
+	end
 	local decision = self.director:Evaluate(runTime)
 	if self.tierOverride then
 		decision.tier = math.min(self.tierOverride, 3)
@@ -1047,6 +1237,7 @@ function StalkerService:_update(dt: number)
 	self.perception:Update(listenBoost)
 	local watchers = self.perception:Watchers(dt, self.visibleTo)
 	self.watchers = watchers
+	self:_notices(now)
 	local playerWatchers = {}
 	for _, w in watchers do
 		if typeof(w) == "Instance" then
@@ -1180,6 +1371,8 @@ function StalkerService:_updateArrival(now: number)
 			Net.get("GuestEvent"):FireAllClients({ kind = "arrive", position = floor })
 			services.Telemetry:Log("GuestArrived", { runTime = math.floor(now - self.runStart) })
 			services.RunLogService:Arrived()
+			-- The run's log begins after Begin: his temperament is told here.
+			services.RunLogService:Temperament(self.temperament.id)
 			return
 		end
 	end
@@ -1218,8 +1411,9 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 		})
 	end
 	-- The final hunt can't wait for the knock: he's simply there. And behind a
-	-- locked door from them (the escape), he's moved, unseen, to their side.
-	if not self.arrived or not self:_squadCanReach(self.bodyCtl.root.Position) then
+	-- locked door from them (the escape), he's moved, unseen, to their side,
+	-- unless his keys open the way (Logic/GuestKeys).
+	if not self.arrived or (not G.Keys and not self:_squadCanReach(self.bodyCtl.root.Position)) then
 		self:_forceArrive()
 	end
 	self.mode = Modes.Telegraph
@@ -1294,13 +1488,22 @@ function StalkerService:_updateTelegraph(now: number)
 		self.mode = Modes.Hunting
 		self.huntCount += 1
 		local duration = self.director:HuntDuration()
+		-- What kind of hunt, by his mood (Logic/HuntPhases): the Reckoning
+		-- sweeps the house, the final hunt prowls.
+		local kind = (self.reckoning and "sweep")
+			or (self.final and "prowl")
+			or (self.mood and GuestMood.choose(self.mood, "hunt", self.rng))
+			or "prowl"
 		self.data = {
 			started = now,
 			endsAt = now + duration,
 			plan = nil,
 			nextDecision = 0,
 			pauseUntil = 0,
+			phases = HuntPhases.new(kind, now),
+			nextListen = now + self.rng:NextNumber(G.ListenEvery[1], G.ListenEvery[2]),
 		}
+		self.services.Telemetry:Log("HuntKind", { kind = kind, mood = self:MoodNow() })
 		body:FaceMovement()
 		Net.get("HuntState"):FireAllClients({
 			state = "hunt",
@@ -1382,11 +1585,16 @@ function StalkerService:_walkTo(position: Vector3, speed: number, avoid)
 end
 
 -- Caught: down, a jumpscare for the victim, and a pause. how = "hunt" |
--- "lunge" | "inspect".
-function StalkerService:_catch(player: Player, now: number, how: string?)
+-- "lunge" | "inspect". `contact`: they walked into him (their own choice,
+-- never a cheap down); a hiding place he searched thudded first.
+function StalkerService:_catch(player: Player, now: number, how: string?, contact: boolean?)
 	local services = self.services
 	services.SquadProfileService:RecordCatch(player)
-	services.RunLogService:Catch(player.DisplayName, how or "hunt")
+	local cheap = not contact and how ~= "inspect" and not self:_wasWarned(player, now)
+	if cheap then
+		services.Telemetry:Log("CheapDown", { how = how or "hunt", tier = self:TierNow() }, player)
+	end
+	services.RunLogService:Catch(player.DisplayName, how or "hunt", cheap)
 	services.PlayerStateService:Down(player)
 	Net.get("GuestEvent"):FireClient(player, { kind = "catch", how = how or "hunt" })
 	for _, other in services.PlayerStateService:RunPlayers() do
@@ -1453,23 +1661,178 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 			break
 		end
 	end
-	if chase then
+	local phases = data.phases or HuntPhases.new("prowl", now)
+	data.phases = phases
+	local phase, entered = HuntPhases.step(phases, now, chase ~= nil, G)
+	self.navigator.slamDoors = phase == "prowl" and phases.kind ~= "silent"
+	data.listening = false
+	if phase == "chase" and chase then
+		if entered then
+			self:_spotted(chase)
+		end
 		data.plan = nil
+		data.lost = nil
 		data.chasing = chase
+		data.lastSeenAt = services.PlayerStateService:Position(chase)
 		self.bodyCtl:SetGaze(chase)
 		self:_walkTo(self:_leadPoint(chase), speed, self:_lanternAvoid())
-	else
-		if data.chasing then
+	elseif phase == "chase" then
+		-- Out of his sight a moment (HuntPhases' grace): on to where he last
+		-- saw them, no further.
+		if data.lastSeenAt then
+			self:_walkTo(data.lastSeenAt, speed, self:_lanternAvoid())
+		end
+	elseif phase == "lost" then
+		if entered then
 			data.chasing = nil
 			data.plan = nil
-			data.nextDecision = 0
+			data.lost = { stage = "go", since = now }
+			services.RunLogService:GuestDid("lostYou")
 		end
+		self:_lostStep(now, dt, speed)
+	else
+		data.chasing = nil
+		data.lost = nil
 		self.bodyCtl:SetGaze(nil)
-		self:_runPlan(now, dt, speed)
+		-- Prowling: now and then he stops dead to listen.
+		if now >= (data.nextListen or 0) then
+			data.nextListen = now + self.rng:NextNumber(G.ListenEvery[1], G.ListenEvery[2])
+			data.listenUntil = now + G.ListenSeconds
+		end
+		if now < (data.listenUntil or 0) then
+			self.bodyCtl:Hold()
+			self.bodyCtl:SetPose(Poses.Listen)
+			data.listening = true
+		else
+			self:_runPlan(now, dt, speed * HuntPhases.speed(phases))
+		end
 	end
 
 	if not self.final and not self.reckoning and now >= data.endsAt then
 		self:_endHunt()
+	end
+end
+
+-- His keys at a locked door (Logic/GuestKeys): heard on both sides before
+-- anything happens, a sign of him for whoever is near.
+function StalkerService:_keyJingle(door)
+	local ps = self.services.PlayerStateService
+	for _, player in ps:RunPlayers() do
+		local pos = ps:Position(player)
+		if pos and (pos - door.position).Magnitude <= 45 then
+			Net.get("GuestEvent"):FireClient(player, { kind = "keys", position = door.position })
+			self:Noticed(player)
+		end
+	end
+end
+
+-- The lock turns, if nobody is near the door and nobody sees it.
+function StalkerService:_keyOpen(door): boolean
+	local services = self.services
+	if door.guestKeyOpen then
+		return true
+	end
+	local ps = services.PlayerStateService
+	local nearest = math.huge
+	for _, player in ps:ActivePlayers() do
+		local pos = ps:Position(player)
+		if pos and math.abs(pos.Y - door.position.Y) < 10 then
+			nearest = math.min(nearest, (flat(pos) - flat(door.position)).Magnitude)
+		end
+	end
+	local seen = self.sight:AnyoneSees({ door.position })
+	local ok, why = GuestKeys.mayPass({ nearest = nearest, seen = seen }, G)
+	if not ok then
+		door.guestKeyRefusedUntil = os.clock() + G.KeyRefusedSeconds
+		if door.lockId then
+			services.WorldService:MarkPassageChanged(door.lockId, "guestKey")
+		end
+		services.Telemetry:Log("GuestKeyRefused", { why = why })
+		return false
+	end
+	Sfx.play("DoorLatch", door.position, 0.6, 0.75)
+	services.DoorService:GuestKeyOpen(door)
+	local entry = door.lockId and services.LockService.locks[door.lockId]
+	local kind = entry and entry.lock.kind or "?"
+	services.RunLogService:GuestDid("keyPass", kind)
+	services.Telemetry:Log("GuestKeyPass", { kind = kind, hunting = self:IsHunting() })
+	return true
+end
+
+-- Through: a hidden door he came out of stays found (he showed you the
+-- passage); any other shuts and locks behind him.
+function StalkerService:_keyShut(door)
+	local services = self.services
+	local seamId = door.lockId
+	if door.guestReveal and seamId then
+		services.DoorService:GuestKeyRelease(door)
+		services.LockService:Unlock(seamId, nil, nil)
+		services.RunLogService:GuestDid("revealed")
+	else
+		services.DoorService:GuestKeyShut(door)
+	end
+end
+
+-- He sees you, in a hunt (Logic/HuntPhases "chase"): his head snaps round
+-- and you hear a rasp. Counts as a sign of him (cheap downs).
+function StalkerService:_spotted(player: Player)
+	self:Noticed(player)
+	local head = self.bodyCtl:ExposedPoints()[1]
+	Net.get("GuestEvent"):FireClient(player, { kind = "spotted", position = head })
+end
+
+-- Lost you (Logic/HuntPhases "lost"): back to where he last saw you, then
+-- still, listening (a long sniff for whoever is near), then the hiding
+-- places nearest that spot, then he prowls again.
+function StalkerService:_lostStep(now: number, dt: number, speed: number)
+	local data = self.data
+	local lost = data.lost
+	local body = self.bodyCtl
+	local here = body.root.Position
+	if lost.stage == "go" then
+		local at = data.lastSeenAt
+		if at and (flat(at) - flat(here)).Magnitude > 3 and now - lost.since < G.LostWalkSeconds then
+			self:_walkTo(at, speed * 0.8, self:_lanternAvoid())
+			if not body:Unreachable() then
+				return
+			end
+		end
+		lost.stage = "listen"
+		lost.untilT = now + self.rng:NextNumber(G.LostSeconds[1], G.LostSeconds[2])
+		local head = body:ExposedPoints()[1]
+		for _, player in self.services.PlayerStateService:RunPlayers() do
+			local pos = self.services.PlayerStateService:Position(player)
+			if pos and self.services.WorldService:Separation(pos, here) <= 30 then
+				Net.get("GuestEvent"):FireClient(player, { kind = "sniff", position = head })
+				self:Noticed(player, now)
+			end
+		end
+	end
+	if lost.stage == "listen" then
+		body:Hold()
+		body:SetPose(Poses.Listen)
+		body:SetGaze(nil)
+		data.listening = true
+		if now < lost.untilT then
+			return
+		end
+		data.listening = false
+		lost.stage = "check"
+		local plan = {}
+		for _, spot in self.tactician:_spotsNear(data.lastSeenAt or here, 2) do
+			table.insert(plan, { type = "goto", position = spot.frontPosition, speed = S.WalkSpeed * 1.4 })
+			table.insert(plan, { type = "inspect", spot = spot })
+		end
+		data.plan, data.planIndex, data.actionStarted = plan, 1, nil
+	end
+	if lost.stage == "check" then
+		if not data.plan or data.planIndex > #data.plan then
+			HuntPhases.done(data.phases, now)
+			data.lost, data.plan = nil, nil
+			data.nextDecision = 0
+			return
+		end
+		self:_runPlan(now, dt, speed)
 	end
 end
 
@@ -1615,6 +1978,7 @@ function StalkerService:_endHunt()
 	end
 	Net.get("HuntState"):FireAllClients({ state = "end" })
 	self.director:HuntEnded(os.clock(), caught and "caught" or "survived")
+	self:MoodEvent(caught and "huntCaught" or "huntSurvived")
 	self:_retreat("hunt over")
 end
 
@@ -1626,6 +1990,7 @@ function StalkerService:_retreat(reason: string)
 	local wasHunting = self.mode == Modes.Hunting or self.mode == Modes.Telegraph
 	if reason == "stared down" then
 		self.services.RunLogService:StareDown(wasHunting)
+		self:MoodEvent("staredDown")
 	end
 	local relentless = self.final or self.reckoning
 	if wasHunting and reason == "stared down" and not relentless then

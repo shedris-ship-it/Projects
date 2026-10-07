@@ -659,6 +659,67 @@ function DoorService:Disown(door, model: Instance)
 	end
 end
 
+-- His keys (Logic/GuestKeys): a still-locked door opened for him alone. It
+-- stays locked to everyone else: a blocker fills the doorway in the Door
+-- collision group (players hit it, he doesn't) while it's open, and
+-- GuestKeyShut swings it shut and locks it again behind him.
+function DoorService:GuestKeyOpen(door): boolean
+	if door.guestKeyOpen then
+		return true
+	end
+	if not door.locked or not door.state or not door.closedCFrame then
+		return false
+	end
+	door.guestKeyOpen = true
+	local blocker = Instance.new("Part")
+	blocker.Name = "GuestKeyBlocker"
+	blocker.Size = door.slab.Size + Vector3.new(0.2, 0.2, 0.2)
+	blocker.CFrame = door.closedCFrame
+	blocker.Anchored = true
+	blocker.Transparency = 1
+	blocker.CanQuery = false
+	blocker.CanTouch = false
+	blocker.CastShadow = false
+	blocker.CollisionGroup = Constants.CollisionGroups.Door
+	blocker.Parent = door.model
+	door.keyBlocker = blocker
+	Articulation.setLocked(door.state, false)
+	door.locked = nil
+	self:SetOpen(door, true, nil)
+	door.locked = true
+	return true
+end
+
+-- The blocker gone, the door his no longer (it's shut and locked, or found).
+function DoorService:GuestKeyRelease(door)
+	door.guestKeyOpen = nil
+	if door.keyBlocker then
+		door.keyBlocker:Destroy()
+		door.keyBlocker = nil
+	end
+end
+
+-- Through: it swings shut behind him and locks again (unless the squad
+-- unlocked it meanwhile, which LockService:Unlock handles).
+function DoorService:GuestKeyShut(door)
+	if not door.guestKeyOpen then
+		return
+	end
+	door.locked = nil
+	self:SetOpen(door, false, nil)
+	door.locked = true
+	task.delay(0.5, function()
+		if not door.guestKeyOpen then
+			return
+		end
+		self:GuestKeyRelease(door)
+		if door.lockId then
+			self:SetLocked(door, true)
+			Sfx.play("DoorLatch", door.position, 0.6, 0.75)
+		end
+	end)
+end
+
 -- Bang on a braced door (noise only).
 function DoorService:Bang(door)
 	self.Noise:Emit(door.position, 30, nil, "slam")

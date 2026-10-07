@@ -58,7 +58,7 @@ return function(test, check, Shared, require)
 		local lines = RunStats.lines(sum)
 		check.truthy(#lines >= 6, "lines for the Dossier")
 		check.truthy(string.find(lines[1], "act 1", 1, true), "the first line names the act")
-		check.equal(#RunStats.overlay(sum), 4, "four overlay lines")
+		check.equal(#RunStats.overlay(sum), 5, "five overlay lines")
 	end)
 
 	test("the finish line: first door, dinner, out, torch deaths, hints, the longest gap, early scares, F2", function()
@@ -92,7 +92,7 @@ return function(test, check, Shared, require)
 		check.truthy(string.find(line, "first door 4:20", 1, true), line)
 		check.truthy(string.find(line, "dinner 26:40", 1, true), line)
 		check.truthy(string.find(line, "F2 used 1", 1, true), line)
-		check.equal(#RunStats.overlay(sum), 4, "four overlay lines")
+		check.equal(#RunStats.overlay(sum), 5, "five overlay lines")
 		local none = RunStats.finishLine(RunStats.new(0, cfg):Summary(10))
 		check.truthy(string.find(none, "first door never", 1, true), none)
 		check.truthy(string.find(none, "first hunt none", 1, true), none)
@@ -115,5 +115,48 @@ return function(test, check, Shared, require)
 		local sorted = s:Summary(570).scares
 		check.equal(sorted[1].id, "knock", "most played first")
 		check.equal(sorted[1].count, 2, "twice")
+	end)
+
+	test("the Guest's numbers: parked time, cheap downs, moves and repeats, moods", function()
+		local s = RunStats.new(0, cfg)
+		s:Arrived(10)
+		s:Tick(20, 2, false, true) -- parked from 20...
+		s:Tick(26, 2, false, false) -- ...to 26: six seconds
+		s:Tick(30, 2, false, true)
+		s:Tick(31, 2, false, false)
+		s:Catch(40, "Ann", "lunge", false)
+		s:Catch(50, "Bo", "hunt", true)
+		s:GuestMove(11, "Peek")
+		s:GuestMove(12, "Peek")
+		s:GuestMove(13, "Search")
+		s:GuestMove(14, "Peek")
+		s:Temperament("Patient")
+		s:Mood(15, "Curious")
+		s:Mood(16, "Curious") -- the same mood again is not a change
+		s:Mood(17, "Irritated")
+		s:GuestDid(18, "makeWay")
+		local sum = s:Summary(70)
+		check.equal(sum.parkedSeconds, 7, "six and one seconds parked")
+		check.equal(sum.cheapDowns, 1, "one cheap down")
+		check.equal(sum.cheap[1].who, "Bo", "who it was")
+		check.equal(sum.moveTotal, 4, "four moves")
+		check.equal(sum.distinctMoves, 2, "two kinds")
+		check.equal(sum.repeats, 1, "Peek twice in a row once")
+		check.equal(sum.moves[1].id, "Peek", "most used first")
+		check.equal(sum.temperament, "Patient", "the night's temperament")
+		check.equal(sum.mood, "Irritated", "the mood now")
+		check.equal(#sum.moods, 2, "two moods taken on")
+		check.equal(sum.did[1].id, "makeWay", "things he did")
+		local line = RunStats.guestLine(sum)
+		check.truthy(string.find(line, "cheap downs 1", 1, true), line)
+		check.truthy(string.find(line, "parked 0:07", 1, true), line)
+		local lines = RunStats.lines(sum)
+		local found = false
+		for _, l in lines do
+			if string.find(l, "cheap down at", 1, true) then
+				found = true
+			end
+		end
+		check.truthy(found, "each cheap down is listed")
 	end)
 end
