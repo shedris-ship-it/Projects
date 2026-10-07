@@ -174,6 +174,14 @@ Assets.Grime = {
 	PictureGhost = "rbxassetid://91613317867163",
 }
 
+-- The Guest's porcelain mask (Lib/GuestFace), drawn by tools/textures.py
+-- (guest_masks) and uploaded 2026-10-07 with the owner's OK: a decal on the
+-- mask's front, under the eyes, brows and mouth. Calm; worn from Fraying.
+Assets.GuestMask = {
+	calm = "rbxassetid://133187355603598",
+	worn = "rbxassetid://118770058549049",
+}
+
 -- Family photos (docs/ART.md, Hero props), drawn by tools/textures.py and
 -- uploaded 2026-10-02. Each snapshot has three states the client swaps
 -- between as Drift rises: normal, blurred, faces gone. Shared decay, never

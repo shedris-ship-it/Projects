@@ -600,7 +600,103 @@ def photos():
             print("wrote", os.path.relpath(path))
 
 
+def _craze(rng, n, cells, width):
+    """A network of hairlines: the edges between the cells of a scatter of
+    points, by true distance to the bisector between the nearest two (no
+    smudges where cells meet), `width` pixels wide."""
+    pts = rng.random((cells, 2)) * n
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float64)
+    d1 = np.full((n, n), 1e9)
+    d2 = np.full((n, n), 1e9)
+    i1 = np.zeros((n, n), dtype=np.int64)
+    i2 = np.zeros((n, n), dtype=np.int64)
+    for k, (px, py) in enumerate(pts):
+        d = np.hypot(xx - px, yy - py)
+        closer = d < d1
+        second = (~closer) & (d < d2)
+        d2 = np.where(closer, d1, np.where(second, d, d2))
+        i2 = np.where(closer, i1, np.where(second, k, i2))
+        d1 = np.where(closer, d, d1)
+        i1 = np.where(closer, k, i1)
+    sep = np.hypot(pts[i1, 0] - pts[i2, 0], pts[i1, 1] - pts[i2, 1]) + 1e-6
+    edge = (d2 * d2 - d1 * d1) / (2 * sep)
+    return np.exp(-((edge / width) ** 2))
+
+
+def guest_masks():
+    """The Guest's porcelain mask (docs/ART.md "The Guest", 2026-10-07): a
+    decal on the mask's front (Lib/GuestFace), laid under the eyes, brows and
+    mouth, which stay geometry. Calm: an ivory glaze, faint mottling, fine
+    crazing, grime gathering towards the rim. Worn (Fraying and Breaking):
+    the crazing opened into cracks, dirty tear-tracks from the eyes, stains.
+    The eyes sit at x = 0.5 +- 0.19, y = 0.40 of the image."""
+    n = 1024
+    for worn in (False, True):
+        rng = rng_for("guest_mask" + ("_worn" if worn else ""))
+        yy, xx = np.mgrid[0:n, 0:n].astype(np.float64)
+        u, v = (xx - n / 2) / (n / 2), (yy - n / 2) / (n / 2)
+        r = np.sqrt(u * u + v * v)
+        # The glaze: ivory, warmer and cooler in soft patches.
+        mottle = blur(fbm(rng, n, 2.2), 6)
+        base = np.stack(
+            [
+                224 + 6 * mottle,
+                216 + 5 * mottle,
+                200 + 2 * mottle,
+            ],
+            axis=-1,
+        )
+        # Grime gathering towards the rim, and in the eye hollows.
+        rim = np.clip((r - 0.55) / 0.45, 0, 1) ** 1.6
+        hollows = 0.0
+        for ex in (-0.38, 0.38):
+            hollows = hollows + np.exp(-(((u - ex) / 0.2) ** 2 + ((v + 0.2) / 0.13) ** 2))
+        dirt = rim * (0.55 if worn else 0.35) + hollows * (0.35 if worn else 0.18)
+        dirt = dirt * (0.8 + 0.4 * np.clip(fbm(rng, n, 1.6) * 0.5 + 0.5, 0, 1))
+        grime = np.array([92, 78, 64])
+        rgb = base * (1 - dirt[..., None]) + grime * dirt[..., None]
+        # Crazing: fine at Calm, opened up when worn.
+        craze = _craze(rng, n, 340 if worn else 180, 0.9 if worn else 0.7)
+        # Only in patches: crazing spreads from stressed places, not evenly.
+        patch = np.clip(blur(fbm(rng, n, 1.8), 18) * (0.9 if worn else 0.7) + (0.45 if worn else 0.05), 0, 1)
+        craze = craze * patch
+        strength = 0.6 if worn else 0.3
+        crack = np.array([70, 60, 52])
+        c = (craze * strength)[..., None]
+        rgb = rgb * (1 - c) + crack * c
+        if worn:
+            # Tear-tracks: dirty runs from each eye down the cheeks.
+            wander = blur(fbm(rng, n, 2.4), 14)
+            fleck = np.clip(fbm(rng, n, 0.9) * 0.5 + 0.5, 0, 1)
+            cols = np.arange(n)
+            for ex in (-0.38, 0.38):
+                top = n * 0.415
+                for row in range(int(top), int(n * 0.9)):
+                    t = (row - top) / (n * 0.9 - top)
+                    cx = n / 2 + (ex + 0.035 * wander[row, int(n / 2 + ex * n / 2)]) * n / 2
+                    width = n * (0.007 + 0.006 * (1 - t))
+                    # Soft in from the eye, thinning and fading as it runs.
+                    strength = min(1, (row - top) / (n * 0.03)) * 0.7 * (1 - t) ** 1.2
+                    a = np.exp(-(((cols - cx) / width) ** 2)) * strength * (0.6 + 0.4 * fleck[row])
+                    rgb[row] = rgb[row] * (1 - a[:, None]) + np.array([62, 52, 44]) * a[:, None]
+            # A few chips: small grey flecks where the glaze is gone.
+            for _ in range(14):
+                cx, cy = rng.random() * n, rng.random() * n
+                rad = 2 + rng.random() * 5
+                d = np.hypot(xx - cx, yy - cy)
+                a = np.clip(1.4 - d / rad, 0, 1) * 0.8
+                rgb = rgb * (1 - a[..., None]) + np.array([150, 140, 128]) * a[..., None]
+        # Opaque over the mask, fading out at the image's corners (beyond the
+        # mask's own edge, where the projection stretches).
+        alpha = np.clip((1.02 - r) / 0.08, 0, 1)
+        img = np.concatenate([np.clip(rgb, 0, 255) / 255, alpha[..., None]], axis=-1)
+        save(Image.fromarray((img * 255 + 0.5).astype(np.uint8), "RGBA"), "guest_mask_" + ("worn" if worn else "calm"))
+
+
 if __name__ == "__main__":
+    if os.environ.get("ONLY") == "guest":
+        guest_masks()
+        raise SystemExit
     wallpaper_sprig()
     wallpaper_stripe()
     plaster()
@@ -617,3 +713,4 @@ if __name__ == "__main__":
     grime_scuffs()
     grime_picture_ghost()
     photos()
+    guest_masks()

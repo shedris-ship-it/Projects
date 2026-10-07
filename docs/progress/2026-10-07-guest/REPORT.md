@@ -112,6 +112,21 @@ All licensed Pro Sound Effects library audio, picked by description. **You haven
 
 No hum for the Host mood: nothing suitable turned up.
 
+### After the report (build `.125` and `.126`, the owner's answers)
+- **The map on Tab again.** Roblox's player list binds Tab ahead of any game action, so it's switched off now (`ActionController`). I couldn't press Tab from my tools (Roblox reserves it), so check it yourself.
+- **The cursor on the puzzle screens** (and the map, notes, settings). A Modal button frees the mouse, but Roblox still reports it as locked to the centre, so the cursor rule hid it. `Ui.modal` keeps a registry, and `Ui.modalOpen` tells the cursor rule (`FocusMarkers`) when a menu that frees the mouse is showing. Checked: the cursor shows on the terminal and the map, and hides again when they close.
+- **The voice trick is on Hard only** (`Config.Difficulty.Hard.MimicVoice`).
+- **The catch picks its own style** (`Config.Guest.Catch` "auto", `StalkerService:_catchStyle`):
+  - rush when you were looking at him, or when he ran you down in a lit chase
+  - quiet when he took you from behind, in the dark, or out of a hiding place
+- **The textured mask** (uploaded with your OK: calm `133187355603598`, worn `118770058549049`): a glaze decal under the geometry features (`06_textured_calm.jpg`, `07_textured_breaking.jpg`). On the way:
+  - the eye holes, the mouth's inside and the broken pieces became black Neon (true voids even in your torch)
+  - the eye rims went near-black
+  - the torch shine became a pinpoint (the larger dot stays for the dark)
+  - the teeth became thinner, yellowed, some missing
+  - the broken-away pieces became narrow cracks instead of a black bar
+- **The smile is a deep crescent** (your note: "not curved enough, makes him look like a muppet"). It's low in the middle, and the corners keep climbing up the cheeks towards the eyes instead of levelling off round them (`GuestPose.mouth`). The before and after are `06_textured_calm.jpg` and `07_textured_breaking.jpg` against `04_round_eyes.jpg`.
+
 ## Evidence
 
 **Checks:** every commit passed the five (`stylua`, `lune run tests/run`, `lune run tests/compile`, `selene` 0/0, `rojo build` into the scratchpad, since your Studio had the repo's `Consensus.rbxlx` open). Tests went from 445 to **464**: GuestMood, HuntPhases and GuestKeys specs, plus Stalk.spec (after you, the presence budget, the creep scale) and RunStats.spec (his numbers).

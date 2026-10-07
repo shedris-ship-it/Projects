@@ -22,6 +22,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Assets = require(Shared.Assets)
 local GuestPose = require(Shared.Logic.GuestPose)
 
 local GuestFace = {}
@@ -31,12 +32,12 @@ local COLUMNS = 32
 
 local MASK = Color3.fromRGB(214, 206, 192)
 local HOLE = Color3.fromRGB(0, 0, 0)
-local HOLE_RIM = Color3.fromRGB(46, 40, 38)
+local HOLE_RIM = Color3.fromRGB(14, 11, 10)
 local BROW = Color3.fromRGB(78, 68, 62)
 local ROUGE = Color3.fromRGB(196, 126, 122)
 local LIP = Color3.fromRGB(58, 30, 32)
 local MOUTH = Color3.fromRGB(6, 4, 4)
-local TOOTH = Color3.fromRGB(206, 196, 168)
+local TOOTH = Color3.fromRGB(168, 156, 124) -- old ivory, yellowed
 local CRACK = Color3.fromRGB(66, 58, 54)
 local SHARD = Color3.fromRGB(2, 2, 3) -- where the mask has come away: the dark beneath
 local FINGER = Color3.fromRGB(184, 177, 164)
@@ -101,6 +102,14 @@ function GuestFace.new(head: BasePart)
 	mask.CastShadow = true
 	self.mask, self.maskWeld = mask, maskWeld
 	maskWeld.C0 = self.maskCF
+	-- The glaze, painted (Assets.GuestMask): crazing, grime towards the rim,
+	-- and from Fraying the tear-tracks. Projected across the mask's front.
+	local glaze = Instance.new("Decal")
+	glaze.Name = "Glaze"
+	glaze.Face = Enum.NormalId.Front
+	glaze.Texture = Assets.GuestMask.calm
+	glaze.Parent = mask
+	self.glaze = glaze
 
 	-- A piece fixed on the mask (moves with it when it slips).
 	local function static(part: BasePart, weld: Weld, frame: CFrame)
@@ -118,11 +127,13 @@ function GuestFace.new(head: BasePart)
 	for _, eye in GuestPose.Eyes do
 		local spec = GuestPose.piece(a, b, c, eye[1] - 0.1, eye[2], eye[1] + 0.1, eye[2])
 		local rim, rw = piecePart(head, "EyeRim", HOLE_RIM, true)
-		rim.Size = Vector3.new(0.235, 0.235, 0.02)
-		rim.Transparency = 0.35
+		rim.Size = Vector3.new(0.215, 0.215, 0.02)
+		rim.Transparency = 0.45
 		static(rim, rw, localFrame(spec, 0.002))
 		local hole, hw = piecePart(head, "EyeHole", HOLE, true)
 		hole.Size = Vector3.new(0.19, 0.19, 0.02)
+		-- Black Neon gives back no light at all: a hole, even in your torch.
+		hole.Material = Enum.Material.Neon
 		static(hole, hw, localFrame(spec, 0.004))
 		local shine, shw = piecePart(head, "EyeShine", Color3.new(1, 1, 1), true)
 		shine.Material = Enum.Material.Neon
@@ -155,10 +166,12 @@ function GuestFace.new(head: BasePart)
 		column.upper, column.upperWeld = piecePart(head, "LipUpper", LIP)
 		column.lower, column.lowerWeld = piecePart(head, "LipLower", LIP)
 		column.inside, column.insideWeld = piecePart(head, "Mouth", MOUTH)
+		column.inside.Material = Enum.Material.Neon
 		column.toothUp, column.toothUpWeld = piecePart(head, "Tooth", TOOTH, true)
 		column.toothDown, column.toothDownWeld = piecePart(head, "Tooth", TOOTH, true)
-		-- Uneven teeth, the same for everyone.
+		-- Uneven teeth, some gone, the same for everyone.
 		column.jag = 0.75 + ((i * 37) % 11) / 22
+		column.gone = (i * 7) % 5 == 0 or (i * 11) % 13 == 0
 		self.columns[i] = column
 	end
 
@@ -169,6 +182,9 @@ function GuestFace.new(head: BasePart)
 			local p1, p2 = points[i], points[i + 1]
 			local spec = GuestPose.piece(a, b, c, p1[1], p1[2], p2[1], p2[2])
 			local part, weld = piecePart(head, name, color)
+			if color == SHARD then
+				part.Material = Enum.Material.Neon -- the dark beneath: no sheen
+			end
 			local t = (i - 1) / math.max(1, #points - 2)
 			part.Size = Vector3.new(spec.length + 0.014, width0 + (width1 - width0) * t, 0.008)
 			part.Transparency = 1
@@ -184,7 +200,7 @@ function GuestFace.new(head: BasePart)
 		polyline(streak, "EyeCrack", CRACK, 0.022, 0.01, 0.0018, self.late)
 	end
 	for _, shard in GuestPose.Shards do
-		polyline(shard.path, "Missing", SHARD, shard.width, shard.width * 0.6, 0.0025, self.late)
+		polyline(shard.path, "Missing", SHARD, shard.width, shard.width * 0.25, 0.0025, self.late)
 	end
 
 	self.width, self.open = -1, -1
@@ -229,11 +245,11 @@ function GuestFace:SetSmile(halfWidth: number, open: number)
 		local cf = self:_frame(inside, -0.001)
 		column.insideWeld.C0 = cf
 		-- Small uneven teeth, from both lips.
-		local tooth = gap * 0.38 * column.jag
-		local teeth = shown and open > 0.05
+		local tooth = gap * 0.3 * column.jag
+		local teeth = shown and open > 0.05 and not column.gone
 		for _, t in { { column.toothUp, column.toothUpWeld, 1 }, { column.toothDown, column.toothDownWeld, -1 } } do
 			t[1].Transparency = teeth and 0 or 1
-			t[1].Size = Vector3.new(math.max(inside.length * 0.45, 0.008), math.max(tooth, 0.004), 0.012)
+			t[1].Size = Vector3.new(math.max(inside.length * 0.3, 0.006), math.max(tooth, 0.004), 0.012)
 			t[2].C0 = cf * CFrame.new(0, t[3] * (gap / 2 - tooth / 2), 0.002)
 		end
 	end
@@ -254,6 +270,7 @@ function GuestFace:SetForm(form: number)
 	end
 	self.maskCF = form >= 2 and self.centre * SLIP or self.centre
 	self.maskWeld.C0 = self.maskCF
+	self.glaze.Texture = form >= 1 and Assets.GuestMask.worn or Assets.GuestMask.calm
 	for _, entry in self.statics do
 		entry.weld.C0 = self.maskCF * entry.frame
 	end
@@ -268,6 +285,10 @@ function GuestFace:SetShine(level: number | boolean)
 	local amount = level == true and 1 or (level == false and 0 or level :: number)
 	for _, shine in self.shine do
 		shine.Transparency = amount <= 0 and 1 or (1 - amount) * 0.85 + 0.05
+		-- A pinpoint caught in your torch; a little larger glowing in the dark,
+		-- so the two dots read across a room.
+		local size = amount >= 1 and 0.03 or 0.055
+		shine.Size = Vector3.new(size, size, 0.02)
 	end
 end
 

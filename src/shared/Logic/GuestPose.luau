@@ -673,10 +673,10 @@ function GuestPose.piece(a: number, b: number, c: number, t1: number, p1: number
 end
 
 -- The mouth: `count` columns across the smile. Each column has the upper
--- lip's elevation and the lower lip's. The curve climbs steeply across the
--- front of the face (so it reads as a grin from where you stand), then runs
--- level round the cheeks to the ears; one corner sits a little higher than
--- the other. Open, it's a crescent: tall in the middle, shut at the corners.
+-- lip's elevation and the lower lip's. A deep crescent: low in the middle,
+-- the corners curling on up the cheeks towards the eyes (it reads as a
+-- grin, not a puppet's mouth); one corner sits a little higher than the
+-- other. Open, it's a crescent: tall in the middle, shut at the corners.
 function GuestPose.mouth(halfWidth: number, open: number, count: number)
 	local columns = {}
 	local front = rad(60)
@@ -685,7 +685,10 @@ function GuestPose.mouth(halfWidth: number, open: number, count: number)
 		local theta = u * halfWidth
 		local k = theta / front
 		local taper = 1 - u * u
-		local upper = rad(-28) + rad(34) * (1 - math.exp(-1.2 * k * k)) + rad(4) * u * u * u + rad(4) * open * taper
+		-- A deep crescent (the owner, 2026-10-07: flatter, it looked like a
+		-- muppet's): low in the middle, the corners climbing on up the cheeks
+		-- towards the eyes instead of levelling off round them.
+		local upper = rad(-30) + math.min(rad(26) * k * k, rad(44)) + rad(4) * u * u * u + rad(4) * open * taper
 		local lower = upper - rad(26) * open * taper ^ 1.2
 		table.insert(columns, { theta = theta, upper = upper, lower = lower })
 	end
@@ -712,8 +715,10 @@ GuestPose.Eyes = { { 0.4, 0.2 }, { -0.4, 0.2 } } -- (theta, phi) of each eye hol
 -- (theta, phi) that show the black beneath. One from the brow through the
 -- left eye, one at the right of the jaw.
 GuestPose.Shards = {
-	{ width = 0.13, path = { { -0.62, 0.62 }, { -0.5, 0.5 }, { -0.38, 0.36 }, { -0.47, 0.22 }, { -0.56, 0.02 } } },
-	{ width = 0.1, path = { { 0.3, -0.5 }, { 0.44, -0.38 }, { 0.58, -0.46 }, { 0.66, -0.62 } } },
+	{ width = 0.07, path = { { -0.66, 0.66 }, { -0.55, 0.52 }, { -0.46, 0.44 }, { -0.5, 0.3 } } },
+	{ width = 0.05, path = { { -0.55, 0.52 }, { -0.62, 0.36 }, { -0.6, 0.18 }, { -0.66, 0.02 } } },
+	{ width = 0.06, path = { { 0.3, -0.48 }, { 0.42, -0.4 }, { 0.55, -0.47 }, { 0.64, -0.62 } } },
+	{ width = 0.04, path = { { 0.42, -0.4 }, { 0.47, -0.26 }, { 0.58, -0.2 } } },
 }
 
 return GuestPose

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.125",
-	note = "the map on Tab again (no player list), the cursor on puzzle screens, the voice trick on Hard only, the catch chosen by what happened",
+	id = "2026-10-06.126",
+	note = "the textured mask (a painted glaze, calm and worn), eyes and mouth as true voids, a pinpoint in your torch, fewer yellowed teeth, cracks not bars, the smile a deep crescent",
 }

@@ -639,7 +639,7 @@ function GuestController:_jumpscare(mode: string?)
 	for _, part in parts do
 		local copy = part:Clone()
 		for _, child in copy:GetChildren() do
-			if not child:IsA("SpecialMesh") then
+			if not (child:IsA("SpecialMesh") or child:IsA("Decal")) then
 				child:Destroy()
 			end
 		end
