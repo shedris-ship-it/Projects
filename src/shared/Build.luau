@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.126",
-	note = "the textured mask (a painted glaze, calm and worn), eyes and mouth as true voids, a pinpoint in your torch, fewer yellowed teeth, cracks not bars, the smile a deep crescent",
+	id = "2026-10-06.127",
+	note = "the mask at its worst: a broken glaze for Breaking (fractures from two blows, flaked glaze, holes to the dark), a rougher one for Fraying",
 }

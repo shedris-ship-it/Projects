@@ -623,75 +623,163 @@ def _craze(rng, n, cells, width):
     return np.exp(-((edge / width) ** 2))
 
 
+def _fractures(rng, n, origin, count, reach, scale):
+    """Fracture lines from an impact point: jagged runs outwards that fork,
+    and broken rings round the point (a spider-web), drawn at twice the size
+    and brought down so the lines stay crisp. Returns (lines, edges): the
+    cracks' darkness, and a pale lip along one side of each (where the glaze
+    edge catches the light)."""
+    big = n * 2
+    lines = Image.new("L", (big, big), 0)
+    lips = Image.new("L", (big, big), 0)
+    draw, lip = ImageDraw.Draw(lines), ImageDraw.Draw(lips)
+    ox, oy = origin[0] * big, origin[1] * big
+
+    def run(x, y, angle, length, width, depth):
+        # Porcelain breaks in near-straight runs with sudden kinks, tapering.
+        steps = int(length / (big * 0.016)) + 2
+        for i in range(steps):
+            if rng.random() < 0.18:
+                angle += rng.choice([-1, 1]) * (0.25 + rng.random() * 0.45)
+            else:
+                angle += rng.normal(0, 0.05)
+            step = big * 0.016 * (0.7 + rng.random() * 0.6)
+            nx, ny = x + math.cos(angle) * step, y + math.sin(angle) * step
+            w = max(1, int(width * scale * (1 - i / steps) ** 0.7 + 0.5))
+            draw.line([(x, y), (nx, ny)], fill=255, width=w)
+            lip.line([(x + 2, y + 2), (nx + 2, ny + 2)], fill=200, width=max(1, int(w * 0.6)))
+            x, y = nx, ny
+            if depth < 2 and rng.random() < 0.06:
+                run(x, y, angle + rng.choice([-1, 1]) * (0.4 + rng.random() * 0.5), length * 0.4, width * 0.6, depth + 1)
+
+    for i in range(count):
+        a = i / count * 2 * math.pi + rng.normal(0, 0.25)
+        run(ox, oy, a, big * reach * (0.6 + rng.random() * 0.6), 5 + rng.random() * 4, 0)
+    # The web: broken rings round the impact.
+    for ring in range(3):
+        r = big * reach * (0.12 + ring * 0.11)
+        a0 = rng.random() * 2 * math.pi
+        segs = []
+        for k in range(28):
+            a = a0 + k / 28 * 2 * math.pi
+            rr = r * (0.85 + rng.random() * 0.3)
+            segs.append((ox + math.cos(a) * rr, oy + math.sin(a) * rr))
+        for k in range(len(segs) - 1):
+            if rng.random() < 0.65:
+                draw.line([segs[k], segs[k + 1]], fill=230, width=int(max(1, 3 * scale)))
+    lines = np.asarray(lines.resize((n, n), Image.LANCZOS), dtype=np.float64) / 255
+    lips = np.asarray(lips.resize((n, n), Image.LANCZOS), dtype=np.float64) / 255
+    return lines, lips
+
+
+def _chips(rng, n, centres, size):
+    """Where the glaze has flaked away: ragged patches (the bisque beneath),
+    returned as a 0..1 mask, and their outlines."""
+    big = n * 2
+    patch = Image.new("L", (big, big), 0)
+    draw = ImageDraw.Draw(patch)
+    for cx, cy, s in centres:
+        # Angular: a flake of glaze, or a piece knocked out, has straight edges.
+        pts = []
+        radius = big * size * s
+        corners = int(6 + rng.random() * 4)
+        a0 = rng.random() * 2 * math.pi
+        for k in range(corners):
+            a = a0 + (k + rng.random() * 0.6) / corners * 2 * math.pi
+            rr = radius * (0.45 + rng.random() * 0.75)
+            pts.append((cx * big + math.cos(a) * rr, cy * big + math.sin(a) * rr * 0.85))
+        draw.polygon(pts, fill=255)
+    m = np.asarray(patch.resize((n, n), Image.LANCZOS), dtype=np.float64) / 255
+    edge = np.clip(m - blur(m, 1.5), 0, 1) * 4 + np.clip(blur(m, 2.0) - m, 0, 1) * 3
+    return m, np.clip(edge, 0, 1)
+
+
 def guest_masks():
     """The Guest's porcelain mask (docs/ART.md "The Guest", 2026-10-07): a
     decal on the mask's front (Lib/GuestFace), laid under the eyes, brows and
-    mouth, which stay geometry. Calm: an ivory glaze, faint mottling, fine
-    crazing, grime gathering towards the rim. Worn (Fraying and Breaking):
-    the crazing opened into cracks, dirty tear-tracks from the eyes, stains.
+    mouth, which stay geometry. Three glazes:
+      calm     ivory, faint mottling, fine crazing, grime towards the rim
+      worn     (Fraying) crazing everywhere, a first fracture over the brow,
+               chips, dirty tear-tracks
+      broken   (Breaking; the owner: "even more cracked and fucked up") shot
+               through with fractures from two blows (the brow, the jaw:
+               where the mask's pieces are gone), the glaze flaked to the
+               bisque, stained and filthy
     The eyes sit at x = 0.5 +- 0.19, y = 0.40 of the image."""
     n = 1024
-    for worn in (False, True):
-        rng = rng_for("guest_mask" + ("_worn" if worn else ""))
+    for level, name in ((0, "calm"), (1, "worn"), (2, "broken")):
+        rng = rng_for("guest_mask_" + name)
         yy, xx = np.mgrid[0:n, 0:n].astype(np.float64)
         u, v = (xx - n / 2) / (n / 2), (yy - n / 2) / (n / 2)
         r = np.sqrt(u * u + v * v)
-        # The glaze: ivory, warmer and cooler in soft patches.
+        # The glaze: ivory, warmer and cooler in soft patches; yellowing and
+        # greying as it ages.
         mottle = blur(fbm(rng, n, 2.2), 6)
+        age = (0, 8, 20)[level]
         base = np.stack(
-            [
-                224 + 6 * mottle,
-                216 + 5 * mottle,
-                200 + 2 * mottle,
-            ],
+            [224 - age * 0.6 + 6 * mottle, 216 - age * 0.9 + 5 * mottle, 200 - age * 1.4 + 2 * mottle],
             axis=-1,
         )
-        # Grime gathering towards the rim, and in the eye hollows.
+        # Grime towards the rim and in the eye hollows; stains when worn.
         rim = np.clip((r - 0.55) / 0.45, 0, 1) ** 1.6
         hollows = 0.0
         for ex in (-0.38, 0.38):
             hollows = hollows + np.exp(-(((u - ex) / 0.2) ** 2 + ((v + 0.2) / 0.13) ** 2))
-        dirt = rim * (0.55 if worn else 0.35) + hollows * (0.35 if worn else 0.18)
-        dirt = dirt * (0.8 + 0.4 * np.clip(fbm(rng, n, 1.6) * 0.5 + 0.5, 0, 1))
-        grime = np.array([92, 78, 64])
+        dirt = rim * (0.35, 0.55, 0.7)[level] + hollows * (0.18, 0.35, 0.55)[level]
+        if level >= 1:
+            stains = np.clip(blur(fbm(rng, n, 1.4), 12) * 0.9 - (0.35 if level == 1 else 0.05), 0, 1)
+            dirt = dirt + stains * (0.25 if level == 1 else 0.45)
+        dirt = np.clip(dirt * (0.8 + 0.4 * np.clip(fbm(rng, n, 1.6) * 0.5 + 0.5, 0, 1)), 0, 0.92)
+        grime = np.array([86, 72, 58])
         rgb = base * (1 - dirt[..., None]) + grime * dirt[..., None]
-        # Crazing: fine at Calm, opened up when worn.
-        craze = _craze(rng, n, 340 if worn else 180, 0.9 if worn else 0.7)
-        # Only in patches: crazing spreads from stressed places, not evenly.
-        patch = np.clip(blur(fbm(rng, n, 1.8), 18) * (0.9 if worn else 0.7) + (0.45 if worn else 0.05), 0, 1)
-        craze = craze * patch
-        strength = 0.6 if worn else 0.3
-        crack = np.array([70, 60, 52])
-        c = (craze * strength)[..., None]
-        rgb = rgb * (1 - c) + crack * c
-        if worn:
-            # Tear-tracks: dirty runs from each eye down the cheeks.
+        # Crazing: in patches at Calm, everywhere once worn, coarser when broken.
+        craze = _craze(rng, n, (180, 420, 520)[level], (0.7, 0.9, 1.1)[level])
+        patch = np.clip(blur(fbm(rng, n, 1.8), 18) * 0.7 + (0.05, 0.75, 1.0)[level], 0, 1)
+        c = (craze * patch * (0.3, 0.6, 0.75)[level])[..., None]
+        rgb = rgb * (1 - c) + np.array([66, 56, 48]) * c
+        if level >= 1:
+            # Flaked glaze: the grey bisque beneath, with a dark rim.
+            centres = [(0.3, 0.2, 1.0), (0.18, 0.55, 0.6), (0.82, 0.3, 0.5)]
+            if level == 2:
+                centres += [(0.72, 0.78, 1.3), (0.5, 0.1, 0.8), (0.12, 0.33, 0.9), (0.88, 0.6, 0.7), (0.4, 0.88, 0.6)]
+            chips, chipEdge = _chips(rng, n, centres, 0.035 if level == 1 else 0.055)
+            bisque = np.stack([150 + 10 * mottle, 142 + 9 * mottle, 128 + 8 * mottle], axis=-1)
+            grain = np.clip(fbm(rng, n, 0.6) * 0.5 + 0.5, 0, 1)[..., None]
+            bisque = bisque * (0.82 + 0.18 * grain)
+            rgb = rgb * (1 - chips[..., None]) + bisque * chips[..., None]
+            rgb = rgb * (1 - chipEdge[..., None] * 0.8) + np.array([40, 32, 26]) * chipEdge[..., None] * 0.8
+            # Fractures: from the brow (Fraying), then the jaw too (Breaking).
+            blows = [((0.27, 0.23), 5 if level == 1 else 8, 0.3 if level == 1 else 0.55)]
+            if level == 2:
+                blows.append(((0.74, 0.76), 7, 0.45))
+            for origin, count, reach in blows:
+                lines, lips = _fractures(rng, n, origin, count, reach, 1.8 if level == 1 else 3.0)
+                rgb = rgb * (1 - lips[..., None] * 0.35) + np.array([238, 230, 214]) * lips[..., None] * 0.35
+                rgb = rgb * (1 - lines[..., None]) + np.array([24, 18, 14]) * lines[..., None]
+            # Tear-tracks: dirty runs from each eye, heavier when broken.
             wander = blur(fbm(rng, n, 2.4), 14)
             fleck = np.clip(fbm(rng, n, 0.9) * 0.5 + 0.5, 0, 1)
             cols = np.arange(n)
             for ex in (-0.38, 0.38):
                 top = n * 0.415
-                for row in range(int(top), int(n * 0.9)):
-                    t = (row - top) / (n * 0.9 - top)
+                for row in range(int(top), int(n * 0.93)):
+                    t = (row - top) / (n * 0.93 - top)
                     cx = n / 2 + (ex + 0.035 * wander[row, int(n / 2 + ex * n / 2)]) * n / 2
-                    width = n * (0.007 + 0.006 * (1 - t))
-                    # Soft in from the eye, thinning and fading as it runs.
-                    strength = min(1, (row - top) / (n * 0.03)) * 0.7 * (1 - t) ** 1.2
+                    width = n * ((0.007, 0.012)[level - 1] + 0.006 * (1 - t))
+                    strength = min(1, (row - top) / (n * 0.03)) * (0.7, 0.9)[level - 1] * (1 - t) ** 1.1
                     a = np.exp(-(((cols - cx) / width) ** 2)) * strength * (0.6 + 0.4 * fleck[row])
-                    rgb[row] = rgb[row] * (1 - a[:, None]) + np.array([62, 52, 44]) * a[:, None]
-            # A few chips: small grey flecks where the glaze is gone.
-            for _ in range(14):
-                cx, cy = rng.random() * n, rng.random() * n
-                rad = 2 + rng.random() * 5
-                d = np.hypot(xx - cx, yy - cy)
-                a = np.clip(1.4 - d / rad, 0, 1) * 0.8
-                rgb = rgb * (1 - a[..., None]) + np.array([150, 140, 128]) * a[..., None]
+                    rgb[row] = rgb[row] * (1 - a[:, None]) + np.array([52, 42, 34]) * a[:, None]
+        if level == 2:
+            # Where pieces are gone outright: the dark beneath, ragged.
+            holes, holeEdge = _chips(
+                rng, n, [(0.27, 0.22, 1.0), (0.74, 0.77, 0.9), (0.18, 0.34, 0.5), (0.36, 0.12, 0.4)], 0.07
+            )
+            rgb = rgb * (1 - holes[..., None]) + np.array([6, 5, 6]) * holes[..., None]
         # Opaque over the mask, fading out at the image's corners (beyond the
         # mask's own edge, where the projection stretches).
         alpha = np.clip((1.02 - r) / 0.08, 0, 1)
         img = np.concatenate([np.clip(rgb, 0, 255) / 255, alpha[..., None]], axis=-1)
-        save(Image.fromarray((img * 255 + 0.5).astype(np.uint8), "RGBA"), "guest_mask_" + ("worn" if worn else "calm"))
-
+        save(Image.fromarray((img * 255 + 0.5).astype(np.uint8), "RGBA"), "guest_mask_" + name)
 
 if __name__ == "__main__":
     if os.environ.get("ONLY") == "guest":

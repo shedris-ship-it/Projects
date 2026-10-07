@@ -176,10 +176,12 @@ Assets.Grime = {
 
 -- The Guest's porcelain mask (Lib/GuestFace), drawn by tools/textures.py
 -- (guest_masks) and uploaded 2026-10-07 with the owner's OK: a decal on the
--- mask's front, under the eyes, brows and mouth. Calm; worn from Fraying.
+-- mask's front, under the eyes, brows and mouth. Calm; worn at Fraying;
+-- broken at Breaking (the owner: "even more cracked and fucked up").
 Assets.GuestMask = {
-	calm = "rbxassetid://133187355603598",
-	worn = "rbxassetid://118770058549049",
+	calm = "rbxassetid://118378389246082",
+	worn = "rbxassetid://82781140864416",
+	broken = "rbxassetid://134283397249825",
 }
 
 -- Family photos (docs/ART.md, Hero props), drawn by tools/textures.py and

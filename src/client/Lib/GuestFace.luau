@@ -270,7 +270,9 @@ function GuestFace:SetForm(form: number)
 	end
 	self.maskCF = form >= 2 and self.centre * SLIP or self.centre
 	self.maskWeld.C0 = self.maskCF
-	self.glaze.Texture = form >= 1 and Assets.GuestMask.worn or Assets.GuestMask.calm
+	self.glaze.Texture = (form >= 2 and Assets.GuestMask.broken)
+		or (form >= 1 and Assets.GuestMask.worn)
+		or Assets.GuestMask.calm
 	for _, entry in self.statics do
 		entry.weld.C0 = self.maskCF * entry.frame
 	end

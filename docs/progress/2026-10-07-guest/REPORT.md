@@ -125,6 +125,11 @@ No hum for the Host mood: nothing suitable turned up.
   - the torch shine became a pinpoint (the larger dot stays for the dark)
   - the teeth became thinner, yellowed, some missing
   - the broken-away pieces became narrow cracks instead of a black bar
+- **The mask at its worst** (your note: "even more cracked and fucked up at his more aggressive forms"): three glazes now.
+  - **Calm:** ivory, patchy crazing.
+  - **Fraying:** crazing everywhere, a first fracture over the brow, flakes of glaze gone to the grey bisque, tear-tracks.
+  - **Breaking:** thick fractures from two blows, at the brow and the jaw (where the mask's geometry pieces are gone), with webs round them, angular holes to the black, flaked glaze, heavy stains.
+  - Uploaded: calm `118378389246082`, worn `82781140864416`, broken `134283397249825`. Picture: `08_textured_broken.jpg`.
 - **The smile is a deep crescent** (your note: "not curved enough, makes him look like a muppet"). It's low in the middle, and the corners keep climbing up the cheeks towards the eyes instead of levelling off round them (`GuestPose.mouth`). The before and after are `06_textured_calm.jpg` and `07_textured_breaking.jpg` against `04_round_eyes.jpg`.
 
 ## Evidence
