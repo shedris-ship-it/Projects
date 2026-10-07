@@ -137,6 +137,8 @@ inspect <Service.field.key...> (a live server table, to Output: inspect LockServ
 down [name] · revive [name] · steps · clip
 guest here [studs] · guest walk · guest pose <name> · guest form <0-2> · guest smile <0-1>
 guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest off
+guest mood [id|off] (his mood: Curious, Stalking, Host, Playful, Patient, Irritated) · guest temperament [id] (Patient, Restless, Playful, Hungry)
+guest move MakeWay|FingersPeek|HallwayStand|BehindTheDoor|HostAction|MimicVoice|SlowWithdraw|Duck (his new ways)
 ```
 
 The overlay shows the seed, Drift and where it came from, the stalker's mode, tier, target, chosen tactic, top-three scores and memory, the stare (who counts and in what light), the squad-profile signals, client and server performance numbers, and the run in numbers (act, tier score, silence, scares, hunts and how each ended, stare-downs, progress).

@@ -134,6 +134,10 @@ function Stalk:_prior(): { [number]: number }
 end
 
 function Stalk:_belief(player: Player)
+	if not player then
+		-- (Nobody to believe anything about: a blank map, kept nowhere.)
+		return BeliefMap.new(self.services.WorldService.adjacency, {})
+	end
 	local map = self.beliefs[player]
 	if not map then
 		map = BeliefMap.new(self.services.WorldService.adjacency, self:_prior())
@@ -883,6 +887,9 @@ MOVES.Search = {
 		return false
 	end,
 	update = function(self, move, now, ctx)
+		if not self.target then
+			return true -- nobody left to look for (everyone down)
+		end
 		if ctx.known and now >= self.hiddenUntil then
 			-- A clue: the moves that need a target take over. (Not while he's
 			-- unseen between tier-1 appearances: then he walks on to somewhere

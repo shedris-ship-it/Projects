@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.123",
-	note = "the Guest: round lidless eyes that follow you and glow as pinpoints in the dark, a 70-degree held tilt, stutter at Breaking, a gaping mouth up close, his sounds",
+	id = "2026-10-06.124",
+	note = "the Guest rework documented (TC-138 to TC-152, the report); no target, no freeze; the bot opens what it pries",
 }

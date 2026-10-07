@@ -948,6 +948,16 @@ function BotService:_piece(step): (boolean, string?)
 	if not entry.open then
 		return false, "the chest would not open"
 	end
+	-- Pried or cut free, its doors and lids are still shut: open them, as a
+	-- player would, or what lies inside is out of reach (seed 21's fridge).
+	local furniture = services.FurnitureService
+	local prop = entry.space and entry.space.prop
+	for _, piece in furniture and prop and furniture.pieces or {} do
+		if piece.prop == prop then
+			furniture:SetOpen(piece, true)
+		end
+	end
+	task.wait(0.6)
 	return true
 end
 
