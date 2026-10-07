@@ -95,17 +95,78 @@ Branch `claude/overnight-foundation` (continued), from `5db62d3` (build `2026-10
 
 ![the map fits what you have seen](wp9-map.jpg)
 
+### WP10. Docs (build `2026-10-06.121`)
+- Re-measured with the bot on the final build first (the table under Evidence), which found two things: **WP9's Freeze telemetry called a method on the wrong table** (`self.body` is the Guest's model record, `self.bodyCtl` the body controller: "stalker update failed … missing method 'EyePosition'" four times on seed 1's first hold; the body update is in a `pcall`, so the hunt went on, but the Freeze event never logged) — fixed; and **the bot stood too far from a chest to take what lay in it** (the chest's own wall blocks the line to its floor from two studs out; beside the freezer a cabinet filled the stand point): `BotService._grabPoint` now picks a spot the hands' own line test passes from, with half a stud of margin either side (the walker never stops on the exact point), `_take` settles on it exactly and tries up to three spots, and a refused grab logs which of the hands' rules refused it (reach, line, state). Seed 1 had got to both heirlooms on build `.111` from a different stand point by luck. Seed 21 then showed a third: the bot's `look` step opened only the first door of a two-door cabinet, and the shut half blocked the line to a key lying at the bottom (the stuck point of build `.111`'s four-player run, never understood until now); `_look` opens every door of a space, as a player would. The Rojo plugin had disconnected during the usage-limit pause (the mirror server is a background task and was killed with it; restarted detached), so the fixed `StalkerService` was pushed into Studio verbatim through `execute_luau` (the file's bytes, in five chunks, length checked), never hand-edited; the owner's next **Connect** re-syncs everything from the mirror.
+- README: solo without the Companion, the Night button and the majority start, V and T in the controls, the breaker's plate, downs and the Reckoning, F2 `botrun`, `inspect` and `night`, BotService in the tree, the roadmap table. TESTING: 445 tests in 68 specs, the `BotPlan`/`RunStats`/`LobbyRules`/`Assist` row, TC-14 and TC-15 rewritten, TC-32 and TC-115 without the Companion, TC-49 retired, TC-116 with the hold's decay, **TC-123 to TC-137** (the bot, the Reckoning, downs that count, the contact lunge, the crawl, salts, the battery and lanterns, the table, the plate, the lobby majority, the short night, the map, the bolt and the phone, settings, Dread's ramp). ARCHITECTURE: the services table (RunOrchestrator, LobbyService, PlayerStateService, LockService, HandsService, StalkerService, OutfitService, DebugService, BotService; CompanionService gone), the run end to end, the observation rule with the decay and the grace, the dining island. `docs/plans/gameplay-rework.md` section 16 with the bot's before-and-after table; CLAUDE.md's checks and roadmap.
+
 ## Evidence
+
+Every commit passed the five checks (`stylua src tests`, `lune run tests/run`, `lune run tests/compile`, `selene src tests` 0 errors 0 warnings, `rojo build default.project.json -o Consensus.rbxlx`); the test count went from 428 to **445** (BotPlan, Stalk, Push, Inventory, NavGraph, RoomFit, Rooms, Breaker, LobbyRules, HouseSearch, Pacing, RunStats). Every package was played in Studio through the Rojo mirror on the build named in its section, with a clean console; the bot was the yardstick (TC-123):
+
+| Seed (squad) | Before the pass (build `.111`, the bot's first runs) | After (build `.121`: the pass, and the bot's grab fixes) |
+| --- | --- | --- |
+| 61 (1) | out 4:59; 20 steps, 2 failed, 0 stuck; 2 downs (both the contact lunge, each dropping the crowbar and the heirloom); first door 0:36, dinner 4:49 | **out 5:06** (the run's clock 5:20); 13 steps, 0 failed, 0 stuck, 0 nudges; **0 downs**; 12 waits for him; first door 0:44, dinner 5:12; one armed hunt overtaken by the final, the final escaped |
+| 1 (1) | out 3:54; 19 steps, 0 failed, 0 stuck; 4 downs (all the contact lunge, two while carrying an heirloom) | **out 6:32** (6:46); 16 steps, 1 failed (77 s wedged on the Back Stairs' cellar flight with him stuck on it too, then on), 0 stuck points; 2 downs (a hunt's catch while carrying, and walking into him at tier 1), both crawled out of; 14 waits, 15 nudges; first door 0:32, dinner 6:28 |
+| 165547210 (1) | dinner 4:04, then **lost at 4:07**: the fifth contact catch of the run landed as the final hunt began and nobody came | build `.117`: out 7:22; 13 steps, 0 failed, 0 stuck; 2 downs, both crawled out of; 39 waits for him |
+| 21 (4, one player) | 16 of 27 steps in 4:06, then **stuck twice** on a key at the bottom of the Cold Store's cabinet (the bot had opened one of its two doors; the shut one blocked the line, found in WP10); 1 down | **out 9:00** (9:13); 28 steps, 0 failed, 0 stuck, 0 nudges; 1 down (a hunt's catch while prying boards), crawled out of; **37 waits for him** (the first double lock took 125 s with him parked in the hall); first door 1:06, dinner 9:07; hunts: one caught, one survived, the final escaped |
+| 61, the short night (1) | (no short night yet) | build `.119`: out 4:48; 9 steps, 0 failed, 0 stuck; 1 down crawled out of; first door 0:29, dinner 4:02 |
+
+Gate A (the old house, seed 1800820264 with `layout cells`): **parts 2152, hash 1995746720** on two fresh runs after WP5 (was 2134 / 1322547804; re-baselined with the owner's standing OK, recorded in `tools/studio/partdump.luau` and CLAUDE.md). `navtest fast` with every lock open after WP5: seed 61 26 legs clean, seed 1 21 legs clean, seed 21 (four) 31 legs clean with one navmesh fallback. Screenshot: `wp9-map.jpg`.
 
 ## UNREQUESTED changes
 
+Within the owner's standing OK (2026-10-06: fix what isn't working or could work better, on the foundation we have):
+- F2 `inspect <Service.field...>` (the MCP command bar can't see the game's tables; it was the only way to check live state from a tool) and F2 `give tool:<Id>` made from nothing; F2 `items` prints each kept space's state.
+- Two game bugs the bot found and I fixed: `ItemService` could keep a token in a furniture space with no spot (a thing the plan needed that nobody could find; `_canKeep` now wants a CFrame), and a hunt still running when the final hunt began was logged "going on" forever (closed as "overtaken").
+- A door the walker opens for a player's body swings away from it (`Walker` passes the player to `DoorService:SetOpen`): built for the bot, harmless for everyone else since the Companion is gone.
+- The bot's own manners (give way to him between hunts and back off eight studs; crawl to the light when down; detour by the room's middle when wedged, counted as nudges): all in `BotService`, nothing in the game.
+- The Dossier's Collapse text, the HUD's THE RECKONING, "It let you go. For now.", "(Down 1 of 3.)", the "[he heard you pick up]" and "[it lets you get up. Run.]" captions: wording the packages needed.
+
 ## PROPOSALS not done
+
+- The glass door tweak planned in WP9 (transparency 0.35, two glazing bars): the door's build has no single anchor; it belongs with the visual pass.
+- The bot plays one character; a squad-of-four house is played by one bot (seed 21). Four bots would need four characters (Studio's multi-client test), out of reach from one session.
+- `botrun assist` (teleports out of stuck points) and `botrun notes` were in the plan and not built: no run needed a teleport, and reading notes would only add the bot's time, not information (it knows the plan).
+- Between hunts he parks beside a player for long stretches (the bot waited 11–39 times a run), and on seed 1's re-run he wedged in the Back Stairs' cellar flight (fifteen `GuestNudge` events in that room while the bot waited on the same flight for 77 s). Not bugs in the loop; for the Guest-AI rework (his stairs, his parking).
+- The map draws the Grand Hall's upper-floor footprint (the gallery) on the upper floor without a label (seen in `wp9-map.jpg`): small, for the map's next pass.
+- Still not done from before: the Guest's click-pass through locks between hunts, touch controls for hands, `navtest barricade`, the music stems, the catch style.
 
 ## Not verified, and what to watch for in play
 
+Checked by the bot, by attributes and by one client; not by hand, eye or ear, or needing two clients:
+- The bathroom bolt's V prompt and the phone's caption and his coming to it (TC-135); the Echo's knock (TC-14); the lobby's majority countdown and the un-ready staying behind (TC-132); reading the plate from eight studs and the panel's redraw while traced (TC-131).
+- "Hold E" on the shrine, the lantern tip, the 2 s light with the Lantern in hand, the torch coming back after a key taken by hand (TC-129; the Inventory spec covers the rule).
+- The salts bottle's look in a slot and in hand (TC-128); the candles as a beacon from the hall at the in-game exposure (a doorway screenshot showed them lit; TC-130); the Reckoning's feel over minutes (TC-124); the map on a four-player house, where the body should scroll (TC-134); the hub panel at other resolutions (TC-136).
+- Dread's ramp by eye (TC-137): the spec covers the rule.
+- Whether three downs is right for a squad of four (each player has their own count), and whether solo Lantern-room safety plus the crawl makes alone too forgiving: the bot was downed 0–2 times a run and always got up; a human will be caught more and read slower.
+
 ## Open questions for the owner
 
+1. Should the short night be the default for a player's first run (the tutorial's place in the roadmap), or stay a hub choice?
+2. Smelling salts: alone, one box in most houses; with friends only the safe room's loot. Should squads find them in the house too?
+3. The Reckoning: should an Echo's knock still work in it (it does now), and should the Reckoning's hunt let him pass locks (he can't yet; a lock is a wall to him always)?
+4. The downs cap is per player. Should a squad share a pool (say five downs between four), or is per player right?
+5. The Guest's parking beside players between hunts: fix in the AI rework (my recommendation), or sooner?
+6. Music and the catch style, still waiting on your ear and eye (`Assets.Music`, `Config.Guest.Catch`).
+
 ## Git
+
+Branch **`claude/overnight-foundation`** (continued from `5db62d3`), builds `2026-10-06.110` to **`2026-10-06.121`**, one commit a package, each pushed green:
+
+```
+3745510 Holds shrink within a hunt; the finish line in numbers                                   (.110)
+822a47f The bot: F2 botrun plays the escape on the server and reports; F2 inspect                 (.111)
+53e4e2a Downs matter: caught hunts, revive grace, three downs and Lost, contact only for whoever walks into him (.112)
+f6513bb The Companion is gone; alone: crawl to the light, smelling salts, more push; bolt on V, the phone tells, Echoes knock (.113)
+0cc14b6 Light is the stare's cost: a 12-minute torch, a tenth clipped; Hold E; lanterns on the map; the torch comes back after a key (.114)
+a83a227 Drift 100 is the Reckoning: a hunt that never ends, no room protects, the door only for the dinner (.115)
+4bd3123 The dining table at the room's heart, lit, its candles a beacon; the walkers' graph rings it (.116)
+24614b9 The fuse box's labels live on a plate by the door it powers; alone, trace the wiring       (.117)
+b67fddb The lobby starts on a majority or a timer; the ready go in, the rest stay in the hub      (.118)
+c552d66 The short night: one wing, two heirlooms, a dinner in ten minutes                        (.119)
+e8de000 The map fits what you have seen; controls in the settings; Dread ramps from where it is   (.120)
+        The loop pass documented                                                                   (.121)
+```
 
 ```powershell
 # in A:\111- Projects\Github\Projects

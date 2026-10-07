@@ -1348,7 +1348,7 @@ function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boole
 		tell("held")
 		-- Who held him, from where, and whether the line was clear: so a
 		-- "held through a wall" report can be answered from the numbers.
-		local eye = self.body:EyePosition()
+		local eye = self.bodyCtl:EyePosition()
 		local list = {}
 		for _, w in watchers do
 			if typeof(w) == "Instance" then

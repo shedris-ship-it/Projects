@@ -51,10 +51,10 @@ In **Game Settings** (after publishing the place once):
 
 ### 4. Play it
 
-- **Solo:** press **Play**. A Companion joins solo runs: it follows you, helps push, backs up a stare and revives you.
+- **Solo:** press **Play**. There is no companion (removed 2026-10-06). Alone, a lit Lantern room is safe ground and charges your torch; downed, you crawl to the light or into a hiding place's mouth to get up; smelling salts bring you round once; you push harder; after a catch he lets you go. Three downs and you're Lost (two on Hard).
 - **Squad:** **Test → Clients and Servers → 2–4 players → Start**. Several things (the dinner at the table, crank doors, the dumbwaiter, barricades, the shared map) only show their worth with two or more clients.
 
-In the hub, set the contract's difficulty and press **Ready**. The run starts when everyone in the hub is ready. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
+In the hub, set the contract's difficulty and the night's length (**Night: Full** is the squad's house; **Short** is one wing and two heirlooms, a dinner in about ten minutes) and press **Ready**. The run starts when everyone in the hub is ready, or once half of you have been ready for thirty seconds: the ready go in, the rest stay in the hub. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
 
 ---
 
@@ -70,6 +70,8 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
 | Crank ratchet, dumbwaiter jam box | **Q** (prompt) | LB | Tap the prompt |
 | Squeeze past a barricade (hold) | **Q** (prompt) | R3 | Tap the prompt |
 | Brace a door | **B** (prompt) | LB | Tap the prompt |
+| Bolt a bathroom door from inside | **V** (prompt) | X | Tap the prompt |
+| Trace the fuse box's wiring (alone; hold 6 s) | **T** (prompt) | Y | Tap the prompt |
 | Use the tool in your hands | **R** | RB | Tool button |
 | Put the tool in your hands down | **X** | none | none |
 | Flashlight | **F** | D-pad up | Light button |
@@ -94,19 +96,19 @@ In the hub, set the contract's difficulty and press **Ready**. The run starts wh
    - **The map saves time.** A room you've been in gets a pencil tick once nothing you need is left in it; what you've seen but not done (a lock, a safe, a chained chest) has a ring. Read the house plans (blueprints on a desk or a workbench) and that floor's rooms go on everyone's map. The journal says who carries which key and tool.
    - **The safe room (optional).** A steel door marked SAFE ROOM, powered from the fuse box. Inside: batteries (a fresh set each), a Lantern, a Radio or the plans of another floor. The run never needs it: it's a gamble of time and noise.
    - **The rooms' own lures.** A kettle that shrieks 20 s after you set it, a washing machine that also hides your footsteps, a record player, the car horn (once), wind-up toys that walk off ticking.
-   - **Knowing where he is.** The servants' bell board rings and drops a flag when he walks into a room with a bell pull; the nursery's baby monitor lets you hear a room you've left the transmitter in. A bathroom door bolts from inside (F) and holds him a few seconds.
+   - **Knowing where he is.** The servants' bell board rings and drops a flag when he walks into a room with a bell pull; the nursery's baby monitor lets you hear a room you've left the transmitter in. A bathroom door bolts from inside (V) and holds him a few seconds. Answer the ringing phone and he hears where you are.
    - **Landmarks.** Every corridor has something you can name on its wall (a stag's head, the big portrait, a tapestry, a stopped clock, a ship's wheel), on the map once you've been there. The children's crayon drawings say where they hid.
    - **Doors swing away from you.** Press E on a shut door from the side it opens towards and it swings the other way, into the next room.
    - **The house key.** One key a run isn't used up: its mark is also on a side room or two you passed earlier, each with an heirloom inside. Go back for them.
    - **Keys** go on your own ring and are used up at their door; drop one for a friend from the journal, which also says where each key's door is once someone has seen it. **Bolts** slide back only from their own side: shortcuts ("Bolted from the other side. There must be another way round.").
-   - **Puzzles:** the home computer (a word-guessing terminal that prints a padlock's code), the breaker panel (power a door without tripping the main), the wall safe (listen for the click), the music box and the piano (play its tune back).
+   - **Puzzles:** the home computer (a word-guessing terminal that prints a padlock's code), the breaker panel (power a door without tripping the main; its strips are numbered, and the names are on a brass plate by the door it powers, so one reads and one flips; alone, hold T on the panel to trace the wiring for 20 s), the wall safe (listen for the click), the music box and the piano (play its tune back).
    - **Two-person locks:** a crank door (one cranks, one goes through; alone, the slow and loud ratchet) and the dumbwaiter (one cranks downstairs, one takes the heirloom out upstairs; alone, jam the crank).
    - The house is physical: pick things up and throw them (a hit staggers him), push furniture (beds need two), barricade a doorway, hide in a walk-in closet with the doors shut, flush a toilet or leave a tap running to send him the wrong way, switch lights off.
 3. **He wants his dinner.** Each step forward wakes a hunt a minute or two later. While you carry an heirloom he knows which room you're in. Leave one lying and he puts it back where you found it. Carry them all and he waits at the head of the table.
 4. **The dinner.** Set the last heirloom (carry it to its place, hold E): the lights die, he takes his seat, the way from the dining room to the hall seals, every other lock springs open and the front door opens. Run out the long way while he hunts you.
 5. **Debrief.** The Dossier says who opened what, who carried what, the closest call, and what he learned about you.
 
-Getting caught downs you: a teammate can revive you within 15 seconds (a 4-second hold). Caught again, you're **Lost** and play on as an **Echo**: you can talk, ping one hint a minute, and drift through doors (but not locked ones). The run fails if Drift reaches 100 or every player is Lost. Drift rises with time, noise and splitting up, faster when you stall; progress lowers it.
+Getting caught downs you: a teammate can revive you within 15 seconds (a 4-second hold), or you crawl into a lit Lantern room or to a hiding place's mouth and get up by yourself (alone you have 20 seconds). Smelling salts in a slot bring you round in 3 seconds. Just up, he leaves you alone for 8 seconds: run. A hunt that caught someone is never "survived". Three downs (two on Hard) and you're **Lost**: you play on as an **Echo** who can talk, ping one hint a minute (the ping knocks on the nearest shut door, and he hears it) and drift through doors (but not locked ones). Drift rises with time, noise and splitting up, faster when you stall; progress lowers it. At Drift 100 the house has had enough: **the Reckoning**, a hunt that never ends, in which no room protects anyone and the front door opens only for the dinner. The run ends when everyone is out, or everyone is Lost.
 
 ---
 
@@ -118,7 +120,7 @@ These commands work in Studio, or on live servers for user ids listed in `Config
 help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lights on|off · gatea
 watch (the stare right now: watchers, lit, dark, beam, the room, the hold) · summary (the run in numbers, to Output)
 event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)
-seed <n> · layout cells|mansion|default · squad <1-4|auto>   (apply to the next run)
+seed <n> · layout cells|mansion|default · squad <1-4|auto> · night full|short   (apply to the next run)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
@@ -130,6 +132,8 @@ grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]
 furniture open|shut [all] · block <room> <room> · block off · plans [read] (the house plans: where, or read them) · saferoom · use [name] (the nearest fixture, or `use toy`) · bell [room] · monitor · landmarks
 navtest [fast] · navtest room <id> [fast] · navtest retreat [n]
+botrun [fast] [flee|hide] (the bot plays the run with your character and reports the numbers; again stops it) · botrun plan
+inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
 down [name] · revive [name] · steps · clip
 guest here [studs] · guest walk · guest pose <name> · guest form <0-2> · guest smile <0-1>
 guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest off
@@ -162,7 +166,7 @@ src/server/
   Services/              RunOrchestrator, WorldService, LockService, ItemService, PuzzleService,
                          FinaleService, CrankService, MapService, InteractService, DecorService,
                          HandsService, DoorService, FurnitureService, PushService, HidingService,
-                         StalkerService, CompanionService, RunLogService, DriftService, ...
+                         StalkerService, BotService, RunLogService, DriftService, ...
   Puzzles/               each puzzle's station in the house
   Stalker/               Director, Stalk, Tactician, Body, Sight, Perception, Walker,
                          Clearance, Retreat, NavTest, StalkerModel
@@ -204,7 +208,7 @@ rojo build default.project.json -o Consensus.rbxlx
 
 | Area | Built | Next |
 | --- | --- | --- |
-| Core loop | Hub, Arrival → Investigation → the dinner → Extraction → Dossier; locks, keys, leads, puzzles, heirlooms; acts and progress-woken hunts; win/lose, downs, revives, Echoes | **A squad playtest**, then the living house (R3: doors that become walls where nobody sees, house events), a tutorial run, a daily contract |
+| Core loop | Hub, Arrival → Investigation → the dinner → Extraction → Dossier; locks, keys, leads, puzzles, heirlooms; acts and progress-woken hunts; win/lose; three downs and Lost, the revive grace, the crawl to the light, the Reckoning at Drift 100; the short night; F2 `botrun`, a bot that plays the run and reports the numbers | **A squad playtest** and the owner's three solo runs against the finish line, then **the Guest-AI and visual rework** (the owner, 2026-10-06), the living house (R3: doors that become walls where nobody sees, house events), a tutorial run, a daily contract |
 | The house | The mansion generator (two main floors, 15–22 rooms by squad size, plus a cellar and/or an attic, each a locked wing of its own on top of the squad's), the adventure planned first (wings, a loop in each, shortcuts, the backtrack, double locks), every room with a reason, the best of 12 houses; servants' passages behind hidden doors (bookcases, panels); a laundry chute; lighting, trim, materials, grime, fixtures, switches and circuits, walk-in closets | House types (L, U round a courtyard, H, a tower stair), narrow corridors with closets, archways and glass-panelled doors; **a squad playtest**; the family and furniture laid out for play (`docs/plans/level-design.md`) |
 | Physics | Carry and throw with weight, doors and drawers with momentum, furniture by weight, barricades | Touch controls for hands |
 | Stalker | Director with acts, Tactician (13 tactics over a learned squad profile), stalking between hunts, heirloom scent, errands (the table, tidying), navigation on both floors, barricades | The Orderly (St. Odile Ward) |

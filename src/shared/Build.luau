@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-06.120",
-	note = "the map fits what you have seen; controls in the settings; Dread ramps from where it is; the hub panel fits its text",
+	id = "2026-10-06.121",
+	note = "the loop pass documented: README, TESTING (TC-123 to TC-137), ARCHITECTURE, the rework plan's section 16, the report",
 }

@@ -657,6 +657,131 @@ function BotService:_standNear(target: Vector3, room: number?, ignore: { Instanc
 	return best or Vector3.new(target.X, floorY, target.Z)
 end
 
+-- Where to stand to take hold of a thing: near enough to see it over the rim
+-- of a chest or the freezer and past whatever stands beside them (the chest's
+-- own wall blocks the line from two studs out; from one it is clear), with
+-- the body's space free, inside the room. The line test is the game's own
+-- (HandsService._canReach: the head, the hands' reach, WitnessService
+-- ClearLine with every character ignored), so a point found here is a grab
+-- that works. nil when no such spot exists.
+function BotService:_grabPoint(thing, prop, room: number?, tried: { Vector3 }?): Vector3?
+	local at = thing.model:GetPivot().Position
+	local floorY = self.World:FloorBase(at.Y)
+	local candidates = {}
+	if prop and prop.frame then
+		local size = prop.kind and Props.Kinds[prop.kind] and Props.Kinds[prop.kind].size
+		local depth = size and size[3] or 2
+		local width = size and size[1] or 2
+		local front = -prop.frame.LookVector -- (a prop's front is its frame's +Z)
+		local right = prop.frame.RightVector
+		local centre = prop.frame.Position
+		for _, d in { 1.2, 1.8, 2.6 } do
+			table.insert(candidates, centre + front * (depth / 2 + d))
+		end
+		for _, d in { 1.2, 2.0 } do
+			table.insert(candidates, centre + right * (width / 2 + d))
+			table.insert(candidates, centre - right * (width / 2 + d))
+			table.insert(candidates, centre - front * (depth / 2 + d))
+		end
+	end
+	for _, radius in { 1.6, 2.4, 3.2 } do
+		for i = 0, 7 do
+			local angle = i / 8 * math.pi * 2
+			table.insert(candidates, Vector3.new(at.X + math.cos(angle) * radius, 0, at.Z + math.sin(angle) * radius))
+		end
+	end
+	local params = OverlapParams.new()
+	params.FilterDescendantsInstances = { self.player.Character, thing.model }
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local reach = Config.Hands.Reach + 0.5 -- (the hands allow 1.5 more: room for the walker's stopping error)
+	local witness = self.services.WitnessService
+	for _, candidate in candidates do
+		local point = Vector3.new(candidate.X, floorY, candidate.Z)
+		local roomHere = self.World:RoomAt(point)
+		if roomHere == nil or (room and roomHere ~= room) then
+			continue
+		end
+		local done = false
+		for _, t in tried or {} do
+			if (flat(t) - flat(point)).Magnitude < 1 then
+				done = true
+				break
+			end
+		end
+		if done then
+			continue
+		end
+		local blocked = false
+		for _, part in
+			workspace:GetPartBoundsInBox(CFrame.new(point + Vector3.new(0, 2.6, 0)), Vector3.new(1.8, 4.4, 1.8), params)
+		do
+			if part.CanCollide then
+				blocked = true
+				break
+			end
+		end
+		if blocked then
+			continue
+		end
+		-- The head of a standing R15 character: 4.5 studs over the floor.
+		local eye = point + Vector3.new(0, 4.5, 0)
+		if (eye - at).Magnitude > reach then
+			continue
+		end
+		-- Clear from there and from half a stud either side: the walker never
+		-- stops on the exact point, and a shut cupboard door's edge is that close.
+		local toward = flat(at - eye)
+		local side = toward.Magnitude > 0.1 and Vector3.new(-toward.Z, 0, toward.X).Unit * 0.5 or Vector3.zero
+		if
+			witness:ClearLine(eye, at, { thing.model })
+			and witness:ClearLine(eye + side, at, { thing.model })
+			and witness:ClearLine(eye - side, at, { thing.model })
+		then
+			return point
+		end
+	end
+	return nil
+end
+
+-- Stand on a point (within half a stud) for a moment's work there: a walk
+-- leg counts "near enough" from a few studs off, which a grab's reach and
+-- line of sight don't forgive.
+function BotService:_settleAt(point: Vector3, seconds: number)
+	local walker = self.walker
+	local began = os.clock()
+	walker:SetDestination(point, { speed = self.speed, force = true })
+	while self.active and os.clock() - began < seconds do
+		task.wait(0.1)
+		local pos = self.PlayerState:Position(self.player)
+		if pos and (flat(pos) - flat(point)).Magnitude <= 0.5 then
+			break
+		end
+	end
+	walker:Stop()
+	task.wait(0.15)
+end
+
+-- Why the hands refused: their own checks one by one (reach from the head,
+-- the line, the state), so a failed grab in the log says which rule it was.
+function BotService:_grabRefused(thing, attempt: number)
+	local services = self.services
+	local head = self.PlayerState:Head(self.player)
+	local pos = thing.model:GetPivot().Position
+	local line = head and services.WitnessService:ClearLine(head.Position, pos, { thing.model })
+	self:_log(
+		string.format(
+			"   grab %d refused: head %.1f studs off (reach %.1f) · line %s · can act %s · holder %s · state %s",
+			attempt,
+			head and (head.Position - pos).Magnitude or -1,
+			Config.Hands.Reach + 1.5,
+			tostring(line),
+			tostring(self.PlayerState:CanAct(self.player)),
+			tostring(thing.holder and thing.holder.Name),
+			tostring(thing.state)
+		)
+	)
+end
+
 -- A spot to stand in front of a piece of furniture (its frame faces out of
 -- its front), on the floor, inside the room.
 function BotService:_frontOf(frame: CFrame, kind: string?, room: number?): Vector3
@@ -925,15 +1050,23 @@ function BotService:_look(step): (boolean, string?)
 	if walked ~= "ok" then
 		return false, walked
 	end
-	local piece = space.pieces[1]
-	if piece and piece.state.target < piece.state.max / 2 then
-		furniture:Toggle(piece, self.player)
+	-- Every door of it (a cabinet has two): a shut half blocks the line to
+	-- what lies at the bottom, and a player opens both.
+	local pieces = space.pieces or {}
+	local piece = pieces[1]
+	local function openAll()
+		for _, p in pieces do
+			if p.state and p.state.target < p.state.max / 2 then
+				furniture:Toggle(p, self.player)
+			end
+		end
 	end
+	openAll()
 	local began = os.clock()
 	while self.active and not space.filled and os.clock() - began < 6 do
 		task.wait(0.25)
-		if piece and os.clock() - began > 2.5 and piece.state.target < piece.state.max / 2 then
-			furniture:Toggle(piece, self.player) -- shut again (the house?): once more
+		if os.clock() - began > 2.5 then
+			openAll() -- shut again (the house?): once more
 		end
 	end
 	if not space.filled then
@@ -974,30 +1107,47 @@ function BotService:_take(token: string): (boolean, string?)
 	-- only, where a player stands to look in.
 	local inside = thing.inside
 	local prop = inside and inside.prop
+	local tried = {}
 	local function standPoint()
-		if prop and prop.frame then
+		-- A spot the hands' own line test passes from (over a chest's rim,
+		-- past a neighbour), else the furniture's front, else beside it.
+		local point = self:_grabPoint(thing, prop, room, tried)
+		if point then
+			table.insert(tried, point)
+			return point, 0.9
+		end
+		if prop and prop.frame and #tried == 0 then
 			return self:_frontOf(prop.frame, prop.kind, prop.roomId), 2
 		end
 		return self:_standNear(thing.model:GetPivot().Position, room, { thing.model }), 2.5
 	end
-	-- Into its room first: six studs through a wall is not within reach.
-	if prop or not here or (here - at).Magnitude > 6 or (room and self.World:RoomAt(here) ~= room) then
+	local function taken(): boolean
+		return thing.holder == self.player or thing.state == "gone"
+	end
+	-- Lying in the open, in reach and in the room: just take it.
+	if not prop and here and (here - at).Magnitude <= 6 and (not room or self.World:RoomAt(here) == room) then
+		services.HandsService:Grab(self.player, thing.id)
+		task.wait(0.3)
+	end
+	-- Else into its room (six studs through a wall is not within reach) and
+	-- to a spot the hands can work from, stood on exactly (a leg counts
+	-- "near enough" from a few studs off); when the hands still refuse, the
+	-- next spot, up to three.
+	for attempt = 1, 3 do
+		if taken() then
+			break
+		end
 		local stand, within = standPoint()
 		local walked = self:_walkTo(stand, within)
 		if walked ~= "ok" then
 			return false, walked
 		end
-	end
-	services.HandsService:Grab(self.player, thing.id)
-	task.wait(0.3)
-	if thing.holder ~= self.player and thing.state ~= "gone" then
-		-- Not in reach or not in sight from here: once more from a clear spot beside it.
-		local walked = self:_walkTo(self:_standNear(thing.model:GetPivot().Position, room, { thing.model }), 2)
-		if walked ~= "ok" then
-			return false, walked
-		end
+		self:_settleAt(stand, 3)
 		services.HandsService:Grab(self.player, thing.id)
 		task.wait(0.3)
+		if not taken() then
+			self:_grabRefused(thing, attempt)
+		end
 	end
 	if thing.holder == self.player then
 		-- Carried by the server (the client only carries what it asked for).
