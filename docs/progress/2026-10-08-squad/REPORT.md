@@ -266,3 +266,36 @@ Now each night opens with **the intro** (`Config.Pacing.IntroSeconds` 300; 180 o
 - No console errors. The scream and the music are still to be heard.
 
 **New tests:** TC-179 (the opening), TC-180 (each way out against a sprint-fast chase), TC-181 (length and search; does it feel like a threat now?).
+
+## WP13 (build `.141`): crowding him, a scare then a down
+
+"Players can mess around with the Guest and get in his personal space while he's backing away without consequences", and "the Guest needs to give people reasons to be afraid, especially if walking up to him". Today a walk at him always made him step aside. While he backed away, recoiled or retreated, every contact check was skipped, and only a sprint at him counted.
+
+**The owner's decision: a scare, then a down.** The rule is `StalkRules.crowding` (pure, `Crowding.spec`):
+- **How it builds.**
+  - In his face (within 3.5 studs, looking at him) fills the pressure at 1/s.
+  - Following him as he backs away, withdraws, retreats or makes way (within 7 studs, closing) fills it at 0.7/s.
+  - Otherwise it drains.
+- **What it costs.** At 1.2 s it's **the scare**. Again within 3 minutes, it's **the grab**.
+- **Passers-by are safe.** A walk past spends about 0.9 s inside 3.5 studs, and his own approach never counts.
+- **Never** in a hunt, at the table, under tier 1, while he's stunned or out of your sight, or for anyone hidden, downed, just revived, safe in a Lantern room, or on another floor.
+- **No cover.** Two watchers and his "after you" don't protect you at arm's reach.
+
+**The scare** (`StalkerService:_confrontBegin`), about 2.6 s:
+1. He turns on you and lunges a stride towards your face, with a rasp.
+2. Every light within 30 studs dies for you alone (a client `blackout`), and your torch dies with them (`PlayerStateService:CutTorch`; it comes back on by itself).
+3. In the dark he goes far off, unless someone else is watching, in which case he backs away.
+4. The lights come back. Once a run: "[it doesn't like you that close]".
+
+**The grab:** a 0.5 s rasp and reach, then a face-to-face catch. It's a fair down: you were warned once already, so it doesn't count as a cheap down. Then he backs off.
+
+The run checks every tick in every mode except hunts, which closes the gaps while he backs away and while he retreats.
+
+**Studio, seed 61, tier 2:**
+- I followed him at about 2 studs, looking at him. He stepped aside ("after you"), I kept on him, and it was the scare: he came in to 1.3 studs, then was 46 studs away.
+- I brought him back and did it again within a minute: the grab, and I was Downed.
+- The log shows `Crowded {"kind":"scare"}`, then `Crowded {"kind":"grab"}`.
+
+**Not seen yet:** the blackout and the lean-in from the victim's eyes (TC-182).
+
+**New tests:** TC-182 (the scare: frightening?), TC-183 (the grab), TC-184 (following him as he backs away). 495 tests pass.

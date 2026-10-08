@@ -459,6 +459,9 @@ function PerceptionController:_scare(payload)
 		audio:Caption("[distant footsteps]")
 	elseif kind == "flicker" then
 		effects:FlickerRoom(payload.roomId, payload.duration or 2)
+	elseif kind == "blackout" then
+		-- He leans in (StalkerService:_confront): every light near you dies.
+		effects:BlackoutNear(payload.radius or 30, payload.duration or 2)
 	elseif kind == "coldSpot" then
 		local cf = CFrame.new(Vector3.new(payload.position.X, floorY(payload.position.Y), payload.position.Z))
 		local model = PhantomFactory.build("BreathFog", cf, phantomFolder())

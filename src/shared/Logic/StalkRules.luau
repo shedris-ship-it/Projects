@@ -225,6 +225,63 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 	return true, nil
 end
 
+-- Crowding him (the squad playtest, 2026-10-08: "players can get in his
+-- personal space while he's backing away without consequences"; the owner's
+-- choice: a scare, then a down). Pressure builds while you stand in his face
+-- (within CrowdRadius, looking at him) or follow him as he backs away
+-- (within FollowRadius, closing in), and drains otherwise. Full, it's the
+-- scare: he turns on you, your lights die, he's gone. Full again within
+-- GrabWindow of that, it's the grab: a down. Walking past him never fills
+-- it (a walk spends well under CrowdSeconds inside CrowdRadius), and his own
+-- approach never counts. Two watchers and his making way don't protect you
+-- at arm's reach.
+-- state (per player, kept by the caller): { pressure, lastScareAt }.
+-- ctx: now, distance, facing (degrees between your look and him), closing
+-- (studs a second you come at him), backingAway, tier, hunting, seated,
+-- stunned, visibleToThem, lineOfSight, hidden, downed, graced, safeRoom,
+-- verticalGap. Returns "scare", "grab" or nil, and why not.
+function StalkRules.crowding(state, ctx, dt: number, cfg): (string?, string?)
+	local why = nil
+	if ctx.hunting then
+		why = "hunting"
+	elseif ctx.seated then
+		why = "at the table"
+	elseif ctx.tier < 1 then
+		why = "tier"
+	elseif ctx.stunned then
+		why = "stunned"
+	elseif not ctx.visibleToThem or not ctx.lineOfSight then
+		why = "not seen"
+	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
+		why = "protected"
+	elseif ctx.graced then
+		why = "just back up"
+	elseif ctx.verticalGap > 4 then
+		why = "another floor"
+	end
+	local rate = -1
+	if not why then
+		if ctx.distance <= cfg.CrowdRadius and ctx.facing <= cfg.CrowdFacing then
+			rate = 1
+		elseif ctx.backingAway and ctx.distance <= cfg.FollowRadius and (ctx.closing or 0) > 0.5 then
+			rate = cfg.FollowRate
+		else
+			why = "keeping your distance"
+		end
+	end
+	state.pressure = math.clamp((state.pressure or 0) + rate * dt, 0, cfg.CrowdSeconds)
+	if state.pressure < cfg.CrowdSeconds then
+		return nil, why or "building"
+	end
+	state.pressure = 0
+	if state.lastScareAt and ctx.now - state.lastScareAt < cfg.GrabWindow then
+		state.lastScareAt = nil
+		return "grab", nil
+	end
+	state.lastScareAt = ctx.now
+	return "scare", nil
+end
+
 -- "After you" (the Guest rework, 2026-10-07): between hunts he never parks
 -- in a player's way. He steps aside, bows and holds out a hand towards the
 -- way on, and while he does he never lunges at them (canLunge, contact).

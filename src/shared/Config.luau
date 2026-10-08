@@ -1102,6 +1102,19 @@ Config.Guest = {
 	WarningMemorySeconds = 6,
 	NoLungeNearDownSeconds = 20,
 	NoLungeNearDownRadius = 30,
+	-- Crowding him (Logic/StalkRules.crowding; the squad playtest, 2026-10-08):
+	-- in his face, or following him as he backs away, for CrowdSeconds and he
+	-- turns on you (a scare); again within GrabWindow and he grabs you (a down).
+	CrowdRadius = 3.5, -- in his face: this close...
+	CrowdFacing = 40, -- ...looking at him, within this many degrees
+	FollowRadius = 7, -- following him as he backs away: this close, closing in
+	FollowRate = 0.7, -- (fills a little slower than standing in his face)
+	CrowdSeconds = 1.2,
+	GrabWindow = 180,
+	ConfrontSeconds = 2.6, -- the scare: he leans in, your lights die, he's gone
+	ConfrontBlind = 1.4, -- ...he goes this far in, while your lights are out
+	ConfrontRadius = 30, -- the lights that die round you
+	GrabWindup = 0.5, -- the grab's tell: a rasp, and he reaches
 	-- Close contact (Logic/StalkRules.contact): within this many studs of a Guest
 	-- you can see, he lunges at once. 5 is also where he senses you regardless
 	-- of facing (Perception:CanSee).

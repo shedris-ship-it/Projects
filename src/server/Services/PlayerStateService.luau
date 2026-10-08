@@ -667,6 +667,10 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 	if on and (record.state ~= States.Active or record.battery <= 0) then
 		on = false
 	end
+	-- Cut (he leaned in: CutTorch): it won't come on until it comes back.
+	if on and record.torchCutUntil and os.clock() < record.torchCutUntil then
+		on = false
+	end
 	if record.flashlight ~= on then
 		local root = self:Root(player)
 		if root and not player:GetAttribute(PA.Hidden) then
@@ -676,6 +680,26 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 	record.flashlight = on
 	player:SetAttribute(PA.Flashlight, on)
 	self:RefreshFlashlight(player)
+end
+
+-- The torch dies in your hand for `seconds` (StalkerService:_confront), and
+-- comes back on by itself if it was on.
+function PlayerStateService:CutTorch(player: Player, seconds: number)
+	local record = records[player]
+	if not record then
+		return
+	end
+	local wasOn = record.flashlight == true
+	self:SetFlashlight(player, false)
+	record.torchCutUntil = os.clock() + seconds
+	task.delay(seconds, function()
+		if records[player] == record then
+			record.torchCutUntil = nil
+			if wasOn and record.state == States.Active then
+				self:SetFlashlight(player, true)
+			end
+		end
+	end)
 end
 
 -- Which light everyone else sees: the beam from your head while the torch is

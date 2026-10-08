@@ -1279,6 +1279,19 @@ function StalkerService:_update(dt: number)
 
 	local mode = self.mode
 	local hunting = mode == Modes.Hunting or mode == Modes.Telegraph
+	-- Crowding him (the squad playtest, 2026-10-08): a scare, then a down.
+	-- While he turns on someone, nothing else moves him.
+	if not hunting then
+		self:_crowding(now, dt)
+	end
+	if self.confront then
+		self:_updateConfront(now)
+		body:Update(now, function(player: Player): Vector3?
+			return (self.stalk:Known(player))
+		end)
+		self:_updateVisibility(now)
+		return
+	end
 	-- Two watchers holding the stare together drive him off between hunts;
 	-- not from his place at the table, where he only waits (they still
 	-- freeze him). In a hunt the stare only holds him (below) and never
@@ -1552,6 +1565,169 @@ end
 
 -- `chasing`: after someone he can see, at your sprint (Config.Stalker
 -- .ChaseSpeedRatio; Hard's multiplier is for his prowl).
+-- Crowding him (Logic/StalkRules.crowding; the squad playtest, 2026-10-08:
+-- "players can get in his personal space while he's backing away without
+-- consequences"; the owner's choice: a scare, then a down). Every tick
+-- outside hunts, for everyone he's visible to.
+local BACKING = { BackAway = true, Withdraw = true, SlowWithdraw = true, Duck = true, Yank = true, MakeWay = true }
+
+function StalkerService:_crowding(now: number, dt: number)
+	if self.confront or not self.arrived or self.parked or not self.bodyCtl then
+		return
+	end
+	local services = self.services
+	local ps = services.PlayerStateService
+	local here = self.body.root.Position
+	local eye = self.bodyCtl:EyePosition()
+	local moveId = self.stalk and self.stalk.move and self.stalk.move.id
+	local backing = self.mode == Modes.Retreating or self.mode == Modes.Departing or BACKING[moveId or ""] == true
+	self.crowd = self.crowd or {}
+	for _, player in ps:ActivePlayers() do
+		local root = ps:Root(player)
+		local head = ps:Head(player)
+		if root and head then
+			local offset = here - root.Position
+			local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+			local distance = flatOffset.Magnitude
+			local state = self.crowd[player] or {}
+			self.crowd[player] = state
+			if distance > G.FollowRadius + 4 and (state.pressure or 0) <= 0 then
+				continue -- far off: nothing to build or drain
+			end
+			local view = services.WitnessService:GetView(player)
+			local look = view and view.LookVector or root.CFrame.LookVector
+			local facing = distance > 0.1
+					and math.deg(
+						math.acos(math.clamp(look:Dot((eye - (view and view.Position or head.Position)).Unit), -1, 1))
+					)
+				or 0
+			local velocity = root.AssemblyLinearVelocity
+			local closing = distance > 0.1 and Vector3.new(velocity.X, 0, velocity.Z):Dot(flatOffset.Unit) or 0
+			local result = StalkRules.crowding(state, {
+				now = now,
+				distance = distance,
+				facing = facing,
+				closing = closing,
+				backingAway = backing,
+				tier = self.tier,
+				hunting = false,
+				seated = self:_seatedAtTable(),
+				stunned = now < (self.stunnedUntil or 0),
+				visibleToThem = self.visibleTo[player] == true,
+				lineOfSight = services.WitnessService:ClearLine(head.Position, eye, { self.body.model }),
+				hidden = services.HidingService:IsHidden(player),
+				downed = not ps:IsActive(player),
+				graced = ps:InReviveGrace(player),
+				safeRoom = self.perception:InSafeRoom(player),
+				verticalGap = math.abs(offset.Y),
+			}, dt, G)
+			if result then
+				self:_confrontBegin(player, result, now)
+				return
+			end
+		end
+	end
+end
+
+-- He turns on whoever crowds him. "scare": he leans in, the lights round you
+-- die and your torch with them, and while you can't see he's gone (unless
+-- someone else is watching: then he backs off). "grab": a rasp, he reaches,
+-- and it's a down (a fair one: you were warned once already).
+function StalkerService:_confrontBegin(player: Player, kind: string, now: number)
+	local body = self.bodyCtl
+	body:CancelSpecial()
+	body:FacePlayer(player)
+	body:SetGaze(player)
+	body:SetPose(Poses.Lunge)
+	self.confront = { player = player, kind = kind, at = now }
+	if self.stalk then
+		self.stalk.move = nil
+	end
+	Sfx.play("GuestRasp", self.body.root.Position, kind == "grab" and 1 or 0.85, kind == "grab" and 0.85 or 1)
+	self.services.Telemetry:Log("Crowded", { kind = kind, tier = self:TierNow() }, player)
+	if kind == "scare" then
+		-- Up close: a stride towards your face.
+		local pos = self.services.PlayerStateService:Position(player)
+		if pos then
+			local here = self.body.root.Position
+			local toward = Vector3.new(pos.X - here.X, 0, pos.Z - here.Z)
+			if toward.Magnitude > 1.6 then
+				body:Step(here + toward.Unit * (toward.Magnitude - 1.4), 9)
+			end
+		end
+		self.services.DivergenceService:Scare(
+			player,
+			{ kind = "blackout", radius = G.ConfrontRadius, duration = G.ConfrontSeconds }
+		)
+		self.services.PlayerStateService:CutTorch(player, G.ConfrontSeconds)
+	end
+end
+
+function StalkerService:_updateConfront(now: number)
+	local confront = self.confront
+	local player = confront.player
+	local body = self.bodyCtl
+	local t = now - confront.at
+	if not player.Parent then
+		self.confront = nil
+		return
+	end
+	if confront.kind == "grab" then
+		if t >= G.GrabWindup then
+			self.confront = nil
+			local ps = self.services.PlayerStateService
+			local pos = ps:Position(player)
+			local here = self.body.root.Position
+			if
+				pos
+				and (Vector3.new(pos.X - here.X, 0, pos.Z - here.Z)).Magnitude <= G.ContactRadius + 1
+				and ps:IsActive(player)
+				and not self.services.HidingService:IsHidden(player)
+			then
+				self:_catch(player, now, "crowd", true)
+			end
+			self.crowd[player] = {}
+			if self.stalk then
+				self.stalk:_begin("BackAway", self.stalk:_ctxCache())
+			end
+		end
+		return
+	end
+	-- The scare: in the dark he goes, unless someone else is watching.
+	if not confront.gone and t >= G.ConfrontBlind then
+		confront.gone = true
+		local points = body:ExposedPoints()
+		local watched = false
+		for _, other in self.services.PlayerStateService:ActivePlayers() do
+			if
+				other ~= player and (self.sight:Sees(other, points[1], 130) or self.sight:Sees(other, points[2], 130))
+			then
+				watched = true
+			end
+		end
+		if watched then
+			self.confront = nil
+			self:_retreat("crowded")
+			return
+		end
+		local far = self.stalk and self.stalk:_farPoint()
+		if far then
+			body:Place(far)
+		end
+		body:SetPose(Poses.Idle)
+	end
+	if t >= G.ConfrontSeconds then
+		self.confront = nil
+		if not self.confrontTold then
+			self.confrontTold = true
+			self.services.DivergenceService:Scare(
+				player,
+				{ kind = "caption", text = "[it doesn't like you that close]" }
+			)
+		end
+	end
+end
+
 -- A hunt opens (the squad playtest, 2026-10-08: "hunts need to be more
 -- menacing"): he screams, heard through the house, and the rooms nearest
 -- him go dark (never a Lantern room) until it's over. And the house tells

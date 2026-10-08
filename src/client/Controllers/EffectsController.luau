@@ -26,6 +26,7 @@ local FX = Config.PostFX
 
 local lights = {} -- light -> { base brightness }
 local flickering = {} -- light -> until
+local blackout = {} -- light -> until: dead out, for you alone (he leans in: StalkerService:_confront)
 local dust = {} -- ParticleEmitter -> air-current phase
 local photos = {} -- photo card -> its snapshot (Assets.Photos index)
 local unshadowed = setmetatable({}, { __mode = "k" }) -- parts low-end mode stopped casting shadows
@@ -461,6 +462,19 @@ function EffectsController:FlickerNear(radius: number, duration: number, utility
 	end
 end
 
+-- Every light near you dead for `duration` seconds, for you alone.
+function EffectsController:BlackoutNear(radius: number, duration: number)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	for light, info in lights do
+		if info.part.Parent and (info.part.Position - root.Position).Magnitude < radius then
+			blackout[light] = os.clock() + duration
+		end
+	end
+end
+
 -- How far the local player has bled out (0 just downed, 1 gone), or nil.
 function EffectsController:BleedFraction(): number?
 	if self.state:PlayerState() ~= Constants.PlayerStates.Downed then
@@ -618,7 +632,10 @@ function EffectsController:_update(dt: number)
 				end
 			end
 			local untilTime = flickering[light]
-			if untilTime and now < untilTime then
+			local deadUntil = blackout[light]
+			if deadUntil and now < deadUntil then
+				light.Brightness = 0
+			elseif untilTime and now < untilTime then
 				if settings.reduceFlicker then
 					light.Brightness = base * 0.35
 				else
@@ -626,6 +643,7 @@ function EffectsController:_update(dt: number)
 				end
 			else
 				flickering[light] = nil
+				blackout[light] = nil
 				light.Brightness = base
 			end
 			local red = info.lamp and huntMix or 0
