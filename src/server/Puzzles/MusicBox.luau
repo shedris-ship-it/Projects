@@ -149,7 +149,7 @@ function Kind.dress(session, model: Model, frame: CFrame)
 		Vector3.new(2.4, 1.4, 0.04),
 		frame * CFrame.new(0, 3.85, depth / 2 - 0.86) * CFrame.Angles(math.rad(-8), 0, 0),
 		PAPER,
-		PropFactory.material("Fabric"),
+		PropFactory.material("SmoothPlastic"),
 		{ collide = false, castShadow = false }
 	)
 	local gui = Instance.new("SurfaceGui")

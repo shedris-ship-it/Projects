@@ -72,6 +72,8 @@ function Body.new(built, navigator)
 		phases = 0, -- times he was caught crossing a wall and put back
 		backBlockedAt = 0, -- last time a wall came within POSED_REACH behind him
 		backBlocks = 0, -- how often that happened (F2 navtest retreat)
+		aloftSince = nil, -- standing on a piece of furniture since (_checkAloft)
+		alofts = 0, -- times he was found on furniture and stepped down (F2 navtest)
 		pose = Poses.Idle,
 		lean = 0,
 		gaze = nil, -- the player he's looking at
@@ -317,6 +319,7 @@ function Body:Update(now: number, playerPosition: (Player) -> Vector3?)
 		self.navigator:Step(now)
 	end
 	self:_checkPhase(now)
+	self:_checkAloft(now)
 
 	-- Turn to face.
 	local face = self.face or { kind = "move" }
@@ -384,6 +387,114 @@ function Body:_checkPhase(now: number)
 	end
 end
 
+-- The furniture models of the house built now (WorldService's props), as a set.
+local furnitureOf = setmetatable({}, { __mode = "k" })
+local function furniture(): { [Instance]: boolean }
+	local world = WorldService.World
+	if not world then
+		return {}
+	end
+	local set = furnitureOf[world]
+	if not set then
+		set = {}
+		for _, prop in world.props or {} do
+			if prop.model then
+				set[prop.model] = true
+			end
+		end
+		furnitureOf[world] = set
+	end
+	return set
+end
+
+-- The piece of furniture he stands on, or nil (on a floor, a stair, a ramp).
+function Body:FurnitureUnder(): Instance?
+	local root = self.root
+	local offset = self.built.groundOffset
+	local feet = root.Position.Y - offset
+	if feet - floorBase(feet) < 1 then
+		return nil -- his feet are at the storey's floor
+	end
+	-- His whole footprint, not just his middle: he can stand on a bed's edge.
+	local hit = Workspace:Blockcast(
+		CFrame.new(root.Position),
+		Vector3.new(1.4, 0.2, 1.0),
+		Vector3.new(0, -(offset + 1.5), 0),
+		self.clearance.params
+	)
+	if not hit then
+		return nil
+	end
+	local set = furniture()
+	local model = hit.Instance:FindFirstAncestorOfClass("Model")
+	while model do
+		if set[model] then
+			return model
+		end
+		model = model.Parent and model.Parent:FindFirstAncestorOfClass("Model")
+	end
+	return nil
+end
+
+-- Never on top of the furniture (the squad playtest, 2026-10-08: "Guest gets
+-- stuck on top furniture"). His legs stop him walking up (StalkerModel's
+-- Shins), but a placement or a push can still leave him there: after a
+-- moment he goes to the nearest floor that fits him, straight there while
+-- nobody can see him, else by stepping down. Counted for F2 navtest.
+function Body:_checkAloft(now: number)
+	if self.special or self.root.Anchored then
+		self.aloftSince = nil
+		return
+	end
+	-- (A cheap test first: only when his feet are off the storey's floor.)
+	local under = self:FurnitureUnder()
+	if not under then
+		self.aloftSince = nil
+		return
+	end
+	self.aloftSince = self.aloftSince or now
+	if now - self.aloftSince < G.AloftSeconds then
+		return
+	end
+	self.aloftSince = nil
+	local here = self.root.Position
+	local base = floorBase(here.Y - self.built.groundOffset)
+	local spot = nil
+	for radius = 1.5, 6, 0.75 do
+		for i = 0, 11 do
+			local angle = i * math.pi / 6
+			local point = Vector3.new(
+				here.X + math.cos(angle) * radius,
+				base + self.built.groundOffset,
+				here.Z + math.sin(angle) * radius
+			)
+			if self:Fits(point) then
+				spot = point
+				break
+			end
+		end
+		if spot then
+			break
+		end
+	end
+	if not spot then
+		return
+	end
+	self.alofts += 1
+	local unseen = self.navigator.canTeleport == nil or self.navigator.canTeleport()
+	if unseen then
+		self.model:PivotTo(CFrame.new(spot) * self.root.CFrame.Rotation)
+		self.root.AssemblyLinearVelocity = Vector3.zero
+		self.lastRoot = spot
+	else
+		self:Step(spot, 6)
+	end
+	local telemetry = self.navigator.services.Telemetry
+	if telemetry then
+		telemetry:Log("GuestAloft", { on = under.Name, seen = not unseen })
+	end
+end
+
 -- Is a point on the floor free for his body (no furniture in the way), with
 -- floor under it (not the void over the hall)?
 function Body:Fits(position: Vector3, ignore: { Instance }?): boolean
@@ -402,6 +513,8 @@ function Body:Fits(position: Vector3, ignore: { Instance }?): boolean
 	local passes = {
 		[Constants.CollisionGroups.Door] = true,
 		[Constants.CollisionGroups.Players] = true,
+		[Constants.CollisionGroups.PlayerBody] = true,
+		[Constants.CollisionGroups.PlayerGhost] = true,
 		[Constants.CollisionGroups.Echo] = true,
 		[Constants.CollisionGroups.Phantom] = true,
 	}

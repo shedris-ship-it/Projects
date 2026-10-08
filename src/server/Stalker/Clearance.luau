@@ -20,22 +20,33 @@ local Clearance = {}
 Clearance.__index = Clearance
 
 -- A shape cast misses whatever it starts inside, so the swept box is a little
--- slimmer than the body that collides; `margin` is kept back from a hit.
-local SWEEP = Vector3.new(0.9, 3, 0.9)
-local SWEEP_LIFT = 0.4 -- the box's centre above the root (clear of steps and ramps underfoot)
+-- slimmer than the body that collides; `margin` is kept back from a hit. By
+-- default it runs from 1.1 below the root to 1.9 above it (clear of steps and
+-- ramps underfoot).
+local SWEEP_WIDTH = 0.9
+local SWEEP_LOW, SWEEP_HIGH = 1.1, 1.9
 
 -- agent: { model, group = collision group name, halfWidth = how far his body
--- reaches sideways (for railings and the margin) }
+-- reaches sideways (for railings and the margin), sweepLow = how far below
+-- the root the swept body reaches, kneeDrop = a second, lower ray for
+-- Crossed this far below the root }. The Guest's root rides high, over his
+-- legs: his sweep reaches down to his knees, so a table or a bed stops a
+-- glide the way it stops his legs (the squad playtest, 2026-10-08: he
+-- climbed onto furniture).
 function Clearance.new(agent)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { agent.model }
 	params.CollisionGroup = agent.group
 	params.RespectCanCollide = true
+	local low = agent.sweepLow or SWEEP_LOW
 	return setmetatable({
 		params = params,
 		halfWidth = agent.halfWidth or 0.8,
 		margin = agent.margin or 0.3,
+		sweep = Vector3.new(SWEEP_WIDTH, low + SWEEP_HIGH, SWEEP_WIDTH),
+		lift = (SWEEP_HIGH - low) / 2,
+		kneeDrop = agent.kneeDrop,
 		phases = 0,
 		lastPhase = nil,
 	}, Clearance)
@@ -98,12 +109,12 @@ function Clearance:Reach(from: Vector3, to: Vector3): (Vector3, boolean)
 	if length < 0.05 then
 		return to, true
 	end
-	local start = from + Vector3.new(0, SWEEP_LIFT, 0)
+	local start = from + Vector3.new(0, self.lift, 0)
 	local travel = length
 	local frame = math.abs(delta.Unit.Y) > 0.95 and CFrame.new(start) or CFrame.lookAt(start, start + delta)
 	-- A shapecast can't go further than 1024 studs (a target far off in the
 	-- hub, say): sweep the first stretch, which is all a step needs.
-	local result = Workspace:Blockcast(frame, SWEEP, delta.Unit * math.min(length, 1000), self.params)
+	local result = Workspace:Blockcast(frame, self.sweep, delta.Unit * math.min(length, 1000), self.params)
 	if result then
 		travel = math.max(0, result.Distance - self.margin)
 	end
@@ -129,6 +140,15 @@ function Clearance:Crossed(from: Vector3, to: Vector3): Instance?
 	local result = Workspace:Raycast(from, delta, self.params)
 	if result then
 		return result.Instance
+	end
+	-- At the knees too: a bed or a table under his root (only along the
+	-- level, so a stair's ramp rising ahead of him never counts).
+	local knee = self.kneeDrop
+	if knee and math.abs(delta.Y) < 0.3 then
+		local low = Workspace:Raycast(from - Vector3.new(0, knee, 0), delta, self.params)
+		if low then
+			return low.Instance
+		end
 	end
 	if self:_railingTravel(from, delta, 0) < delta.Magnitude - 1e-3 then
 		return CollectionService:GetTagged(Constants.Tags.Railing)[1]

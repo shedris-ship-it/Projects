@@ -390,7 +390,14 @@ function Stalk:_findPeek(tier: number, why)
 				if view then
 					why.line = (why.line or 0) + 1
 				end
-				if view and not self.sight:AnyoneSees(self.sight.BodyPoints(spot.position)) then
+				-- Still free: furniture may have been pushed onto it since the
+				-- spots were cached (he'd peek from on top of a bed).
+				if
+					view
+					and not self.sight:AnyoneSees(self.sight.BodyPoints(spot.position))
+					and self.body:Fits(spot.position)
+					and self.body:Fits(spot.hide)
+				then
 					table.insert(candidates, { spot = spot, weight = 1 + (60 - d) / 30 })
 				end
 			end
@@ -658,7 +665,10 @@ MOVES.Peek = {
 			end
 			if relocate(self, move, now) then
 				local feet = self.body.root.Position.Y - self.body.built.groundOffset
-				if planar(self.body.root.Position, spot.position) > 2.5 or math.abs(feet - spot.position.Y) > 3 then
+				if
+					planar(self.body.root.Position, spot.position) > 2.5
+					or math.abs(feet - spot.position.Y) > G.ArriveDy
+				then
 					return true -- couldn't get there
 				end
 				move.peeking = now
@@ -1300,7 +1310,10 @@ MOVES.FingersPeek = {
 			end
 			if relocate(self, move, now) then
 				local feet = self.body.root.Position.Y - self.body.built.groundOffset
-				if planar(self.body.root.Position, spot.position) > 2.5 or math.abs(feet - spot.position.Y) > 3 then
+				if
+					planar(self.body.root.Position, spot.position) > 2.5
+					or math.abs(feet - spot.position.Y) > G.ArriveDy
+				then
 					return true -- couldn't get there
 				end
 				move.peeking = now

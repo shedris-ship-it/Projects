@@ -162,6 +162,10 @@ function StalkerService:Begin(ctx)
 		groundOffset = built.groundOffset,
 		group = Constants.CollisionGroups.Stalker,
 		halfWidth = 0.9,
+		-- His root rides over his legs: sweeps reach his knees (1.3 over his
+		-- feet) and a second ray checks knee height (Stalker/Clearance).
+		sweepLow = built.groundOffset - 1.3,
+		kneeDrop = built.groundOffset - 2.2,
 		path = Walker.GuestPath,
 		opensDoors = "stalker",
 		-- Locks hold him only in a chase (docs/plans/gameplay-rework.md 5.5),

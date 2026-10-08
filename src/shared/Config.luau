@@ -134,6 +134,18 @@ Config.Stare = {
 	Cues = 2, -- how many times a run each player is told "[it stops in the light]" and the like
 }
 
+-- Players collide (the squad playtest, 2026-10-08), but nobody can block a
+-- doorway: pressed together this long, two players give way to each other
+-- until they're apart again (Logic/Bodies, PlayerStateService).
+Config.Bodies = {
+	Collide = true, -- off: players pass through each other always (the old rule)
+	ContactRadius = 2.4, -- roots this close (flat) are pressed together
+	ContactSeconds = 0.9,
+	GhostSeconds = 1.5, -- at least this long once they give way...
+	ClearRadius = 3, -- ...and until each is this far from everyone
+	MovedSeconds = 1.5, -- a player the game just moved (a hiding place, the chute) is a ghost this long
+}
+
 Config.Social = {
 	PingCooldown = 0.8,
 	PingLifetime = 7,
@@ -914,6 +926,12 @@ Config.Stalker = {
 -- decisions 2026-10-03). Behaviour numbers join this block as they land.
 Config.Guest = {
 	FormDrift = { 40, 60 }, -- the smile opens at Fraying, the porcelain cracks at Breaking
+	-- Never on the furniture (the squad playtest, 2026-10-08; Stalker/Body):
+	-- found on a piece this long, he goes to the floor beside it.
+	AloftSeconds = 0.3,
+	-- A spot counts as reached only this close in height (was 3, so standing
+	-- on a bed by a peek spot counted as there).
+	ArriveDy = 1.5,
 	-- The catch (Controllers/GuestController): "rush", his grin rushing in to
 	-- fill the screen (as built 2026-10-03); "quiet", black and a breath, then
 	-- his face resolving slowly out of the dark, then the sting (the audit of

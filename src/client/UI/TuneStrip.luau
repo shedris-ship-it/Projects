@@ -33,7 +33,7 @@ function TuneStrip.new(ctx)
 	self.gui = gui
 	self.panel = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 70),
+		Position = UDim2.new(0.5, 0, 0, 104), -- under the objective line
 		Size = UDim2.fromOffset(340, 92),
 		BackgroundColor3 = Color3.fromRGB(24, 18, 16),
 		BackgroundTransparency = 0.15,
@@ -42,6 +42,7 @@ function TuneStrip.new(ctx)
 	self.title = Ui.label("THE MUSIC BOX", {
 		Position = UDim2.fromOffset(0, 6),
 		Size = UDim2.new(1, 0, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Center,
 		Font = Ui.Theme.fontType,
 		TextSize = 16,
 		TextColor3 = Color3.fromRGB(236, 222, 190),
@@ -86,6 +87,7 @@ function TuneStrip:_reset(n: number)
 			Position = UDim2.fromOffset(0, 34),
 			Size = UDim2.new(1, 0, 0, 16),
 			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = Color3.fromRGB(220, 210, 190),
 			Parent = frame,
 		})

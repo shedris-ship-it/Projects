@@ -147,6 +147,7 @@ function Screen.build(host, open)
 			Position = UDim2.fromOffset(0, 54),
 			Size = UDim2.new(1, 0, 0, 16),
 			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = Color3.fromRGB(110, 100, 86),
 			Parent = key,
 		})

@@ -118,7 +118,13 @@ Constants.PlayerStates = {
 }
 
 Constants.CollisionGroups = {
+	-- A player's body, but its root: collides with nothing (a pose lying or
+	-- crouching never fights the floor). The root is the player's body to the
+	-- world: solid (PlayerBody), or passing through other players (PlayerGhost;
+	-- Logic/Bodies, the squad playtest 2026-10-08).
 	Players = "ConsensusPlayers",
+	PlayerBody = "ConsensusPlayerBody",
+	PlayerGhost = "ConsensusPlayerGhost",
 	Stalker = "ConsensusStalker",
 	Echo = "ConsensusEcho",
 	Seam = "ConsensusSeam",

@@ -177,7 +177,8 @@ function BotService:Run(player: Player, args: { string }, report: (string) -> ()
 		humanoid = humanoid,
 		root = root,
 		groundOffset = humanoid.HipHeight + root.Size.Y / 2,
-		group = Constants.CollisionGroups.Players,
+		-- Its sweeps see the world, never the other players (a ghost's group).
+		group = Constants.CollisionGroups.PlayerGhost,
 		halfWidth = 1,
 		path = Walker.PlayerPath,
 		opensDoors = "player",

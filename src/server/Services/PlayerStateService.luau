@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Bodies = require(Shared.Logic.Bodies)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Signal = require(Shared.Lib.Signal)
@@ -41,6 +42,20 @@ local function setGroup(character: Model, group: string)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.CollisionGroup = group
+		end
+	end
+end
+
+-- A living player's body: the root is their body to the world (solid to
+-- other players, or passing through them: _bodies), the rest touches nothing.
+local function bodyGroup(part: BasePart): string
+	return part.Name == "HumanoidRootPart" and Constants.CollisionGroups.PlayerBody or Constants.CollisionGroups.Players
+end
+
+local function setBodyGroups(character: Model)
+	for _, d in character:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CollisionGroup = bodyGroup(d)
 		end
 	end
 end
@@ -102,17 +117,50 @@ function PlayerStateService:Start()
 		end
 		local step = accumulator
 		accumulator = 0
+		self:_bodies(step)
 		self:_tick(step)
 	end)
 end
 
+-- Who is solid to whom (Logic/Bodies; the squad playtest, 2026-10-08:
+-- players collide, but two pressed together for a moment give way, so
+-- nobody can block a doorway). The downed, the hidden and anyone the game
+-- just moved are never solid. In the hub too.
+function PlayerStateService:_bodies(dt: number)
+	self.bodyState = self.bodyState or Bodies.new()
+	local now = os.clock()
+	local bodies, roots = {}, {}
+	for _, player in Players:GetPlayers() do
+		local record = records[player]
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if record and root and record.state ~= States.Lost then
+			roots[player] = root
+			bodies[player] =
+				{
+					position = root.Position,
+					always = not Config.Bodies.Collide or record.state == States.Downed or player:GetAttribute(
+						PA.Hidden
+					) ~= nil or root.Anchored or now < (record.teleportGrace or 0),
+				}
+		end
+	end
+	local ghosts = Bodies.step(self.bodyState, bodies, dt, Config.Bodies)
+	for player, root in roots do
+		local group = ghosts[player] and Constants.CollisionGroups.PlayerGhost or Constants.CollisionGroups.PlayerBody
+		if root.CollisionGroup ~= group then
+			root.CollisionGroup = group
+		end
+	end
+end
+
 function PlayerStateService:_onCharacter(player: Player, character: Model)
-	setGroup(character, Constants.CollisionGroups.Players)
+	setBodyGroups(character)
 	character.DescendantAdded:Connect(function(d)
 		if d:IsA("BasePart") then
 			local record = records[player]
 			d.CollisionGroup = (record and record.state == States.Lost) and Constants.CollisionGroups.Echo
-				or Constants.CollisionGroups.Players
+				or bodyGroup(d)
 		end
 	end)
 	local head = character:WaitForChild("Head", 10)
@@ -471,7 +519,7 @@ function PlayerStateService:_clearEcho(player: Player)
 	if not character then
 		return
 	end
-	setGroup(character, Constants.CollisionGroups.Players)
+	setBodyGroups(character)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
 			local t = d:GetAttribute("EchoOriginalTransparency")

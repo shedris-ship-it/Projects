@@ -100,3 +100,36 @@ What changed:
 - **Feel.** Winding up draws the thing back towards you (up to 0.8 studs). A full throw kicks the view out by 3° (scaled by the Camera motion setting). The whoosh is louder and higher the harder you throw.
 
 **New test:** TC-164 (throws at a wall, at him, and a tap against a wind-up).
+
+## WP5 and WP6 (build `.135`, one commit): the Guest off the furniture; players collide
+
+### The Guest off the furniture
+
+"Guest gets stuck on top furniture." His only colliding part was his root, riding 3.9 to 5.3 studs over his feet. Most furniture is lower (beds 3, tables 3.4), so the Humanoid took a table's top for floor and walked him up onto it. The clearance sweeps that guard his glides and yanks started at 3.5 studs and missed furniture too.
+
+What changed:
+- **A leg guard.** An invisible part from 1.2 to 3.9 studs over his feet (`StalkerModel` "Shins") stops at furniture like a wall, and still clears the stairs' ramps.
+- **Knee-high sweeps.** His sweeps reach down to 1.3 studs over his feet, and a second ray checks his knees (`Clearance` `sweepLow` and `kneeDrop`, for the Guest only).
+- **Recovery** (`Body:_checkAloft`). Found on a piece of furniture for 0.3 s, he goes to the nearest floor that fits him: straight there if nobody can see him, else by stepping down. It's logged as `GuestAloft`.
+- **Peek spots checked on use.** They're re-checked for furniture pushed onto them since they were cached. A spot counts as reached only within 1.5 studs of height (`Config.Guest.ArriveDy`; was 3, so a bed next to a spot counted).
+- **navtest counts it.** It reports moments on furniture.
+
+**Studio, seed 18:**
+- `navtest fast`: 21 legs, 0 failed, 3 with no way (locked doors), 0 falls, 0 phases, **0 on furniture**, 0 stuck moments.
+- Placed on a bed by hand, he was on the floor beside it within 0.4 s (`GuestAloft {"on":"bed","seen":false}`).
+
+### Players collide
+
+"Add collision between players." Players passed through each other on purpose, so nobody could body-block a doorway (DesignDoc section 3).
+
+Now players collide through their roots:
+- The root is the player's body to the world: `CollisionGroups.PlayerBody`, solid to other players.
+- The rest of the body collides with nothing, so a lying or crouched pose never fights the floor (WP7).
+- **Nobody can block a doorway** (`Logic/Bodies`, `Config.Bodies`). Two players pressed together for 0.9 s give way to each other (`PlayerGhost`), for at least 1.5 s and until each is 3 studs from everyone, so nobody turns solid inside a friend.
+- **Never solid:** the downed, the hidden, and anyone the game just moved (out of a hiding place, past a barricade, down the chute, revived).
+- It runs four times a second for every player, in the hub too.
+- The bot's sweeps use the ghost group, so they never treat a teammate as a wall.
+
+**Studio checks:** a player still stands on floors, climbs the grand stair and stops at walls (a root's half-width short). Gate A holds (parts 2152, hash 1995746720). 480 tests pass.
+
+**New tests:** TC-165 (the Guest and furniture), TC-166 (bumping into a friend), TC-167 (a friend in a doorway gives way within a second), TC-168 (a downed friend never blocks). TC-166 to TC-168 need two clients.

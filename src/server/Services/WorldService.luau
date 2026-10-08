@@ -38,8 +38,11 @@ local WorldService = {
 
 function WorldService:Init()
 	self.folder = nil
-	-- Collision groups (doc section 6: players pass through each other, so
-	-- nobody can body-block a doorway).
+	-- Collision groups. Players collide now (the squad playtest, 2026-10-08),
+	-- through their roots only: the rest of the body (Players) touches
+	-- nothing, and a root is solid (PlayerBody) or, pressed against a friend
+	-- for a moment, passes through other players (PlayerGhost), so nobody
+	-- can body-block a doorway (doc section 6; Logic/Bodies).
 	local PhysicsService = game:GetService("PhysicsService")
 	local Groups = require(Shared.Constants).CollisionGroups
 	for _, name in Groups do
@@ -47,9 +50,17 @@ function WorldService:Init()
 			PhysicsService:RegisterCollisionGroup(name)
 		end
 	end
-	PhysicsService:CollisionGroupSetCollidable(Groups.Players, Groups.Players, false)
-	PhysicsService:CollisionGroupSetCollidable(Groups.Players, Groups.Stalker, false)
-	PhysicsService:CollisionGroupSetCollidable(Groups.Players, Groups.Echo, false)
+	for _, name in Groups do
+		PhysicsService:CollisionGroupSetCollidable(Groups.Players, name, false)
+	end
+	PhysicsService:CollisionGroupSetCollidable(Groups.Players, "Default", false)
+	for _, root in { Groups.PlayerBody, Groups.PlayerGhost } do
+		PhysicsService:CollisionGroupSetCollidable(root, Groups.Stalker, false)
+		PhysicsService:CollisionGroupSetCollidable(root, Groups.Echo, false)
+		PhysicsService:CollisionGroupSetCollidable(root, Groups.Phantom, false)
+		PhysicsService:CollisionGroupSetCollidable(root, Groups.PlayerGhost, false)
+	end
+	PhysicsService:CollisionGroupSetCollidable(Groups.PlayerBody, Groups.PlayerBody, Config.Bodies.Collide)
 	PhysicsService:CollisionGroupSetCollidable(Groups.Echo, Groups.Echo, false)
 	PhysicsService:CollisionGroupSetCollidable(Groups.Echo, Groups.Stalker, false)
 	PhysicsService:CollisionGroupSetCollidable(Groups.Echo, Groups.Door, false)
@@ -63,7 +74,8 @@ function WorldService:Init()
 	-- throw's hit on him is decided in code. Heavy furniture you push collides
 	-- with everyone but Echoes.
 	for _, group in { Groups.Prop, Groups.Held } do
-		PhysicsService:CollisionGroupSetCollidable(group, Groups.Players, false)
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.PlayerBody, false)
+		PhysicsService:CollisionGroupSetCollidable(group, Groups.PlayerGhost, false)
 		PhysicsService:CollisionGroupSetCollidable(group, Groups.Echo, false)
 		PhysicsService:CollisionGroupSetCollidable(group, Groups.Stalker, false)
 		PhysicsService:CollisionGroupSetCollidable(group, Groups.Phantom, false)

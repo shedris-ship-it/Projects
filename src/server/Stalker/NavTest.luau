@@ -292,9 +292,12 @@ function NavTest.run(service, args, report: (string) -> ()): string
 			end
 			walker.allowNudge = false
 			local stats0 = table.clone(walker.stats)
-			local phases0 = body.phases
+			local phases0, alofts0 = body.phases, body.alofts
 			local started = os.clock()
 			local failures, falls, legs, noWays = {}, 0, 0, 0
+			-- Moments he stood on a piece of furniture (the squad playtest,
+			-- 2026-10-08); any is a failure.
+			local onFurniture = 0
 			local remaining = table.clone(spots)
 			while #remaining > 0 and service.navTesting do
 				local here = body.root.Position
@@ -333,6 +336,9 @@ function NavTest.run(service, args, report: (string) -> ()): string
 						fell = true
 					end
 					lastY = y
+					if body:FurnitureUnder() then
+						onFurniture += 1
+					end
 					if walker:Arrived() then
 						break
 					end
@@ -377,13 +383,15 @@ function NavTest.run(service, args, report: (string) -> ()): string
 			body:SetPose(Poses.Idle)
 			local stats = walker.stats
 			local summary = string.format(
-				"navtest%s: %d legs, %d failed, %d with no way · %d falls · %d phases · %d stuck moments, %d side-steps, %d re-plans, %d navmesh fallbacks · %.0fs",
+				"navtest%s: %d legs, %d failed, %d with no way · %d falls · %d phases · %d on furniture (%d stepped down) · %d stuck moments, %d side-steps, %d re-plans, %d navmesh fallbacks · %.0fs",
 				fast and " fast" or "",
 				legs,
 				#failures,
 				noWays,
 				falls,
 				body.phases - phases0,
+				onFurniture,
+				body.alofts - alofts0,
 				stats.stuck - stats0.stuck,
 				stats.sidesteps - stats0.sidesteps,
 				stats.replans - stats0.replans,

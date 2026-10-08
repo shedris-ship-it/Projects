@@ -344,6 +344,28 @@ function StalkerModel.build(archetype, parent: Instance)
 		humanoid:SetStateEnabled(state, false)
 	end
 
+	-- His legs, to the world (the squad playtest, 2026-10-08: "Guest gets
+	-- stuck on top furniture"). Only the root collided, riding 3.9 to 5.3
+	-- studs up, above beds (3) and tables (3.4): the Humanoid took their tops
+	-- for floor and he walked up onto them. An invisible guard from knee
+	-- height down to 1.2 over his feet stops at furniture like a wall, and
+	-- still clears the stairs' ramps underfoot.
+	local shins = Instance.new("Part")
+	shins.Name = "Shins"
+	shins.Size = Vector3.new(1.1, Rig.rootY - 0.7 - 1.2, 0.8)
+	shins.CFrame = CFrame.new(0, 1.2 + shins.Size.Y / 2, 0)
+	shins.Transparency = 1
+	shins.CanCollide = true
+	shins.CanTouch = false
+	shins.CanQuery = false
+	shins.CastShadow = false
+	shins.Massless = true
+	shins.Parent = model
+	local shinWeld = Instance.new("WeldConstraint")
+	shinWeld.Part0 = root
+	shinWeld.Part1 = shins
+	shinWeld.Parent = shins
+
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.CollisionGroup = Constants.CollisionGroups.Stalker
