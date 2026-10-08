@@ -67,6 +67,11 @@ function FeelController:_watch(character: Model)
 	end)
 end
 
+-- A short kick of the field of view (a throw), scaled by Camera motion.
+function FeelController:Kick(degrees: number)
+	self.burst = math.max(self.burst or 0, degrees * self:_intensity())
+end
+
 function FeelController:Start()
 	player.CharacterAdded:Connect(function(character)
 		self:_watch(character)
@@ -155,12 +160,14 @@ function FeelController:_update(dt: number)
 	-- How far the camera has moved with the bob: the hands lag behind it.
 	self.sway = active and Vector2.new(x, y + idle - self.dip) or Vector2.zero
 
-	-- Sprint FOV kick on top of the player's own setting.
+	-- Sprint FOV kick on top of the player's own setting, and any burst (a throw).
 	local base = self.state.settings.fov or Config.Camera.FieldOfView
 	local kickTarget = active and Feel.fovKick(speed, intensity, P, F) or 0
 	self.kick += (kickTarget - self.kick) * math.clamp(dt * F.FovEase, 0, 1)
-	if math.abs(self.kick) > 0.01 then
-		camera.FieldOfView = base + self.kick
+	self.burst = (self.burst or 0) * math.exp(-dt * 7)
+	local total = self.kick + self.burst
+	if math.abs(total) > 0.01 then
+		camera.FieldOfView = base + total
 		self.wroteFov = true
 	elseif self.wroteFov then
 		camera.FieldOfView = base

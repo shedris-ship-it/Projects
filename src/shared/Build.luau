@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-08.133",
-	note = "the torch wider and shorter (72 degrees, 30 studs), one Config.Torch for every light and the stare",
+	id = "2026-10-08.134",
+	note = "stronger throws: faster classes, a stronger tap, a flatter first half second, the wind-up draws back",
 }

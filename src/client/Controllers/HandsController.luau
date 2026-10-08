@@ -49,6 +49,7 @@ local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Throw = require(Shared.Logic.Throw)
+local ThrowLift = require(Shared.Lib.ThrowLift)
 local Util = require(Shared.Lib.Util)
 
 local GameSettings = UserSettings():GetService("UserGameSettings")
@@ -569,8 +570,14 @@ function HandsController:_throw(held: number)
 		root.AssemblyLinearVelocity = velocity
 		-- It tumbles end over end along the throw, less the heavier it is.
 		root.AssemblyAngularVelocity = look:Cross(Vector3.yAxis) * (6 / class.density)
+		ThrowLift.add(root, H)
 	end
 	Net.get("Throw"):FireServer(look, charge, root and root.Position or nil, velocity)
+	-- A full throw kicks the view out a little (behind Camera motion).
+	local feel = self.controllers.FeelController
+	if feel and feel.Kick then
+		feel:Kick(H.ThrowKick * charge)
+	end
 end
 
 -- Keep what you carry in front of you, following your eye with its weight.
@@ -603,6 +610,11 @@ function HandsController:_carryStep(dt: number)
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { player.Character, camera, model }
 	local distance = carry.distance
+	-- Winding up draws it back towards you.
+	if carry.windingSince then
+		local wound = math.clamp((os.clock() - carry.windingSince) / H.ChargeFull, 0, 1)
+		distance = math.max(H.CarryDistance[1] - 0.4, distance - H.WindPull * wound)
+	end
 	local hit = Workspace:Raycast(eye, look * (distance + 0.5), params)
 	if hit then
 		distance = math.max(0.8, hit.Distance - 0.7)

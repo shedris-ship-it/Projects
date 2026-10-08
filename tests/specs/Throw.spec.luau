@@ -5,6 +5,7 @@ return function(test, check, Shared, require)
 	local Vector3 = roblox.Vector3
 	local Throw = require(Shared.Logic.Throw)
 	local Config = require(Shared.Config)
+	local Physical = require(Shared.Data.Physical)
 
 	local feet, head = Vector3.new(0, 0, 0), Vector3.new(0, 6, 0)
 
@@ -91,13 +92,43 @@ return function(test, check, Shared, require)
 		local H = Config.Hands
 		local from, v = Vector3.new(0, 5, 0), Vector3.new(0, 4, -40)
 		local g = Vector3.new(0, -196.2, 0)
-		local honest = Throw.predict(from, v, g, 0.3)
+		local honest = Throw.predict(from, v, g, 0.3, H.FlightLift, H.FlightLiftSeconds)
 		check.truthy(Throw.onArc(from, v, g, 0.3, honest, H), "where it should be")
 		check.truthy(
 			Throw.onArc(from, v, g, 0.3, honest + Vector3.new(1.5, 0, 0), H),
 			"a little off (spin, the network)"
 		)
 		check.truthy(not Throw.onArc(from, v, g, 0.3, honest + Vector3.new(8, 0, 0), H), "steered sideways")
+	end)
+
+	-- The squad playtest (2026-10-08): "weak throws".
+	test("a throw flies flatter at first, then falls as before, with no jump between", function()
+		local H = Config.Hands
+		local from, v = Vector3.new(0, 5, 0), Vector3.new(0, 0, -60)
+		local g = Vector3.new(0, -196.2, 0)
+		local plain = Throw.predict(from, v, g, 0.4)
+		local lifted = Throw.predict(from, v, g, 0.4, H.FlightLift, H.FlightLiftSeconds)
+		check.truthy(lifted.Y > plain.Y + 5, "higher after 0.4 s")
+		local t = H.FlightLiftSeconds
+		local before = Throw.predict(from, v, g, t - 1e-4, H.FlightLift, t)
+		local after = Throw.predict(from, v, g, t + 1e-4, H.FlightLift, t)
+		check.atMost((after - before).Magnitude, 0.05, "continuous where the lift ends")
+		-- A full light throw at a wall 25 studs off arrives near head height.
+		local speed = Physical.Classes.light.throwSpeed
+		local flight = 25 / speed
+		local at = Throw.predict(from, Vector3.new(0, speed * H.ThrowLift, -speed), g, flight, H.FlightLift, t)
+		check.atLeast(at.Y, from.Y - 3, "drops under 3 studs over 25")
+	end)
+
+	test("every class stuns wound up; a tap stuns only with light and medium things", function()
+		local H = Config.Hands
+		for name, class in Physical.Classes do
+			check.atLeast(class.throwSpeed, H.StunMinSpeed, name .. ": a full throw stuns")
+		end
+		local tap = Throw.charge(0, H)
+		check.atLeast(Physical.Classes.light.throwSpeed * tap, H.StunMinSpeed, "a tapped bottle")
+		check.atLeast(Physical.Classes.medium.throwSpeed * tap, H.StunMinSpeed, "a tapped vase")
+		check.truthy(Physical.Classes.heavy.throwSpeed * tap < H.StunMinSpeed, "a heavy thing wants a wind-up")
 	end)
 
 	test("a throw leaves along the aim at the class's speed, plus your own motion", function()

@@ -116,8 +116,29 @@ end
 
 -- Where something launched from `from` at `velocity` is `t` seconds later,
 -- if nothing touches it. `gravity` is the gravity vector (pointing down).
-function Throw.predict(from: Vector3, velocity: Vector3, gravity: Vector3, t: number): Vector3
-	return from + velocity * t + gravity * (0.5 * t * t)
+-- `lift` (0..1) of gravity is held off for its first `liftSeconds` (a throw
+-- flies flatter at first: HandsController and HandsService add the force).
+function Throw.predict(
+	from: Vector3,
+	velocity: Vector3,
+	gravity: Vector3,
+	t: number,
+	lift: number?,
+	liftSeconds: number?
+): Vector3
+	local l, tl = lift or 0, liftSeconds or 0
+	if l <= 0 or tl <= 0 then
+		return from + velocity * t + gravity * (0.5 * t * t)
+	end
+	local light = gravity * (1 - l)
+	if t <= tl then
+		return from + velocity * t + light * (0.5 * t * t)
+	end
+	-- The lifted stretch, then full gravity from where and how it left it.
+	local at = from + velocity * tl + light * (0.5 * tl * tl)
+	local v = velocity + light * tl
+	local rest = t - tl
+	return at + v * rest + gravity * (0.5 * rest * rest)
 end
 
 -- Is `at` where a validated throw could be, `t` seconds after it left the
@@ -125,7 +146,7 @@ end
 -- throws pass and one steered off its arc doesn't (cfg: ArcSlack,
 -- ArcSlackPerSecond).
 function Throw.onArc(from: Vector3, velocity: Vector3, gravity: Vector3, t: number, at: Vector3, cfg): boolean
-	local expected = Throw.predict(from, velocity, gravity, t)
+	local expected = Throw.predict(from, velocity, gravity, t, cfg.FlightLift, cfg.FlightLiftSeconds)
 	return (at - expected).Magnitude <= cfg.ArcSlack + cfg.ArcSlackPerSecond * t
 end
 

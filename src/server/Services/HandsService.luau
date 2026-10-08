@@ -46,6 +46,7 @@ local Physical = require(Shared.Data.Physical)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
 local Throw = require(Shared.Logic.Throw)
+local ThrowLift = require(Shared.Lib.ThrowLift)
 
 local H = Config.Hands
 local Groups = Constants.CollisionGroups
@@ -499,6 +500,7 @@ function HandsService:Throw(player: Player, aim: Vector3, charge: number?, posit
 		root.AssemblyLinearVelocity = launch
 		local spin = aim.Unit:Cross(Vector3.yAxis)
 		root.AssemblyAngularVelocity = spin * (6 / class.density)
+		ThrowLift.add(root, H)
 	end
 	thing.state = "flying"
 	thing.thrower = player
@@ -506,7 +508,8 @@ function HandsService:Throw(player: Player, aim: Vector3, charge: number?, posit
 	thing.lastPos = from
 	thing.launch = { from = from, velocity = launch, at = os.clock() }
 	thing.bounced = false
-	Sfx.play("Whoosh", from, 0.25 + 0.15 * power, 1.3)
+	-- Louder and higher the harder it's thrown.
+	Sfx.play("Whoosh", from, 0.3 + 0.3 * power, 1.05 + 0.4 * power)
 	self.Thrown:Fire(thing, player)
 end
 
@@ -526,6 +529,7 @@ function HandsService:BounceOff(thing)
 	self:_reclaim(thing)
 	thing.bounced = true
 	if thing.root and thing.root.Parent then
+		ThrowLift.remove(thing.root)
 		thing.root.AssemblyLinearVelocity *= -0.3
 	end
 end

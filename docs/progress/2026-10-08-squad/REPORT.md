@@ -85,3 +85,18 @@ A spec keeps the stare's beam equal to the torch's.
 **Fix:** `ActionController` exposes its light part, so `ViewModelController` can move the beam to the torch's lens in the same frame. That line never ran before.
 
 **New tests:** TC-162 (the beam's look; do the light you see and the one your friends see match?) and TC-163 (the stare at 25 and at 35 studs).
+
+## WP4 (build `.134`): stronger throws
+
+"Weak throws." A tap threw at 35% of the class's speed (17.5 studs/s for a bottle, under the 28 a stun needs). Roblox's gravity, about five times a real fall at this scale, pulled a full throw to the floor in about ten studs.
+
+What changed:
+- **Faster things.** Throw speeds are light 68, medium 58, heavy 46 and bulky 38 (were 50, 42, 34 and 30).
+- **A quicker wind-up.** A tap is 55% (was 35%), and full power comes at 0.5 s (was 0.7). A tapped bottle or vase stuns; a heavy thing still wants a wind-up. `StunMinSpeed` is 30.
+- **A flatter flight.** For its first half second a throw falls with a quarter of the gravity (`FlightLift` 0.75, `FlightLiftSeconds` 0.5). A light throw at a wall 25 studs off now lands about 2.3 studs below where it left, not on the floor.
+  - A `Lib/ThrowLift` force does it on whichever machine flies the thing.
+  - It comes off early if the thing slows hard, and when it bounces off him.
+  - `Throw.predict` models the same lift, so the server's first-arc stun check still agrees.
+- **Feel.** Winding up draws the thing back towards you (up to 0.8 studs). A full throw kicks the view out by 3° (scaled by the Camera motion setting). The whoosh is louder and higher the harder you throw.
+
+**New test:** TC-164 (throws at a wall, at him, and a tap against a wind-up).

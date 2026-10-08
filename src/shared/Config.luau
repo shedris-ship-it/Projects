@@ -1595,10 +1595,20 @@ Config.Hands = {
 	GrabGraceSeconds = 0.5, -- just after taking hold (lifting it out of a drawer), passing through isn't checked
 	-- Throwing (R2c): hold the right button to wind up. ChargeMin to ChargeFull
 	-- seconds of holding goes from ChargeLow of the class's throw to all of it.
-	ChargeMin = 0.15,
-	ChargeFull = 0.7,
-	ChargeLow = 0.35,
-	ThrowLift = 0.08, -- a little upward lift on every throw
+	-- The squad playtest (2026-10-08) found throws weak: a tap was a third of a
+	-- throw and fell to the floor in a few strides. Now a tap is over half,
+	-- the wind-up is quicker, and a throw flies flatter for its first moment.
+	ChargeMin = 0.08,
+	ChargeFull = 0.5,
+	ChargeLow = 0.55,
+	ThrowLift = 0.04, -- a little upward lift on every throw
+	-- For its first FlightLiftSeconds a throw falls with this much less
+	-- gravity (Roblox's 196 studs/s/s is about five times a real fall at this
+	-- scale; a quarter of it is close to real).
+	FlightLift = 0.75,
+	FlightLiftSeconds = 0.5,
+	WindPull = 0.8, -- studs a wound-up throw draws back towards you
+	ThrowKick = 3, -- degrees of field of view a full throw kicks out (Camera motion setting)
 	ThrowCarry = 0.5, -- how much of its own swing (and your run) a throw keeps
 	-- A stun counts only on a throw's first arc, within this of where it
 	-- should be (studs, plus this a second): it can't be steered into him.
@@ -1617,7 +1627,7 @@ Config.Hands = {
 	-- A throw that hits The Guest stops him for a moment (section 4.4): the
 	-- class's stun (Data/Physical), halved for each stun in the last StunWindow
 	-- seconds, never again within StunImmuneSeconds of one ending.
-	StunMinSpeed = 28, -- slower than this and it just bumps off him
+	StunMinSpeed = 30, -- slower than this and it just bumps off him
 	StunRadius = 1.6, -- his body's reach plus a thrown thing's
 	StunImmuneSeconds = 4,
 	StunWindow = 60,
