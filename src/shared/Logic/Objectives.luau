@@ -13,9 +13,10 @@
 --          thing? (a step's chest, not a door: "chest") } }
 --     (`kind` the lock it works, `place` its next door someone has seen)
 --   stations: the puzzles and locked cases someone has been near, in the
---     order they were first seen: { { kind, room, solved, optional? } }. The
---     newest one not yet dealt with is mentioned (an optional one, the safe
---     room's fuse box, says so).
+--     order they were first seen: { { kind, room, solved, optional?,
+--     heard? } }. The newest one not yet dealt with is mentioned (an
+--     optional one, the safe room's fuse box, says so). `heard`: the piano's
+--     music box has played for someone.
 --   tidied: he put an heirloom back where it was kept (until it's found again)
 --   hint: stuck-assist's sentence (Logic/Assist), once the squad has stalled
 -- }
@@ -24,7 +25,8 @@ local Marks = require(script.Parent.Parent.Data.Marks)
 
 local Objectives = {}
 
--- What a station seen and not yet dealt with says, by kind. Each new puzzle
+-- What a station seen and not yet dealt with says, by kind (with the
+-- station's entry, for lines that change as it's learned). Each new puzzle
 -- or lead adds its line here.
 Objectives.Stations = {
 	terminal = function(room: string)
@@ -41,8 +43,19 @@ Objectives.Stations = {
 	safe = function(room: string)
 		return "There's a safe in the " .. room .. "."
 	end,
-	musicbox = function(room: string)
-		return "The piano in the " .. room .. " is waiting for a tune."
+	-- The squad playtest (2026-10-08): nobody knew the piano was a puzzle, or
+	-- what it wanted. It says so, and points at the box until it's heard.
+	musicbox = function(room: string, station)
+		if station and station.heard then
+			return "Play the music box's tune on the piano in the "
+				.. room
+				.. ". Its keys wear the colours of the comb's teeth."
+		end
+		return "The piano in the " .. room .. " is shut on something. It wants the music box's tune."
+	end,
+	-- The box itself, seen before anyone has heard it.
+	tunebox = function(room: string)
+		return "There's a music box in the " .. room .. ". Wind it and watch its comb."
 	end,
 	crank = function(room: string)
 		return "A shutter in the " .. room .. " won't stay up on its own."
@@ -145,7 +158,7 @@ function Objectives.line(facts): string
 		if not station.solved and say then
 			table.insert(
 				parts,
-				say(station.room) .. (station.optional and " One of its breakers is for a safe room." or "")
+				say(station.room, station) .. (station.optional and " One of its breakers is for a safe room." or "")
 			)
 			break
 		end

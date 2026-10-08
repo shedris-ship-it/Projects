@@ -51,6 +51,7 @@ local MARKS = {
 	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
 	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
 	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
+	tunebox = { text = "MUSIC BOX", color = Color3.fromRGB(220, 190, 230) },
 	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
 	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
 	-- A step's chest or fridge, chained or nailed shut (its label says which).

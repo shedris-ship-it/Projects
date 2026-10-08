@@ -46,8 +46,10 @@ end
 
 function PuzzleService:Start()
 	Net.onServer("PuzzleInput", {
-		interval = 0.08,
-		burst = 14,
+		-- Quick enough for a tune played fast (a repeated note, two keys at
+		-- once); a dropped press read as the wrong note.
+		interval = 0.04,
+		burst = 20,
 		types = { "string", "string", "string?", "number?", "number?" },
 	}, function(player, id, action, word, a, b)
 		self:_input(player, id, action, word, a, b)

@@ -1383,15 +1383,37 @@ Config.Breaker = {
 -- MusicBox). Both play the one music-box note (Assets MusicBoxNote),
 -- pitched: the piano lower, like a toy piano gone out of tune.
 Config.MusicBox = {
-	NoteGap = 0.55, -- seconds between the box's notes
+	NoteGap = 0.6, -- seconds between the box's notes
+	-- The piano plays the box's notes at the box's own pitch (the squad
+	-- playtest, 2026-10-08: an octave apart, the key that sounded right was
+	-- the wrong one).
 	BoxPitch = 1,
 	BoxVolume = 0.6,
-	PianoPitch = 0.5,
+	PianoPitch = 1,
 	PianoVolume = 0.85,
 	Lure = 22, -- the box playing carries this far (a lure, from whoever winds or carries it)
 	CarriedEvery = 7, -- carried, it plays its tune again this often
 	LureEvery = 3,
-	DiscordNoise = 35, -- (doc) a wrong note on the piano
+	-- Each key on the piano is heard this far (it replaced the doc's loud
+	-- discord: a wrong note costs nothing but the noise every note makes).
+	KeyNoise = 12,
+	-- Listen (at the piano): the box within this of it can be wound from the screen.
+	ListenReach = 12,
+	-- The comb's strip on screen: shown to anyone this near the box as it plays.
+	StripReach = 24,
+	StripHold = 1.6, -- seconds the strip stays after the last note
+	-- A child's practice stickers: key k and tooth k wear colour k, named for
+	-- callouts ("red, blue, green...").
+	Colors = {
+		{ name = "red", rgb = { 205, 62, 56 } },
+		{ name = "orange", rgb = { 230, 138, 44 } },
+		{ name = "yellow", rgb = { 232, 206, 64 } },
+		{ name = "green", rgb = { 76, 168, 78 } },
+		{ name = "teal", rgb = { 58, 168, 172 } },
+		{ name = "blue", rgb = { 66, 108, 214 } },
+		{ name = "purple", rgb = { 150, 84, 196 } },
+		{ name = "pink", rgb = { 230, 120, 172 } },
+	},
 }
 
 -- Crank doors (R2c; Services/CrankService): a roller shutter on a crank.

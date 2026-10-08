@@ -1,16 +1,23 @@
 -- The music box and the piano (docs/plans/gameplay-rework.md section 7;
 -- R2c): somewhere in the house a music box; wind it and it plays a short
 -- tune, for everyone, wherever it's carried. Play that tune back on the
--- piano: a wrong note is a loud discord (heard by him) and you start again;
--- the whole tune opens the piano on an heirloom.
+-- piano and it opens on an heirloom.
 --
--- The tune: `length` notes (4 to 7) on 8 keys of a pentatonic scale, never
+-- The squad playtest (2026-10-08) found it unreadable: "even for me who
+-- knows it's there, I don't know how to do it". Now the box's comb and the
+-- piano's keys wear the same eight colours (a child's practice stickers,
+-- Config.MusicBox.Colors), the comb lights each note as it plays, and the
+-- piano plays freely: no discord, no starting again. It opens the moment
+-- its last notes played are the tune (each key is a little noise instead).
+--
+-- The tune: `length` notes (4 or 5) on 8 keys of a pentatonic scale, never
 -- one key three times, and it changes direction at least once (so it's a
 -- tune, not a run of steps). Pure (tests/specs/MusicBox.spec).
 
 local MusicBox = {}
 
 MusicBox.Keys = 8
+MusicBox.Lengths = { 4, 5 } -- short enough to remember from one hearing
 -- Semitones above the lowest key: a major pentatonic across two octaves.
 MusicBox.Semitones = { 0, 2, 4, 7, 9, 12, 14, 16 }
 
@@ -46,7 +53,7 @@ function MusicBox.valid(notes): boolean
 end
 
 function MusicBox.generate(rng, ctx)
-	local length = (ctx and ctx.length) or rng:NextInteger(4, 7)
+	local length = (ctx and ctx.length) or rng:NextInteger(MusicBox.Lengths[1], MusicBox.Lengths[2])
 	local notes
 	repeat
 		notes = {}
@@ -66,14 +73,36 @@ function MusicBox.view(spec)
 end
 
 function MusicBox.start(_spec)
-	return { played = 0, solved = false }
+	return { played = 0, solved = false, recent = {} }
 end
 
--- input: { kind = "key", key }. Events: "note" (right), "discord" (wrong:
--- start again), "solved", "refused".
+-- How much of the tune the keys played last spell out: the longest run at
+-- the end of `recent` that is the start of the tune.
+function MusicBox.matched(notes, recent): number
+	for n = math.min(#notes, #recent), 1, -1 do
+		local ok = true
+		for i = 1, n do
+			if recent[#recent - n + i] ~= notes[i] then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			return n
+		end
+	end
+	return 0
+end
+
+-- input: { kind = "key", key } or { kind = "listen" } (wind the box beside
+-- the piano). Events: "note" (every key, with how much of the tune it now
+-- matches), "listen", "solved", "refused".
 function MusicBox.step(spec, state, input)
 	if state.solved then
 		return state, {}
+	end
+	if input.kind == "listen" then
+		return state, { { kind = "listen" } }
 	end
 	if input.kind ~= "key" or type(input.key) ~= "number" or input.key % 1 ~= 0 then
 		return state, { { kind = "refused" } }
@@ -81,17 +110,18 @@ function MusicBox.step(spec, state, input)
 	if input.key < 1 or input.key > MusicBox.Keys then
 		return state, { { kind = "refused" } }
 	end
-	if input.key == spec.notes[state.played + 1] then
-		state.played += 1
-		local events = { { kind = "note", key = input.key } }
-		if state.played >= spec.length then
-			state.solved = true
-			table.insert(events, { kind = "solved" })
-		end
-		return state, events
+	state.recent = state.recent or {}
+	table.insert(state.recent, input.key)
+	while #state.recent > spec.length do
+		table.remove(state.recent, 1)
 	end
-	state.played = 0
-	return state, { { kind = "discord", key = input.key } }
+	state.played = MusicBox.matched(spec.notes, state.recent)
+	local events = { { kind = "note", key = input.key, played = state.played } }
+	if state.played >= spec.length then
+		state.solved = true
+		table.insert(events, { kind = "solved" })
+	end
+	return state, events
 end
 
 function MusicBox.solved(state): boolean
@@ -105,6 +135,8 @@ end
 function MusicBox.parse(action: string, _word: string?, a: number?, _b: number?, _now: number)
 	if action == "key" and type(a) == "number" then
 		return { kind = "key", key = a }
+	elseif action == "listen" then
+		return { kind = "listen" }
 	end
 	return nil
 end

@@ -350,7 +350,15 @@ function AudioController:_behindWall(position: Vector3): boolean
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { player.Character or camera }
-	return Workspace:Raycast(camera.CFrame.Position, position - camera.CFrame.Position, params) ~= nil
+	-- Stop short of the sound itself: most sounds come from inside a solid
+	-- prop (a piano's keys, the music box), and its own surface used to
+	-- muffle every note (the squad playtest, 2026-10-08).
+	local offset = position - camera.CFrame.Position
+	local length = offset.Magnitude - 1.5
+	if length <= 0 then
+		return false
+	end
+	return Workspace:Raycast(camera.CFrame.Position, offset.Unit * length, params) ~= nil
 end
 
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
@@ -509,6 +517,29 @@ function AudioController:_heirlooms()
 		watch(model)
 	end
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.Grabbable):Connect(watch)
+	-- Quiet near the music box that is a puzzle's clue: two music boxes at
+	-- once and nobody can tell which tune is the piano's (the squad
+	-- playtest, 2026-10-08).
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < 0.4 or next(tinkles) == nil then
+			return
+		end
+		elapsed = 0
+		local camera = Workspace.CurrentCamera
+		local quiet = false
+		for _, box in CollectionService:GetTagged("ConsensusMusicBox") do
+			local part = camera and box:IsA("Model") and box.PrimaryPart
+			if part and (part.Position - camera.CFrame.Position).Magnitude < 30 then
+				quiet = true
+				break
+			end
+		end
+		for _, sound in tinkles do
+			sound.Volume = quiet and 0 or 0.16
+		end
+	end)
 end
 
 -- The baby monitor's receiver (Services/MonitorService), while you carry it:
@@ -598,20 +629,21 @@ function AudioController:_loops()
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.SoundLoop):Connect(watch)
 end
 
--- The music box (server/Puzzles/MusicBox): with subtitles on, the tooth of
--- each note it plays lights up as it sounds, and it's captioned when near.
+-- The music box (server/Puzzles/MusicBox): the tooth of each note it plays
+-- lights up as it sounds (always: the comb is the puzzle's clue, the squad
+-- playtest of 2026-10-08), and it's captioned when near.
 function AudioController:_combs()
 	local function watch(model: Instance)
 		model:GetAttributeChangedSignal("Comb"):Connect(function()
 			local key, index = string.match(tostring(model:GetAttribute("Comb")), "^(%d+):(%d+)")
 			local tooth = key and model:FindFirstChild("Tooth" .. key)
-			if not tooth or not self.state.settings.subtitles then
+			if not tooth then
 				return
 			end
 			local color, material = tooth.Color, tooth.Material
 			tooth.Color = Color3.fromRGB(255, 230, 150)
 			tooth.Material = Enum.Material.Neon
-			task.delay(0.35, function()
+			task.delay(0.45, function()
 				if tooth.Parent then
 					tooth.Color, tooth.Material = color, material
 				end

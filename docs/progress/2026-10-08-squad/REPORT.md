@@ -31,3 +31,38 @@ Gate A can't move: the 40×40 templates already keep 2.5 studs clear, and the ba
 **A contact test that couldn't fail.** `Stalk.spec`'s `touching()` left out `approachSpeed`, so it passed while the live code refused every walk. It now carries a run's speed, and a new case checks that a walk at 8 is not a contact.
 
 **New tests:** TC-158 (no clock over a window) and TC-159 (the solo bleed bar).
+
+## WP2 (build `.132`): the piano, made readable
+
+The owner: "even for me who knows it's there, I don't know how to do it". A new player wouldn't realise the piano is a puzzle at all. The code reading found five more faults:
+- The piano played an octave below the box, so the key that sounded like a note was the wrong one.
+- Every wrong key reset the tune with a loud discord.
+- Every note was muffled by its own prop.
+- Number keys 1–3 also switched slots, which dropped a carried box.
+- The comb only lit with subtitles on.
+
+What changed:
+- **One colour per note.** The box's comb and the piano's keys wear the same eight colours, a child's practice stickers (`Config.MusicBox.Colors`: red, orange, yellow, green, teal, blue, purple, pink). The comb is bigger. Its teeth light as each note plays, for everyone, always.
+- **The tune on screen.** Anyone within 24 studs of the box as it plays sees the comb strip, `UI/TuneStrip`: one coloured slot per note, its name under it, fading 1.6 s after the last note. Say the colours to whoever is at the piano.
+- **The piano says what it wants.** It has stickers on eight keys, and a sheet on its stand, "the box's song", with one blank note per note of the tune. The sheet fills with the tune's colours once it's played.
+- **The screen.**
+  - The keys wear the colours and their names, and sound the moment you press them.
+  - The lights fill with the colours matched so far.
+  - **Listen** winds the box when it's beside the piano.
+- **No penalty for slips.** Wrong notes cost nothing. The piano opens the moment the last notes played are the tune (`MusicBox.matched`). Each key is a little noise instead (`KeyNoise` 12). Tunes are 4 or 5 notes (were 4 to 7), and the piano plays at the box's pitch.
+- **Leads.**
+  - The objective line says "The piano in the X is shut on something. It wants the music box's tune." until someone has heard the box, then "Play the music box's tune on the piano in the X. Its keys wear the colours of the comb's teeth."
+  - A box seen first has its own line: "There's a music box in the X. Wind it and watch its comb."
+  - The stuck-hint points at the box's room until it's heard.
+  - The map marks the box once seen.
+  - Two tips teach it.
+- **Fixes.**
+  - Sounds aren't muffled by their own prop: `AudioController:_behindWall` stops 1.5 studs short. This helps every positional sound.
+  - Number keys don't change slots while a screen is up.
+  - Fast presses aren't dropped (`PuzzleInput` 0.04 s, burst 20).
+  - The carried heirloom's faint tune goes quiet within 30 studs of the clue box.
+  - The heirloom lands on the piano's top wherever it has been pushed.
+
+Dropped from the design doc: the discord rule (a wrong note was a loud noise and a restart).
+
+**New tests:** TC-160 (a newcomer finds and solves it without help) and TC-161 (number keys at the piano).

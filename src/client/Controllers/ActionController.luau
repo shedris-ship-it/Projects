@@ -25,6 +25,8 @@ local Feel = require(Shared.Logic.Feel)
 local Inventory = require(Shared.Logic.Inventory)
 local Net = require(Shared.Net)
 
+local Ui = require(script.Parent.Parent.Lib.Ui)
+
 local PA = Constants.PlayerAttributes
 local PS = Constants.PlayerStates
 local P = Config.Player
@@ -92,7 +94,14 @@ function ActionController:Start()
 	-- your bare hands. The server decides; these only ask.
 	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four } do
 		self:_bind("ConsensusSlot" .. slot, function(inputState)
-			if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+			-- Not while a screen is up: the piano's keys are 1 to 8 too, and
+			-- a slot change put down the music box you'd carried to it.
+			if
+				inputState == Enum.UserInputState.Begin
+				and self.state:IsActive()
+				and not self.state:IsHidden()
+				and not Ui.modalOpen()
+			then
 				Net.get("SelectSlot"):FireServer(slot)
 			end
 		end, false, nil, key)

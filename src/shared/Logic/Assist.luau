@@ -145,6 +145,10 @@ function Assist.phrase(hint, roomName: string?, label: string?): string
 		return string.format("Carry %s to its place at the table.", label or "the heirloom")
 	elseif hint.kind == "door" then
 		return string.format("You already hold what opens a door in %s.", roomName or "a room nearby")
+	elseif hint.kind == "puzzle" and hint.puzzle == "tunebox" then
+		-- The piano's tune, before anyone has heard the box (the caller swaps
+		-- the hint to the box's room: Services/FinaleService).
+		return string.format("Wind the music box in %s: the piano wants its tune.", roomName or "a room nearby")
 	elseif hint.kind == "puzzle" then
 		return string.format("Try %s in %s.", STATIONS[hint.puzzle] or "the puzzle", roomName or "a room nearby")
 	end

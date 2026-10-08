@@ -177,6 +177,18 @@ function FinaleService:_assist()
 		self.facts.hint, self.hintRoom, self.hint = nil, nil, nil
 		return
 	end
+	-- The piano wants a tune nobody has heard yet: point at the box first.
+	if hint.kind == "puzzle" and hint.puzzle == "musicbox" then
+		for _, session in self.Puzzles.sessions do
+			local box = session.kind == "musicbox" and session.box
+			if session.token == hint.token and box and not session.heard and box.model.Parent then
+				local room = self.World:RoomAt(box.model:GetPivot().Position)
+				if room then
+					hint = { kind = "puzzle", puzzle = "tunebox", room = room, token = hint.token }
+				end
+			end
+		end
+	end
 	local roomName = hint.room and self.Items:RoomPhrase(hint.room) or nil
 	local label = hint.token and string.lower(self.Items:Label(hint.token)) or nil
 	local text = Assist.phrase(hint, roomName, label)
@@ -249,7 +261,23 @@ function FinaleService:_stations()
 				room = session.room,
 				solved = session.state.solved == true,
 				optional = session.optional,
+				heard = session.heard,
 			})
+		end
+		-- The piano's music box, where it is now, until someone has heard it.
+		local box = session.kind == "musicbox" and session.box
+		if box and box.model.Parent then
+			local at = box.model:GetPivot().Position
+			local room = self.World:RoomAt(at)
+			if room then
+				table.insert(list, {
+					id = session.id .. ":box",
+					kind = "tunebox",
+					position = at,
+					room = room,
+					solved = session.heard == true or session.state.solved == true,
+				})
+			end
 		end
 	end
 	-- A crank door's shutter, until it's latched open.
@@ -303,11 +331,28 @@ function FinaleService:_lookForStations()
 						room = self.World:Room(station.room).name,
 						solved = false,
 						optional = station.optional,
+						heard = station.heard,
 					}
 					self.seenStations[station.id] = entry
 					table.insert(self.facts.stations, entry)
 					self:_publish()
 					break
+				end
+			end
+		else
+			-- Seen already: what has been learned since (the box heard, the
+			-- box's own line dealt with).
+			local entry = self.seenStations[station.id]
+			if entry and entry.kind then
+				local changed = false
+				if station.heard ~= nil and entry.heard ~= station.heard then
+					entry.heard, changed = station.heard, true
+				end
+				if station.solved and not entry.solved then
+					entry.solved, changed = true, true
+				end
+				if changed then
+					self:_publish()
 				end
 			end
 		end

@@ -37,6 +37,21 @@ local function lanternNear(): boolean
 	return false
 end
 
+-- The piano's music box within a few strides (server/Puzzles/MusicBox).
+local function musicBoxNear(): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return false
+	end
+	for _, box in CollectionService:GetTagged("ConsensusMusicBox") do
+		local part = box:IsA("Model") and box.PrimaryPart
+		if part and (part.Position - root.Position).Magnitude < 12 then
+			return true
+		end
+	end
+	return false
+end
+
 local Tips = {}
 Tips.__index = Tips
 
@@ -102,6 +117,20 @@ local TIPS = {
 		id = "lantern",
 		text = "A Lantern shrine: hold E to light it. A lit Lantern room recharges your torch, and he can't start a hunt on you there.",
 		when = lanternNear,
+	},
+	-- The squad playtest (2026-10-08): nobody knew the piano was a puzzle.
+	{
+		id = "musicbox",
+		text = "A music box. Hold E to wind it: each note lights a coloured tooth on its comb. Remember the colours; something in this house wants that tune.",
+		when = musicBoxNear,
+	},
+	{
+		id = "piano",
+		text = "The piano is shut on something. Play it the music box's tune: its keys wear the same colours as the comb's teeth.",
+		when = function(self)
+			local line = self.state:Run(RS.Objective)
+			return type(line) == "string" and string.find(line, "piano", 1, true) ~= nil
+		end,
 	},
 	{
 		id = "battery",
