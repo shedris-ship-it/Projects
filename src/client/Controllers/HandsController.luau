@@ -378,7 +378,13 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 			self:_note("press " .. tostring(primary:GetAttribute(Constants.Attributes.CId)))
 			return sink
 		end
-		if hit and hit.Distance <= P.Reach + 1.5 and self:_pushableOf(hit.Instance) then
+		local pushable = hit and hit.Distance <= P.Reach + 1.5 and self:_pushableOf(hit.Instance)
+		if pushable and pushable:GetAttribute("HideSpot") then
+			-- A wardrobe, a bed: E hides you in it (hold the mouse to push it).
+			self:_note("pass: a hiding place")
+			return pass
+		end
+		if pushable then
 			self.press = { at = os.clock() }
 			self:_note("press furniture")
 			return sink

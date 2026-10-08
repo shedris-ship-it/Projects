@@ -384,6 +384,7 @@ function LevelBuilder.furnish(world, ctx)
 					local frontDir = d.CFrame.LookVector
 					local base = d.CFrame * CFrame.new(0, -d.Size.Y / 2, 0)
 					local peekPos = (base * CFrame.new(0, eye, -depth / 2 - 0.35)).Position
+					local tuckPos = (base * CFrame.new(0, eye, -depth / 2 + 0.15)).Position
 					local spotId = "hide:" .. room.id .. ":" .. d.Name .. #record.hidingSpots
 					d:SetAttribute(Attr.CId, spotId)
 					d:SetAttribute(Attr.Category, category)
@@ -400,6 +401,7 @@ function LevelBuilder.furnish(world, ctx)
 						anchor = d,
 						insideCFrame = base * CFrame.new(inside.X, inside.Y, -inside.Z),
 						peekCFrame = CFrame.lookAt(peekPos, peekPos + frontDir),
+						tuckCFrame = CFrame.lookAt(tuckPos, tuckPos + frontDir),
 						frontPosition = (base * CFrame.new(0, 0, -depth / 2 - 2.6)).Position,
 						label = d:GetAttribute("Label") or category,
 					}
@@ -430,10 +432,13 @@ function LevelBuilder.furnish(world, ctx)
 				keyLightPart, keyLightKind = lightPart, kind.light
 			end
 			if kind.hide then
+				-- E hides in it (Controllers/HandsController leaves E to its prompt).
+				propModel:SetAttribute("HideSpot", true)
 				local w, h, d = kind.size[1], kind.size[2], kind.size[3]
 				local eye, inside = hideGeometry(kind.hide, d)
 				local frontDir = cf.LookVector * -1 -- prop front is +Z
 				local peekPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 + 0.35))
+				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - 0.15))
 				local anchor = PropFactory.part(
 					model,
 					"HideAnchor",
@@ -456,6 +461,7 @@ function LevelBuilder.furnish(world, ctx)
 					anchor = anchor,
 					insideCFrame = cf * CFrame.new(inside),
 					peekCFrame = CFrame.lookAt(peekPos, peekPos + frontDir),
+					tuckCFrame = CFrame.lookAt(tuckPos, tuckPos + frontDir),
 					frontPosition = cf:PointToWorldSpace(Vector3.new(0, 0, d / 2 + 2.6)),
 					label = prop.kind,
 					-- A walk-in closet: hidden by standing inside with its doors

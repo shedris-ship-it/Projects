@@ -223,7 +223,7 @@ function ActionController:Start()
 	RunService.RenderStepped:Connect(function(dt)
 		self:_updateMovement(dt)
 		self:_updateFlashlight(dt)
-		self:_updateHiddenCamera()
+		self:_updateHiddenCamera(dt)
 	end)
 	-- The wheel flips between slots, but only while the mouse is captured for
 	-- looking (a menu that frees the mouse keeps its own scrolling), and not
@@ -301,6 +301,22 @@ function ActionController:_onHidden(hidden: boolean)
 		peekYaw, peekPitch = 0, 0
 		if not physical then
 			camera.CameraType = Enum.CameraType.Scriptable
+			-- Your eye glides in to the gap (the squad playtest, 2026-10-08:
+			-- it used to snap), and starts tucked in.
+			self.hideGlide = { from = camera.CFrame, at = os.clock() }
+			self.peekBlend = 0
+			self.peeking = false
+			-- Hold right click (LT) to peek out: more of the room, and he may
+			-- see the door move (Logic/HideRules).
+			ContextActionService:BindActionAtPriority("ConsensusPeek", function(_, inputState)
+				local on = inputState == Enum.UserInputState.Begin
+				if on ~= self.peeking then
+					self.peeking = on
+					Net.get("HidePeek"):FireServer(on)
+				end
+				return Enum.ContextActionResult.Sink
+			end, true, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
+			ContextActionService:SetTitle("ConsensusPeek", "Peek")
 		end
 		ContextActionService:BindActionAtPriority("ConsensusBreath", function(_, inputState)
 			if inputState == Enum.UserInputState.Begin then
@@ -323,6 +339,9 @@ function ActionController:_onHidden(hidden: boolean)
 	else
 		ContextActionService:UnbindAction("ConsensusBreath")
 		ContextActionService:UnbindAction("ConsensusLeave")
+		ContextActionService:UnbindAction("ConsensusPeek")
+		self.hideGlide, self.peeking = nil, false
+		camera.FieldOfView = self.state.settings.fov or Config.Camera.FieldOfView
 		camera.CameraType = Enum.CameraType.Custom
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -333,14 +352,45 @@ function ActionController:_onHidden(hidden: boolean)
 	self:_applyCamera()
 end
 
-function ActionController:_updateHiddenCamera()
+-- Hidden: tucked in, your eye at the slit with a narrow view; peeking, out
+-- at the gap with more of the room (Config.Hide). It glides in on the way in
+-- and eases between the two.
+function ActionController:_updateHiddenCamera(dt: number)
 	if not self.state:IsHidden() then
 		return
 	end
 	local peek = player:GetAttribute("HidePeek")
-	if typeof(peek) == "CFrame" then
-		Workspace.CurrentCamera.CFrame = peek * CFrame.Angles(0, peekYaw, 0) * CFrame.Angles(peekPitch, 0, 0)
+	if typeof(peek) ~= "CFrame" then
+		return
 	end
+	local tuck = player:GetAttribute("HideTuck")
+	tuck = typeof(tuck) == "CFrame" and tuck or peek
+	local H = Config.Hide
+	local goal = self.peeking and 1 or 0
+	self.peekBlend = (self.peekBlend or 0) + (goal - (self.peekBlend or 0)) * math.clamp(dt * H.PeekEase, 0, 1)
+	local blend = self.peekBlend
+	local maxYaw = H.TuckYaw + (H.PeekYaw - H.TuckYaw) * blend
+	local maxPitch = H.TuckPitch + (H.PeekPitch - H.TuckPitch) * blend
+	peekYaw = math.clamp(peekYaw, -maxYaw, maxYaw)
+	peekPitch = math.clamp(peekPitch, -maxPitch, maxPitch)
+	local eye = tuck:Lerp(peek, blend) * CFrame.Angles(0, peekYaw, 0) * CFrame.Angles(peekPitch, 0, 0)
+	local camera = Workspace.CurrentCamera
+	local glide = self.hideGlide
+	if glide then
+		local t = math.clamp((os.clock() - glide.at) / H.GlideSeconds, 0, 1)
+		t = t * t * (3 - 2 * t)
+		eye = glide.from:Lerp(eye, t)
+		if t >= 1 then
+			self.hideGlide = nil
+		end
+	end
+	camera.CFrame = eye
+	camera.FieldOfView = H.TuckFov + (H.PeekFov - H.TuckFov) * blend
+end
+
+-- How far out you're peeking, 0 tucked in to 1 (UI/HideView fades with it).
+function ActionController:PeekBlend(): number
+	return self.state:IsHidden() and (self.peekBlend or 0) or 0
 end
 
 -- Movement ----------------------------------------------------------------------------------

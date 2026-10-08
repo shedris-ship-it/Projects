@@ -160,6 +160,24 @@ Config.Pose = {
 	KneelCamera = { 0, -1.3, 0 },
 }
 
+-- Hiding, tucked in and peeking (the squad playtest, 2026-10-08: "hiding is
+-- kinda strange, could use a hiding animation, also be able to peek";
+-- Logic/HideRules, UI/HideView, Controllers/ActionController).
+Config.Hide = {
+	DuckSeconds = 0.35, -- ducking in: everyone sees you crouch in before you're gone
+	GlideSeconds = 0.35, -- your eye glides in to the gap, no snap
+	TuckFov = 58, -- tucked in: a narrow view through the slit...
+	TuckYaw = 0.3, -- ...looking about this far (radians) either way
+	TuckPitch = 0.18,
+	PeekFov = 70, -- peeking (hold right click, LT): your eye at the gap, more of the room
+	PeekYaw = 0.6,
+	PeekPitch = 0.4,
+	PeekEase = 6, -- how fast your eye moves between tucked and peeking
+	NoticeSeconds = 0.8, -- a peek he can see for this long gives the place away...
+	NoticeRange = 14, -- ...from this close...
+	NoticeCone = 50, -- ...within this many degrees of where he faces
+}
+
 Config.Social = {
 	PingCooldown = 0.8,
 	PingLifetime = 7,

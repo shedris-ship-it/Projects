@@ -35,6 +35,7 @@ function UIController:Start()
 	}
 	for _, name in
 		{
+			"HideView",
 			"Hud",
 			"Hotbar",
 			"FocusMarkers",

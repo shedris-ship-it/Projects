@@ -266,7 +266,8 @@ function FocusMarkers:_build(marker)
 	end
 	if marker.push and kind ~= "touch" then
 		order += 1
-		self:_row(actions, order, kind == "gamepad" and "RT" or "Hold E", "Push", function() end, function() end)
+		local key = kind == "gamepad" and "RT" or (marker.hideSpot and "Hold click" or "Hold E")
+		self:_row(actions, order, key, "Push", function() end, function() end)
 	end
 	for _, prompt in marker.prompts do
 		order += 1
@@ -400,6 +401,7 @@ function FocusMarkers:Update(dt: number)
 	if pushable then
 		local entry = want(pushable)
 		entry.push = true
+		entry.hideSpot = entry.hideSpot or pushable:GetAttribute("HideSpot") == true
 		entry.name = entry.name or pushable:GetAttribute("PushLabel")
 		entry.target = 1
 	end

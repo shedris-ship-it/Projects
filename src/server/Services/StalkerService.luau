@@ -298,6 +298,28 @@ function StalkerService:HeardYou(player: Player, position: Vector3)
 	Net.get("GuestEvent"):FireClient(player, { kind = "heard" })
 end
 
+-- His eyes and the way he faces, while he's in the house.
+function StalkerService:Gaze(): (Vector3?, Vector3?)
+	if not self.active or not self.arrived or self.parked or not self.bodyCtl then
+		return nil, nil
+	end
+	return self.bodyCtl:EyePosition(), self.body.root.CFrame.LookVector
+end
+
+-- He saw a hiding place's door move (Services/HidingService, Logic/
+-- HideRules): his head snaps to it, and he knows who's in there, as if he'd
+-- heard them (a hunt searches it first; between hunts he comes to look).
+function StalkerService:NoticePeek(player: Player, spot)
+	if not self.bodyCtl or not self.arrived then
+		return
+	end
+	self.bodyCtl:FacePoint(spot.frontPosition)
+	self:HeardYou(player, spot.frontPosition)
+	if self.services.Telemetry then
+		self.services.Telemetry:Log("PeekNoticed", { spot = spot.id, tier = self:TierNow() })
+	end
+end
+
 function StalkerService:IsHunting(): boolean
 	return self.active and (self.mode == Modes.Hunting or self.mode == Modes.Telegraph)
 end

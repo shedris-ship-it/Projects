@@ -94,6 +94,7 @@ Constants.PlayerAttributes = {
 	DownedSeconds = "DownedSeconds",
 	Reviving = "Reviving", -- holding the revive prompt on a friend (they kneel)
 	HideEnter = "HideEnter", -- ducking into a hiding place (a moment's crouch)
+	Peeking = "Peeking", -- peeking out of a hiding place (Logic/HideRules)
 	Crouched = "Crouched", -- crouching (Controllers/ActionController asks, PlayerStateService decides)
 	Ready = "Ready",
 	Carrying = "Carrying",

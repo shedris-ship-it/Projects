@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local HideRules = require(Shared.Logic.HideRules)
 local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
 
@@ -48,6 +49,18 @@ function HidingService:Start()
 	end)
 	Net.onServer("LeaveHiding", { interval = 0.3, types = {} }, function(player)
 		self:Leave(player)
+	end)
+	-- Peeking out (Logic/HideRules): what you see widens, and he may notice.
+	Net.onServer("HidePeek", { interval = 0.05, types = { "boolean" } }, function(player, on)
+		local state = hidden[player]
+		if state and not state.spot.physical then
+			local peeking = on == true
+			if peeking ~= (state.peekSince ~= nil) then
+				state.peekSince = peeking and os.clock() or nil
+				state.noticed = false
+				player:SetAttribute(PA.Peeking, peeking or nil)
+			end
+		end
 	end)
 	Net.onServer("HoldBreath", { interval = 0.05, types = { "boolean" } }, function(player, holding)
 		local state = hidden[player]
@@ -128,11 +141,23 @@ function HidingService:Enter(player: Player, spot)
 		{ spot = spot, breath = Config.Player.BreathMax, holding = false, gaspUntil = 0, lastBreathNoise = 0 }
 	self.PlayerState:SetFlashlight(player, false)
 	self.PlayerState:MarkTeleport(player)
+	-- Ducking in (the squad playtest, 2026-10-08: "could use a hiding
+	-- animation"): you're hidden from the first moment, while everyone else
+	-- sees you crouch into it (Controllers/PoseController) before you're gone.
 	root.Anchored = true
-	root.CFrame = spot.insideCFrame
-	setCharacterVisible(character, false)
+	player:SetAttribute(PA.HideEnter, true)
+	task.delay(Config.Hide.DuckSeconds, function()
+		local state = hidden[player]
+		if state and state.spot == spot and root.Parent then
+			root.CFrame = spot.insideCFrame
+			setCharacterVisible(character, false)
+		end
+		player:SetAttribute(PA.HideEnter, nil)
+	end)
 	player:SetAttribute(PA.Hidden, spot.id)
 	player:SetAttribute("HidePeek", spot.peekCFrame)
+	player:SetAttribute("HideTuck", spot.tuckCFrame or spot.peekCFrame)
+	player:SetAttribute("HideSlit", HideRules.slit(spot.category))
 	player:SetAttribute("Breath", 1)
 	spot.anchor:SetAttribute("Occupied", #spot.occupants)
 	self.Noise:Emit(spot.frontPosition, spot.noise, player, "hide")
@@ -157,6 +182,10 @@ function HidingService:Leave(player: Player, silent: boolean?)
 	spot.anchor:SetAttribute("Occupied", #spot.occupants)
 	player:SetAttribute(PA.Hidden, nil)
 	player:SetAttribute("HidePeek", nil)
+	player:SetAttribute("HideTuck", nil)
+	player:SetAttribute("HideSlit", nil)
+	player:SetAttribute(PA.Peeking, nil)
+	player:SetAttribute(PA.HideEnter, nil)
 	player:SetAttribute("HidePhysical", nil)
 	player:SetAttribute("Breath", nil)
 	if spot.physical then
@@ -305,6 +334,39 @@ function HidingService:_tick(dt: number)
 		end
 		player:SetAttribute("Breath", state.breath / Config.Player.BreathMax)
 		player:SetAttribute("HideDanger", near)
+		if state.peekSince and not state.noticed and stalker then
+			self:_peekSeen(player, state, stalker, now)
+		end
+	end
+end
+
+-- A peek he can see for long enough gives the place away (Logic/HideRules):
+-- his head snaps to it, and he knows where you are, as if he'd heard you.
+function HidingService:_peekSeen(player: Player, state, stalker, now: number)
+	local eye, facing = stalker:Gaze()
+	if not eye then
+		return
+	end
+	local spot = state.spot
+	local gap = spot.peekCFrame.Position
+	local offset = gap - eye
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	local look = Vector3.new(facing.X, 0, facing.Z)
+	local angle = (flat.Magnitude > 0.1 and look.Magnitude > 0.1)
+			and math.deg(math.acos(math.clamp(flat.Unit:Dot(look.Unit), -1, 1)))
+		or 0
+	local ignore = { spot.model }
+	local ok = HideRules.noticed({
+		peekFor = now - state.peekSince,
+		tier = stalker.tier,
+		hunting = stalker:IsHunting(),
+		distance = offset.Magnitude,
+		angle = angle,
+		lineOfSight = self.services.WitnessService:ClearLine(eye, gap, ignore),
+	}, Config.Hide)
+	if ok then
+		state.noticed = true
+		stalker:NoticePeek(player, spot)
 	end
 end
 

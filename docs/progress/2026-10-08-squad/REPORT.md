@@ -194,3 +194,31 @@ Now players collide through their roots:
 - In Studio the client records its last E decision in a `DebugHandsE` attribute, for tests.
 
 **New tests:** TC-172 (E on doors, drawers, things and furniture), TC-173 (gamepad and touch unchanged), TC-174 (the torch at full beam while carrying).
+
+## WP10 (build `.138`): hiding, tucked in and peeking
+
+"Hiding is kinda strange, could use a hiding animation, also be able to peek from the hiding spot instead of seeing everything perfectly." The camera used to snap to a point 0.35 studs *outside* the furniture, at full view and normal field of view.
+
+What changed:
+- **You duck in.** For 0.35 s everyone else sees you crouch into it (the `HideEnter` attribute, `PoseController`) before you vanish. You count as hidden from the first moment.
+- **Your eye glides in** to the gap over 0.35 s, with no snap.
+- **Tucked in**, you see through a slit shaped by what you're in (`Logic/HideRules.Slits`, `UI/HideView`):
+  - a wardrobe's or cupboard's louvred gap;
+  - a locker's five vents;
+  - the strip of floor under a bed's skirt;
+  - under a tablecloth's hem;
+  - past a curtain's edge, the cloth in folds.
+
+  The field of view is 58°, and you can look about only a little. Everything is frames and gradients, with nothing uploaded.
+- **Hold right click (LT) to peek.** Your eye eases out to the gap, the field of view opens to 70°, you can look further, and the slit fades.
+- **Peeking has a risk** (`HideRules.noticed`, `Config.Hide`). If he's closing in (tier 2) or hunting, within 14 studs, facing within 50° of the gap with a clear line, and you peek for 0.8 s, his head snaps to the door. He then knows you're in there, as if he'd heard you (`StalkerService:NoticePeek` → `HeardYou`): in a hunt he searches it first. He never sees through the doors; it's the peek that gives you away.
+- **E hides you in hiding furniture**, even though E is now your hands'. Holding the mouse pushes it.
+
+**Studio, seed 18, the grand hall's curtain:**
+- E (a short hold) hid me.
+- The view was the curtain's edge at 58°, the hall and stair past it. Holding right click opened it to the hall at 70°, and `Peeking` was set.
+- E left. The view went back to 70°, the overlay went, and the camera returned to normal.
+
+**Not checked in Studio:** his notice (it needs him at tier 2 facing a peek; the rule is specced) and others seeing the duck-in (two clients).
+
+**New tests:** TC-175 (each kind's view, tucked and peeking), TC-176 (a friend ducks in; two clients), TC-177 (a peek he notices).

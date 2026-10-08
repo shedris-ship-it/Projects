@@ -303,7 +303,7 @@ function Hud:Update()
 		-- In a walk-in closet you get out by sliding a door yourself.
 		self.hideHint.Text = player:GetAttribute("HidePhysical")
 				and "Hold SPACE to hold your breath · slide a door to get out"
-			or "Hold SPACE to hold your breath · E to leave"
+			or "Hold right click to peek · hold SPACE to hold your breath · E to leave"
 		self.hideDanger.Visible = player:GetAttribute("HideDanger") == true
 	end
 

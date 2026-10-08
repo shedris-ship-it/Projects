@@ -17,6 +17,7 @@ local DEFINITIONS = {
 	HoldBreath = "RemoteEvent",
 	SetCrouch = "RemoteEvent", -- (on): crouch or stand (PlayerStateService decides)
 	LeaveHiding = "RemoteEvent",
+	HidePeek = "RemoteEvent", -- (on): peek out of your hiding place, or tuck back in
 	SelectSlot = "RemoteEvent", -- (slot 1 to 4): put that slot in your hands
 	DropItem = "RemoteEvent", -- put the tool in your hands down
 	DropKey = "RemoteEvent", -- (token): take a key off your ring and leave it at your feet (UI/Map's journal)
