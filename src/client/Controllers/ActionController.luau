@@ -371,6 +371,11 @@ function ActionController:_updateMovement(dt: number)
 	self.sprinting = sprinting
 end
 
+-- The torch stutters for a moment (his breath behind you: GuestController).
+function ActionController:StutterTorch(seconds: number)
+	self.torchStutterUntil = math.max(self.torchStutterUntil or 0, os.clock() + seconds)
+end
+
 -- Flashlight: a light for you; the server's head light (or clip light) is
 -- what everyone else sees, so it's hidden locally to avoid doubling up. Its aim
 -- trails the camera slightly on quick turns, like a handheld torch; the camera
@@ -428,6 +433,15 @@ function ActionController:_updateFlashlight(dt: number)
 		cameraLight.Range = 42
 		cameraLight.Angle = 48
 		cameraLight.Brightness = 2.6
+	end
+	-- He's breathing right behind you: the torch stutters (GuestController,
+	-- a tell). With reduced flicker it only dips.
+	if os.clock() < (self.torchStutterUntil or 0) then
+		if self.state.settings.reduceFlicker then
+			cameraLight.Brightness *= 0.45
+		elseif math.random() < 0.55 then
+			cameraLight.Brightness *= math.random() * 0.2
+		end
 	end
 	cameraLight.Enabled = on
 	cameraLight.Shadows = not self.state.settings.lowEnd

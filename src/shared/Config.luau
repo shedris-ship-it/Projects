@@ -925,6 +925,20 @@ Config.Guest = {
 	EyeGlowRange = 30,
 	GapeRange = 7, -- from Fraying, closer than this his mouth hangs open
 	CoatSwing = 0.6, -- his coat's skirt follows each thigh this much of the way (a flare, not trouser legs)
+	-- Wrong between looks (GuestController._maskBetweenLooks): look away and
+	-- back, and his mask may have slid round his head; it turns back as you watch.
+	MaskTurnChance = { 0.3, 0.5, 0.75 }, -- per look back, by form
+	MaskTurnAwaySeconds = 1.2, -- you looked away at least this long
+	MaskTurnRange = 35,
+	MaskTurnLookCone = 30, -- degrees off your view's centre that count as looking at him
+	MaskTurnYaw = { 18, 38 }, -- slid round his head (degrees)
+	MaskTurnRoll = { 12, 32 }, -- turned on itself
+	MaskTurnPitch = 10,
+	MaskTurnHold = 0.6, -- seconds it stays wrong before it starts back
+	MaskTurnBackSeconds = 2.4,
+	-- His breath behind you makes your torch stutter (a tell), at most this often.
+	TorchStutterSeconds = 0.6,
+	TorchStutterGap = { 6, 11 },
 
 	-- Arrival: three knocks at the front door when the quiet start ends.
 	ArrivalKnockLead = 3, -- seconds from the knock until he's inside

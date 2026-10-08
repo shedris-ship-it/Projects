@@ -111,10 +111,11 @@ function GuestFace.new(head: BasePart)
 	glaze.Parent = mask
 	self.glaze = glaze
 
-	-- A piece fixed on the mask (moves with it when it slips).
+	-- A piece fixed on the mask. Every piece is welded to the mask, not the
+	-- head, so the mask moves as one when it slips or turns on his face.
 	local function static(part: BasePart, weld: Weld, frame: CFrame)
 		table.insert(self.statics, { weld = weld, frame = frame })
-		weld.C0 = self.maskCF * frame
+		weld.C0 = frame
 		table.insert(self.parts, part)
 		return part
 	end
@@ -126,16 +127,16 @@ function GuestFace.new(head: BasePart)
 	self.eyes = {} -- each eye's pin of light, which follows you about
 	for _, eye in GuestPose.Eyes do
 		local spec = GuestPose.piece(a, b, c, eye[1] - 0.1, eye[2], eye[1] + 0.1, eye[2])
-		local rim, rw = piecePart(head, "EyeRim", HOLE_RIM, true)
+		local rim, rw = piecePart(mask, "EyeRim", HOLE_RIM, true)
 		rim.Size = Vector3.new(0.215, 0.215, 0.02)
 		rim.Transparency = 0.45
 		static(rim, rw, localFrame(spec, 0.002))
-		local hole, hw = piecePart(head, "EyeHole", HOLE, true)
+		local hole, hw = piecePart(mask, "EyeHole", HOLE, true)
 		hole.Size = Vector3.new(0.19, 0.19, 0.02)
 		-- Black Neon gives back no light at all: a hole, even in your torch.
 		hole.Material = Enum.Material.Neon
 		static(hole, hw, localFrame(spec, 0.004))
-		local shine, shw = piecePart(head, "EyeShine", Color3.new(1, 1, 1), true)
+		local shine, shw = piecePart(mask, "EyeShine", Color3.new(1, 1, 1), true)
 		shine.Material = Enum.Material.Neon
 		shine.Size = Vector3.new(0.055, 0.055, 0.02)
 		shine.Transparency = 1
@@ -146,13 +147,13 @@ function GuestFace.new(head: BasePart)
 		-- A faint painted brow, arched, a little too high.
 		local side = eye[1] >= 0 and 1 or -1
 		local brow = GuestPose.piece(a, b, c, eye[1] - side * 0.13, eye[2] + 0.26, eye[1] + side * 0.12, eye[2] + 0.26)
-		local bp, bw = piecePart(head, "Brow", BROW)
+		local bp, bw = piecePart(mask, "Brow", BROW)
 		bp.Size = Vector3.new(brow.length + 0.01, 0.012, 0.006)
 		bp.Transparency = 0.7
 		static(bp, bw, localFrame(brow, 0.003))
 		-- Faded rouge on the cheek.
 		local cheek = GuestPose.piece(a, b, c, side * 0.5, -0.2, side * 0.62, -0.2)
-		local rp, rw2 = piecePart(head, "Rouge", ROUGE, true)
+		local rp, rw2 = piecePart(mask, "Rouge", ROUGE, true)
 		rp.Size = Vector3.new(0.17, 0.1, 0.01)
 		rp.Transparency = 0.72
 		static(rp, rw2, localFrame(cheek, 0.002))
@@ -163,12 +164,12 @@ function GuestFace.new(head: BasePart)
 	self.columns = {}
 	for i = 1, COLUMNS do
 		local column = {}
-		column.upper, column.upperWeld = piecePart(head, "LipUpper", LIP)
-		column.lower, column.lowerWeld = piecePart(head, "LipLower", LIP)
-		column.inside, column.insideWeld = piecePart(head, "Mouth", MOUTH)
+		column.upper, column.upperWeld = piecePart(mask, "LipUpper", LIP)
+		column.lower, column.lowerWeld = piecePart(mask, "LipLower", LIP)
+		column.inside, column.insideWeld = piecePart(mask, "Mouth", MOUTH)
 		column.inside.Material = Enum.Material.Neon
-		column.toothUp, column.toothUpWeld = piecePart(head, "Tooth", TOOTH, true)
-		column.toothDown, column.toothDownWeld = piecePart(head, "Tooth", TOOTH, true)
+		column.toothUp, column.toothUpWeld = piecePart(mask, "Tooth", TOOTH, true)
+		column.toothDown, column.toothDownWeld = piecePart(mask, "Tooth", TOOTH, true)
 		-- Uneven teeth, some gone, the same for everyone.
 		column.jag = 0.75 + ((i * 37) % 11) / 22
 		column.gone = (i * 7) % 5 == 0 or (i * 11) % 13 == 0
@@ -181,7 +182,7 @@ function GuestFace.new(head: BasePart)
 		for i = 1, #points - 1 do
 			local p1, p2 = points[i], points[i + 1]
 			local spec = GuestPose.piece(a, b, c, p1[1], p1[2], p2[1], p2[2])
-			local part, weld = piecePart(head, name, color)
+			local part, weld = piecePart(mask, name, color)
 			if color == SHARD then
 				part.Material = Enum.Material.Neon -- the dark beneath: no sheen
 			end
@@ -209,9 +210,9 @@ function GuestFace.new(head: BasePart)
 	return self
 end
 
--- A frame on the mask as the head's weld wants it.
+-- A frame on the mask, as a piece's weld to the mask wants it.
 function GuestFace:_frame(spec, offset: number): CFrame
-	return self.maskCF * localFrame(spec, offset)
+	return localFrame(spec, offset)
 end
 
 -- Lay the smile out for a half-width (radians around the head) and an
@@ -269,16 +270,29 @@ function GuestFace:SetForm(form: number)
 		part.Transparency = form >= 2 and 0 or 1
 	end
 	self.maskCF = form >= 2 and self.centre * SLIP or self.centre
-	self.maskWeld.C0 = self.maskCF
+	self:_placeMask()
 	self.glaze.Texture = (form >= 2 and Assets.GuestMask.broken)
 		or (form >= 1 and Assets.GuestMask.worn)
 		or Assets.GuestMask.calm
-	for _, entry in self.statics do
-		entry.weld.C0 = self.maskCF * entry.frame
+end
+
+function GuestFace:_placeMask()
+	local turn = self.turn
+	self.maskWeld.C0 = if turn
+		then CFrame.Angles(turn.pitch, turn.yaw, 0) * self.maskCF * CFrame.Angles(0, 0, turn.roll)
+		else self.maskCF
+end
+
+-- Wrong between looks (docs/ART.md "The Guest", 2026-10-07): the mask slid
+-- round his head (yaw, pitch: about the head's centre, so the black shows on
+-- one side) and turned on itself (roll). nil puts it straight.
+function GuestFace:SetTurn(yaw: number?, roll: number?, pitch: number?)
+	if not yaw or (math.abs(yaw) < 1e-3 and math.abs(roll or 0) < 1e-3 and math.abs(pitch or 0) < 1e-3) then
+		self.turn = nil
+	else
+		self.turn = { yaw = yaw, roll = roll or 0, pitch = pitch or 0 }
 	end
-	-- The smile follows the mask.
-	self.width = -1
-	self:SetSmile(math.rad(62), 0)
+	self:_placeMask()
 end
 
 -- The pins of light in his eyes: 0 none, then a faint glow in the dark,
@@ -297,7 +311,7 @@ end
 -- Lidless, and they follow you: each pin of light slides inside its eye
 -- towards `point` (where you are).
 function GuestFace:LookAt(point: Vector3)
-	local rel = self.maskCF:PointToObjectSpace(self.head.CFrame:PointToObjectSpace(point))
+	local rel = self.mask.CFrame:PointToObjectSpace(point)
 	for _, eye in self.eyes do
 		local base = eye.frame.Position
 		local toward = rel - base
@@ -306,7 +320,7 @@ function GuestFace:LookAt(point: Vector3)
 			local reach = 0.05
 			local offset = eye.right * math.clamp(d:Dot(eye.right) * 1.6, -1, 1) * reach
 				+ eye.up * math.clamp(d:Dot(eye.up) * 1.6, -1, 1) * reach
-			eye.weld.C0 = self.maskCF * CFrame.new(offset) * eye.frame
+			eye.weld.C0 = CFrame.new(offset) * eye.frame
 		end
 	end
 end

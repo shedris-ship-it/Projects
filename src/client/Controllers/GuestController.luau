@@ -36,6 +36,7 @@ local fade = nil -- { started, duration } while dissolving
 local ushered = 0 -- times he stepped aside for you this session (captioned the first two)
 local shadows = {} -- door id -> the shadow of his feet under it (Stalk BehindTheDoor)
 local spottedTold = 0 -- "[it sees you]" captions so far
+local torchStutterAt = 0 -- the torch stutters on his breath, at most this often
 
 function GuestController:Init(controllers)
 	self.controllers = controllers
@@ -402,6 +403,7 @@ function GuestController:_frame(dt: number)
 		end
 		guest.face:SetForm(form)
 		guest.face:SetSmile(width, open)
+		self:_maskBetweenLooks(camera, form, distance, beam, dt)
 		-- His eyes: caught in your torch, or a faint glow in the dark whenever
 		-- he faces you; they follow you either way.
 		local toFace = guest.head.Position - camera.CFrame.Position
@@ -478,9 +480,15 @@ function GuestController:_event(event)
 		audio:PlayAt("FrontDoorKnock", event.position, 1, 1, muffled(event.position))
 		audio:Caption("[three knocks at the front door]")
 	elseif kind == "breath" then
-		-- Close behind you: only you hear it.
+		-- Close behind you: only you hear it, and your torch stutters (not on
+		-- every breath, so it stays a tell and not a strobe).
 		audio:PlayAt("Breath", event.position, 0.9, 0.7 + math.random() * 0.08)
 		audio:Caption("[breathing, right behind you]")
+		local now = os.clock()
+		if now >= torchStutterAt then
+			torchStutterAt = now + G.TorchStutterGap[1] + math.random() * (G.TorchStutterGap[2] - G.TorchStutterGap[1])
+			self.controllers.ActionController:StutterTorch(G.TorchStutterSeconds)
+		end
 	elseif kind == "creak" then
 		local key = math.random() < 0.5 and "Creak" or "CreakAlt"
 		audio:PlayAt(key, event.position, 0.75, 0.85 + math.random() * 0.2, muffled(event.position))
@@ -705,6 +713,73 @@ function GuestController:_jumpscare(mode: string?)
 			gui:Destroy()
 		end
 	end)
+end
+
+-- Wrong between looks (docs/ART.md "The Guest", 2026-10-07): look away from
+-- him and back, and sometimes his mask has slid round his head and turned on
+-- itself; while you watch, it slowly turns back (in your beam, in jerks).
+-- Only ever while you weren't looking, and only on this screen: a divergence
+-- of atmosphere (two of you may not agree on what you saw). Cosmetic, so
+-- math.random.
+function GuestController:_maskBetweenLooks(camera: Camera, form: number, distance: number, beam: boolean, dt: number)
+	local now = os.clock()
+	if now >= (guest.lookCheckAt or 0) then
+		guest.lookCheckAt = now + 0.1
+		local toHead = guest.head.Position - camera.CFrame.Position
+		local ignore = { guest.model }
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
+		local looking = distance < G.MaskTurnRange
+			and camera.CFrame.LookVector:Dot(toHead.Unit) > math.cos(math.rad(G.MaskTurnLookCone))
+			and not blocked(camera.CFrame.Position, guest.head.Position, ignore)
+		if looking and not guest.looking then
+			local away = now - (guest.lookedAwayAt or now)
+			-- (The player attribute DebugMaskTurn makes it every time, for tests;
+			-- a number holds it wrong that many seconds.)
+			local debug = player:GetAttribute("DebugMaskTurn")
+			local chance = debug and 1 or G.MaskTurnChance[form + 1]
+			if guest.lookedAwayAt and away >= G.MaskTurnAwaySeconds and math.random() < chance then
+				local function side(range)
+					local x = math.rad(range[1] + math.random() * (range[2] - range[1]))
+					return math.random() < 0.5 and -x or x
+				end
+				guest.maskTurn = {
+					yaw = side(G.MaskTurnYaw),
+					roll = side(G.MaskTurnRoll),
+					pitch = side({ 0, G.MaskTurnPitch }),
+					amount = 1,
+					holdUntil = now + (type(debug) == "number" and debug or G.MaskTurnHold),
+					grated = false,
+				}
+			end
+		elseif guest.looking and not looking then
+			guest.lookedAwayAt = now
+		end
+		guest.looking = looking
+	end
+	local turn = guest.maskTurn
+	if not turn then
+		return
+	end
+	if guest.looking and now >= turn.holdUntil then
+		if not turn.grated then
+			-- Porcelain grating on bone as it starts back.
+			turn.grated = true
+			self.controllers.AudioController:PlayAt("Creak", guest.head.Position, 0.22, 1.7)
+		end
+		-- In your beam it clicks back in jerks, like the rest of him.
+		if not beam or now >= (turn.nextStep or 0) then
+			turn.nextStep = now + 0.12 + math.random() * 0.1
+			turn.amount = math.max(0, turn.amount - (beam and 0.1 or dt / G.MaskTurnBackSeconds))
+		end
+	end
+	local k = turn.amount * turn.amount * (3 - 2 * turn.amount)
+	guest.face:SetTurn(turn.yaw * k, turn.roll * k, turn.pitch * k)
+	if turn.amount <= 0 then
+		guest.maskTurn = nil
+		guest.face:SetTurn(nil)
+	end
 end
 
 -- Windows and mirrors (Lib/GuestReflection): his reflection when he's
