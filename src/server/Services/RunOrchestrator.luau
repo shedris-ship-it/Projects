@@ -125,9 +125,11 @@ function RunOrchestrator:_onCharacter(player: Player, character: Model)
 	end
 	task.defer(function()
 		local root = character:WaitForChild("HumanoidRootPart", 5)
-		if root then
+		local last = run.lastPositions[player]
+		-- A character that loads while the house is still being chosen has no
+		-- spawn yet; StartRun places everyone once it is built.
+		if root and (last or run.spawns) then
 			self.services.PlayerStateService:MarkTeleport(player)
-			local last = run.lastPositions[player]
 			character:PivotTo(last and CFrame.new(last + Vector3.new(0, 3, 0)) or run.spawns[1])
 		end
 	end)

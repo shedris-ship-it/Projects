@@ -12,7 +12,8 @@
 -- spots, floor spots and fixed furniture it is handed; never a door, an
 -- item, a note, a puzzle station, the table or anything you can carry or
 -- push. No fake walls or doorways, no phantom objects, and no figure: the
--- only Guest you see is the real one (owner, 2026-10-03).
+-- only Guest you see is the real one (owner, 2026-10-03). (His disguise,
+-- 2026-10-08, is his real body under a friend's look: Logic/Disguise.)
 --
 -- input = {
 --   players    sorted player ids (strings)

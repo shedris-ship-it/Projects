@@ -446,11 +446,45 @@ Acceptance (the plan's): 0 stuck points and 0 "no way" on every seed, first door
 
 **Waiting on the owner**: TC-123 to TC-137 (`docs/TESTING.md`), and the finish line's three solo runs (frightened twice in the first ten minutes with no hunt; never wondering what to do next for more than two minutes; looking at him never ends a hunt by itself; start to dinner under 40 minutes with no F2). Then the Guest-AI rework and the look (the owner's choice, 2026-10-06).
 
+## 17. The first squad playtest (2026-10-08; builds `2026-10-08.131` to `.144`)
+
+The owner ran the first squad playtest on build `.130` and sent 17 notes (physics sync was praised). The full record, one work package per build with its Studio evidence, is `docs/progress/2026-10-08-squad/REPORT.md`.
+
+**The owner's decisions (2026-10-08):**
+- **"E does it all."** Slot 4 (bare hands) is gone. Your hands work from any slot and the torch stays at full beam. Tap E to open, shut or pick up; hold E to drag or push; while carrying, a click throws and E puts down. Hold-click still works.
+- **Crowding him: a scare, then a down.** Following him as he backs away counts.
+- **Shapeshifting: a teammate only.**
+- **Hunts as fast as your sprint.** No stare at arm's reach, a scream, dark rooms, music, longer hunts, a sharper search.
+- **"Fix everything in one go."** The piano puzzle should be readable on its own.
+
+**What changed:**
+- **The clock** (`.131`): wall items keep clear of each other on their wall (`RoomFit.WallItemGap`), with a backstop in `LevelBuilder`. The solo bleed bar runs 20 s.
+- **The piano** (`.132`): the box's comb and the keys share eight named colours, and the comb lights for everyone. A strip on screen shows the tune, and a sheet on the stand shows its length. The piano plays freely: the tune is recognised as the last notes played and each key is a small noise (the discord rule is gone). Listen winds the box beside it, and the objective line, the hint, the map and tips lead to the box.
+- **The torch** (`.133`): one `Config.Torch` for every light and the stare, a 72° cone to 30 studs.
+- **Throws** (`.134`): faster classes and a 55% tap. The first half second falls with a quarter of the gravity (`Lib/ThrowLift`, modelled in `Throw.predict`).
+- **The Guest off the furniture** (`.135`): a leg guard, knee-high sweeps, and recovery when he's found on a piece. **Players collide** through their roots (`PlayerBody`), and anyone pressed together for 0.9 s gives way (`Logic/Bodies`). The downed, the hidden and anyone just moved never block.
+- **Poses** (`.136`): `Logic/PlayerPose` and `Controllers/PoseController` (code-built, nothing uploaded): the fall, the crawl, the kneel. **Crouch** on Ctrl is a silent 3.5 studs/s, and he aims lower at a creeping player and sees them nearer in the dark.
+- **E does it all** (`.137`): three slots, a `Tap` remote, prompts off E on a keyboard. A door no longer stops on whoever swings it.
+- **Hiding** (`.138`): a duck-in, a glide, a slit view by kind (`UI/HideView`), and hold right click to peek. A peek he can see for 0.8 s gives the place away (`Logic/HideRules`).
+- **A subtler start** (`.139`): a five-minute intro (three on the short night, ×0.6 on Hard) with tier 1 at most, no hunts and quieter cards. He's only glimpsed, far and brief (`Config.Guest.Intro`).
+- **Hunts** (`.140`): a chase at sprint speed, no hold within 6 studs, a scream and up to 4 dark rooms, 60–120 s, three hiding places searched, and music stems wired.
+- **Crowding him** (`.141`): `StalkRules.crowding`. The scare is a stride to your face, your lights and torch dead, and he's gone. The grab follows within 3 minutes.
+- **Scares he sets up** (`.142`): `Logic/ScareBeats`, a `guestBeat` card. Behind you, a hand at your shoulder, closer in the dark. Never a down.
+- **His disguise** (`.143`): `Logic/Disguise`, a `disguise` card. Late, to someone alone, a friend's stripped, wrong-standing look far off. Within 12 studs, it's him.
+
+**The bot, before and after:** see the REPORT.
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.
 - **Scent:** while someone carries an heirloom he learns which room they're in (a declared rule, cued on every pickup: the chair at the table, the candle, the heirloom's music box). It pauses while the carrier hides and is gone 8 s after a drop.
 - **Woken hunts** obey every hunt rule (3 minutes, revive, Lantern, retreat, telegraph, start out of sight and 25+ studs away) plus a 180 s gap.
+- **The intro** (2026-10-08): no hunt and nothing above tier 1 in a night's first five minutes, unless the house is already Breaking.
+- **Players collide** (2026-10-08), but nobody can block a doorway: pressed together for 0.9 s they give way, and the downed, the hidden and anyone just moved never block.
+- **A hunt's chase** runs at your sprint (2026-10-08). The ways out are line of sight, a door, a throw, hiding, or two watchers at a distance (a stare doesn't hold him within 6 studs). The house tells him only the nearest player's room at the start, cued by the telegraph's hum.
+- **Crowding him** (2026-10-08): only standing in his face (3.5 studs, looking) or following him as he backs away fills it; a walk past never does. The first time is a scare that never downs; only a second within 3 minutes is a grab. Never in a hunt, at the table, or for the hidden, the downed, the just-revived or the safe.
+- **Peeking** (2026-10-08): he notices only a peek he can see for 0.8 s, within 14 studs, facing it, at tier 2 or in a hunt. He never sees through a hiding place's doors.
+- **Beats and the disguise** (2026-10-08) never down anyone. A disguise is always his real body under the look, for one player alone, and falls away within 12 studs.
 - **Tidying:** only while he and the heirloom are both unseen and nobody is within 20 studs, never in a hunt or the dinner, and only back to where it was found (a puzzle never re-locks).
 - **At the table** he's visible to everyone, follows the watch rules, can't reach any place (ContactRadius + 2) and leaves after 120 s.
 - **Two-person locks:** a crank door never drops on a body and can always be latched from inside; the dumbwaiter never strands an item; a power door never re-locks.

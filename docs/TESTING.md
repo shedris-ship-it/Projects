@@ -5,7 +5,7 @@ Two layers: automated tests for the pure game logic, which run anywhere with Lun
 ## Automated
 
 ```sh
-lune run tests/run        # 445 tests in 68 specs (about 90-150 s; 2-4 minutes while Studio runs)
+lune run tests/run        # 504 tests in 77 specs (about 90-150 s; 2-4 minutes while Studio runs)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint: undefined globals, unused variables, shadowing…
 ```
@@ -182,6 +182,35 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-156 | The catch, with hands | `guest scare rush` and `guest scare quiet` at form 0 and 2: thin finger bones reach in from both edges before his face; at 2 a jagged black split opens down the mask as the head jerks. Too much, or just right? |
 | TC-157 | The crawl | `drift 85`, wait out the first 3 minutes, `hunt`, and hide somewhere: while he searches he sometimes drops onto all fours, knees up, face upside down under his chest; when he spots you he rises and runs. Does the crawl ever clip through walls, doors or stairs? Does his speed feel the same? |
 | TC-152 | No cheap downs | Play a run (or `botrun`): F2 `summary` shows "cheap downs 0". If a down ever felt like it came from nowhere, note where: every down should follow a look at him, a tell, or his steps within 3 s |
+| TC-158 | No clock over a window (the squad playtest, 2026-10-08) | Seeds with a guest room, a nursery or a sewing room (`lune run tools/plan <seed> mansion`): no wall clock, portrait, fuse box, bell board or key rack hangs over a window, a mirror or a painting. F2 `clip` lists nothing hung on a wall over anything else |
+| TC-159 | The solo bleed bar | Alone, get downed (F2 `down`): the bleed-out bar drains over 20 s, not 15; the heartbeat slows over the same time |
+| TC-160 | The piano, by a newcomer | Someone who has never seen it plays a house with the piano puzzle (solo: seeds 18, 25, 48, 82, 121) without help. Do they find the box, understand the comb's colours, and play the tune? How long did it take? |
+| TC-161 | Keys at the piano | Carry the music box to the piano, open the piano, press 1, 2 and 3: the keys sound and the box stays in your hands (no slot changes under the screen). Listen winds the box; the tune shows at the top (THE MUSIC BOX strip) |
+| TC-162 | The torch's look | Torch on in a dark room and down a corridor: a wide beam that fades out by about 30 studs. With a friend: does the light you see from them match theirs? |
+| TC-163 | The stare at range | Alone, hold him in your beam at 25 studs (it holds) and at 35 (it doesn't any more) |
+| TC-164 | Throws | Throw a mug at a wall 25 studs off: it lands near head height. A tap throws softly but far; held, harder. A tapped bottle or vase stuns him; a heavy thing needs a wind-up. Does it feel strong now? |
+| TC-165 | He stays off the furniture | Let him roam and hunt (`tier 4`) through rooms with beds and tables: he never walks up onto one; F2 `navtest fast` says "0 on furniture". Push a bed onto a doorway he peeks from: he peeks from somewhere else |
+| TC-166 | Bumping into friends (two clients) | Walk into a friend: you stop against them; push on and after about a second you pass through. You never end up inside each other |
+| TC-167 | Nobody blocks a doorway (two clients) | A friend stands still in a doorway: walking into them, you're through within about a second |
+| TC-168 | The downed never block (two clients) | A downed friend lying in a doorway: you walk through them. Someone hiding never blocks either |
+| TC-169 | The down and the crawl | Get downed (F2 `down`): you fall to the floor over half a second and your view goes down to the floor; crawling, you creep along it. A friend sees you lying face down, arms reaching, legs dragging |
+| TC-170 | Getting up (two clients) | A friend holds E on you: they kneel beside you while they hold it; revived, you get up over about a second |
+| TC-171 | Crouch | Hold Ctrl: your view drops, you creep at walking pace or less with no footsteps (F2 overlay: no noise). Shift stands you up. In the dark, crouched behind a sofa while he passes (`guest walk`), he doesn't see you; standing, he does. The Ctrl setting toggles it instead of holding |
+| TC-172 | E does it all | Tap E on a door: it opens; tap again from the same spot: it shuts. Hold E and move the mouse: you swing it. Tap E on a mug: you carry it; click: thrown (hold to throw harder); E: put down. Hold E on a dresser and walk: you push it. A light switch beside a door: E on the door opens the door, E on the switch works the switch. A wardrobe: E hides you in it |
+| TC-173 | Gamepad and touch unchanged | On a gamepad and on a phone, doors and drawers still show their prompts and work as before; RT grabs |
+| TC-174 | The torch stays lit | Torch in hand: carry something, drag a door, push furniture: your full beam the whole time, slot 1 still in hand. Holding a tool (slot 2), carrying: the clip light, as before |
+| TC-175 | Hiding: tucked in, peeking | Hide in a wardrobe, a locker, under a bed, under a table, behind a curtain: your eye glides in; you see the room through that kind's slit. Hold right click: your eye moves to the gap and you see more |
+| TC-176 | The duck-in (two clients) | A friend hides while you watch: they crouch into it, then they're gone |
+| TC-177 | A peek he notices | `tier 2`, hide, and peek while he stands within about 14 studs facing your hiding place: after about a second his head snaps to it, and he knows you're there (in a hunt he searches it first). A quick glance, or a peek when he faces away, is safe |
+| TC-178 | A subtle start | Play the first five minutes of a night: glimpses only (a peek in a doorway, a figure at the end of a corridor), far off and brief, no hunt even after a quick first door. Frightened, but by glimpses and sounds? |
+| TC-179 | A hunt's opening | `tier 4` (or wait for one): a scream through the house; the rooms nearest him go dark until it's over; the hunt music. Menacing? |
+| TC-180 | The ways out | In a hunt, he runs as fast as you sprint. Try each: break his line of sight round corners, shut a door behind you, throw something at him, hide, stare with a friend from a few strides (a stare at arm's reach no longer holds him). Which worked? Did any feel unfair? |
+| TC-181 | Length and search | A hunt lasts one to two minutes. Lose him: he goes to where he saw you, listens longer, and searches three hiding places nearby |
+| TC-182 | Crowding him: the scare | At tier 1–3, outside a hunt, stand in his face for a moment, or follow him as he backs away: he turns on you, your lights and torch die, and when they come back he's gone. "[it doesn't like you that close]". Frightening? |
+| TC-183 | Crowding him: the grab | Do it again within three minutes: a rasp, he reaches, and you're down |
+| TC-184 | Walking past is safe | Walk past him in a corridor at a walk: nothing happens (he may step aside). Only standing in his face or following him does |
+| TC-185 | Scares he sets up | F2 `beat behind`, `beat hand`, `beat dark`: he's behind you when you turn (a breath first); his hand at your shoulder; the lights blink and he's closer. None of them downs you. Frightening? Ever unfair? |
+| TC-186 | His disguise (three clients) | `drift 70`, act 3 (or F2 `disguise <friend>`): player A alone; player B far off. A sees B standing 25–45 studs away: no light, no name, silent, head tipped wrong. Walk to it: within 12 studs it's him. Did A believe it was B? Which tell gave it away? |
 | TC-89 | The run's journal and Marks | Finish or lose a run: the Dossier's THE HOUSE lists, with times, who opened which door and who solved which puzzle, who carried each heirloom and who set it, how often he put things back, when each act began, how many hunts, and the closest call while carrying. Marks: about +10 per region opened and per puzzle solved and +15 per hunt survived, won or lost. Output shows `[Consensus:event]` lines for each (RegionEntered, LockOpened, PuzzleSolved, HeirloomTaken, HeirloomSet, ActBegan, HuntStarted, Tidied, LeadRead, Smashed, CrankRaised) |
 | TC-44 | EXIT sign and plant | The EXIT door's sign is a band of crisp red letters across the top of the door, clear of the lower panels and the knob. Plants are a pot with a short stem and about nine thin blade leaves that stay inside the pot's 2-stud footprint: no leaf pokes into a wall, shelf or closet, and there is no speckled green ball |
 

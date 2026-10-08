@@ -53,6 +53,7 @@ local HELP = table.concat({
 	"act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · goto <room> | <x> <y> <z>",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
+	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",

@@ -1,6 +1,6 @@
 # The first squad playtest: the fixes (2026-10-08)
 
-Branch `claude/overnight-foundation`, builds `2026-10-08.131` on, from `2026-10-06.130`.
+Branch `claude/overnight-foundation`, builds `2026-10-08.131` to `.144`, from `2026-10-06.130`.
 
 The owner ran the first squad playtest on build `.130` and sent 17 notes. Physics sync was praised. The rest are fixed here, one work package (WP) per build. The plan is in section 17 of `docs/plans/gameplay-rework.md`.
 
@@ -344,3 +344,62 @@ The run checks every tick in every mode except hunts, which closes the gaps whil
 504 tests pass.
 
 **New test:** TC-186 (three clients: player A alone, player B far off; does A believe it's B? Do the tells give it away?).
+
+## WP16 (build `.144`): the docs and a shorter controls line
+
+- `docs/TESTING.md`: TC-158 to TC-186, and the header's test count (504 in 77 specs).
+- `docs/plans/gameplay-rework.md` section 17, and six additions to the fairness contract (section 12): the intro, collision, the chase, crowding, peeking, beats and the disguise.
+- README controls and the F2 list (`beat`, `disguise`), ARCHITECTURE (the torch numbers, the disguise), `CLAUDE.md`.
+- The HUD's controls line was cut off at the right edge in my screenshots ("Tab: map · F1: settings" fell off). It's shorter now: "E: use · hold E: drag · R: tool · 1 2 3: slots · F: light · Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: help".
+- A red console error from before this session: a character that loads while the house is still being chosen (the search takes about a second) found no spawn (`RunOrchestrator:_onCharacter`). It now waits for `StartRun`, which places everyone once the house is built. Studio, seed 61: a clean console.
+
+## The bot, before and after (seed 61, solo)
+
+F2 `botrun` plays the whole night on the server: start, every lock, the dinner, the door.
+
+| | Before (build `.138`, before the intro) | After (build `.143`) |
+| --- | --- | --- |
+| Out | 4:41 | 4:27 |
+| Steps, failed, no way, stuck | 13, 0, 0, 0 | 13, 0, 0, 0 |
+| Waits for him | 13 | 4 |
+| Downs, caught | 0, 0 | 0, 0 |
+| First door | 0:34 | 0:34 |
+| Dinner | 4:33 | 4:19 |
+| Hunts | 2 (1 armed at 4:07, overtaken; the final, escaped) and 1 false alarm | 1 (the final, escaped) |
+| His time by tier | t1 0:51, t2 1:51, hunting 0:25 (tier score 1.99) | t1 2:53 (tier score 1.00) |
+| Sightings | 3 (1.0 a minute) | 8 (2.7 a minute) |
+| Scares in the first 10 min | 7 | 5 |
+
+What it says:
+- **Nothing broke.** The same 13 steps, no failures, no stuck points, the dinner and the door. The furniture guard, collision, E and the new hiding don't trip the bot's route.
+- **The intro does what it should.** The bot is a fast player (a night in four and a half minutes), so its whole run falls inside the five-minute intro: tier 1 throughout, no hunt before the final one, and the hunt armed at the second act waited (`HuntArmed dueIn -75`). More, briefer sightings, far off.
+- **Fewer waits for him** (13 to 4): at tier 1 he keeps his distance, so he rarely stands in the bot's way.
+- **What the bot can't show.** The new hunts, crowding, the beats and the disguise all start after the intro, at tier 2 or 3, or late in a bad night. A human night (10–20 minutes) reaches them; the bot doesn't. Each was checked in Studio by F2 instead (the WP sections above). A slower bot is a fair next step if the owner wants numbers for those.
+- **The intro's moves repeat** (Search 11 times of 18). That's the short list (`Config.Guest.Intro.Moves`) on a fast night. Worth a look if a human's first five minutes feel samey (TC-178).
+
+## Defaults I took (each open to the owner)
+
+- **Crouch:** hold Ctrl, with a setting to make it a toggle; B on a gamepad. A crouch-walk is fully silent.
+- **Hard:** a chase runs exactly at your sprint (Hard's extra 4% is for his prowl only). Stamina is unchanged (about 6 s of sprint).
+- **A hunt's opening:** he knows the room of the player nearest him, a declared rule cued by the telegraph's hum.
+- **Carrying:** your hands work from any slot; your tool stays in its slot. On hiding furniture, E hides you and the doors take hold-click.
+- **The piano:** a wrong note costs a soft noise and nothing else. This drops the design doc's discord rule.
+- **Collision in the hub too,** with the same give-way rule.
+- **By ear (nothing heard yet):** the scream (APM "HORROR SCREAM 10"), the stalking and hunt music (APM "Tension Repeat Drones 29", "Rhythm Drone 34"), the throw's whoosh. Alternatives are listed in `src/shared/Assets.luau`; swap any id there.
+- **Nothing uploaded** to the owner's account: every pose, view and look is built in code.
+
+## Waiting on the owner
+
+- **TC-158 to TC-186** in `docs/TESTING.md`. These need two or three clients (Studio's **Test → Clients and Servers**), which MCP can't drive:
+  - TC-166 to TC-168: bumping, doorways, the downed;
+  - TC-170: getting up;
+  - TC-176: the duck-in;
+  - TC-182 to TC-184: crowding him;
+  - TC-186: the disguise.
+- **Not seen in Studio by me:**
+  - his head snapping to a peek he notices (TC-177);
+  - the blackout from the victim's own eyes;
+  - the beats `dark` and `hand` (`behind` was checked);
+  - the torch in a fully dark room (it was checked in a corridor and a big room).
+- **By ear:** the scream, the two music stems, the whoosh, the piano's keys against the box.
+- **The question that matters most:** after a real night, "did it ever feel like it cheated?", especially the sprint-fast chase and the crowding grab.

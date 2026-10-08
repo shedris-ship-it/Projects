@@ -81,13 +81,13 @@ How the code implements the design. The design itself lives in [`DesignDoc.md`](
 
 ## Divergence model
 
-Rules look like `{ id, kind, target, minDrift, params }`, made by `Logic/Atmosphere` for each Witness: a portrait's eyes following you, writing only you see, a mislocated sound (Drift 40+), a teammate glimpsed where they were a moment ago, a recoloured ornament. Its spec proves a rule never targets a door, item, note, station, the table or anything you carry or push. There are no fake walls, phantom doors or phantom figures any more: the only Guest you see is real.
+Rules look like `{ id, kind, target, minDrift, params }`, made by `Logic/Atmosphere` for each Witness: a portrait's eyes following you, writing only you see, a mislocated sound (Drift 40+), a teammate glimpsed where they were a moment ago, a recoloured ornament. Its spec proves a rule never targets a door, item, note, station, the table or anything you carry or push. There are no fake walls, phantom doors or phantom figures any more: the only Guest you see is real. His disguise (2026-10-08, `Logic/Disguise`, `StalkerService:_disguise`) keeps the promise: it is his real body under a friend's look, drawn for one player's client alone, and it falls away within 12 studs.
 
 Every wall between two rooms is still two wall pieces, a lintel and a doorway-sized seam panel (invisible and non-collidable on a doorway, solid on a wall); R3's house shifts will flip real seams through it.
 
 ## The observation rule
 
-Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, it is visible to that player (tier 1 shows it to one player only), **and he is in that player's light** (`Config.Stare`, since 2026-10-06: the room he stands in is lit, their full beam reaches him within 42 studs and 28° of centre, their clip light within 16 studs where the body faces, a lit Lantern within 22, or arm's length), for 0.3 seconds or more. The watch check uses where his head and chest really are for the pose clients are drawing.
+Clients report their camera CFrame at 12 Hz (`ReportView`, an UnreliableRemoteEvent). A player is "watching" the stalker when it's inside an 80° cone of their camera, within range, with a clear raycast, it is visible to that player (tier 1 shows it to one player only), **and he is in that player's light** (`Config.Stare`, since 2026-10-06: the room he stands in is lit, their full beam reaches him within its reach and cone (`Config.Torch`: 30 studs and 36° of centre since 2026-10-08), their clip light within 16 studs where the body faces, a lit Lantern within 22, or arm's length), for 0.3 seconds or more. The watch check uses where his head and chest really are for the pose clients are drawing.
 
 | Watchers | Result |
 | --- | --- |

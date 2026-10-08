@@ -162,7 +162,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"E: open, pick up · hold E: drag, push · R: use · 1 2 3 / wheel: slots · X: put down · F: light · Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: settings",
+		"E: use · hold E: drag · R: tool · 1 2 3: slots · F: light · Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: help",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),

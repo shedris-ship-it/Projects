@@ -62,11 +62,14 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
-| Choose a slot (1 the flashlight, 2 and 3 found tools, 4 your bare hands; the torch clips to your shirt in 2 to 4) | **1 2 3 4** or mouse wheel | D-pad down (next) | Tap a slot |
-| Drag a door, drawer, cupboard door, lid or closet door, or pick something up | hold **left mouse** | hold RT (right stick moves your hand) | none yet |
-| Push furniture (heavy pieces need friends; walk backwards to pull) | hold **left mouse** on it and walk | hold RT and walk | none yet |
-| Throw what you carry (tap: a lob; hold: wind up) / bring it nearer or further | **right mouse** / mouse wheel | LT | none yet |
-| Doors, drawers, notes, keys at a lock, puzzles, fixtures, switches, hiding, revive, set a place at the table | **E** (prompts) | X | Tap the prompt |
+| Choose a slot (1 the flashlight, 2 and 3 found tools; the torch clips to your shirt in 2 and 3, an empty one is a free hand) | **1 2 3** or mouse wheel | D-pad down (next) | Tap a slot |
+| Open or shut a door or drawer; pick something up | tap **E** (or hold **left mouse**) | X; hold RT to drag | Tap the prompt |
+| Drag a door, drawer, cupboard door, lid or closet door | hold **E** (or **left mouse**) and move the mouse | hold RT (right stick moves your hand) | none yet |
+| Push furniture (heavy pieces need friends; walk backwards to pull) | hold **E** (or **left mouse**) on it and walk | hold RT and walk | none yet |
+| Throw what you carry (tap: a lob; hold: wind up) / put it down / nearer or further | **click** or **right mouse** / **E** / mouse wheel | LT | none yet |
+| Notes, keys at a lock, puzzles, fixtures, switches, hiding, revive, set a place at the table | **E** (prompts) | X | Tap the prompt |
+| Crouch (a silent creep) | hold **Ctrl** (a setting makes it a toggle) | B | Crouch button |
+| Peek out of a hiding place (he may notice) | hold **right mouse** | hold LT | Peek button |
 | Crank ratchet, dumbwaiter jam box | **Q** (prompt) | LB | Tap the prompt |
 | Squeeze past a barricade (hold) | **Q** (prompt) | R3 | Tap the prompt |
 | Brace a door | **B** (prompt) | LB | Tap the prompt |
@@ -131,7 +134,8 @@ switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|sh
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]
 furniture open|shut [all] · block <room> <room> · block off · plans [read] (the house plans: where, or read them) · saferoom · use [name] (the nearest fixture, or `use toy`) · bell [room] · monitor · landmarks
-navtest [fast] · navtest room <id> [fast] · navtest retreat [n]
+navtest [fast] · navtest room <id> [fast] · navtest retreat [n]   (navtest also counts moments he stood on furniture)
+beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him wearing a friend's look, for you; again ends it)
 botrun [fast] [flee|hide] (the bot plays the run with your character and reports the numbers; again stops it) · botrun plan
 inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
 down [name] · revive [name] · steps · clip

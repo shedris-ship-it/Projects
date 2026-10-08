@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-08.143",
-	note = "his disguise: late in a bad night, to someone alone, a friend's look far off; go close and it is him",
+	id = "2026-10-08.144",
+	note = "the squad playtest docs, a shorter controls line, F2 help lists beat and disguise, no error for a character loading mid-start",
 }
