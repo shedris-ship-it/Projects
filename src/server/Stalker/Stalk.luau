@@ -367,7 +367,7 @@ function Stalk:_findPeek(tier: number, why)
 	for _, n in worldService:Neighbours(room) do
 		near[n] = true
 	end
-	local minDistance = G.PeekMinDistance[math.clamp(tier, 1, 3)]
+	local minDistance = self:_peekMin(tier)
 	-- Where their head is: really, if he can see them; else about head height
 	-- over where he thinks they are.
 	local realHead = self.sensedSeen and self.target.Character and self.target.Character:FindFirstChild("Head")
@@ -654,7 +654,7 @@ MOVES.Peek = {
 			return false
 		end
 		move.goal = move.spot.position
-		move.holdFor = self.rng:NextNumber(G.PeekHoldSeconds[1], G.PeekHoldSeconds[2]) * self:_number("peekHold")
+		move.holdFor = self:_introRange(G.PeekHoldSeconds, "PeekHold") * self:_number("peekHold")
 		return true
 	end,
 	update = function(self, move, now, ctx)
@@ -708,10 +708,7 @@ MOVES.DoorwayStand = {
 		local worldService = self.services.WorldService
 		local point = worldService:ApproachPoint(pass.from, pass.to, 1.5)
 		local targetPos = self:_targetPos()
-		if
-			not targetPos
-			or worldService:Separation(point, targetPos) < G.PeekMinDistance[math.clamp(ctx.tier, 1, 3)]
-		then
+		if not targetPos or worldService:Separation(point, targetPos) < self:_peekMin(ctx.tier) then
 			return false
 		end
 		if self.sight:AnyoneSees(self.sight.BodyPoints(point)) then
@@ -1015,7 +1012,7 @@ MOVES.Yank = {
 		end
 		if not move.gone then
 			move.gone = true
-			self.hiddenUntil = now + self.rng:NextNumber(G.Tier1Cooldown[1], G.Tier1Cooldown[2])
+			self.hiddenUntil = now + self:_introRange(G.Tier1Cooldown, "Gap")
 			self.service.yankTo = nil
 		end
 		return true
@@ -1297,7 +1294,7 @@ MOVES.FingersPeek = {
 			return false
 		end
 		move.goal = move.spot.position
-		move.holdFor = self.rng:NextNumber(G.PeekHoldSeconds[1], G.PeekHoldSeconds[2]) * self:_number("peekHold")
+		move.holdFor = self:_introRange(G.PeekHoldSeconds, "PeekHold") * self:_number("peekHold")
 		move.reveal = 0
 		move.side = move.spot.lean >= 0 and 1 or -1
 		return true
@@ -1393,7 +1390,7 @@ MOVES.HallwayStand = {
 			end
 			local here = self.body.root.Position
 			local toward = flat(ctx.targetPos - here)
-			local keep = G.PeekMinDistance[math.clamp(ctx.tier, 1, 3)]
+			local keep = self:_peekMin(ctx.tier)
 			local step = math.min(toward.Magnitude * 0.5, toward.Magnitude - keep)
 			if step < 3 then
 				return true
@@ -1543,7 +1540,7 @@ MOVES.SlowWithdraw = {
 		self.body:SetPose(Poses.BackAway)
 		self.body:Step(move.point, G.SlowWithdrawSpeed)
 		if planar(self.body.root.Position, move.point) < 0.8 or now - move.started > 4 then
-			self.hiddenUntil = now + self.rng:NextNumber(G.Tier1Cooldown[1], G.Tier1Cooldown[2])
+			self.hiddenUntil = now + self:_introRange(G.Tier1Cooldown, "Gap")
 			self.service.yankTo = nil
 			self.body:Hold()
 			return true
@@ -1574,7 +1571,7 @@ MOVES.Duck = {
 		if self.body:Busy() then
 			return false
 		end
-		self.hiddenUntil = now + self.rng:NextNumber(G.Tier1Cooldown[1], G.Tier1Cooldown[2])
+		self.hiddenUntil = now + self:_introRange(G.Tier1Cooldown, "Gap")
 		self.service.yankTo = nil
 		return true
 	end,
@@ -1611,7 +1608,7 @@ function Stalk:_hallSpot(tier: number): Vector3?
 		table.insert(rooms, n)
 	end
 	local head = targetPos + Vector3.new(0, 2.5, 0)
-	local minDistance = G.PeekMinDistance[math.clamp(tier, 1, 3)]
+	local minDistance = self:_peekMin(tier)
 	local best, bestScore = nil, -math.huge
 	for _, id in rooms do
 		local record = self:_corridor(id)
@@ -1966,10 +1963,34 @@ function Stalk:_signals()
 	return signals
 end
 
+-- The night's intro (Logic/DirectorModel, the squad playtest of 2026-10-08:
+-- "more subtle at the beginning"): only glimpses, far off and brief.
+function Stalk:_intro(): boolean
+	local director = self.service.director
+	local decision = director and director.lastDecision
+	return decision ~= nil and decision.intro == true
+end
+
+-- A range from Config.Guest, or its gentler intro version (Config.Guest.Intro).
+function Stalk:_introRange(range, introKey: string): number
+	local pick = self:_intro() and G.Intro[introKey] or range
+	return self.rng:NextNumber(pick[1], pick[2])
+end
+
+-- How near he may show himself to his target at this tier.
+function Stalk:_peekMin(tier: number): number
+	local base = G.PeekMinDistance[math.clamp(tier, 1, 3)]
+	return self:_intro() and math.max(base, G.Intro.MinDistance) or base
+end
+
 function Stalk:_choose(ctx)
 	local feasibility = {}
+	local intro = self:_intro()
 	for _, move in StalkMoves.List do
 		feasibility[move.id] = table.find(move.tiers, ctx.tier) and 1 or 0
+		if intro and not G.Intro.Moves[move.id] then
+			feasibility[move.id] = 0
+		end
 	end
 	-- Moves that need a target he can place are off while he's lost them;
 	-- then he searches by habit instead (tier 0 just wanders far away).

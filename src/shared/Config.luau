@@ -821,6 +821,14 @@ Config.PostFX = {
 -- gameplay-rework.md, R2c "pacing"): progress, not Drift, says which act the
 -- run is in, and progress wakes hunts.
 Config.Pacing = {
+	-- The intro (the squad playtest, 2026-10-08: "more subtle at the
+	-- beginning"): the first five minutes of a night (three on the short
+	-- night, a little less on Hard: Difficulty IntroScale) stay at tier 1 at
+	-- most with no hunts and quieter scares; he is only glimpsed, far off and
+	-- briefly (Config.Guest.Intro).
+	IntroSeconds = 300,
+	ShortIntroSeconds = 180,
+	IntroScareGap = 1.5, -- scare cards come this many times further apart, and no big ones
 	Act2At = 0.15, -- of everything there is to do (Acts.progress)
 	Act3At = 0.6,
 	-- Dread's floor by act (Logic/Dread; the owner's audit of 2026-10-06): the
@@ -966,6 +974,21 @@ Config.Stalker = {
 -- decisions 2026-10-03). Behaviour numbers join this block as they land.
 Config.Guest = {
 	FormDrift = { 40, 60 }, -- the smile opens at Fraying, the porcelain cracks at Breaking
+	-- The intro (Config.Pacing.IntroSeconds): only glimpses. Far off, brief,
+	-- with long gaps between them, and only these ways of showing himself.
+	Intro = {
+		Gap = { 35, 60 }, -- seconds unseen after each sighting (Tier1Cooldown otherwise)
+		PeekHold = { 2, 4 }, -- a peek held this long, at most (PeekHoldSeconds otherwise)
+		MinDistance = 30, -- never nearer than this (PeekMinDistance otherwise)
+		Moves = {
+			Peek = true,
+			DistantRoam = true,
+			HallwayStand = true,
+			Search = true,
+			Investigate = true,
+			HostAction = true,
+		},
+	},
 	-- Never on the furniture (the squad playtest, 2026-10-08; Stalker/Body):
 	-- found on a piece this long, he goes to the floor beside it.
 	AloftSeconds = 0.3,
@@ -1709,6 +1732,7 @@ Config.Difficulty = {
 		-- the atmosphere is on from act 1, and his telegraphs are shorter.
 		DreadFloor = 20,
 		TelegraphScale = 0.7,
+		IntroScale = 0.6, -- a shorter intro (Config.Pacing.IntroSeconds)
 		DownsBeforeLost = 2,
 		-- A friend's voice from behind a door (Stalk MimicVoice): Hard only
 		-- (the owner, 2026-10-07).

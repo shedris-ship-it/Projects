@@ -222,3 +222,18 @@ What changed:
 **Not checked in Studio:** his notice (it needs him at tier 2 facing a peek; the rule is specced) and others seeing the duck-in (two clients).
 
 **New tests:** TC-175 (each kind's view, tucked and peeking), TC-176 (a friend ducks in; two clients), TC-177 (a peek he notices).
+
+## WP11 (build `.139`): a subtler start
+
+"Guest should be more subtle at the beginning of the game." He arrived at 1:33 and was at tier 1 by about 2:00. A quick squad's first door (the bot opens one at 0:29 to 1:06) raised Dread to 40, so tier 2 (visible to everyone) came about 90 s later, and a hunt could start at 3:00.
+
+Now each night opens with **the intro** (`Config.Pacing.IntroSeconds` 300; 180 on the short night; ×0.6 on Hard):
+- **Quiet.** Tier 1 at most, however fast the first door opens. No hunts and no false alarms (`DirectorModel`). Scare cards come 1.5× further apart, with none of the big ones (`ScareDeck` `quiet`).
+- **Only glimpses** (`Config.Guest.Intro`):
+  - He's seen only by peeking from a doorway, roaming far off, standing at the end of a corridor, searching, investigating a noise, or by what he does to the house (a radio on, a light off).
+  - Never closer than 30 studs, a peek held 2–4 s (was 6–14), and 35–60 s unseen after each sighting (was 14–30).
+- **Ending it early.** Only a house already Breaking (Drift 60) cuts the intro short.
+
+**Specs:** `Pacing.spec` has a new test: a door at 0:30 still means tier 1 at most and no hunt before 5:00, and Hard's intro is shorter. A steady night now meets tier 2 at minute 5.5 and its first hunt at 5.6 (the 2–5 hunts and tier 3 in the second half still hold).
+
+**New test:** TC-178 (the first five minutes: frightened, but only by glimpses and sounds).

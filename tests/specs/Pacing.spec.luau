@@ -240,6 +240,22 @@ return function(test, check, Shared, require)
 		check.atLeast(#r.hunts, 3, "hunted on the way down")
 	end)
 
+	-- The squad playtest (2026-10-08): "guest should be more subtle at the
+	-- beginning". However fast a squad opens its first door, the intro holds.
+	test("the intro: a door at 0:30 still means tier 1 at most and no hunt before five minutes", function()
+		local events = { { t = 30, kind = "gate" }, { t = 60, kind = "found" }, { t = 120, kind = "gate" } }
+		local r = simulate({ gates = 3, heirlooms = 3 }, events, minutes(8))
+		for t = 0, Config.Pacing.IntroSeconds - 1 do
+			check.atMost(r.tiers[t], 1, "tier at second " .. t)
+		end
+		for _, t in r.hunts do
+			check.atLeast(t, Config.Pacing.IntroSeconds, "a hunt in the intro")
+		end
+		check.truthy(#r.hunts >= 1, "and a hunt soon after it")
+		local hard = simulate({ gates = 3, heirlooms = 3 }, events, minutes(8), Config.Difficulty.Hard)
+		check.truthy(hard.hunts[1] ~= nil and hard.hunts[1] < r.hunts[1], "a shorter intro on Hard")
+	end)
+
 	test("no hunt ever starts in the first three minutes, whatever wakes one", function()
 		local events = { { t = 10, kind = "gate" }, { t = 20, kind = "found" } }
 		local r = simulate({ gates = 3, heirlooms = 3 }, events, minutes(5))

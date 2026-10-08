@@ -11,6 +11,12 @@
 -- (Logic/Dread: Drift or the act's floor, whichever is worse), so a good
 -- squad still meets more of him as the night goes on.
 --
+-- The intro (the squad playtest, 2026-10-08: "guest should be more subtle
+-- at beginning of the game"): for its first minutes a night stays at tier 1
+-- at most and has no hunts, however fast the squad gets through its first
+-- door; he is glimpsed, far off and briefly (Stalker/Stalk). Only a house
+-- already Breaking (Drift 60) cuts it short.
+--
 -- Hunts never come on a clock (the owner's audit, 2026-10-06): the gap after
 -- a hunt is drawn afresh each time, a woken hunt is sometimes only its
 -- telegraph (a false alarm, with the real one soon after), and sometimes he
@@ -60,13 +66,23 @@ end
 --   lastRevive (time or nil), squadInLantern (bool),
 --   stationary (0..1), forced (bool, e.g. the debug console),
 --   difficulty = Config.Difficulty entry,
+--   introSeconds (default Pacing.IntroSeconds): the night's intro, before
+--     the difficulty's IntroScale,
 -- }
--- returns { tier, huntDue, reason, falseAlarm? }
+-- returns { tier, huntDue, reason, falseAlarm?, intro }
 function DirectorModel.evaluate(input, config)
 	local runConfig, stalker, pacing = config.Run, config.Stalker, config.Pacing
 	local tier = DirectorModel.tierFor(input.dread or input.drift)
 	if input.runTime < runConfig.StalkerDormantSeconds then
 		tier = 0
+	end
+	-- (The night's length picks it; Hard shortens it.)
+	local introSeconds = (input.introSeconds or pacing.IntroSeconds or 0)
+		* (input.difficulty and input.difficulty.IntroScale or 1)
+	-- A house already Breaking (Drift, the failure clock) has earned him early.
+	local intro = input.runTime < introSeconds and input.drift < 60
+	if intro then
+		tier = math.min(tier, 1)
 	end
 	if input.retreatUntil and input.now < input.retreatUntil then
 		tier = math.min(tier, 1)
@@ -75,6 +91,9 @@ function DirectorModel.evaluate(input, config)
 	local function blocked(): string?
 		if input.runTime < runConfig.NoHuntBeforeSeconds then
 			return "too early"
+		end
+		if intro then
+			return "the intro"
 		end
 		if input.lastRevive and input.now - input.lastRevive < stalker.NoHuntAfterReviveSeconds then
 			return "recent revive"
@@ -87,7 +106,7 @@ function DirectorModel.evaluate(input, config)
 
 	local reason = blocked()
 	if reason then
-		return { tier = tier, huntDue = false, reason = reason }
+		return { tier = tier, huntDue = false, reason = reason, intro = intro }
 	end
 	if input.forced then
 		return { tier = tier, huntDue = true, reason = "forced" }

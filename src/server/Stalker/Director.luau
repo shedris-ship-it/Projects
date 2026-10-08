@@ -232,12 +232,21 @@ function Director:Evaluate(runTime: number)
 		stationary = services.SquadProfileService:Signals().stationary,
 		forced = self.forced,
 		difficulty = self.difficulty,
+		introSeconds = self:IntroSeconds(),
 	}, Config)
 	if squadInLantern and self.armedAt and now >= self.armedAt then
 		self.lanternHeld = true
 	end
 	self.lastDecision = decision
 	return decision
+end
+
+-- How long this night's intro is (Config.Pacing.IntroSeconds): shorter on
+-- the short night (DirectorModel shortens it again on Hard).
+function Director:IntroSeconds(): number
+	local pacing = Config.Pacing
+	local night = self.services.RunOrchestrator and self.services.RunOrchestrator:Night()
+	return night == "short" and (pacing.ShortIntroSeconds or pacing.IntroSeconds) or pacing.IntroSeconds
 end
 
 -- How long the next hunt lasts (longer the worse the house is).
@@ -252,13 +261,15 @@ function Director:MaybeScare(tier: number)
 		return nil
 	end
 	local dread = self.services.DriftService:Dread()
-	-- The worse the house, the shorter the gaps.
-	local gap = 35 - dread * 0.2
+	-- The worse the house, the shorter the gaps; in the intro, longer, and
+	-- nothing big (the squad playtest, 2026-10-08).
+	local intro = self.lastDecision ~= nil and self.lastDecision.intro == true
+	local gap = (35 - dread * 0.2) * (intro and Config.Pacing.IntroScareGap or 1)
 	self.nextScare = now + self.rng:NextNumber(gap * 0.6, gap * 1.2)
 	if tier <= 0 and dread < 5 then
 		return nil
 	end
-	return self.deck:Draw(now, dread, self.act)
+	return self.deck:Draw(now, dread, self.act, intro)
 end
 
 -- The card drawn couldn't be played (StalkerService:_scare): its cooldown

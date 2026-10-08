@@ -30,8 +30,11 @@ function ScareDeck:_reshuffle()
 	self.deck = self.rng:Shuffle(deck)
 end
 
-function ScareDeck:_playable(card, now: number, drift: number, act: number?): boolean
+function ScareDeck:_playable(card, now: number, drift: number, act: number?, quiet: boolean?): boolean
 	if drift < (card.minDrift or 0) then
+		return false
+	end
+	if quiet and card.big then
 		return false
 	end
 	if (act or 1) < (card.minAct or 1) then
@@ -57,13 +60,14 @@ function ScareDeck:Unplay(card)
 end
 
 -- Draw the next playable card, or nil if nothing is playable right now.
--- Unplayable cards stay in the deck for later draws.
-function ScareDeck:Draw(now: number, drift: number, act: number?)
+-- Unplayable cards stay in the deck for later draws. `quiet`: no big ones
+-- (the night's intro).
+function ScareDeck:Draw(now: number, drift: number, act: number?, quiet: boolean?)
 	if #self.deck == 0 then
 		self:_reshuffle()
 	end
 	for i, card in self.deck do
-		if self:_playable(card, now, drift, act) then
+		if self:_playable(card, now, drift, act, quiet) then
 			table.remove(self.deck, i)
 			self.lastPlayed[card.id] = now
 			if card.big then
