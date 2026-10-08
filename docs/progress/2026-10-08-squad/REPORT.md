@@ -299,3 +299,20 @@ The run checks every tick in every mode except hunts, which closes the gaps whil
 **Not seen yet:** the blackout and the lean-in from the victim's eyes (TC-182).
 
 **New tests:** TC-182 (the scare: frightening?), TC-183 (the grab), TC-184 (following him as he backs away). 495 tests pass.
+
+## WP14 (build `.142`): scares he sets up on purpose
+
+"The Guest needs to deliberately scare people and give people reasons to be afraid." His scares were peeks, stands and tells that happened along the way. Now he also stages them.
+
+**The beat** (`Logic/ScareBeats`, `StalkerService:_beatStart`/`_updateBeat`) comes from a new Director card, `guestBeat` (weight 2, every 90 s at most, Dread 20+, act 2+, a big card, so never in the intro).
+- **Who:** the player he has frightened least lately. At least 150 s since their last scare (beats and crowding scares both count), never anyone hidden, just revived, in a Lantern room, or near a down in the last 30 s.
+- **What** is picked by what fits where they are:
+  - **behind**: he's 4–6 studs behind you, where nobody can see, with a breath at your neck. Turn round and he's there. Seen, he holds 1.5 s with a crack of his neck; then your lights blink and he's gone. Unseen for 8 s, he goes unseen.
+  - **hand**: the same, 2.2 studs behind you to one side, his open hand held out at your shoulder (the Usher pose).
+  - **dark**: you're looking at him within 25 studs; your lights blink and he's 5–8 studs closer, staring. Only if nobody else is watching him.
+- **Never a down.** Only hunts and crowding him do that.
+- **F2 `beat [behind|dark|hand]`** stages one on you now.
+
+**Studio, seed 61, tier 2:** `beat behind` while I faced away. 0.8 s later he was 5.1 studs behind me; turning round, there he stood in the doorway, mask lit (the screenshot is the report's). 498 tests pass.
+
+**New test:** TC-185 (each beat: frightening, never unfair?).

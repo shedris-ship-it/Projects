@@ -38,6 +38,7 @@ local GuestPose = require(Shared.Logic.GuestPose)
 local HuntPhases = require(Shared.Logic.HuntPhases)
 local Net = require(Shared.Net)
 local Scent = require(Shared.Logic.Scent)
+local ScareBeats = require(Shared.Logic.ScareBeats)
 local StalkRules = require(Shared.Logic.StalkRules)
 local Throw = require(Shared.Logic.Throw)
 
@@ -1168,6 +1169,10 @@ function StalkerService:_scare(card)
 	if card.house then
 		return services.HouseEventService:Play(card.id, victim, pos)
 	end
+	-- One he sets up himself, for whoever he has frightened least lately.
+	if card.id == "guestBeat" then
+		return self:_beatStart(nil, nil)
+	end
 	local divergence = services.DivergenceService
 	local angle = self.rng:NextNumber(0, math.pi * 2)
 	local around = pos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * self.rng:NextNumber(14, 24)
@@ -1283,6 +1288,14 @@ function StalkerService:_update(dt: number)
 	-- While he turns on someone, nothing else moves him.
 	if not hunting then
 		self:_crowding(now, dt)
+	end
+	if self.beat and not self.confront then
+		self:_updateBeat(now)
+		body:Update(now, function(player: Player): Vector3?
+			return (self.stalk:Known(player))
+		end)
+		self:_updateVisibility(now)
+		return
 	end
 	if self.confront then
 		self:_updateConfront(now)
@@ -1640,6 +1653,9 @@ function StalkerService:_confrontBegin(player: Player, kind: string, now: number
 	body:SetGaze(player)
 	body:SetPose(Poses.Lunge)
 	self.confront = { player = player, kind = kind, at = now }
+	self.beat = nil
+	self.scaredAt = self.scaredAt or {}
+	self.scaredAt[player] = now
 	if self.stalk then
 		self.stalk.move = nil
 	end
@@ -1726,6 +1742,184 @@ function StalkerService:_updateConfront(now: number)
 			)
 		end
 	end
+end
+
+-- Scares he sets up on purpose (Logic/ScareBeats; the Director's guestBeat
+-- card; the squad playtest, 2026-10-08: "guest needs to deliberately scare
+-- people"). For the player he has frightened least lately, between hunts:
+--   behind: he's there behind you, a breath, waiting for you to turn round;
+--     seen, he holds, then the lights blink and he's gone;
+--   hand: the same, closer and to one side, his open hand at your shoulder;
+--   dark: you're looking at him; the lights blink and he's closer.
+-- Nothing in a beat ever downs anyone. `forced`: the player and kind (F2).
+function StalkerService:_beatStart(forcedPlayer: Player?, forcedKind: string?): boolean
+	if self.beat or self.confront or not self.arrived or self.parked or not self.bodyCtl then
+		return false
+	end
+	if self.mode == Modes.Hunting or self.mode == Modes.Telegraph or self.final or self.reckoning then
+		return false
+	end
+	local services = self.services
+	local ps = services.PlayerStateService
+	local now = os.clock()
+	self.scaredAt = self.scaredAt or {}
+	local victim = forcedPlayer
+	if not victim then
+		local entries = {}
+		for _, player in ps:ActivePlayers() do
+			local pos = ps:Position(player)
+			if pos then
+				table.insert(entries, {
+					id = player,
+					scaredAt = self.scaredAt[player],
+					hidden = services.HidingService:IsHidden(player),
+					graced = ps:InReviveGrace(player),
+					safeRoom = self.perception:InSafeRoom(player),
+					nearDown = self.stalk ~= nil and self.stalk:_sinceDownNear(pos, now) < G.BeatDownGap,
+				})
+			end
+		end
+		local chosen = ScareBeats.pick(entries, now, G)
+		victim = chosen and chosen.id
+	end
+	if not victim then
+		return false
+	end
+	local root = ps:Root(victim)
+	local view = services.WitnessService:GetView(victim)
+	if not root then
+		return false
+	end
+	local look = view and view.LookVector or root.CFrame.LookVector
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	flatLook = flatLook.Magnitude > 0.1 and flatLook.Unit or Vector3.new(0, 0, -1)
+	local here = self.body.root.Position
+	local feet = root.Position - Vector3.new(0, 3, 0)
+	-- Behind them: room for his body, out of their sight and everyone's.
+	local function behind(distance: number, side: number): Vector3?
+		local right = Vector3.new(-flatLook.Z, 0, flatLook.X)
+		local spot = feet - flatLook * distance + right * side
+		if not self.bodyCtl:Fits(spot) or self:_spotSeen(spot) then
+			return nil
+		end
+		if not services.WitnessService:ClearLine(root.Position, spot + Vector3.new(0, 3, 0), { self.body.model }) then
+			return nil
+		end
+		return spot
+	end
+	local behindSpot = behind(self.rng:NextNumber(G.BehindDistance[1], G.BehindDistance[2]), 0)
+	local handSpot = behind(G.HandDistance, self.rng:NextInteger(0, 1) == 0 and -1.1 or 1.1)
+	local toVictim = Vector3.new(root.Position.X - here.X, 0, root.Position.Z - here.Z)
+	local canDark = self.visibleTo[victim] == true
+		and toVictim.Magnitude <= G.DarkReach
+		and toVictim.Magnitude > 6
+		and self.sight:Sees(victim, self.bodyCtl:ExposedPoints()[1], 130)
+	local kind = forcedKind or ScareBeats.kind(behindSpot ~= nil, canDark, self.rng:NextNumber())
+	if kind == "hand" and not handSpot then
+		kind = behindSpot and "behind" or nil
+	end
+	if kind == "behind" and not behindSpot or kind == "dark" and not canDark or not kind then
+		return false
+	end
+	self.scaredAt[victim] = now
+	if self.stalk then
+		self.stalk.move = nil
+		self.stalk.target = victim
+	end
+	local body = self.bodyCtl
+	self.beat = { player = victim, kind = kind, at = now }
+	services.Telemetry:Log("GuestBeat", { kind = kind, tier = self:TierNow() }, victim)
+	services.RunLogService:GuestDid("beat:" .. kind)
+	if kind == "dark" then
+		-- The lights blink; when they're back he's closer.
+		services.DivergenceService:Scare(victim, { kind = "blackout", radius = G.ConfrontRadius, duration = 0.7 })
+		local closer = here
+			+ toVictim.Unit
+				* math.min(self.rng:NextNumber(G.DarkCloser[1], G.DarkCloser[2]), toVictim.Magnitude - 3)
+		local reach = self.bodyCtl.clearance:Reach(here, Vector3.new(closer.X, here.Y, closer.Z))
+		local others = false
+		for _, other in ps:ActivePlayers() do
+			if other ~= victim and self.sight:Sees(other, body:ExposedPoints()[1], 130) then
+				others = true
+			end
+		end
+		task.delay(0.35, function()
+			if self.beat and self.beat.player == victim and not others and self.bodyCtl then
+				self.bodyCtl:Place(reach - Vector3.new(0, self.body.groundOffset, 0), root.Position)
+				self.bodyCtl:SetPose(Poses.Hold)
+				self.bodyCtl:SetGaze(victim)
+			end
+		end)
+		return true
+	end
+	local spot = kind == "hand" and handSpot or behindSpot
+	body:CancelSpecial()
+	body:Place(spot, root.Position)
+	body:FacePlayer(victim)
+	body:SetGaze(victim)
+	body:SetPose(kind == "hand" and Poses.Usher or Poses.Hold)
+	-- A breath behind you, to make you turn.
+	Sfx.play("GuestExhale", spot + Vector3.new(0, 5, 0), kind == "hand" and 0.9 or 0.6, 0.85)
+	return true
+end
+
+function StalkerService:_updateBeat(now: number)
+	local beat = self.beat
+	local victim = beat.player
+	local body = self.bodyCtl
+	local t = now - beat.at
+	if not victim.Parent or not self.services.PlayerStateService:IsActive(victim) then
+		self.beat = nil
+		return
+	end
+	if beat.kind == "dark" then
+		-- Held where the lights left him, staring, a moment; then on as before.
+		body:Hold()
+		if t >= 2.5 then
+			self.beat = nil
+		end
+		return
+	end
+	body:Hold()
+	body:FacePlayer(victim)
+	local seen = self.sight:Sees(victim, body:ExposedPoints()[1], 130)
+	if seen and not beat.seenAt then
+		beat.seenAt = now
+		Sfx.play("GuestCrack", self.body.root.Position + Vector3.new(0, 7, 0), 0.5, 1)
+	end
+	local over = (beat.seenAt and now - beat.seenAt >= G.BeatHoldSeen) or (not beat.seenAt and t >= G.BeatWaitTurn)
+	if not over then
+		return
+	end
+	-- Gone: the lights blink for whoever saw, and he's elsewhere unseen.
+	self.beat = nil
+	if beat.seenAt then
+		self.services.DivergenceService:Scare(victim, { kind = "blackout", radius = G.ConfrontRadius, duration = 0.8 })
+	end
+	local points = body:ExposedPoints()
+	for _, other in self.services.PlayerStateService:ActivePlayers() do
+		if other ~= victim and self.sight:Sees(other, points[1], 130) then
+			self:_retreat("beat seen")
+			return
+		end
+	end
+	task.delay(beat.seenAt and 0.35 or 0, function()
+		local far = self.stalk and self.stalk:_farPoint()
+		if far and self.bodyCtl then
+			self.bodyCtl:Place(far)
+			self.bodyCtl:SetPose(Poses.Idle)
+		end
+	end)
+end
+
+-- F2 `beat [behind|dark|hand]`: one for you now (ignores the gap).
+function StalkerService:DebugBeat(player: Player, kind: string?): string
+	if self.beat then
+		return "a beat is already playing"
+	end
+	local ok = self:_beatStart(player, kind)
+	return ok and ("beat " .. (self.beat and self.beat.kind or "?") .. " on you")
+		or "no beat fits here (he must be in the house, not hunting; behind you needs room; dark needs him in your sight within 25 studs)"
 end
 
 -- A hunt opens (the squad playtest, 2026-10-08: "hunts need to be more

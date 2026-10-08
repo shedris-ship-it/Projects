@@ -660,6 +660,9 @@ function DebugService:Run(player: Player, text: string)
 		-- command bar can't see game scripts' tables: its `shared` is its own).
 		local path = string.match(text, "^%s*%S+%s+(.-)%s*$")
 		reply(player, self:_inspect(path))
+	elseif command == "beat" then
+		-- A scare he sets up for you (StalkerService:_beat): behind|dark|hand.
+		reply(player, services.StalkerService:DebugBeat(player, args[2]))
 	elseif command == "where" then
 		reply(player, services.StalkerService:DebugWhere(player))
 	elseif command == "stun" then

@@ -1115,6 +1115,16 @@ Config.Guest = {
 	ConfrontBlind = 1.4, -- ...he goes this far in, while your lights are out
 	ConfrontRadius = 30, -- the lights that die round you
 	GrabWindup = 0.5, -- the grab's tell: a rasp, and he reaches
+	-- Scares he sets up on purpose (Logic/ScareBeats; the Director's
+	-- guestBeat card): for the player he has frightened least lately.
+	BeatGap = 150, -- at least this long since that player's last scare
+	BeatDownGap = 30, -- never right after someone went down near them
+	BehindDistance = { 4, 6 }, -- behind you: this far back, where you can't see
+	HandDistance = 2.2, -- his hand at your shoulder: this close behind, to one side
+	BeatWaitTurn = 8, -- he waits this long for you to turn round, then goes unseen
+	BeatHoldSeen = 1.5, -- seen, he holds this long before the lights take him
+	DarkCloser = { 5, 8 }, -- the lights blink and he's this much closer
+	DarkReach = 25, -- (only from this close)
 	-- Close contact (Logic/StalkRules.contact): within this many studs of a Guest
 	-- you can see, he lunges at once. 5 is also where he senses you regardless
 	-- of facing (Perception:CanSee).
