@@ -407,10 +407,11 @@ function ActionController:_updateFlashlight(dt: number)
 		lightPart.Transparency = 1
 		lightPart.Size = Vector3.new(0.2, 0.2, 0.2)
 		lightPart.Parent = Workspace.CurrentCamera
+		self.lightPart = lightPart -- ViewModelController moves it to the lens the same frame
 		cameraLight = Instance.new("SpotLight")
-		cameraLight.Angle = 48
-		cameraLight.Range = 42
-		cameraLight.Brightness = 2.6
+		cameraLight.Angle = Config.Torch.Angle
+		cameraLight.Range = Config.Torch.Range
+		cameraLight.Brightness = Config.Torch.Brightness
 		cameraLight.Color = Color3.fromRGB(255, 244, 220)
 		cameraLight.Shadows = true
 		cameraLight.Face = Enum.NormalId.Front
@@ -439,9 +440,9 @@ function ActionController:_updateFlashlight(dt: number)
 		cameraLight.Angle = clip.Angle
 		cameraLight.Brightness = clip.Brightness
 	else
-		cameraLight.Range = 42
-		cameraLight.Angle = 48
-		cameraLight.Brightness = 2.6
+		cameraLight.Range = Config.Torch.Range
+		cameraLight.Angle = Config.Torch.Angle
+		cameraLight.Brightness = Config.Torch.Brightness
 	end
 	-- He's breathing right behind you: the torch stutters (GuestController,
 	-- a tell). With reduced flicker it only dips.

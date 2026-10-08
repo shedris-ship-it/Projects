@@ -66,3 +66,22 @@ What changed:
 Dropped from the design doc: the discord rule (a wrong note was a loud noise and a restart).
 
 **New tests:** TC-160 (a newcomer finds and solves it without help) and TC-161 (number keys at the piano).
+
+## WP3 (build `.133`): the torch, wider and shorter
+
+"Widen the light but shorten the distance." The beam's numbers were typed into three places (a 48° cone for your own light, 50° for the one others saw, both 42 studs), and the stare check had a fourth copy (`Config.Stare`, 28° either side of centre).
+
+One table now, `Config.Torch`: a 72° cone (36° either side), 30 studs, brightness 2.6 for your own and 2.4 for the one others see, and the clip light 80° by 16 studs. It feeds:
+- your torch, and the light on your head;
+- the clip light;
+- the stare's "he's in your light";
+- his eye-shine;
+- the writing that only shows in your beam.
+
+A spec keeps the stare's beam equal to the torch's.
+
+**Side effect, intended:** your beam holds him, and catches his eyes, only within 30 studs (was 42). His sight of a lit player stays 40, so in a long corridor he sees you before your light can hold him.
+
+**Fix:** `ActionController` exposes its light part, so `ViewModelController` can move the beam to the torch's lens in the same frame. That line never ran before.
+
+**New tests:** TC-162 (the beam's look; do the light you see and the one your friends see match?) and TC-163 (the stare at 25 and at 35 studs).

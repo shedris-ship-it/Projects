@@ -119,9 +119,9 @@ function PlayerStateService:_onCharacter(player: Player, character: Model)
 	if head and not head:FindFirstChild("Flashlight") then
 		local light = Instance.new("SpotLight")
 		light.Name = "Flashlight"
-		light.Angle = 50
-		light.Range = 42
-		light.Brightness = 2.4
+		light.Angle = Config.Torch.Angle
+		light.Range = Config.Torch.Range
+		light.Brightness = Config.Torch.OthersBrightness
 		light.Color = Color3.fromRGB(255, 244, 220)
 		light.Shadows = true
 		light.Face = Enum.NormalId.Front

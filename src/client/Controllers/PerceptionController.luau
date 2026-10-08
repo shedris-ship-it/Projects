@@ -182,7 +182,7 @@ Handlers.HiddenWriting = function(rule)
 	return {
 		update = function()
 			local lit = player:GetAttribute(Constants.PlayerAttributes.Flashlight) == true
-				and inView(panel.Position, 36, 32)
+				and inView(panel.Position, Config.Torch.Angle * 0.6, Config.Torch.Range)
 			local target = lit and 0.1 or 1
 			label.TextTransparency += (target - label.TextTransparency) * 0.15
 		end,

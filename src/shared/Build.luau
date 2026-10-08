@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-08.132",
-	note = "the piano made readable: coloured keys and comb, the tune on screen, Listen, no discord, leads to the box",
+	id = "2026-10-08.133",
+	note = "the torch wider and shorter (72 degrees, 30 studs), one Config.Torch for every light and the stare",
 }

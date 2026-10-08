@@ -100,13 +100,27 @@ Config.Witness = {
 -- in a hunt the stare holds him for a few seconds at a time and never ends
 -- the chase; alone, a steady full beam stands in for the second pair of
 -- eyes, at a cost in battery.
+-- The torch, in one place: your own beam (Controllers/ActionController), the
+-- one others see on your head (PlayerStateService), the clip light, the
+-- stare's "in your light" (Config.Stare) and his eye-shine all read it. The
+-- squad playtest (2026-10-08): "widen the light but shorten the distance"
+-- (was a 48-50 degree cone to 42 studs).
+Config.Torch = {
+	Angle = 72, -- the SpotLight's full cone, degrees
+	Range = 30,
+	Brightness = 2.6, -- your own (from the torch's lens)
+	OthersBrightness = 2.4, -- the one on your head that the squad sees
+	-- Clipped to your shirt while your hands hold a tool (section 4.1).
+	Clip = { Range = 16, Angle = 80, Brightness = 0.8, Height = 1.2 },
+}
+
 Config.Stare = {
 	LitOnly = true, -- off: the old rule, any clear look counts
 	DarkWatchRange = 4, -- at arm's length you see him whatever the light
-	BeamRange = 42, -- the head beam's reach (PlayerStateService: SpotLight range 42, angle 50)
-	BeamHalfAngle = 28, -- degrees off the camera's centre that the beam still lights him
-	ClipRange = 16, -- the torch clipped to your shirt (Config.Hands.ClipLight)
-	ClipHalfAngle = 40, -- ... points where your body faces
+	BeamRange = Config.Torch.Range, -- the beam's reach
+	BeamHalfAngle = Config.Torch.Angle / 2, -- degrees off the camera's centre that the beam still lights him
+	ClipRange = Config.Torch.Clip.Range, -- the torch clipped to your shirt
+	ClipHalfAngle = Config.Torch.Clip.Angle / 2, -- ... points where your body faces
 	LanternRange = 22, -- a lit Lantern in your hand lights him this far
 	SoloBeam = true, -- alone (one active player), your full beam on him counts double
 	SoloBeamSeconds = 0.6, -- ... once held steady this long
@@ -913,8 +927,8 @@ Config.Guest = {
 	CatchFaceSeconds = 1, -- you looked at him this recently: face to face
 	NeckYawMax = 160, -- his head keeps turning to watch you; a person manages about 80
 	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
-	EyeShineRange = 45, -- your torch catches his eyes within this range
-	EyeShineCone = 24, -- half-angle of the torch beam, degrees
+	EyeShineRange = Config.Torch.Range, -- your torch catches his eyes within its reach
+	EyeShineCone = Config.Torch.Angle / 2 - 6, -- ...and inside its bright middle, degrees off centre
 	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28, Crawl = 0.5 },
 	-- The look (Controllers/GuestController, the mask over the dark).
 	StutterSeconds = { 0.07, 0.14 }, -- in your beam his joints jump on this often (stop-motion)
@@ -1554,7 +1568,7 @@ Config.Barricade.NodeClear = Config.Push.KeepClear
 Config.Hands = {
 	-- Weak and short: enough to see what you're doing, not to search a room
 	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.
-	ClipLight = { Range = 16, Angle = 70, Brightness = 0.8, Height = 1.2 },
+	ClipLight = Config.Torch.Clip,
 	-- Dragging doors with the mouse (section 4.5): hold the button on a door
 	-- and your hand moves with the mouse; the door turns to follow it.
 	Reach = 8, -- studs from your eye to what you can take hold of

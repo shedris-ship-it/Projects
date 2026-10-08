@@ -312,6 +312,19 @@ return function(test, check, Shared, require)
 		end
 	)
 
+	-- The squad playtest (2026-10-08): a wider, shorter torch. What lights him
+	-- for the stare is the beam players see, never a second set of numbers.
+	test("the stare's beam is the torch's beam", function()
+		local T, S = Config.Torch, Config.Stare
+		check.equal(S.BeamRange, T.Range, "reach")
+		check.equal(S.BeamHalfAngle, T.Angle / 2, "cone")
+		check.equal(S.ClipRange, T.Clip.Range, "clip reach")
+		check.equal(S.ClipHalfAngle, T.Clip.Angle / 2, "clip cone")
+		check.equal(Config.Hands.ClipLight, T.Clip, "the clip light itself")
+		check.atMost(G.EyeShineRange, T.Range, "his eyes shine only in your beam's reach")
+		check.atMost(G.EyeShineCone, T.Angle / 2, "and inside its cone")
+	end)
+
 	test("in a hunt two watchers hold him a few seconds at a time, then he comes on until they lose him", function()
 		local cfg = Config.Stare
 		local state = { held = 0, spent = false, unwatched = 0, holds = 0 }
