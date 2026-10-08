@@ -18,6 +18,7 @@ local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
+local RoomFit = require(Shared.Logic.RoomFit)
 local Dressing = require(script.Parent.Dressing)
 local WindowView = require(Shared.Logic.WindowView)
 local Grime = require(script.Parent.Grime)
@@ -590,13 +591,40 @@ function LevelBuilder.furnish(world, ctx)
 
 	-- Slots for tells and Sources.
 	-- `outside` marks slots on an outer wall, for tells that need one (a window).
+	-- A slot that would hang over a window, mirror or painting as built is left
+	-- out (the squad playtest, 2026-10-08: a clock over a window). RoomFit keeps
+	-- them apart already; this catches whatever reaches the wall another way.
+	local hung = {}
+	for _, entry in record.windows or {} do
+		table.insert(hung, { cframe = entry.cframe, half = Props.WallDecor[entry.kind].size[1] / 2 })
+	end
+	for _, entry in record.paintings or {} do
+		table.insert(hung, { cframe = entry.cframe, half = Props.WallDecor.Painting.size[1] / 2 })
+	end
+	local function overHung(cf: CFrame): boolean
+		for _, other in hung do
+			local offset = cf.Position - other.cframe.Position
+			if
+				cf.LookVector:Dot(other.cframe.LookVector) > 0.9
+				and math.abs(offset:Dot(other.cframe.LookVector)) < 1.5
+				and math.abs(offset:Dot(other.cframe.RightVector))
+					< other.half + RoomFit.SlotHalf + RoomFit.WallItemGap
+			then
+				return true
+			end
+		end
+		return false
+	end
 	for _, slot in template.wallSlots do
 		if not wallInFilledArm(slot) then
-			table.insert(record.wallSlots, {
-				cframe = slotCFrame(roomCF, slot, slot.y or 6.5, inner),
-				outside = facesOutside(slot),
-				used = false,
-			})
+			local cf = slotCFrame(roomCF, slot, slot.y or 6.5, inner)
+			if not overHung(cf) then
+				table.insert(record.wallSlots, {
+					cframe = cf,
+					outside = facesOutside(slot),
+					used = false,
+				})
+			end
 		end
 	end
 	for _, slot in template.floorSlots do

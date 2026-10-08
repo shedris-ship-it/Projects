@@ -109,7 +109,8 @@ function Overlays:Update()
 			urgent and "YOU'RE FADING" or "YOU'RE BLEEDING OUT",
 			string.format("Call for help. A teammate must hold E on you. %d s", math.ceil(left))
 		bleeding = true
-		self.bleedFill.Size = UDim2.fromScale(math.clamp(left / Config.Run.DownedSeconds, 0, 1), 1)
+		local total = player:GetAttribute(PA.DownedSeconds) or Config.Run.DownedSeconds
+		self.bleedFill.Size = UDim2.fromScale(math.clamp(left / total, 0, 1), 1)
 		-- The last seconds pulse.
 		local pulse = urgent and (0.5 + 0.5 * math.sin(os.clock() * 10)) or 0
 		self.stateTitle.TextColor3 = Ui.Theme.text:Lerp(Ui.Theme.danger, urgent and 0.5 + 0.5 * pulse or 0.35)

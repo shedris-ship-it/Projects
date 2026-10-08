@@ -922,10 +922,28 @@ function DebugService:Run(player: Player, text: string)
 		-- server Output, the worst few to a message.
 		task.spawn(function()
 			local all = {}
+			-- Things hung on walls outside the rooms' own models (the Decor
+			-- folder's clocks and portraits, puzzle boxes, racks), by the room
+			-- they stand in.
+			local extras = {}
+			local content = services.WorldService.content
+			for _, folder in content and content:GetChildren() or {} do
+				if folder:IsA("Folder") then
+					for _, model in folder:GetChildren() do
+						if model:IsA("Model") then
+							local id = services.WorldService:RoomAt(model:GetPivot().Position)
+							if id then
+								extras[id] = extras[id] or {}
+								table.insert(extras[id], model)
+							end
+						end
+					end
+				end
+			end
 			for _, id in services.WorldService:RoomIds() do
 				local room = services.WorldService:Room(id)
 				if room and room.model then
-					for _, line in ClipScan.room(room.name or ("room " .. id), room.model) do
+					for _, line in ClipScan.room(room.name or ("room " .. id), room.model, extras[id]) do
 						table.insert(all, line)
 					end
 				end

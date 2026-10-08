@@ -88,6 +88,8 @@ Constants.PlayerAttributes = {
 	Grace = "Grace",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
+	-- How long this down lasts (solo downs are longer): the bleed bar's scale.
+	DownedSeconds = "DownedSeconds",
 	Ready = "Ready",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",

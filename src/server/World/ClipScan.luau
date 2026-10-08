@@ -4,7 +4,10 @@
 -- lists every pair of boxes that overlap by more than a hair: prop against
 -- prop, and prop against a wall. Only Block parts are compared (a ball or
 -- cylinder is a loose box here), so a few reports are false alarms; the
--- depth in studs says how bad each one is.
+-- depth in studs says how bad each one is. Cylinders count as loose boxes
+-- too, and things hung on walls outside the room's model (clocks, portraits,
+-- the fuse box) come in as `extras` (the squad playtest, 2026-10-08: a clock
+-- over a window).
 
 local ClipScan = {}
 
@@ -59,7 +62,11 @@ end
 local function blocksOf(model: Instance): { BasePart }
 	local list = {}
 	for _, d in model:GetDescendants() do
-		if d:IsA("Part") and d.Shape == Enum.PartType.Block and d.Transparency < 1 then
+		if
+			d:IsA("Part")
+			and (d.Shape == Enum.PartType.Block or d.Shape == Enum.PartType.Cylinder)
+			and d.Transparency < 1
+		then
 			table.insert(list, d)
 		end
 	end
@@ -81,9 +88,13 @@ local function worst(listA: { BasePart }, listB: { BasePart }, floor: number)
 end
 
 -- One room's report lines, worst first.
-function ClipScan.room(roomName: string, room: Model): { string }
+function ClipScan.room(roomName: string, room: Model, extras: { Model }?): { string }
 	local models = {}
 	local walls = {}
+	for _, extra in extras or {} do
+		local cf, size = extra:GetBoundingBox()
+		table.insert(models, { model = extra, cf = cf, size = size, parts = blocksOf(extra) })
+	end
 	for _, child in room:GetChildren() do
 		if child:IsA("Model") and not SKIP[child.Name] then
 			local cf, size = child:GetBoundingBox()

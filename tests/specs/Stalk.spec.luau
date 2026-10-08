@@ -127,6 +127,8 @@ return function(test, check, Shared, require)
 			sinceDownNearby = math.huge,
 			sinceContact = math.huge,
 			approaching = true,
+			-- A run at him: the live caller always fills this in (Stalk:_contactVictim).
+			approachSpeed = 15,
 			graced = false,
 		}
 		for k, v in overrides or {} do
@@ -233,7 +235,14 @@ return function(test, check, Shared, require)
 		check.truthy(StalkRules.canLunge(ready({ stunned = false }), G), "fine once it wears off")
 	end)
 
-	test("walk up to a Guest you can see and he lunges, from tier 1, with no warning or wait", function()
+	test("walking at him is not a contact: he makes way for a walk, and lunges at a run", function()
+		local ok, why = StalkRules.contact(touching({ approachSpeed = 8 }), G)
+		check.equal(ok, false, "a walk at 8")
+		check.equal(why, "only walking", "reason")
+		check.truthy(StalkRules.contact(touching({ approachSpeed = 15 }), G), "a run at 15")
+	end)
+
+	test("run at a Guest you can see and he lunges, from tier 1, with no warning or wait", function()
 		for tier = 1, 3 do
 			check.truthy(StalkRules.contact(touching({ tier = tier }), G), "tier " .. tier)
 		end

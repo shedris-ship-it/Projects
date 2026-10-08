@@ -32,6 +32,12 @@ RoomFit.IslandBand = 4
 RoomFit.LaneHalfWidth = 4 -- (doc) doorway-to-centre lanes kept clear
 RoomFit.LaneDepth = 9 -- how far into the room a doorway's lane runs
 RoomFit.WallItemClear = 6.5 -- wall item centre to a doorway's centre, along the wall
+-- Wall items keep this much bare wall between them (the squad playtest,
+-- 2026-10-08: a clock hung over a window). Squeezing a template into a small
+-- room pulls a window and a slot towards the middle of the same wall.
+RoomFit.WallItemGap = 0.6
+-- A wall slot's half width: the widest thing hung in one (a portrait, 3.6).
+RoomFit.SlotHalf = 1.8
 
 -- A prop's turn (degrees) to stand against each wall facing the room: its
 -- front is +Z.
@@ -124,7 +130,7 @@ local function wallItemHalfWidth(item): number
 	if decor then
 		return decor.size[1] / 2
 	end
-	return item.width and item.width / 2 or 1.5
+	return item.width and item.width / 2 or RoomFit.SlotHalf
 end
 
 -- Fit a template into a room.
@@ -365,7 +371,9 @@ function RoomFit.fit(template, source, inner, doors)
 		end
 	end
 
-	-- Wall items: along their wall, clear of that wall's doorways.
+	-- Wall items: along their wall, clear of that wall's doorways and of
+	-- each other (windows and decor first, so slots give way to them).
+	local hung = { N = {}, S = {}, E = {}, W = {} }
 	local function wallItem(item)
 		if item.side == nil then
 			return nil -- closet faces belong to the 40x40 corridors only
@@ -380,6 +388,11 @@ function RoomFit.fit(template, source, inner, doors)
 			end
 			for _, door in doors do
 				if door.side == item.side and math.abs(door.along - along) < RoomFit.WallItemClear then
+					return false
+				end
+			end
+			for _, other in hung[item.side] do
+				if math.abs(other.along - along) < half + other.half + RoomFit.WallItemGap then
 					return false
 				end
 			end
@@ -408,6 +421,7 @@ function RoomFit.fit(template, source, inner, doors)
 			local along = start + (step % 2 == 0 and 1 or -1) * math.ceil(step / 2) * 0.5
 			if free(along) then
 				copy.along = along
+				table.insert(hung[item.side], { along = along, half = half })
 				return copy
 			end
 		end

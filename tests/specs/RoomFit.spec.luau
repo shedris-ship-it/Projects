@@ -143,6 +143,60 @@ return function(test, check, Shared, require)
 		check.atMost(essentialsLost / math.max(essentials, 1), 0.1, "too many hiding spots and tables left out")
 	end)
 
+	-- The squad playtest (2026-10-08): a clock hung over a window. Squeezed into
+	-- a small room, a window and a wall slot slid towards the middle of the
+	-- same wall; now every wall item keeps clear of the others on its wall.
+	test("fitted wall items keep clear of each other: no clock over a window", function()
+		local rng = Rng.new(11)
+		local slotsKept, slotsAll = 0, 0
+		for _, template in Rooms.Mansion do
+			local m = template.mansion
+			if m.size and (#(template.decor or {}) > 0 or #(template.wallSlots or {}) > 0) then
+				for _, turned in { false, true } do
+					local w, d = m.size[1], m.size[2]
+					if turned then
+						w, d = d, w
+					end
+					local inner = { x = w / 2 - 0.5, z = d / 2 - 0.5 }
+					for _ = 1, 40 do
+						local doors = randomDoors(rng, inner, rng:NextInteger(1, m.maxSeams or 3))
+						local fitted = RoomFit.fit(template, sourceOf(template), inner, doors)
+						local items = {}
+						for _, item in fitted.decor do
+							table.insert(items, {
+								side = item.side,
+								along = item.along,
+								half = Props.WallDecor[item.kind].size[1] / 2,
+								id = item.id,
+							})
+						end
+						for _, slot in fitted.wallSlots do
+							table.insert(
+								items,
+								{ side = slot.side, along = slot.along, half = RoomFit.SlotHalf, id = "slot" }
+							)
+						end
+						slotsKept += #fitted.wallSlots
+						slotsAll += #(template.wallSlots or {})
+						for i, a in items do
+							for j = i + 1, #items do
+								local b = items[j]
+								if a.side == b.side then
+									check.truthy(
+										math.abs(a.along - b.along) >= a.half + b.half + RoomFit.WallItemGap - 0.01,
+										template.id .. " " .. a.id .. " and " .. b.id .. " overlap on wall " .. a.side
+									)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		-- Giving way must not strip the walls bare: most slots still fit.
+		check.atLeast(slotsKept / math.max(1, slotsAll), 0.6, "share of wall slots kept")
+	end)
+
 	test("the Deliberation Table always fits the dining room, at its heart, with its chairs", function()
 		local template = Rooms.MansionById.dining_room
 		local rng = Rng.new(3)

@@ -471,7 +471,8 @@ function EffectsController:BleedFraction(): number?
 		return nil
 	end
 	local left = downedUntil - Workspace:GetServerTimeNow()
-	return math.clamp(1 - left / Config.Run.DownedSeconds, 0, 1)
+	local total = player:GetAttribute(Constants.PlayerAttributes.DownedSeconds) or Config.Run.DownedSeconds
+	return math.clamp(1 - left / total, 0, 1)
 end
 
 function EffectsController:_updateBleed(dt: number, downed: boolean)

@@ -336,6 +336,7 @@ function PlayerStateService:Down(player: Player)
 	record.downedUntil = os.clock() + seconds
 	self:_setState(player, States.Downed)
 	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + seconds)
+	player:SetAttribute(PA.DownedSeconds, seconds)
 	-- Smelling salts (Data/Tools): spent now, before the tools fall, and you
 	-- come round in a moment (_tick).
 	record.saltsAt = nil
