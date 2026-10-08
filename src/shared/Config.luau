@@ -130,6 +130,9 @@ Config.Stare = {
 	HoldMin = 0.5, -- ...never less than this
 	HoldResetSeconds = 1.5, -- a hold is over once nobody has watched him for this long
 	HuntWatchedSpeedScale = 0.45, -- how fast he comes on while two still watch (about a walk)
+	-- Too late to stare: in a hunt, within this of anyone the hold doesn't
+	-- stop him (the squad playtest, 2026-10-08).
+	HoldMinDistance = 6,
 	CoStareEndsHunt = false, -- the old rule: a 3 s co-stare ended a hunt
 	Cues = 2, -- how many times a run each player is told "[it stops in the light]" and the like
 }
@@ -943,6 +946,16 @@ Config.Stalker = {
 	WalkSpeed = 8,
 	StalkSpeed = 5,
 	SprintSpeedRatio = 0.92, -- (doc) 90-95% of player sprint
+	-- Chasing someone he can see, he runs as fast as you sprint (the squad
+	-- playtest, 2026-10-08: "hunting doesn't feel like a threat"; the owner's
+	-- choice): the ways out are breaking his line of sight, a door shut
+	-- behind you, a throw, hiding, or two of you holding him at a distance.
+	-- Hard's StalkerSpeedMultiplier applies to his prowl, not the chase.
+	ChaseSpeedRatio = 1.0,
+	-- At a hunt's start, the rooms nearest him go dark (never a Lantern room).
+	HuntDarkRooms = 4,
+	HuntDarkReach = 50, -- walking studs from him
+	LostSpots = 3, -- hiding places he searches where he lost you (was 2)
 	CatchRadius = 3.6,
 	Tier1MinDistance = 25, -- (doc)
 	Tier1VisibleMaxSeconds = 12,
@@ -953,7 +966,7 @@ Config.Stalker = {
 	IntrusionCooldownPerPlayer = 120, -- (doc)
 	IntrusionHoldSeconds = { 4, 6 },
 	ProvokeFlashlightSeconds = 2,
-	HuntDuration = { 45, 90 }, -- (doc)
+	HuntDuration = { 60, 120 }, -- (doc 45-90; the squad playtest, 2026-10-08: longer, more menacing)
 	TelegraphSeconds = { 3, 5 }, -- (doc)
 	HuntIntervalBreaking = 210,
 	HuntIntervalCollapsing = 120, -- (doc) ~every 2 min at 80+
@@ -1170,7 +1183,7 @@ Config.Guest = {
 	DuckSeconds = 0.35, -- tier 1, seen: the drop before he glides away
 	-- Hunts in phases (Logic/HuntPhases).
 	ChaseGrace = 0.6, -- out of his sight this long in a chase, and he's lost you
-	LostSeconds = { 1.5, 3 }, -- standing where he lost you, listening
+	LostSeconds = { 2.5, 4 }, -- standing where he lost you, listening
 	LostWalkSeconds = 6, -- at most this long getting back to where he last saw you
 	WidenAfter = 30, -- a hunt this long without seeing anyone: he widens his options
 	ListenEvery = { 6, 10 }, -- prowling, he stops to listen this often...

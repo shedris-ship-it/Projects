@@ -237,3 +237,32 @@ Now each night opens with **the intro** (`Config.Pacing.IntroSeconds` 300; 180 o
 **Specs:** `Pacing.spec` has a new test: a door at 0:30 still means tier 1 at most and no hunt before 5:00, and Hard's intro is shorter. A steady night now meets tier 2 at minute 5.5 and its first hunt at 5.6 (the 2–5 hunts and tier 3 in the second half still hold).
 
 **New test:** TC-178 (the first five minutes: frightened, but only by glimpses and sounds).
+
+## WP12 (build `.140`): hunts with teeth
+
+"Hunting doesn't feel like a threat, hunts need to be more menacing." He ran at 17.5 against your sprint of 19. Two players staring froze his catch even at arm's length. Hunts lasted 45–90 s, and they had no music.
+
+**The owner's decision: as fast as your sprint.** What changed:
+- **The chase.** Chasing someone he can see, he runs at your full sprint (`Config.Stalker.ChaseSpeedRatio` 1.0; Hard's +4% is for his prowl only, the final hunt still ×0.85). Your sprint lasts about 6 s, so the ways out are:
+  - breaking his line of sight;
+  - shutting a door behind you;
+  - a throw;
+  - hiding;
+  - two of you holding him at a distance.
+- **No stare at arm's reach.** Within 6 studs of anyone the hold doesn't stop him (`StalkRules.holdsAt`, `Config.Stare.HoldMinDistance`), though its clock still runs.
+- **The opening.**
+  - A scream, heard through the house (`Assets.Sounds.GuestScream`, APM "HORROR SCREAM 10").
+  - Up to 4 rooms within 50 walking studs of him go dark, never a Lantern room, until the hunt ends or is overtaken.
+  - The house tells him which room the nearest of you is in, as if he'd heard you (`StalkerService:_huntOpens`, a declared rule the telegraph's hum cues), so no hunt fizzles in the far wing.
+- **Longer hunts.** 60–120 s (were 45–90).
+- **A sharper search.** Where he lost you he searches 3 hiding places (was 2) and listens for 2.5–4 s (was 1.5–3).
+- **Music, at last.** The stalking stem is APM "Tension Repeat Drones 29" and the hunt stem APM "Rhythm Drone 34" (`Assets.Music`). The calm stays silent. **None heard by the owner yet:** swap freely; the other candidates are listed in `Assets.luau`.
+
+**Kept:** the telegraph, a start out of sight 25+ studs away, revive grace, a catch only if he can see you, Lantern rooms.
+
+**Studio, seed 61:**
+- A forced hunt (`tier 4`) darkened rooms 10, 19 and 20, the three nearest him that aren't Lantern rooms.
+- He caught a player standing still within 14 s.
+- No console errors. The scream and the music are still to be heard.
+
+**New tests:** TC-179 (the opening), TC-180 (each way out against a sprint-fast chase), TC-181 (length and search; does it feel like a threat now?).

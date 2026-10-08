@@ -47,6 +47,10 @@ Assets.Sounds = {
 	-- The Guest rework (2026-10-07): licensed library audio chosen by its
 	-- description, not yet heard by the owner: swap by ear here.
 	GuestRasp = "rbxassetid://9114571155", -- PSE "Ghost Giggle Breathy Cu Creepy Possessed 3": he has seen you, in a hunt
+	-- APM "HORROR SCREAM 10" (Epic Score, Horror Tools): a hunt opens (the squad
+	-- playtest, 2026-10-08). Not yet heard by the owner; PSE "Creature Roar Mix Of
+	-- Animals Gate Creaks 1" 9113985717 is the other candidate.
+	GuestScream = "rbxassetid://9043346099",
 	GuestGiggle = "rbxassetid://9114571545", -- PSE "Ghost Giggle Breathy Cu Creepy Possessed 9": a playful Guest, now and then
 	GuestSniff = "rbxassetid://9119305469", -- PSE "Sniff Breathe In 9": he's lost you and sniffs the air
 	GuestKeys = "rbxassetid://9113849492", -- PSE "Coins Or Keys Jingle 6": his key ring at a locked door
@@ -92,10 +96,15 @@ Assets.Sounds = {
 -- (not yet heard): "Tension Repeat Drones 23" 1843866957, "... 29" 1843867314,
 -- "... 39" 1843739491, "Cinematic Tension 16 I" 82017171529095, "... 16 J"
 -- 102730546164558, "Deliberate Pain (Alt Key Bass)" 1837843263.
+-- The squad playtest (2026-10-08) wanted hunts with music: two picked from
+-- those, still to be heard by the owner (swap freely): APM "Tension Repeat
+-- Drones 29" under the stalking, "Rhythm Drone 34" for the hunt. Others:
+-- "Terror" 1837226983, "Tension Repeat Drones 10" 1843736088, "Approaching
+-- Hordes (A)" 1840900109. The calm stays silent (P.T.).
 Assets.Music = {
 	Calm = "", -- a thin, almost-not-there bed for the house between his visits
-	Stalking = "", -- from tier 2 or Dread 40: a pulse under the quiet
-	Hunt = "", -- the chase
+	Stalking = "rbxassetid://1843867314", -- from tier 2 or Dread 40: a pulse under the quiet
+	Hunt = "rbxassetid://1843775810", -- the chase
 }
 
 Assets.StockFootstep = "rbxasset://sounds/action_footsteps_plastic.mp3"

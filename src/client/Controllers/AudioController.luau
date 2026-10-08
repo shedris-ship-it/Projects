@@ -39,7 +39,16 @@ local function group(name: string): SoundGroup
 end
 
 -- How far each kind of sound carries (studs); the rest use 90.
-local ROLLOFF = { Drip = 30, FlashlightClick = 15, Cloth = 25, Drawer = 30, UIClick = 10, UIHover = 10, Knock = 70 }
+local ROLLOFF = {
+	Drip = 30,
+	FlashlightClick = 15,
+	Cloth = 25,
+	Drawer = 30,
+	UIClick = 10,
+	UIHover = 10,
+	Knock = 70,
+	GuestScream = 70, -- a hunt opening: heard through the house
+}
 
 local function newSound(key: string, volume: number, pitch: number, groupName: string, rollOffMin: number?)
 	-- A key from Assets.Sounds, or a raw asset id (footsteps pass their own).

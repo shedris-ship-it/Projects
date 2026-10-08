@@ -325,6 +325,16 @@ return function(test, check, Shared, require)
 		check.atMost(G.EyeShineCone, T.Angle / 2, "and inside its cone")
 	end)
 
+	-- The squad playtest (2026-10-08): hunts must threaten. At arm's reach a
+	-- stare is too late.
+	test("in a hunt a stare doesn't hold him at arm's reach", function()
+		local S = Config.Stare
+		check.truthy(StalkRules.holdsAt(S.HoldMinDistance + 1, S), "a few strides off: it holds")
+		check.equal(StalkRules.holdsAt(S.HoldMinDistance - 1, S), false, "at arm's reach: too late")
+		check.atLeast(S.HoldMinDistance, Config.Stalker.CatchRadius + 1, "it never holds him just short of a catch")
+		check.equal(Config.Stalker.ChaseSpeedRatio, 1, "he chases at your sprint")
+	end)
+
 	test("in a hunt two watchers hold him a few seconds at a time, then he comes on until they lose him", function()
 		local cfg = Config.Stare
 		local state = { held = 0, spent = false, unwatched = 0, holds = 0 }

@@ -176,6 +176,13 @@ function StalkRules.canLunge(ctx, cfg): (boolean, string?)
 	return true, nil
 end
 
+-- In a hunt, does a stare still hold him at this distance from the nearest
+-- player? Not at arm's reach: too late to stare (the squad playtest,
+-- 2026-10-08, Config.Stare.HoldMinDistance).
+function StalkRules.holdsAt(distance: number, cfg): boolean
+	return distance >= (cfg.HoldMinDistance or 0)
+end
+
 -- Close contact (owner, 2026-10-03): walk right up to a Guest you can see and
 -- he lunges at once, at any tier from 1. Rushing him is your own choice, so
 -- there's no run-time wait, no warning and none of the lunge cooldowns. Still

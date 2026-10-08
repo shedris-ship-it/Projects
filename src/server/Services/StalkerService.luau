@@ -253,6 +253,9 @@ function StalkerService:Begin(ctx)
 end
 
 function StalkerService:Stop()
+	if self.huntDark and self.services.WorldService.World then
+		self:_huntCloses()
+	end
 	self.active = false
 	if self.body and self.body.model then
 		self.body.model:Destroy()
@@ -1303,6 +1306,10 @@ function StalkerService:_update(dt: number)
 	local held = frozen
 	if hunting then
 		held = StalkRules.huntHold(self.hold, frozen, dt, Config.Stare)
+		-- Within arm's reach the stare is too late (its clock still runs).
+		if held and not StalkRules.holdsAt(self:_minPlayerDistance(body.root.Position), Config.Stare) then
+			held = false
+		end
 	end
 	self:_holdCues(held, frozen, hunting, watchers)
 	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
@@ -1427,6 +1434,7 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 		if self.mode == Modes.Hunting or self.mode == Modes.Telegraph then
 			local caught = (self.data and self.data.catches or 0) > 0
 			self.services.RunLogService:Hunt(false, caught and "caught" or "overtaken")
+			self:_huntCloses()
 		end
 		self.director:HuntBegan(reason or self.forceReason or "?")
 		self.services.Telemetry:Log("HuntStarted", {
@@ -1530,6 +1538,7 @@ function StalkerService:_updateTelegraph(now: number)
 			nextListen = now + self.rng:NextNumber(G.ListenEvery[1], G.ListenEvery[2]),
 		}
 		self.services.Telemetry:Log("HuntKind", { kind = kind, mood = self:MoodNow() })
+		self:_huntOpens()
 		body:FaceMovement()
 		Net.get("HuntState"):FireAllClients({
 			state = "hunt",
@@ -1541,10 +1550,61 @@ function StalkerService:_updateTelegraph(now: number)
 	end
 end
 
-function StalkerService:_runSpeed(watchers): number
-	local speed = S.SprintSpeedRatio
+-- `chasing`: after someone he can see, at your sprint (Config.Stalker
+-- .ChaseSpeedRatio; Hard's multiplier is for his prowl).
+-- A hunt opens (the squad playtest, 2026-10-08: "hunts need to be more
+-- menacing"): he screams, heard through the house, and the rooms nearest
+-- him go dark (never a Lantern room) until it's over. And the house tells
+-- him where the nearest of you is, as if he'd heard them (cued by the
+-- telegraph's hum): no hunt fizzles with him wandering the far wing.
+function StalkerService:_huntOpens()
+	local here = self.body.root.Position
+	Sfx.play("GuestScream", here, 1, self.rng:NextNumber(0.92, 1.04))
+	local world = self.services.WorldService
+	self.huntDark = self.huntDark or {}
+	if not self.final and not self.reckoning then
+		local near = {}
+		for _, id in world:RoomIds() do
+			local room = world:Room(id)
+			local d = room and world:Separation(here, room.center)
+			if d and d <= S.HuntDarkReach and not world:IsLanternRoom(id) then
+				table.insert(near, { id = id, d = d })
+			end
+		end
+		table.sort(near, function(a, b)
+			return a.d < b.d
+		end)
+		for i = 1, math.min(S.HuntDarkRooms, #near) do
+			world:SetLightCause(near[i].id, "hunt", true)
+			self.huntDark[near[i].id] = true
+		end
+	end
+	local nearest, best = nil, math.huge
+	for _, player in self.services.PlayerStateService:ActivePlayers() do
+		local pos = self.services.PlayerStateService:Position(player)
+		local d = pos and world:Separation(here, pos)
+		if d and d < best and not self.services.HidingService:IsHidden(player) then
+			nearest, best = player, d
+		end
+	end
+	if nearest then
+		self:HeardYou(nearest, self.services.PlayerStateService:Position(nearest))
+	end
+end
+
+-- The hunt's dark rooms light again.
+function StalkerService:_huntCloses()
+	local world = self.services.WorldService
+	for id in self.huntDark or {} do
+		world:SetLightCause(id, "hunt", false)
+	end
+	self.huntDark = {}
+end
+
+function StalkerService:_runSpeed(watchers, chasing: boolean?): number
+	local speed = (chasing and S.ChaseSpeedRatio or S.SprintSpeedRatio)
 		* Config.Player.SprintSpeed
-		* (self.difficulty.StalkerSpeedMultiplier or 1)
+		* (chasing and 1 or (self.difficulty.StalkerSpeedMultiplier or 1))
 		* (self.archetype.speedMultiplier or 1)
 	if self.final then
 		speed *= 0.85
@@ -1732,7 +1792,7 @@ function StalkerService:_updateHunting(now: number, dt: number, watchers)
 		data.chasing = chase
 		data.lastSeenAt = services.PlayerStateService:Position(chase)
 		self.bodyCtl:SetGaze(chase)
-		self:_walkTo(self:_leadPoint(chase), speed, self:_lanternAvoid())
+		self:_walkTo(self:_leadPoint(chase), self:_runSpeed(watchers, true), self:_lanternAvoid())
 	elseif phase == "chase" then
 		-- Out of his sight a moment (HuntPhases' grace): on to where he last
 		-- saw them, no further.
@@ -1897,7 +1957,7 @@ function StalkerService:_lostStep(now: number, dt: number, speed: number)
 		data.listening = false
 		lost.stage = "check"
 		local plan = {}
-		for _, spot in self.tactician:_spotsNear(data.lastSeenAt or here, 2) do
+		for _, spot in self.tactician:_spotsNear(data.lastSeenAt or here, S.LostSpots or 2) do
 			table.insert(plan, { type = "goto", position = spot.frontPosition, speed = S.WalkSpeed * 1.4 })
 			table.insert(plan, { type = "inspect", spot = spot })
 		end
@@ -2055,6 +2115,7 @@ function StalkerService:_endHunt()
 		end
 	end
 	Net.get("HuntState"):FireAllClients({ state = "end" })
+	self:_huntCloses()
 	self.director:HuntEnded(os.clock(), caught and "caught" or "survived")
 	self:MoodEvent(caught and "huntCaught" or "huntSurvived")
 	self:_retreat("hunt over")
