@@ -161,8 +161,12 @@ local function clasp(t)
 	add(t, "RightShoulder", d(6), d(40), d(-3))
 	add(t, "LeftElbow", d(42))
 	add(t, "RightElbow", d(42))
-	add(t, "LeftWrist", d(-6))
-	add(t, "RightWrist", d(-6))
+	-- The hands turned so their backs face you, the long fingers folded over
+	-- each other, left over right (the body pass, 2026-10-07: seen edge-on,
+	-- the curled fingers read as splayed legs). Euler XYZ of a 75 degree turn
+	-- then a bend inward.
+	add(t, "LeftWrist", d(-72.9), d(-47.7), d(-67.4))
+	add(t, "RightWrist", d(-64.0), d(58.5), d(60.3))
 end
 
 -- Arms hanging dead straight, a little away from the body.

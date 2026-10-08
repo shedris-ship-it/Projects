@@ -31,6 +31,10 @@ local Materials = {
 	{ name = "CheckerLino", base = "Plastic", maps = T.Linoleum, rough = R.Satin, studs = 11 },
 	{ name = "HexTile", base = "CeramicTiles", maps = T.HexTile, rough = R.Satin, studs = 6 },
 	{ name = "StainedConcrete", base = "Concrete", maps = T.Concrete, rough = R.Matte, studs = 16, organic = true },
+	-- The Guest's overcoat (Stalker/StalkerModel): black wool, matte so the
+	-- torch never shines on it; the carpet's pile, small, reads as a coarse
+	-- weave.
+	{ name = "CoatWool", base = "Fabric", maps = T.Carpet, rough = R.Matte, studs = 2, organic = true },
 }
 
 local byName = {}

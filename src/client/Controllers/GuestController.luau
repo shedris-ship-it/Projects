@@ -367,6 +367,13 @@ function GuestController:_frame(dt: number)
 					m.Transform = CFrame.new(value[4], value[5], value[6]) * CFrame.Angles(value[1], value[2], value[3])
 				end
 			end
+			-- His coat's skirt follows each thigh part of the way.
+			for _, side in { "Left", "Right" } do
+				local m, hip = guest.motors[side .. "Coat"], values[side .. "Hip"]
+				if m and hip then
+					m.Transform = CFrame.Angles(hip[1] * G.CoatSwing, 0, hip[3] * G.CoatSwing)
+				end
+			end
 		end
 		-- Fingers: the hand on the jamb grips it while he peeks; held, or
 		-- playful, they drum.

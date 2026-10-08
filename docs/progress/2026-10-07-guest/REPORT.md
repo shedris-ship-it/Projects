@@ -134,6 +134,23 @@ No hum for the Host mood: nothing suitable turned up.
   - Uploaded: calm `118378389246082`, worn `82781140864416`, broken `134283397249825`. Picture: `08_textured_broken.jpg`.
 - **The smile is a deep crescent** (your note: "not curved enough, makes him look like a muppet"). It's low in the middle, and the corners keep climbing up the cheeks towards the eyes instead of levelling off round them (`GuestPose.mouth`). The before and after are `06_textured_calm.jpg` and `07_textured_breaking.jpg` against `04_round_eyes.jpg`.
 
+### The body (build `.128`, your note: "his body doesn't really look very good")
+You chose the code rebuild (no uploads). What made him look like a puppet (`09_body_before_front.jpg`, `10_body_before_side.jpg`, `11_hands_before.jpg`):
+- a pale bent neck with a ring round it, like a bendy straw
+- arms like flat planks with lumps on top for shoulders
+- the suit's Fabric material glittered like granite in the torch
+- a rectangle for a torso and posts for legs
+- hands like two shrimps: a thick oval palm (it was built thick and narrow, the wrong way round) and needle fingers fanning out
+
+What he is now (`13_body_after_front.jpg` at the game's light; `14_body_after_side_lit.jpg`, `15_walk_lit.jpg`, `16_usher_lit.jpg` and `17_lunge_lit.jpg` under a test lamp by the camera, to show the shapes):
+- **A long black overcoat**, matte (a new `CoatWool` material from textures already uploaded: the carpet's pile, small; smooth plastic shone like latex). A chest that narrows to the waist, round shoulders, a stoop, three buttons, a grubby shirt V and tie.
+- **A black neck in a turned-up collar**, so the mask floats on the dark.
+- **The coat flares as he walks.** Its skirt hangs on joints of its own that follow each thigh 60% of the way (`Config.Guest.CoatSwing`, `GuestController`); fully on the thighs it split into two wide trouser legs.
+- **Bony hands** (`12_hands_after.jpg`): flat palms, finger bones as cylinders with knuckles. In the clasp the hands turn their backs to you and the fingers fold over each other (`GuestPose` clasp).
+- Tapering sleeves and shins, a knob at each wrist, dress shoes with a heel and a rounded toe.
+
+Not checked: how the coat and hands look in a real chase at speed, and whether he still reads at 30 studs against a lit doorway in every room (TC-153).
+
 ## Evidence
 
 **Checks:** every commit passed the five (`stylua`, `lune run tests/run`, `lune run tests/compile`, `selene` 0/0, `rojo build` into the scratchpad, since your Studio had the repo's `Consensus.rbxlx` open). Tests went from 445 to **464**: GuestMood, HuntPhases and GuestKeys specs, plus Stalk.spec (after you, the presence budget, the creep scale) and RunStats.spec (his numbers).
@@ -186,6 +203,10 @@ Branch **`claude/overnight-foundation`**.
 8ac5eb6 The Guest rework: a mind of his own, his house, his face (build .122)
 1b01437 The Guest, scarier: lidless eyes, his sounds (build .123)
         The Guest rework documented; no target, no freeze; the bot opens what it pries (build .124)
+        The map on Tab, the cursor on puzzles, the voice on Hard, the catch by circumstance (build .125)
+        The textured mask; true voids; the smile a deep crescent (build .126)
+        The mask at its worst: broken and worn glazes (build .127)
+        His body: a long black coat, a black neck, bony hands folded (build .128)
 ```
 
 ```powershell

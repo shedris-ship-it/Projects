@@ -40,7 +40,7 @@ local MOUTH = Color3.fromRGB(6, 4, 4)
 local TOOTH = Color3.fromRGB(168, 156, 124) -- old ivory, yellowed
 local CRACK = Color3.fromRGB(66, 58, 54)
 local SHARD = Color3.fromRGB(2, 2, 3) -- where the mask has come away: the dark beneath
-local FINGER = Color3.fromRGB(184, 177, 164)
+local FINGER = Color3.fromRGB(176, 170, 158) -- the bone of his wrists (Stalker/StalkerModel)
 
 -- The mask's shell against the head's (half-sizes and how far forward).
 local MASK_WIDE, MASK_TALL, MASK_DEEP, MASK_FORWARD, MASK_DROP = 0.94, 0.82, 0.7, 0.42, 0.07
@@ -314,55 +314,82 @@ end
 -- Hands ------------------------------------------------------------------------
 
 -- Long two-jointed fingers on a hand bone, curling towards the palm
--- (which faces the body). Returns { motors, curl } for SetCurl.
+-- (which faces the body). Bones, not tentacles (the body pass of
+-- 2026-10-07): each segment a thin cylinder with a knuckle at each joint, in
+-- a row across the hand's width (front to back as it hangs). Returns
+-- { fingers, side } for curlHand.
+local FINGER_WIDE = { 0.072, 0.062 }
+local KNUCKLE = 0.088
+
+-- Cylinders run along X: this turns a segment so it runs down a joint's Y.
+local ALONG = CFrame.Angles(0, 0, math.pi / 2)
+
+local function fingerPart(name: string, size: Vector3, shape: Enum.PartType): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Shape = shape
+	p.Size = size
+	p.Color = FINGER
+	p.Material = Enum.Material.SmoothPlastic
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Massless = true
+	return p
+end
+
 function GuestFace.hand(hand: BasePart, side: string)
 	local rig = GuestPose.Rig
 	local inward = side == "Left" and 1 or -1
 	local result = { fingers = {}, side = side }
 	local length1, length2 = rig.finger[1], rig.finger[2]
-	local base = -hand.Size.Y / 2 + 0.02
+	local base = -hand.Size.Y / 2 + 0.04
 	local layout = {
-		{ 0, base, -0.055, 1.0 },
-		{ 0, base, -0.018, 1.08 },
-		{ 0, base, 0.018, 1.0 },
-		{ 0, base, 0.052, 0.86 },
-		{ inward * 0.05, base + 0.2, -0.08, 0.72 }, -- thumb, in front
+		{ 0, base, -0.075, 0.96 },
+		{ 0, base, -0.025, 1.06 },
+		{ 0, base, 0.025, 1.0 },
+		{ 0, base, 0.072, 0.84 },
+		{ inward * 0.04, base + 0.22, -0.1, 0.7 }, -- thumb, in front
 	}
 	for i, spec in layout do
 		local scale = spec[4]
-		local segment1 = Instance.new("Part")
-		segment1.Name = "Finger"
-		segment1.Size = Vector3.new(0.05, length1 * scale, 0.05)
-		local segment2 = Instance.new("Part")
-		segment2.Name = "Finger"
-		segment2.Size = Vector3.new(0.042, length2 * scale, 0.042)
-		for _, p in { segment1, segment2 } do
-			p.Color = FINGER
-			p.Material = Enum.Material.SmoothPlastic
-			p.CanCollide = false
-			p.CanQuery = false
-			p.CanTouch = false
-			p.CastShadow = false
-			p.Massless = true
-			local mesh = Instance.new("SpecialMesh")
-			mesh.MeshType = Enum.MeshType.Sphere
-			mesh.Parent = p
-		end
+		local l1, l2 = length1 * scale, length2 * scale
+		local segment1 = fingerPart("Finger", Vector3.new(l1, FINGER_WIDE[1], FINGER_WIDE[1]), Enum.PartType.Cylinder)
+		local segment2 = fingerPart("Finger", Vector3.new(l2, FINGER_WIDE[2], FINGER_WIDE[2]), Enum.PartType.Cylinder)
 		local knuckle = Instance.new("Motor6D")
 		knuckle.Part0 = hand
 		knuckle.Part1 = segment1
 		knuckle.C0 = CFrame.new(spec[1], spec[2], spec[3])
 			* (i == 5 and CFrame.Angles(math.rad(-25), 0, inward * math.rad(25)) or CFrame.identity)
-		knuckle.C1 = CFrame.new(0, segment1.Size.Y / 2 - 0.02, 0)
+		knuckle.C1 = ALONG:Inverse() * CFrame.new(0, l1 / 2 - 0.02, 0)
 		knuckle.Parent = segment1
 		local middle = Instance.new("Motor6D")
 		middle.Part0 = segment1
 		middle.Part1 = segment2
-		middle.C0 = CFrame.new(0, -segment1.Size.Y / 2 + 0.02, 0)
-		middle.C1 = CFrame.new(0, segment2.Size.Y / 2 - 0.01, 0)
+		middle.C0 = CFrame.new(-(l1 / 2 - 0.02), 0, 0) * ALONG:Inverse()
+		middle.C1 = ALONG:Inverse() * CFrame.new(0, l2 / 2 - 0.01, 0)
 		middle.Parent = segment2
 		segment1.Parent = hand
 		segment2.Parent = hand
+		-- The knuckles: a bump at the root and one at the middle joint, and a
+		-- rounded tip.
+		for _, spot in
+			{
+				{ segment1, l1 / 2 - 0.02, KNUCKLE },
+				{ segment2, l2 / 2 - 0.01, KNUCKLE * 0.86 },
+				{ segment2, -(l2 / 2), FINGER_WIDE[2] },
+			}
+		do
+			local bump = fingerPart("Knuckle", Vector3.one * spot[3], Enum.PartType.Ball)
+			bump.CFrame = spot[1].CFrame * CFrame.new(spot[2], 0, 0)
+			local weld = Instance.new("Weld")
+			weld.Part0 = spot[1]
+			weld.Part1 = bump
+			weld.C0 = CFrame.new(spot[2], 0, 0)
+			weld.Parent = bump
+			bump.Parent = hand
+		end
 		table.insert(result.fingers, { knuckle = knuckle, middle = middle, curl = 0, offset = 0, inward = inward })
 	end
 	return result

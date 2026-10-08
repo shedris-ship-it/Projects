@@ -322,6 +322,7 @@ return function(test, check, Shared, require)
 		local builtIn = {
 			Plaster = true,
 			CeramicTiles = true,
+			Fabric = true,
 			Slate = true,
 			WoodPlanks = true,
 			Wood = true,
