@@ -16,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local Feel = require(Shared.Logic.Feel)
 
 local P, F = Config.Player, Config.Feel
@@ -156,7 +157,24 @@ function FeelController:_update(dt: number)
 	self.lastYaw = yaw
 	self.roll = roll + self.lean
 
-	humanoid.CameraOffset = active and Vector3.new(x, y + idle - self.dip, 0) or Vector3.zero
+	-- Your eye goes where your body is (Logic/PlayerPose, Controllers/
+	-- PoseController): near the floor when you're down, lower crouched or
+	-- kneeling. Position only, never aim (the comfort rule).
+	local posture = nil
+	local runState = player:GetAttribute(Constants.PlayerAttributes.State)
+	if runState == Constants.PlayerStates.Downed then
+		posture = Config.Pose.DownedCamera
+	elseif player:GetAttribute(Constants.PlayerAttributes.Reviving) then
+		posture = Config.Pose.KneelCamera
+	elseif player:GetAttribute(Constants.PlayerAttributes.Crouched) then
+		posture = Config.Pose.CrouchCamera
+	end
+	local postureTarget = posture and Vector3.new(posture[1], posture[2], posture[3]) or Vector3.zero
+	local postureRate = runState == Constants.PlayerStates.Downed and Config.Pose.FallSeconds
+		or Config.Pose.CrouchSeconds
+	self.posture = (self.posture or Vector3.zero):Lerp(postureTarget, math.clamp(dt / postureRate * 2.5, 0, 1))
+	local bob = active and Vector3.new(x, y + idle - self.dip, 0) or Vector3.zero
+	humanoid.CameraOffset = bob + (self.state:InRun() and self.posture or Vector3.zero)
 	-- How far the camera has moved with the bob: the hands lag behind it.
 	self.sway = active and Vector2.new(x, y + idle - self.dip) or Vector2.zero
 

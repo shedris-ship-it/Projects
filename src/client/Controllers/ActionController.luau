@@ -117,6 +117,23 @@ function ActionController:Start()
 		end
 	end, false, nil, Enum.KeyCode.X)
 
+	-- Crouch (the squad playtest, 2026-10-08: "no sneak/crouch"): hold Ctrl,
+	-- or toggle it (a setting); B toggles on a gamepad. A silent creep.
+	self:_bind("ConsensusCrouch", function(inputState, input)
+		if self.state:IsHidden() or Ui.modalOpen() then
+			return Enum.ContextActionResult.Pass
+		end
+		local toggle = self.state.settings.crouchToggle == true
+			or (input ~= nil and input.KeyCode == Enum.KeyCode.ButtonB)
+			or (input ~= nil and input.UserInputType == Enum.UserInputType.Touch)
+		if inputState == Enum.UserInputState.Begin then
+			self:_setCrouch(if toggle then not self.crouched else true)
+		elseif (inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel) and not toggle then
+			self:_setCrouch(false)
+		end
+		return nil
+	end, true, "Crouch", Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonB)
+
 	self:_bind("ConsensusSprint", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
 			sprintHeld = true
@@ -174,6 +191,7 @@ function ActionController:Start()
 		ConsensusTool = UDim2.new(1, -95, 1, -230),
 		ConsensusFlashlight = UDim2.new(1, -170, 1, -245),
 		ConsensusSprint = UDim2.new(1, -240, 1, -110),
+		ConsensusCrouch = UDim2.new(1, -310, 1, -110),
 		ConsensusPing = UDim2.new(1, -240, 1, -180),
 		ConsensusCallout = UDim2.new(1, -240, 1, -250),
 		ConsensusMap = UDim2.new(0, 20, 0, 120),
@@ -359,6 +377,10 @@ function ActionController:_updateMovement(dt: number)
 	if state == PS.Lobby and not self.state:InRun() then
 		stamina = P.StaminaMax
 	end
+	-- Sprinting stands you up; so does going down, hiding or the run ending.
+	if self.crouched and (sprinting or state ~= PS.Active or self.state:IsHidden() or not self.state:InRun()) then
+		self:_setCrouch(false)
+	end
 	-- Slow walk, fast sprint, a stagger when out of stamina, and no faster
 	-- than the furniture you lean on (Logic/Feel).
 	local hands = self.controllers.HandsController
@@ -372,12 +394,27 @@ function ActionController:_updateMovement(dt: number)
 			hub = state == PS.Lobby,
 			sprinting = sprinting,
 			exhausted = exhausted,
+			crouched = self.crouched == true,
 			pushSpeed = pushSpeed,
 		}, P, Config.Run.DownedCrawlSpeed, Config.Push)
 	end
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
 	self.sprinting = sprinting
+end
+
+-- Crouch or stand (the server decides what others see: PlayerStateService).
+function ActionController:_setCrouch(on: boolean)
+	on = on and self.state:IsActive() and self.state:InRun() and not self.state:IsHidden()
+	if on == (self.crouched == true) then
+		return
+	end
+	self.crouched = on
+	Net.get("SetCrouch"):FireServer(on)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.JumpHeight = on and 0 or P.JumpHeight
+	end
 end
 
 -- The torch stutters for a moment (his breath behind you: GuestController).

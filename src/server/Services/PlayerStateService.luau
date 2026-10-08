@@ -104,6 +104,9 @@ function PlayerStateService:Start()
 		end
 	end)
 
+	Net.onServer("SetCrouch", { interval = 0.1, types = { "boolean" } }, function(player, on)
+		self:SetCrouch(player, on == true)
+	end)
 	Net.onServer("SetFlashlight", { interval = 0.15, types = { "boolean" } }, function(player, on)
 		-- Through ToolService, which knows where the torch is (hand or shirt).
 		self.services.ToolService:OnFlashlightRequest(player, on == true)
@@ -353,7 +356,45 @@ function PlayerStateService:_setState(player: Player, state: string)
 	end
 	record.state = state
 	player:SetAttribute(PA.State, state)
+	if state ~= States.Active then
+		player:SetAttribute(PA.Crouched, nil)
+	end
 	self.StateChanged:Fire(player, state)
+end
+
+-- Crouch or stand (the squad playtest, 2026-10-08). Only an active player
+-- in a run, out of hiding, crouches; everyone sees it (Controllers/
+-- PoseController) and he aims lower at them (SightPoint).
+function PlayerStateService:SetCrouch(player: Player, on: boolean)
+	local record = records[player]
+	local can = on and record ~= nil and record.inRun and record.state == States.Active
+	can = can and player:GetAttribute(PA.Hidden) == nil
+	player:SetAttribute(PA.Crouched, can and true or nil)
+end
+
+-- Where The Guest looks to see you: your chest, or lower while you creep
+-- crouched (a run can't pass for a crouch: only slow counts).
+function PlayerStateService:SightPoint(player: Player): Vector3?
+	local root = self:Root(player)
+	if not root then
+		return nil
+	end
+	local velocity = root.AssemblyLinearVelocity
+	local slow = Vector3.new(velocity.X, 0, velocity.Z).Magnitude <= Config.Player.CrouchSpeed + 1.5
+	if player:GetAttribute(PA.Crouched) and slow then
+		return root.Position + Vector3.new(0, 1 - Config.Player.CrouchSightDrop, 0)
+	end
+	return root.Position + Vector3.new(0, 1, 0)
+end
+
+-- Crouched and slow, in the dark: he sees you only nearer (Config.Player.CrouchDarkSight).
+function PlayerStateService:Creeping(player: Player): boolean
+	local root = self:Root(player)
+	if not root or not player:GetAttribute(PA.Crouched) then
+		return false
+	end
+	local velocity = root.AssemblyLinearVelocity
+	return Vector3.new(velocity.X, 0, velocity.Z).Magnitude <= Config.Player.CrouchSpeed + 1.5
 end
 
 -- Caught by the stalker. A second catch while downed makes you Lost.
@@ -408,8 +449,25 @@ function PlayerStateService:Down(player: Player)
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = root
 		prompt.Triggered:Connect(function(rescuer)
+			rescuer:SetAttribute(PA.Reviving, nil)
 			if rescuer ~= player and self:CanAct(rescuer) then
 				self:Revive(player, rescuer)
+			end
+		end)
+		-- The rescuer kneels while they hold it (Controllers/PoseController).
+		prompt.PromptButtonHoldBegan:Connect(function(rescuer)
+			if rescuer ~= player and self:CanAct(rescuer) then
+				rescuer:SetAttribute(PA.Reviving, true)
+			end
+		end)
+		prompt.PromptButtonHoldEnded:Connect(function(rescuer)
+			rescuer:SetAttribute(PA.Reviving, nil)
+		end)
+		prompt.Destroying:Connect(function()
+			for _, other in Players:GetPlayers() do
+				if other:GetAttribute(PA.Reviving) then
+					other:SetAttribute(PA.Reviving, nil)
+				end
 			end
 		end)
 		record.revivePrompt = prompt

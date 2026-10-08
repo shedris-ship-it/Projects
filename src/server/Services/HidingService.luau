@@ -116,6 +116,7 @@ function HidingService:Enter(player: Player, spot)
 		notify(player, "Not while it's watching you.", "danger")
 		return
 	end
+	self.PlayerState:SetCrouch(player, false)
 	local character = player.Character
 	local root = self.PlayerState:Root(player)
 	if not character or not root then

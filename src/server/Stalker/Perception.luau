@@ -112,13 +112,18 @@ function Perception:CanSee(player: Player): boolean
 		return false
 	end
 	local eye = self:EyePosition()
-	local target = root.Position + Vector3.new(0, 1, 0)
+	-- Lower while they creep crouched, so furniture between can hide them.
+	local target = services.PlayerStateService:SightPoint(player) or (root.Position + Vector3.new(0, 1, 0))
 	local offset = target - eye
 	local distance = offset.Magnitude
 	local lit = services.WorldService:IsLit(root.Position)
 		or services.PlayerStateService:FlashlightOn(player)
 		or player:GetAttribute("LanternOn") == true
 	local range = lit and S.VisionRangeLit or S.VisionRangeDark
+	if not lit and services.PlayerStateService:Creeping(player) then
+		-- Crouched in the dark (the squad playtest, 2026-10-08).
+		range *= Config.Player.CrouchDarkSight
+	end
 	if distance > range then
 		return false
 	end

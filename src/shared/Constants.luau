@@ -90,6 +90,9 @@ Constants.PlayerAttributes = {
 	DownedUntil = "DownedUntil",
 	-- How long this down lasts (solo downs are longer): the bleed bar's scale.
 	DownedSeconds = "DownedSeconds",
+	Reviving = "Reviving", -- holding the revive prompt on a friend (they kneel)
+	HideEnter = "HideEnter", -- ducking into a hiding place (a moment's crouch)
+	Crouched = "Crouched", -- crouching (Controllers/ActionController asks, PlayerStateService decides)
 	Ready = "Ready",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",

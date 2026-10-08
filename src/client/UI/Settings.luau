@@ -98,6 +98,7 @@ function Settings.new(ctx)
 			{ key = "lowEnd", label = "Low-end graphics (phones)" },
 			{ key = "centerDot", label = "Centre dot (aiming aid)" },
 			{ key = "tips", label = "Show tips in the house" },
+			{ key = "crouchToggle", label = "Ctrl toggles crouch (off: hold)" },
 		}
 	do
 		local button = Ui.button(

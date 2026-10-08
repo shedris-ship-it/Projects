@@ -133,3 +133,35 @@ Now players collide through their roots:
 **Studio checks:** a player still stands on floors, climbs the grand stair and stops at walls (a root's half-width short). Gate A holds (parts 2152, hash 1995746720). 480 tests pass.
 
 **New tests:** TC-165 (the Guest and furniture), TC-166 (bumping into a friend), TC-167 (a friend in a doorway gives way within a second), TC-168 (a downed friend never blocks). TC-166 to TC-168 need two clients.
+
+## WP7 and WP8 (build `.136`, one commit): the down, the crawl, crouching
+
+### The down and the crawl
+
+"There is no down animation." A downed player stood up and played the walk at 3 studs/s. Nothing in the game posed players. Nothing is uploaded now either: the poses are built in code like the Guest's.
+- **`Logic/PlayerPose`** (pure, R15, read off this place's rig) has the crouch with its gait, prone with a crawl, and the kneel. `PlayerPose.spec` runs forward kinematics over the real body: feet stay on the floor crouched at every step, a downed body lies on the floor with its head lifted, the back knee touches the floor kneeling.
+- **`Controllers/PoseController`** poses every character on every client from what the server says (downed, reviving, crouched, ducking into a hiding place).
+  - It writes the joints after the default animation each frame, as `GuestController` does for him.
+  - This place's rig uses `AnimationConstraint` joints, which take a `Transform` like a Motor6D.
+  - Poses ease in and out: a 0.6 s fall, a 0.8 s rise, a 0.25 s crouch.
+- **The rescuer kneels** while they hold E on you (a `Reviving` attribute from the prompt's hold).
+- **The camera follows the body** (`FeelController`, position only): near the floor and at the head when downed, a stud lower crouched, 1.3 kneeling.
+
+**Studio, seed 18:**
+- A posed copy of the character, seen from the side: the crouch reads as a crouch, and the downed body lies face down, arms reaching out past the head, legs trailing.
+- F2 `down`: the head is 1.8 studs under the root and 2.2 ahead, and the camera is 3.2 down.
+- `revive`: the body is up in about 0.75 s, and the camera back to standing height.
+- No console errors.
+
+### Crouch
+
+"No sneak/crouch control." Now:
+- **Controls.** Hold Left Ctrl, or toggle it with a new setting. Gamepad B toggles it, and it's a touch button on phones.
+- **A silent creep at 3.5 studs/s** (`Config.Player.CrouchSpeed`). That's under the 4 studs/s where steps and noise start, so it makes no footsteps and nothing he hears. `Feel.spec` keeps it under both thresholds.
+- **Sprinting stands you up**, and you can't jump crouched.
+- **The server decides** (`SetCrouch`, the `Crouched` attribute). It clears on a down, hiding, being Lost or the run ending.
+- **He looks for you lower** (`PlayerStateService:SightPoint`): 1.6 studs lower while you creep (at walking speed or more it doesn't count), so a sofa or a table between you can hide you. In the dark, a creeping player is seen only within 0.7 of his dark range (10.5 studs, not 15). He still senses anyone within 5 studs.
+
+**Studio:** holding Ctrl sets `Crouched`, a walk speed of 3.5 and no jump; letting go stands you up (walk 8, jump 3). 486 tests pass.
+
+**New tests:** TC-169 (the fall, the crawl, the low camera), TC-170 (revived: back up; the rescuer kneels; two clients), TC-171 (crouch: silent, he sees you later in the dark, a sofa hides you).

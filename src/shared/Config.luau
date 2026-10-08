@@ -146,6 +146,20 @@ Config.Bodies = {
 	MovedSeconds = 1.5, -- a player the game just moved (a hiding place, the chute) is a ghost this long
 }
 
+-- Players' poses (Logic/PlayerPose, Controllers/PoseController; the squad
+-- playtest, 2026-10-08: no crouch, no down animation).
+Config.Pose = {
+	FallSeconds = 0.6, -- going down: the fall to the floor
+	RiseSeconds = 0.8, -- revived: back up
+	CrouchSeconds = 0.25, -- down into a crouch, and up out of it
+	CrouchStride = 1.7, -- radians of the crouched gait per stud crept
+	CrawlStride = 2.3, -- radians of the crawl per stud crawled
+	-- Your camera, from where it is standing (object space: up, then back).
+	DownedCamera = { 0, -3.2, -0.8 }, -- near the floor, at the head
+	CrouchCamera = { 0, -1.0, 0 },
+	KneelCamera = { 0, -1.3, 0 },
+}
+
 Config.Social = {
 	PingCooldown = 0.8,
 	PingLifetime = 7,
@@ -158,6 +172,14 @@ Config.Player = {
 	WindedSpeed = 10, -- out of stamina: a stagger, a little above a walk
 	JumpHeight = 3, -- heavier jumps (was 4)
 	SprintSpeed = 19,
+	-- Crouched (the squad playtest, 2026-10-08: "no sneak/crouch"): under
+	-- WalkSpeedThreshold, so a creep makes no footsteps and no noise. Hold
+	-- Ctrl (or toggle in the settings); gamepad B. Sprinting stands you up.
+	CrouchSpeed = 3.5,
+	-- In the dark, a crouched player is seen this much nearer (his dark
+	-- sight, Config.Stalker.VisionRangeDark, times this); lit, it's the same.
+	CrouchDarkSight = 0.7,
+	CrouchSightDrop = 1.6, -- studs lower that he aims his look at you, crouched and slow
 	StaminaMax = 100,
 	StaminaDrainPerSecond = 16,
 	StaminaRegenPerSecond = 11,

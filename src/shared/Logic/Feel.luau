@@ -21,8 +21,9 @@ end
 -- stamina you stagger at WindedSpeed instead of dropping to a walk.
 -- Leaning on furniture you push (R2c), you go no faster than it moves (plus
 -- a little), so you lean into it rather than run into it.
--- ctx: downed, hidden, hub, sprinting, exhausted, pushSpeed? (studs a
--- second the piece you push is moving; push: Config.Push)
+-- ctx: downed, hidden, hub, sprinting, exhausted, crouched, pushSpeed?
+-- (studs a second the piece you push is moving; push: Config.Push). A
+-- crouch creeps (the caller stands you up to sprint).
 function Feel.targetSpeed(ctx, P, crawlSpeed: number, push): number
 	if ctx.downed then
 		return crawlSpeed
@@ -30,6 +31,8 @@ function Feel.targetSpeed(ctx, P, crawlSpeed: number, push): number
 		return 0
 	elseif ctx.pushSpeed and push then
 		return math.max(push.WalkMin, ctx.pushSpeed + push.WalkMargin)
+	elseif ctx.crouched and not ctx.hub then
+		return P.CrouchSpeed
 	elseif ctx.sprinting and not ctx.exhausted then
 		return P.SprintSpeed
 	elseif ctx.hub then

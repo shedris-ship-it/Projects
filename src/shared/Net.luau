@@ -15,6 +15,7 @@ local DEFINITIONS = {
 	UseTool = "RemoteEvent",
 	SetFlashlight = "RemoteEvent",
 	HoldBreath = "RemoteEvent",
+	SetCrouch = "RemoteEvent", -- (on): crouch or stand (PlayerStateService decides)
 	LeaveHiding = "RemoteEvent",
 	SelectSlot = "RemoteEvent", -- (slot 1 to 4): put that slot in your hands
 	DropItem = "RemoteEvent", -- put the tool in your hands down

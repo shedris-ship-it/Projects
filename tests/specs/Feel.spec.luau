@@ -41,6 +41,17 @@ return function(test, check, Shared, require)
 		check.truthy(P.SprintSpeed > P.SprintSpeedThreshold, "sprinting is sprint noise")
 	end)
 
+	-- The squad playtest (2026-10-08): no way to sneak. A crouch creeps under
+	-- the noise threshold: no footsteps, no noise he hears.
+	test("crouched: a silent creep, and nothing faster is mistaken for one", function()
+		check.equal(speedFor({ crouched = true }), P.CrouchSpeed, "a creep")
+		check.truthy(P.CrouchSpeed < P.WalkSpeedThreshold, "under the walk noise")
+		check.truthy(P.CrouchSpeed < Config.Feel.FootstepMinSpeed, "no footsteps")
+		check.truthy(P.CrouchSpeed > 2, "but still getting somewhere")
+		check.equal(speedFor({ crouched = true, downed = true }), crawl, "down beats a crouch")
+		check.equal(speedFor({ crouched = true, hub = true }), P.LobbyWalkSpeed, "no creeping in the hub")
+	end)
+
 	test("steps are slower walking than sprinting, with longer strides when running", function()
 		check.truthy(Feel.stride(P.SprintSpeed, P, F) > Feel.stride(P.WalkSpeed, P, F), "longer stride")
 		local walk = Feel.stepsPerSecond(P.WalkSpeed, P, F)

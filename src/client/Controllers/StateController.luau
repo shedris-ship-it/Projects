@@ -42,6 +42,7 @@ local StateController = {
 		ambientVolume = 0.8,
 		musicVolume = 0.7,
 		tips = true, -- teaching in the house (UI/Tips)
+		crouchToggle = false, -- Ctrl toggles a crouch instead of holding it
 		seenIntro = false,
 	},
 }
