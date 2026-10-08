@@ -96,6 +96,8 @@ return function(test, check, Shared, require)
 					gazePitch = math.rad(30),
 					neckYawMax = 160,
 					random = random,
+					form = i % 3,
+					heldFor = i / 10,
 				}, 1 / 30)
 				for joint, value in values do
 					for axis = 1, 3 do
@@ -103,11 +105,35 @@ return function(test, check, Shared, require)
 						check.atMost(math.abs(value[axis]), limit, pose .. " " .. joint .. " axis " .. axis)
 					end
 					for axis = 4, 6 do
-						check.atMost(math.abs(value[axis]), 1.2, pose .. " " .. joint .. " offset")
+						-- (On all fours his whole body drops and shifts back.)
+						local most = (pose == "Crawl" and joint == "Root") and 2 or 1.2
+						check.atMost(math.abs(value[axis]), most, pose .. " " .. joint .. " offset")
 					end
 				end
 			end
 		end
+	end)
+
+	test("at Breaking his knees bend the wrong way and his neck draws out", function()
+		local calm = GuestPose.target({ pose = "Walk", phase = 0, breath = 0, tilt = 14 })
+		local broken = GuestPose.target({ pose = "Walk", phase = 0, breath = 0, tilt = 14, form = 2 })
+		check.truthy(calm.LeftKnee[1] < 0, "a knee bends back, as a person's does")
+		check.truthy(broken.LeftKnee[1] > 0, "at Breaking it bends forward")
+		local h0 = GuestPose.exposed("Peek", 1)
+		local h2 = GuestPose.exposed("Peek", 1, nil, 2)
+		local moved = math.sqrt((h2[1] - h0[1]) ^ 2 + (h2[2] - h0[2]) ^ 2 + (h2[3] - h0[3]) ^ 2)
+		check.near(moved, GuestPose.neckStretch("Peek", 2), 1e-6, "the server knows the peeking head is further out")
+		check.equal(GuestPose.neckStretch("Peek", 1), 0, "only at Breaking")
+		check.equal(GuestPose.neckStretch("Walk", 2), 0, "not as he walks")
+		check.near(GuestPose.neckStretch("Hold", 2, 8), 0.9, 1e-9, "held, it draws out over eight seconds")
+	end)
+
+	test("on all fours his hands and feet are on the floor, his head low", function()
+		local values = GuestPose.target({ pose = "Crawl", phase = 0.25, breath = 0, tilt = 0 })
+		local head = GuestPose.spine(values)
+		local standing = GuestPose.spine(GuestPose.target({ pose = "Idle", phase = 0, breath = 0, tilt = 0 }))
+		check.truthy(head[2] < standing[2] - 2.5, "his head is far lower than standing")
+		check.truthy(math.abs(head[3]) < 2.5, "and over where he really is, not out ahead")
 	end)
 
 	test("smile grows with form and with closeness, and opens only from Fraying", function()

@@ -151,6 +151,15 @@ What he is now (`13_body_after_front.jpg` at the game's light; `14_body_after_si
 
 Not checked: how the coat and hands look in a real chase at speed, and whether he still reads at 30 studs against a lit doorway in every room (TC-153).
 
+### Scarier (builds `.129` and `.130`, your picks: all four)
+Every one is a look or a tell; none changes when or how he can catch you.
+- **Wrong between looks** (`.129`): look away for over a second and back, and sometimes his mask has slid round his head, the black showing (`18_mask_turned.jpg`, `19_mask_turned_from_eye.jpg`); while you watch, it grates back (`20_mask_back_straight.jpg`). The chance grows by form (0.3, 0.5, 0.75). It's per player, so a squad may disagree about what they saw. His breath right behind you also makes your torch stutter for half a second (sampled in Studio: the light drops to near nothing in flickers, then recovers); with reduced flicker it only dips. To make it happen every time, set the player attribute `DebugMaskTurn` (a number holds the mask wrong that many seconds).
+- **He grows wrong** (`.130`): longer finger bones by form (`21_breaking_front.jpg`, `22_breaking_fingers.jpg`); at Breaking, rags at his hem (`24_breaking_walk.jpg`, `29_rags.jpg`), knees that bend the wrong way, and a neck that draws up out of his collar as he creeps, peeks, lunges or listens, and the longer you hold him (`23_neck_drawn_out.jpg`). The server's idea of where his head is includes the stretch (Guest.spec checks it).
+- **The catch, with hands** (`.130`): long finger bones reach in from both edges of your view and hook towards you a quarter of a second before his face comes; at Breaking a jagged black split opens down the mask as his head jerks (`27_catch_hands_split.jpg`; the quiet catch, `28_catch_quiet.jpg`). The first try had fat, cartoon fingers curling straight at the camera; now they're thin, fanned and only slightly hooked. The player attribute `DebugCatchAt` freezes the catch at that second, for pictures.
+- **The crawl** (`.130`): at Breaking and in the final hunt and the Reckoning, while he prowls or searches, a 40% chance every 6–12 s of 4–9 s on all fours (`25_crawl_side.jpg`, `26_crawl_from_eye.jpg`). In a forced hunt in Studio it came up on its own (his summary: `crawl ×1`), and he rose to run when he found me; cheap downs 0. His body is shifted back over where he really is, so his hands don't reach through the walls ahead.
+
+Not seen: the crawl moving (its gait), and the knees the wrong way at full speed; both need a look in play (TC-154 to TC-157).
+
 ## Evidence
 
 **Checks:** every commit passed the five (`stylua`, `lune run tests/run`, `lune run tests/compile`, `selene` 0/0, `rojo build` into the scratchpad, since your Studio had the repo's `Consensus.rbxlx` open). Tests went from 445 to **464**: GuestMood, HuntPhases and GuestKeys specs, plus Stalk.spec (after you, the presence budget, the creep scale) and RunStats.spec (his numbers).
@@ -207,6 +216,8 @@ Branch **`claude/overnight-foundation`**.
         The textured mask; true voids; the smile a deep crescent (build .126)
         The mask at its worst: broken and worn glazes (build .127)
         His body: a long black coat, a black neck, bony hands folded (build .128)
+        Wrong between looks: his mask slides round his head; the torch stutters (build .129)
+        He grows wrong, the catch with his hands, the crawl (build .130)
 ```
 
 ```powershell

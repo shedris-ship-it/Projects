@@ -344,7 +344,7 @@ end
 
 -- Where his head is when he leans out from a peek spot (Logic/GuestPose).
 function Stalk:_peekHead(spot): Vector3
-	local head = GuestPose.exposed(Poses.Peek, spot.lean)
+	local head = GuestPose.exposed(Poses.Peek, spot.lean, nil, self.body.model:GetAttribute("GuestForm"))
 	local right = Vector3.new(-spot.face.Z, 0, spot.face.X)
 	return spot.position + Vector3.new(0, GuestPose.Rig.rootY + head[2], 0) + right * head[1] - spot.face * head[3]
 end

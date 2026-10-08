@@ -104,7 +104,7 @@ end
 -- His head and chest in the world for the current pose, as clients draw
 -- them (a peeking head is two studs out from his body).
 function Body:ExposedPoints(): { Vector3 }
-	local head, chest = GuestPose.exposed(self.pose, self.lean)
+	local head, chest = GuestPose.exposed(self.pose, self.lean, nil, self.model:GetAttribute("GuestForm"))
 	local cf = self.root.CFrame
 	local points = {
 		cf:PointToWorldSpace(Vector3.new(head[1], head[2], head[3])),

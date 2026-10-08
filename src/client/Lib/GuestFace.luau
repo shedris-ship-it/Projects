@@ -386,9 +386,19 @@ function GuestFace.hand(hand: BasePart, side: string)
 		middle.Parent = segment2
 		segment1.Parent = hand
 		segment2.Parent = hand
+		local finger = {
+			knuckle = knuckle,
+			middle = middle,
+			curl = 0,
+			offset = 0,
+			inward = inward,
+			segments = { segment1, segment2 },
+			lengths = { l1, l2 },
+			bumps = {},
+		}
 		-- The knuckles: a bump at the root and one at the middle joint, and a
 		-- rounded tip.
-		for _, spot in
+		for which, spot in
 			{
 				{ segment1, l1 / 2 - 0.02, KNUCKLE },
 				{ segment2, l2 / 2 - 0.01, KNUCKLE * 0.86 },
@@ -403,10 +413,33 @@ function GuestFace.hand(hand: BasePart, side: string)
 			weld.C0 = CFrame.new(spot[2], 0, 0)
 			weld.Parent = bump
 			bump.Parent = hand
+			table.insert(finger.bumps, { weld = weld, which = which })
 		end
-		table.insert(result.fingers, { knuckle = knuckle, middle = middle, curl = 0, offset = 0, inward = inward })
+		table.insert(result.fingers, finger)
 	end
 	return result
+end
+
+-- His fingers grow as the night goes on (docs/ART.md "The Guest", grows
+-- wrong): every bone `scale` times its length.
+function GuestFace.setFingerScale(hand, scale: number)
+	if hand.scale == scale then
+		return
+	end
+	hand.scale = scale
+	for _, finger in hand.fingers do
+		local l1, l2 = finger.lengths[1] * scale, finger.lengths[2] * scale
+		local s1, s2 = finger.segments[1], finger.segments[2]
+		s1.Size = Vector3.new(l1, s1.Size.Y, s1.Size.Z)
+		s2.Size = Vector3.new(l2, s2.Size.Y, s2.Size.Z)
+		finger.knuckle.C1 = ALONG:Inverse() * CFrame.new(0, l1 / 2 - 0.02, 0)
+		finger.middle.C0 = CFrame.new(-(l1 / 2 - 0.02), 0, 0) * ALONG:Inverse()
+		finger.middle.C1 = ALONG:Inverse() * CFrame.new(0, l2 / 2 - 0.01, 0)
+		for _, bump in finger.bumps do
+			local x = if bump.which == 1 then l1 / 2 - 0.02 elseif bump.which == 2 then l2 / 2 - 0.01 else -(l2 / 2)
+			bump.weld.C0 = CFrame.new(x, 0, 0)
+		end
+	end
 end
 
 -- Curl the fingers (0 straight, ~1.4 gripping, below 0 splayed back). Each

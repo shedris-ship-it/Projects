@@ -167,6 +167,13 @@ function GuestController:Start()
 		end
 	end)
 
+	-- His drawn-out neck follows where the joints actually put his head.
+	RunService.RenderStepped:Connect(function()
+		if guest and guest.neck and guest.model.Parent then
+			self:_neck()
+		end
+	end)
+
 	-- Joints are written before the physics step, where the engine applies
 	-- Motor6D transforms.
 	RunService.Stepped:Connect(function(_, dt)
@@ -222,6 +229,7 @@ local FINGER_CURL = {
 	Duck = 0.6,
 	Listen = 0.1,
 	Stagger = 0.2,
+	Crawl = 1.0, -- clawing at the floor
 }
 
 -- How far he ducks for a doorway in the mansion, whose doorways aren't on a
@@ -339,6 +347,7 @@ function GuestController:_frame(dt: number)
 		gazePitch = gazePitch,
 		neckYawMax = G.NeckYawMax,
 		mood = mood,
+		form = model:GetAttribute("GuestForm") or 0,
 		heldFor = guest.heldFor,
 		snapNeck = now < (guest.snapUntil or 0),
 		unfold = unfold,
@@ -402,6 +411,7 @@ function GuestController:_frame(dt: number)
 			open = math.max(open, 0.6 + 0.4 * (1 - distance / G.GapeRange))
 		end
 		guest.face:SetForm(form)
+		self:_grow(form)
 		guest.face:SetSmile(width, open)
 		self:_maskBetweenLooks(camera, form, distance, beam, dt)
 		-- His eyes: caught in your torch, or a faint glow in the dark whenever
@@ -587,8 +597,9 @@ function GuestController:_doorShadow(event)
 	shadows[id] = model
 end
 
--- Caught. Two ways (Config.Guest.Catch): "rush", his face grinning wide open
--- rushes in to fill your screen, then black; "quiet", black and a breath in
+-- Caught. Two ways (Config.Guest.Catch): "rush", his finger bones hook round
+-- the edges of your view and his face grinning wide open rushes in between
+-- them to fill your screen, then black; "quiet", black and a breath in
 -- your ear, then his face resolving slowly out of the dark, lit from below,
 -- then the sting and black. Either is a picture, not the camera: nothing
 -- moves your view (comfort rule, doc section 4), and it works when he took
@@ -663,20 +674,42 @@ function GuestController:_jumpscare(mode: string?)
 		copy.Parent = viewport
 		table.insert(pieces, { part = copy, rel = headCF:ToObjectSpace(part.CFrame) })
 	end
+	local form = guest.model:GetAttribute("GuestForm") or 0
+	-- His hands first (2026-10-07): long finger bones curl round the edges of
+	-- your view, then his face comes between them. At Breaking the mask splits
+	-- down the middle as the head jerks.
+	local hands = self:_screenHands(viewport, form)
+	local split = form >= 2 and self:_catchSplit(viewport, headCF) or nil
+	local lead = quiet and 0 or G.CatchHandsLead
 	local started = os.clock()
+	local last = started
 	local connection
 	local stung = false
+	-- (The player attribute DebugCatchAt freezes the catch at that second for
+	-- eight seconds, for screenshots.)
+	local freeze = player:GetAttribute("DebugCatchAt")
 	connection = RunService.RenderStepped:Connect(function()
-		local t = os.clock() - started
+		local now = os.clock()
+		local t = now - started
+		if type(freeze) == "number" then
+			t = if t < freeze + 8 then math.min(t, freeze) else 99
+		end
+		local dt = now - last
+		last = now
 		if quiet then
 			-- Black and a breath; from 0.4 s his face resolves out of the dark
-			-- over a second, farther off and drifting closer, no tremble; at
-			-- 1.5 s the sting and a hard cut to black, which holds, then lifts.
+			-- over a second, farther off and drifting closer, no tremble, his
+			-- fingers closing on the edges of your view; at 1.5 s the sting and
+			-- a hard cut to black, which holds, then lifts.
 			local reveal = math.clamp((t - 0.4) / 1.0, 0, 1)
 			local distance = 7.5 - 1.3 * reveal
 			local cf = CFrame.new(0.1, 0.25, -distance) * CFrame.Angles(0, math.pi, math.rad(-9))
 			for _, piece in pieces do
 				piece.part.CFrame = cf * piece.rel
+			end
+			hands:Update(math.clamp((t - 0.3) / 0.6, 0, 1), math.clamp((t - 0.6) / 0.6, 0, 1), 0, dt)
+			if split then
+				split:Update(cf, math.clamp((t - 1.0) / 0.4, 0, 1))
 			end
 			viewport.ImageTransparency = t < 1.5 and (1 - reveal * 0.9) or 1
 			if t >= 1.5 and not stung then
@@ -690,29 +723,285 @@ function GuestController:_jumpscare(mode: string?)
 			end
 			return
 		end
-		-- Rushes in over 0.3 s, then holds, shuddering, in your face; at half
-		-- a second the head jerks over, as far as a neck shouldn't go.
-		local rush = math.clamp(t / 0.3, 0, 1)
+		-- His fingers hook round the edges of your view; then his face rushes
+		-- in over 0.3 s, and holds, shuddering, in your face; half a second in,
+		-- the head jerks over, as far as a neck shouldn't go.
+		hands:Update(math.clamp(t / 0.18, 0, 1), math.clamp((t - 0.08) / 0.22, 0, 1), t > 0.3 and 0.012 or 0, dt)
+		local f = t - lead
+		local rush = math.clamp(f / 0.3, 0, 1)
 		local distance = 10 - 8.4 * (1 - (1 - rush) ^ 3)
-		local tremble = t > 0.3 and 0.05 or 0
-		local jerk = t > 0.5 and math.rad(-38) or math.rad(-16)
+		local tremble = f > 0.3 and 0.05 or 0
+		local jerk = f > 0.5 and math.rad(-38) or math.rad(-16)
 		local cf = CFrame.new((math.random() - 0.5) * tremble, 0.12 + (math.random() - 0.5) * tremble, -distance)
 			* CFrame.Angles(0, math.pi, jerk)
 		for _, piece in pieces do
 			piece.part.CFrame = cf * piece.rel
 		end
-		black.BackgroundTransparency = t < 0.55 and 0.35 or math.max(0, 0.35 - (t - 0.55) * 3)
-		if t > 0.75 then
-			viewport.ImageTransparency = math.min(1, (t - 0.75) * 6)
+		if split then
+			split:Update(cf, math.clamp((f - 0.5) / 0.12, 0, 1))
 		end
-		if t > 1.6 then
-			black.BackgroundTransparency = math.min(1, (t - 1.6) * 1.5)
+		black.BackgroundTransparency = f < 0.55 and 0.35 or math.max(0, 0.35 - (f - 0.55) * 3)
+		if f > 0.75 then
+			viewport.ImageTransparency = math.min(1, (f - 0.75) * 6)
 		end
-		if t > 2.4 then
+		if f > 1.6 then
+			black.BackgroundTransparency = math.min(1, (f - 1.6) * 1.5)
+		end
+		if f > 2.4 then
 			connection:Disconnect()
 			gui:Destroy()
 		end
 	end)
+end
+
+-- His hands at the edges of your view in the catch: bone fingers sliding in
+-- from beyond each edge (`slide` 0..1) and hooking round towards you (`grip`
+-- 0..1), drawn in the jumpscare's viewport by hand (no joints there).
+function GuestController:_screenHands(viewport: ViewportFrame, form: number)
+	local camera = viewport.CurrentCamera :: Camera
+	local depth = 3.0
+	local size = viewport.AbsoluteSize
+	local aspect = size.Y > 0 and size.X / size.Y or 16 / 9
+	local halfH = math.tan(math.rad(camera.FieldOfView / 2)) * depth
+	local halfW = halfH * aspect
+	local k = 1.15 * G.FingerScale[math.clamp(form, 0, 2) + 1]
+	local bone = Color3.fromRGB(176, 170, 158)
+	local function piece(shape: Enum.PartType, size3: Vector3, ball: boolean?): BasePart
+		local p = Instance.new("Part")
+		p.Shape = shape
+		p.Size = size3
+		p.Color = bone
+		p.Material = Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.CanCollide = false
+		p.CastShadow = false
+		if ball then
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = p
+		end
+		p.Parent = viewport
+		return p
+	end
+	local sides = {}
+	for _, side in { -1, 1 } do
+		local hand = { side = side, fingers = {} }
+		hand.palm = piece(Enum.PartType.Block, Vector3.new(0.5, 0.26, 0.09), true)
+		-- Four fingers across the hand, top to bottom, and a thumb below.
+		-- (y across the hand, length, fan: each finger splays a little.)
+		for i, spec in
+			{ { 0.1, 1.0, 9 }, { 0.035, 1.08, 3 }, { -0.035, 1.0, -3 }, { -0.1, 0.86, -9 }, { -0.17, 0.7, -22 } }
+		do
+			local l1, l2 = 0.38 * k * spec[2], 0.34 * k * spec[2]
+			table.insert(hand.fingers, {
+				y = spec[1],
+				thumb = i == 5,
+				fan = math.rad(spec[3]),
+				l1 = l1,
+				l2 = l2,
+				s1 = piece(Enum.PartType.Cylinder, Vector3.new(l1, 0.05, 0.05)),
+				s2 = piece(Enum.PartType.Cylinder, Vector3.new(l2, 0.044, 0.044)),
+				k1 = piece(Enum.PartType.Ball, Vector3.one * 0.066),
+				k2 = piece(Enum.PartType.Ball, Vector3.one * 0.058),
+				tip = piece(Enum.PartType.Ball, Vector3.one * 0.044),
+				jitter = (i * 0.37) % 0.3,
+			})
+		end
+		table.insert(sides, hand)
+	end
+	local hands = {}
+	function hands:Update(slide: number, grip: number, tremble: number, _dt: number)
+		for _, hand in sides do
+			local side = hand.side
+			local inward = Vector3.new(-side, 0, 0)
+			local shake = Vector3.new(0, (math.random() - 0.5) * tremble, (math.random() - 0.5) * tremble)
+			-- From well beyond the edge to just past it: only the fingers show.
+			local palm = Vector3.new(side * (halfW + 0.6 - 0.42 * slide), 0.05, -depth) + shake
+			hand.palm.CFrame = CFrame.fromMatrix(palm, inward, Vector3.yAxis)
+			for _, finger in hand.fingers do
+				local root = palm + inward * 0.24 + Vector3.new(0, finger.y, 0)
+				if finger.thumb then
+					root -= inward * 0.12
+				end
+				-- Long fingers reaching in, fanned a little, the joints hooking
+				-- slightly towards you as they grip.
+				local reach = inward * math.cos(finger.fan) + Vector3.yAxis * math.sin(finger.fan)
+				local a1 = grip * (0.3 + finger.jitter)
+				local a2 = a1 + grip * (0.55 + finger.jitter)
+				local d1 = reach * math.cos(a1) + Vector3.zAxis * math.sin(a1)
+				local d2 = reach * math.cos(a2) + Vector3.zAxis * math.sin(a2)
+				local mid = root + d1 * finger.l1
+				local tip = mid + d2 * finger.l2
+				finger.s1.CFrame = CFrame.lookAt(root + d1 * finger.l1 / 2, root + d1 * finger.l1)
+					* CFrame.Angles(0, math.pi / 2, 0)
+				finger.s2.CFrame = CFrame.lookAt(mid + d2 * finger.l2 / 2, mid + d2 * finger.l2)
+					* CFrame.Angles(0, math.pi / 2, 0)
+				finger.k1.CFrame = CFrame.new(root)
+				finger.k2.CFrame = CFrame.new(mid)
+				finger.tip.CFrame = CFrame.new(tip)
+			end
+		end
+	end
+	hands:Update(0, 0, 0, 0)
+	return hands
+end
+
+-- At Breaking, the catch splits his mask: a jagged black split from brow to
+-- chin that opens as his head jerks (`open` 0..1), the dark beneath showing.
+function GuestController:_catchSplit(viewport: ViewportFrame, headCF: CFrame)
+	local mask = guest.face.mask
+	local rel = headCF:ToObjectSpace(mask.CFrame)
+	local a, b, c = mask.Size.X / 2, mask.Size.Y / 2, mask.Size.Z / 2
+	-- A zigzag down the face, between the eyes and through the mouth (u, v
+	-- across and up the mask, -1..1).
+	local path = {
+		{ 0.05, 0.95 },
+		{ -0.13, 0.72 },
+		{ 0.09, 0.46 },
+		{ -0.11, 0.2 },
+		{ 0.1, -0.08 },
+		{ -0.08, -0.42 },
+		{ 0.06, -0.66 },
+		{ -0.03, -0.93 },
+	}
+	local function surface(u: number, v: number): Vector3
+		local zz = 1 - u * u - v * v
+		return Vector3.new(u * a, v * b, -c * math.sqrt(math.max(zz, 0.02)) - 0.006)
+	end
+	local strips = {}
+	for i = 1, #path - 1 do
+		local p1, p2 = surface(path[i][1], path[i][2]), surface(path[i + 1][1], path[i + 1][2])
+		local along = p2 - p1
+		local strip = Instance.new("Part")
+		strip.Anchored = true
+		strip.CanCollide = false
+		strip.CastShadow = false
+		strip.Material = Enum.Material.Neon
+		strip.Color = Color3.new(0, 0, 0)
+		strip.Size = Vector3.new(0.004, along.Magnitude + 0.02, 0.01)
+		strip.Transparency = 1
+		strip.Parent = viewport
+		local up = along.Unit
+		local out = Vector3.new(0, 0, -1)
+		local right = up:Cross(out).Unit
+		table.insert(strips, {
+			part = strip,
+			rel = rel * CFrame.fromMatrix((p1 + p2) / 2, right, up),
+			length = along.Magnitude + 0.02,
+		})
+	end
+	local split = {}
+	function split:Update(cf: CFrame, open: number)
+		for _, strip in strips do
+			strip.part.Transparency = open > 0 and 0 or 1
+			strip.part.Size = Vector3.new(0.006 + 0.034 * open, strip.length, 0.01)
+			strip.part.CFrame = cf * strip.rel
+		end
+	end
+	return split
+end
+
+-- He grows wrong as the night goes on (docs/ART.md "The Guest", 2026-10-07):
+-- his fingers lengthen from Fraying; at Breaking his coat hangs in tatters,
+-- his neck draws out of his collar (Logic/GuestPose.neckStretch, which the
+-- server knows too) and his knees bend the wrong way (GuestPose).
+function GuestController:_grow(form: number)
+	if guest.grownFor == form then
+		return
+	end
+	guest.grownFor = form
+	local scale = G.FingerScale[math.clamp(form, 0, 2) + 1]
+	for _, hand in guest.hands do
+		GuestFace.setFingerScale(hand, scale)
+	end
+	if form >= 2 and not guest.tatters then
+		guest.tatters = self:_tatters()
+	end
+	for _, part in guest.tatters or {} do
+		part.Transparency = form >= 2 and 0 or 1
+	end
+	if form >= 2 and not guest.neck then
+		local neck = Instance.new("Part")
+		neck.Name = "NeckDrawn"
+		neck.Shape = Enum.PartType.Cylinder
+		neck.Color = Color3.fromRGB(7, 6, 8)
+		neck.Material = Enum.Material.SmoothPlastic
+		neck.Anchored = true
+		neck.CanCollide = false
+		neck.CanQuery = false
+		neck.CanTouch = false
+		neck.CastShadow = false
+		neck.Size = Vector3.new(0.1, 0.3, 0.3)
+		neck.Transparency = 1
+		neck.Parent = guest.model
+		guest.neck = neck
+	end
+end
+
+-- The neck between his collar and his head, when it has drawn out: from the
+-- neck joint on his chest to where the neck meets his head.
+function GuestController:_neck()
+	local neck = guest.neck
+	local upper = guest.model:FindFirstChild("UpperTorso")
+	if not upper then
+		return
+	end
+	local from = (upper :: BasePart).CFrame:PointToWorldSpace(
+		Vector3.new(0, Rig.neckY - Rig.waistY - Rig.upperTorsoSize[2] / 2 - 0.1, 0)
+	)
+	local to = guest.head.CFrame:PointToWorldSpace(Vector3.new(0, -(Rig.neckLength + Rig.headSize[2] / 2) + 0.2, 0))
+	local along = to - from
+	local length = along.Magnitude
+	if (guest.grownFor or 0) < 2 or length < 0.35 then
+		neck.Transparency = 1
+		return
+	end
+	neck.Transparency = 0
+	local x = along.Unit
+	local y = math.abs(x.Y) < 0.95 and Vector3.yAxis or Vector3.xAxis
+	local z = x:Cross(y).Unit
+	neck.Size = Vector3.new(length, 0.3, 0.3)
+	neck.CFrame = CFrame.fromMatrix(from + along / 2, x, z:Cross(x))
+end
+
+-- Rags hanging from his coat's hem (Breaking), on the coat's own joints; the
+-- same rags for everyone.
+function GuestController:_tatters(): { BasePart }
+	local parts = {}
+	for _, side in { "Left", "Right" } do
+		local bone = guest.model:FindFirstChild(side .. "CoatTail")
+		if bone and bone:IsA("BasePart") then
+			local sx = side == "Left" and -1 or 1
+			for i = 1, 8 do
+				-- Round the outside of the hem (not the side facing the other leg).
+				local theta = math.rad(-110 + i * 30)
+				local length = 0.5 + ((i * 37 + (sx > 0 and 11 or 0)) % 9) / 9 * 0.9
+				local rag = Instance.new("Part")
+				rag.Name = "Tatter"
+				rag.Color = Color3.fromRGB(18, 17, 20)
+				rag.Material = Enum.Material.Fabric
+				rag.MaterialVariant = "CoatWool"
+				rag.CanCollide = false
+				rag.CanQuery = false
+				rag.CanTouch = false
+				rag.CastShadow = false
+				rag.Massless = true
+				rag.Size = Vector3.new(0.1 + (i % 3) * 0.04, length, 0.03)
+				local x = sx * (0.02 + math.cos(theta) * 0.34)
+				local z = 0.06 + math.sin(theta) * 0.38
+				local weld = Instance.new("Weld")
+				weld.Part0 = bone
+				weld.Part1 = rag
+				weld.C0 = CFrame.new(x, G.CoatHem - Rig.hipY - length / 2 + 0.06, z)
+					* CFrame.Angles(0, math.atan2(sx * math.cos(theta), math.sin(theta)), 0)
+					* CFrame.Angles(math.rad((i % 2 == 0) and 5 or -4), 0, 0)
+				weld.Parent = rag
+				rag.Parent = bone
+				table.insert(parts, rag)
+			end
+		end
+	end
+	return parts
 end
 
 -- Wrong between looks (docs/ART.md "The Guest", 2026-10-07): look away from

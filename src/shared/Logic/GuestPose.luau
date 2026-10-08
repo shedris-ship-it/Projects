@@ -86,6 +86,7 @@ GuestPose.Poses = {
 	FingersPeek = "FingersPeek", -- behind the wall, only his long fingers curled round the frame (lean = side)
 	Duck = "Duck", -- tier 1, seen: a sudden drop low, before he glides away
 	Listen = "Listen", -- hunting, standing still: head cocked far over, listening
+	Crawl = "Crawl", -- Breaking or the final hunt, prowling: on all fours, knees up, head twisted over
 }
 
 -- How quickly each pose is reached (1/s). Fast ones snap; the rest ease.
@@ -105,6 +106,7 @@ local RATE = {
 	FingersPeek = 6,
 	Duck = 26,
 	Listen = 4,
+	Crawl = 9,
 }
 
 -- Steps: studs travelled per step, swing amplitude, knee bend and lift.
@@ -113,7 +115,26 @@ local GAIT = {
 	Run = { stride = 5.2, hip = 46, knee = 75 },
 	Creep = { stride = 1.5, hip = 16, knee = 30 },
 	BackAway = { stride = 2.0, hip = 20, knee = 26 },
+	Crawl = { stride = 2.2, hip = 22, knee = 30 },
 }
+
+-- Breaking (docs/ART.md "The Guest", grows wrong): his knees bend the wrong
+-- way in these, like a bird's.
+local REVERSE_KNEES = { Walk = true, Run = true, Creep = true, BackAway = true }
+
+-- And his neck draws out of his collar (studs): leaning round a frame,
+-- creeping, lunging, listening; held, the longer the further.
+local STRETCH = { Peek = 0.8, FingersPeek = 0.5, Creep = 0.6, Lunge = 1.0, Listen = 0.45 }
+
+function GuestPose.neckStretch(pose: string, form: number?, heldFor: number?): number
+	if (form or 0) < 2 then
+		return 0
+	end
+	if pose == "Hold" then
+		return math.min(0.9, (heldFor or 0) / 8 * 0.9)
+	end
+	return STRETCH[pose] or 0
+end
 
 local HUNCHED = {
 	Idle = true,
@@ -354,6 +375,26 @@ function GuestPose.target(ctx)
 		hang(t)
 		add(t, "LeftShoulder", 0, 0, d(-10))
 		add(t, "RightShoulder", 0, 0, d(10))
+	elseif pose == P.Crawl then
+		-- On all fours (docs/ART.md "The Guest", 2026-10-07): knees drawn up
+		-- high like a spider's, the long arms reaching ahead to the floor, the
+		-- head twisted over. The body is shifted back over where he really is,
+		-- so his hands don't reach through the walls ahead.
+		local s = sin(ctx.phase * TAU)
+		add(t, "Root", d(-30), 0, 0, 0, -1.6, 1.8)
+		add(t, "Waist", d(-45))
+		add(t, "Neck", d(60), 0, d(135))
+		add(t, "LeftShoulder", d(120) - d(22) * s, 0, d(-6))
+		add(t, "RightShoulder", d(120) + d(22) * s, 0, d(6))
+		add(t, "LeftElbow", d(-20))
+		add(t, "RightElbow", d(-20))
+		add(t, "LeftWrist", d(-20))
+		add(t, "RightWrist", d(-20))
+		add(t, "LeftHip", d(100))
+		add(t, "RightHip", d(100))
+		add(t, "LeftKnee", d(-100))
+		add(t, "RightKnee", d(-100))
+		legs(t, ctx.phase, GAIT.Crawl)
 	elseif pose == P.Lunge then
 		add(t, "Root", 0, 0, 0, 0, -0.35, -0.6)
 		add(t, "Waist", d(-34))
@@ -391,6 +432,15 @@ function GuestPose.target(ctx)
 		add(t, "LeftKnee", -d(14) * stoop)
 		add(t, "RightKnee", -d(14) * stoop)
 	end
+	if (ctx.form or 0) >= 2 and REVERSE_KNEES[pose] then
+		if pose == P.Creep then
+			-- Crouched the other way: thighs back, shins forward.
+			add(t, "LeftHip", d(-56))
+			add(t, "RightHip", d(-56))
+		end
+		t.LeftKnee[1] = -t.LeftKnee[1]
+		t.RightKnee[1] = -t.RightKnee[1]
+	end
 	flatFeet(t)
 
 	-- The head tilt (14 degrees for The Guest) is always there.
@@ -404,6 +454,16 @@ function GuestPose.target(ctx)
 		local neckMax = d(ctx.neckYawMax or 160)
 		add(t, "Waist", 0, waistYaw)
 		add(t, "Neck", math.clamp(ctx.gazePitch or 0, -d(50), d(60)), math.clamp(yaw - waistYaw, -neckMax, neckMax))
+	end
+
+	-- His neck drawn out along itself (the neck's own up: Rx * Ry * Rz of +Y).
+	local stretch = GuestPose.neckStretch(pose, ctx.form, ctx.heldFor)
+	if stretch > 0 then
+		local n = t.Neck
+		local x, y, z = n[1], n[2], n[3]
+		n[4] += -sin(z) * cos(y) * stretch
+		n[5] += (cos(z) * cos(x) - sin(z) * sin(y) * sin(x)) * stretch
+		n[6] += (cos(z) * sin(x) + sin(z) * sin(y) * cos(x)) * stretch
 	end
 	return t
 end
@@ -471,6 +531,7 @@ function GuestPose.step(state, input, dt: number)
 		mood = input.mood,
 		heldFor = input.heldFor,
 		unfold = input.unfold,
+		form = input.form,
 		t = state.t,
 	})
 
@@ -584,9 +645,11 @@ function GuestPose.fingers(lean: number?): { number }
 	return { side * 2.5, Rig.headY - Rig.rootY - 0.25, -0.2 }
 end
 
--- Head and chest offsets for a pose as the clients will settle into it.
-function GuestPose.exposed(pose: string, lean: number?, stoop: number?)
-	local values = GuestPose.target({ pose = pose, phase = 0, breath = 0, lean = lean, stoop = stoop, tilt = 14 })
+-- Head and chest offsets for a pose as the clients will settle into it
+-- (form: at Breaking his neck draws out).
+function GuestPose.exposed(pose: string, lean: number?, stoop: number?, form: number?)
+	local values =
+		GuestPose.target({ pose = pose, phase = 0, breath = 0, lean = lean, stoop = stoop, tilt = 14, form = form })
 	return GuestPose.spine(values)
 end
 

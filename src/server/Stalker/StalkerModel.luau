@@ -15,6 +15,7 @@
 local CollectionService = game:GetService("CollectionService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
 
@@ -265,7 +266,7 @@ function StalkerModel.build(archetype, parent: Instance)
 	-- thigh down to below the knee, flaring out and back, so it parts as he
 	-- walks instead of his legs pushing through it.
 	skin(lower, "CoatWaist", "tube", at(1.2, 0.9, 0.74), at(0, Rig.hipY + 0.3, 0.02), suit, Cloth)
-	local hem = 1.35
+	local hem = Config.Guest.CoatHem
 	for side, l in limbs do
 		local sx = side == "Left" and -1 or 1
 		local top = Rig.hipY + 0.15

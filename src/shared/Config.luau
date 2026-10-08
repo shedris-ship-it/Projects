@@ -915,7 +915,7 @@ Config.Guest = {
 	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
 	EyeShineRange = 45, -- your torch catches his eyes within this range
 	EyeShineCone = 24, -- half-angle of the torch beam, degrees
-	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28 },
+	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28, Crawl = 0.5 },
 	-- The look (Controllers/GuestController, the mask over the dark).
 	StutterSeconds = { 0.07, 0.14 }, -- in your beam his joints jump on this often (stop-motion)
 	LightSnapSeconds = 0.12, -- his head snaps to your light this fast when it lands
@@ -936,6 +936,16 @@ Config.Guest = {
 	MaskTurnPitch = 10,
 	MaskTurnHold = 0.6, -- seconds it stays wrong before it starts back
 	MaskTurnBackSeconds = 2.4,
+	-- He grows wrong as the night goes on (GuestController._grow): his finger
+	-- bones by form; the coat's hem height (Stalker/StalkerModel) for its rags.
+	FingerScale = { 1, 1.22, 1.45 },
+	-- The crawl (StalkerService._crawls): at Breaking and in the final hunt,
+	-- prowling and searching, a chance every so often of a spell on all fours.
+	CrawlChance = 0.4,
+	CrawlEvery = { 6, 12 },
+	CrawlSeconds = { 4, 9 },
+	CatchHandsLead = 0.25, -- in the rush catch his fingers hook round your view this long before his face comes
+	CoatHem = 1.35,
 	-- His breath behind you makes your torch stutter (a tell), at most this often.
 	TorchStutterSeconds = 0.6,
 	TorchStutterGap = { 6, 11 },

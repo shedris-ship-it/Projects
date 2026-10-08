@@ -1576,12 +1576,42 @@ function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boole
 	self.wasHeld = held
 end
 
--- Walking in a hunt: facing where he goes, running pose when fast.
+-- Walking in a hunt: facing where he goes, running pose when fast, or on
+-- all fours (_crawls).
 function StalkerService:_walkTo(position: Vector3, speed: number, avoid)
 	local body = self.bodyCtl
 	body:FaceMovement()
-	body:SetPose(speed > 12 and Poses.Run or Poses.Walk)
+	body:SetPose(self:_crawls() and Poses.Crawl or (speed > 12 and Poses.Run or Poses.Walk))
 	body:Go(position, speed, avoid)
+end
+
+-- The crawl (docs/ART.md "The Guest", the owner's pick of 2026-10-07): at
+-- Breaking, and in the final hunt and the Reckoning, he sometimes drops onto
+-- all fours while he prowls and searches; the moment he spots someone he
+-- rises to his full height and runs. Only the look: his speed, his sight and
+-- every rule of the hunt are the same.
+function StalkerService:_crawls(): boolean
+	local data = self.data
+	if self.mode ~= Modes.Hunting or not data then
+		return false
+	end
+	if data.chasing or not (self:_form() >= 2 or self.final or self.reckoning) then
+		data.crawlUntil = nil
+		return false
+	end
+	local now = os.clock()
+	if data.crawlUntil and now < data.crawlUntil then
+		return true
+	end
+	if now >= (data.nextCrawl or 0) then
+		data.nextCrawl = now + self.rng:NextNumber(G.CrawlEvery[1], G.CrawlEvery[2])
+		if self.rng:NextNumber() < G.CrawlChance then
+			data.crawlUntil = now + self.rng:NextNumber(G.CrawlSeconds[1], G.CrawlSeconds[2])
+			self.services.RunLogService:GuestDid("crawl")
+			return true
+		end
+	end
+	return false
 end
 
 -- Caught: down, a jumpscare for the victim, and a pause. how = "hunt" |
