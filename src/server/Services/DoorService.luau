@@ -121,6 +121,11 @@ function DoorService:_setup(door)
 		end
 		self:Toggle(door, player)
 	end)
+	-- On a keyboard, E is your hands' (HandsService:Tap): a tap opens or
+	-- shuts it, a hold drags it (the squad playtest, 2026-10-08).
+	prompt:SetAttribute("HandsOwned", true)
+	CollectionService:AddTag(prompt, Constants.Tags.HandsPrompt)
+	door.prompt = prompt
 
 	local brace = Instance.new("ProximityPrompt")
 	brace.Name = "BracePrompt"
@@ -188,14 +193,16 @@ function DoorService:_guestStop(door, from: number, to: number): number?
 end
 
 -- Where a swing from `from` to `to` stops against a player standing in it,
--- or nil: a door never goes through anyone, except whoever opened it with
--- its prompt (a door left ajar towards them swings past them).
+-- or nil: a door never goes through anyone, except whoever swung it with its
+-- prompt or E, either way (a door that opened towards them, furniture on its
+-- far side, swings past them; and shut again, it used to stop on them half
+-- way and the next tap opened it: the squad playtest's checks, 2026-10-08).
 function DoorService:_bodyStop(door, from: number, to: number): number?
 	local shut = door.closedCFrame.Position - door.hinge
 	local best = nil
 	for _, player in self.PlayerState:LivingPlayers() do
 		local position = self.PlayerState:Position(player)
-		local opener = to > from and door.opener == player
+		local opener = door.opener == player
 		if position and not opener and math.abs(position.Y - door.hinge.Y - 3) < 5 then
 			local body = position - door.hinge
 			local stop = Articulation.sweepStopSigned(
@@ -396,10 +403,9 @@ function DoorService:SetOpen(door, open: boolean, byPlayer: Player?, slam: boole
 	if not door.state or door.state.target == target then
 		return
 	end
-	door.opener = nil
+	door.opener = byPlayer
 	if open and byPlayer then
 		self:_swingAway(door, byPlayer)
-		door.opener = byPlayer
 	end
 	if not byPlayer then
 		-- The Guest (or the house) takes it: out of anyone's hands for a moment.

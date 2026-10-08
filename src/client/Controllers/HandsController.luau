@@ -13,7 +13,9 @@
 -- turns your own copy at once (through Controllers/MotionController, the one
 -- writer of moving joints here), so it feels like your hand, not a round
 -- trip. Let go mid-swing and it swings on (R2c): the last word says how fast.
--- Grabbing anything puts your hands in your hands: slot 4, torch clipped on.
+-- Your hands work from any slot (the squad playtest, 2026-10-08: swapping
+-- the torch's beam for bare hands to open a door "doesn't feel good"): what
+-- you hold stays in your hand, the torch lit.
 --
 -- Small things (Data/Physical: a mug, the telephone, a chair, a lamp) are
 -- carried instead (section 4.3): hold the button on one and it floats at
@@ -31,6 +33,14 @@
 -- button on a bed or a wardrobe and walk, and this says which way you're
 -- walking (Services/PushService works out how far it goes for how many push
 -- it, and how heavy it is).
+--
+-- E does it all, on a keyboard (the squad playtest, 2026-10-08: "make
+-- everything grabbable with E"). Tap E on a door or a drawer and it opens or
+-- shuts (HandsService:Tap, the prompt's own job); hold E on it, or on
+-- furniture, and your hand takes hold as the mouse button does. Tap E on a
+-- small thing and you carry it: click to throw (hold to wind up), E to put
+-- it down. Their prompts lose E on a keyboard (gamepad and touch keep them).
+-- Furniture you hide in keeps E for hiding: its doors take the mouse.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -44,7 +54,6 @@ local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Heft = require(Shared.Logic.Heft)
-local Inventory = require(Shared.Logic.Inventory)
 local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
@@ -52,11 +61,15 @@ local Throw = require(Shared.Logic.Throw)
 local ThrowLift = require(Shared.Lib.ThrowLift)
 local Util = require(Shared.Lib.Util)
 
+local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+local Ui = require(script.Parent.Parent.Lib.Ui)
+
 local GameSettings = UserSettings():GetService("UserGameSettings")
 
 local H = Config.Hands
 local P = Config.Push
-local PA = Constants.PlayerAttributes
 
 local player = Players.LocalPlayer
 
@@ -77,6 +90,19 @@ end
 
 function HandsController:Start()
 	ContextActionService:BindActionAtPriority("ConsensusGrab", function(_, inputState)
+		local carry = self.carry
+		if carry and carry.viaE then
+			-- Picked up with E: the click throws (held, it winds up).
+			if inputState == Enum.UserInputState.Begin and carry.owned then
+				carry.windingSince = os.clock()
+			elseif
+				(inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel)
+				and carry.windingSince
+			then
+				self:_throw(os.clock() - carry.windingSince)
+			end
+			return Enum.ContextActionResult.Sink
+		end
 		if inputState == Enum.UserInputState.Begin then
 			if self:_begin() then
 				return Enum.ContextActionResult.Sink
@@ -111,6 +137,48 @@ function HandsController:Start()
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
+	-- E (keyboard): tap or hold, as above. Ahead of the prompts' own E (a
+	-- light switch by the door would take it), and passed on to them
+	-- whenever nothing of your hands' is where you look.
+	ContextActionService:BindActionAtPriority("ConsensusHandsE", function(_, inputState)
+		return self:_onE(inputState)
+	end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.E)
+	-- Door and drawer prompts give E to your hands while you play on a
+	-- keyboard; the server never changes this property, so ours stands.
+	local function own(prompt: Instance)
+		if prompt:IsA("ProximityPrompt") then
+			prompt.KeyboardKeyCode = self:_keyboard() and Enum.KeyCode.Unknown or Enum.KeyCode.E
+		end
+	end
+	for _, prompt in CollectionService:GetTagged(Constants.Tags.HandsPrompt) do
+		own(prompt)
+	end
+	CollectionService:GetInstanceAddedSignal(Constants.Tags.HandsPrompt):Connect(own)
+	-- Which of them Roblox would show now (a door swung open out of your
+	-- aim still says "E Close"): E works on those too.
+	self.shownHands, self.shownOthers = {}, {}
+	ProximityPromptService.PromptShown:Connect(function(prompt)
+		if prompt:GetAttribute("HandsOwned") then
+			self.shownHands[prompt] = true
+		else
+			self.shownOthers[prompt] = true
+		end
+	end)
+	ProximityPromptService.PromptHidden:Connect(function(prompt)
+		self.shownHands[prompt] = nil
+		self.shownOthers[prompt] = nil
+	end)
+	self.wasKeyboard = self:_keyboard()
+	UserInputService.LastInputTypeChanged:Connect(function()
+		local keyboard = self:_keyboard()
+		if keyboard ~= self.wasKeyboard then
+			self.wasKeyboard = keyboard
+			for _, prompt in CollectionService:GetTagged(Constants.Tags.HandsPrompt) do
+				own(prompt)
+			end
+		end
+	end)
+
 	-- The server stopped what you hold (a body in its way, or he forced it).
 	Net.get("DragStop").OnClientEvent:Connect(function(id, value)
 		local drag = self.drag
@@ -222,6 +290,133 @@ function HandsController:CanDrag(instance: Instance): boolean
 	return self:_pieceOf(instance) ~= nil
 end
 
+-- Playing on a keyboard and mouse (E is your hands' then).
+function HandsController:_keyboard(): boolean
+	local last = UserInputService:GetLastInputType()
+	return last == Enum.UserInputType.Keyboard
+		or last == Enum.UserInputType.TextInput
+		or string.find(last.Name, "^Mouse") ~= nil
+end
+
+-- Does this small thing have an E prompt of its own (a music box's "Wind
+-- it", a wind-up toy)? Then E is that prompt's, and your hands take it with
+-- the mouse.
+local function ownPrompt(model: Model): boolean
+	for _, d in model:GetDescendants() do
+		if d:IsA("ProximityPrompt") and d.Enabled and d.KeyboardKeyCode == Enum.KeyCode.E then
+			return true
+		end
+	end
+	return false
+end
+
+-- The door or drawer prompt showing now that you face most, or nil. Not
+-- while another E prompt shows (a note, a switch): E is that one's.
+function HandsController:_shownPrompt(): ProximityPrompt?
+	for prompt in self.shownOthers or {} do
+		if prompt.Parent and prompt.Enabled and prompt.KeyboardKeyCode == Enum.KeyCode.E then
+			return nil
+		end
+	end
+	local camera = Workspace.CurrentCamera
+	local best, bestDot = nil, -math.huge
+	for prompt in self.shownHands or {} do
+		local part = prompt.Parent
+		if prompt.Enabled and part and part:IsA("BasePart") then
+			local dot = camera.CFrame.LookVector:Dot((part.Position - camera.CFrame.Position).Unit)
+			if dot > bestDot then
+				best, bestDot = prompt, dot
+			end
+		else
+			self.shownHands[prompt] = nil
+		end
+	end
+	return best
+end
+
+-- E pressed or let go (keyboard only: gamepad and touch use the prompts).
+-- What E last did, for tests in Studio (the MCP can't see this client's tables).
+function HandsController:_note(what: string)
+	if RunService:IsStudio() then
+		player:SetAttribute("DebugHandsE", what)
+	end
+end
+
+function HandsController:_onE(inputState: Enum.UserInputState)
+	local pass = Enum.ContextActionResult.Pass
+	local sink = Enum.ContextActionResult.Sink
+	if inputState == Enum.UserInputState.Begin then
+		if not self:_active() or Ui.modalOpen() then
+			self:_note(not self:_active() and "pass: not active" or "pass: a screen is open")
+			return pass
+		end
+		if self.carry then
+			self:_drop(true) -- E puts down what you carry
+			self:_note("put down")
+			return sink
+		end
+		if self.drag or self.push then
+			self:_note("busy")
+			return sink
+		end
+		local hit = self:_aim()
+		local thing = self:_thingOf(hit)
+		if thing then
+			if ownPrompt(thing) then
+				self:_note("pass: its own prompt")
+				return pass
+			end
+			if self:_pickUp() and self.carry then
+				self.carry.viaE = true
+			end
+			self:_note("pick up " .. thing.Name)
+			return sink
+		end
+		local primary = hit and self:_pieceOf(hit.Instance)
+		if primary and not primary:GetAttribute("HideSpot") then
+			self.press = { at = os.clock(), primary = primary }
+			self:_note("press " .. tostring(primary:GetAttribute(Constants.Attributes.CId)))
+			return sink
+		end
+		if hit and hit.Distance <= P.Reach + 1.5 and self:_pushableOf(hit.Instance) then
+			self.press = { at = os.clock() }
+			self:_note("press furniture")
+			return sink
+		end
+		-- Nothing under your aim: the door or drawer whose prompt is showing
+		-- (the one you're nearest and facing), as its prompt would have.
+		local shown = self:_shownPrompt()
+		if shown then
+			self.press = { at = os.clock(), primary = shown.Parent, tapOnly = true }
+			self:_note("press shown " .. tostring(shown.Parent:GetAttribute(Constants.Attributes.CId)))
+			return sink
+		end
+		self:_note("pass: nothing")
+		return pass
+	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		local press = self.press
+		if not press then
+			return pass
+		end
+		self.press = nil
+		if press.held then
+			-- Let go, as letting go of the mouse button would.
+			if self.drag then
+				self:_finish()
+			elseif self.push then
+				self.push = nil
+			end
+			self:_note("let go")
+		elseif press.primary and press.primary.Parent then
+			-- A tap: open or shut it.
+			Net.get("Tap"):FireServer(press.primary:GetAttribute(Constants.Attributes.CId))
+			self:_note("tap " .. tostring(press.primary:GetAttribute(Constants.Attributes.CId)))
+		end
+		return sink
+	end
+	return pass
+end
+
 function HandsController:_active(): boolean
 	return self.state:InRun() and self.state:IsActive() and not self.state:IsHidden()
 end
@@ -278,9 +473,6 @@ function HandsController:_begin(): boolean
 		self.stick = Vector2.new(input.Position.X, input.Position.Y)
 		return Enum.ContextActionResult.Sink
 	end, false, Enum.ContextActionPriority.High.Value + 10, Enum.KeyCode.Thumbstick2)
-	if (player:GetAttribute(PA.ActiveSlot) or 1) ~= Inventory.HANDS_SLOT then
-		Net.get("SelectSlot"):FireServer(Inventory.HANDS_SLOT)
-	end
 	return true
 end
 
@@ -344,9 +536,6 @@ function HandsController:_lean(hit: RaycastResult?): boolean
 		return false
 	end
 	self.push = { id = model:GetAttribute(Constants.Attributes.CId), model = model, sentAt = 0 }
-	if (player:GetAttribute(PA.ActiveSlot) or 1) ~= Inventory.HANDS_SLOT then
-		Net.get("SelectSlot"):FireServer(Inventory.HANDS_SLOT)
-	end
 	return true
 end
 
@@ -374,6 +563,14 @@ function HandsController:_pushStep()
 end
 
 function HandsController:_update(dt: number)
+	-- E held past a tap: your hand takes hold, as the mouse button does.
+	local press = self.press
+	if press and not press.held and not press.tapOnly and os.clock() - press.at >= H.TapSeconds then
+		press.held = true
+		if not self:_begin() then
+			self.press = nil
+		end
+	end
 	if self.carry then
 		self:_carryStep(dt)
 	end

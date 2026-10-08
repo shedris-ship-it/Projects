@@ -8,6 +8,8 @@ Constants.Tags = {
 	Seam = "ConsensusSeam",
 	Door = "ConsensusDoor",
 	Articulated = "ConsensusArticulated", -- a door's or a furniture piece's main part (Controllers/MotionController)
+	-- A door's or drawer's tap prompt that E belongs to on a keyboard (Controllers/HandsController).
+	HandsPrompt = "ConsensusHandsPrompt",
 	HidingSpot = "ConsensusHidingSpot",
 	TellSite = "ConsensusTellSite",
 	RoomLight = "ConsensusRoomLight",
@@ -70,7 +72,7 @@ Constants.PlayerAttributes = {
 	-- The four inventory slots (Logic/Inventory): ids, "" when empty, and
 	-- which one is in your hands (1 to 4). Slot 1 is always the flashlight and
 	-- slot 4 your bare hands ("Hands").
-	Slots = { "Slot1", "Slot2", "Slot3", "Slot4" },
+	Slots = { "Slot1", "Slot2", "Slot3" },
 	ActiveSlot = "ActiveSlot",
 	Battery = "Battery",
 	Flashlight = "Flashlight",

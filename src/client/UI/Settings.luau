@@ -11,9 +11,9 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 -- The real keys, as Controllers/ActionController binds them (WP9: the
 -- outside playtest found the bolt on the torch's key and no list anywhere).
 local CONTROLS = table.concat({
-	"E  use, hold to work (a drawer, a lock, the table)  ·  hold click  drag or carry  ·  right click  throw",
-	"F  torch  ·  R  use the tool in hand  ·  V  bolt the bathroom door  ·  Q  squeeze past a barricade  ·  X  put down",
-	"1 2 3 4  slots (4 is your hands)  ·  wheel  next slot  ·  Shift  run  ·  Space  hold your breath",
+	"E  open, pick up, use  ·  hold E  drag a door or drawer, push furniture  ·  carrying: click throws, E puts down",
+	"hold click  drag or carry too  ·  right click  throw  ·  F  torch  ·  R  use the tool in hand  ·  X  put down",
+	"1 2 3  slots  ·  wheel  next slot  ·  Ctrl  crouch  ·  Shift  run  ·  Space  hold your breath  ·  V  bolt  ·  Q  squeeze past",
 	"Tab  map and journal  ·  G  ping  ·  C  callouts  ·  Enter  say a line  ·  F1  settings  ·  F2  debug",
 }, "\n")
 
@@ -26,7 +26,7 @@ local HOW_TO = table.concat({
 	"The front door has locked behind you. The dining table is laid for a guest, with empty places.",
 	"",
 	"• Find the family's heirlooms and set each at its place at the table. Then get out by the front door.",
-	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. Hold the mouse on anything to drag, pull or carry it.",
+	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. E opens and picks up; hold E (or the mouse) on anything to drag, pull or carry it.",
 	"• Something lives here. Two of you watching it in the light stops it; alone, your beam does, while the battery lasts. Hide (E), hold your breath (Space), and talk: Tab is the map, G pings.",
 }, "\n")
 

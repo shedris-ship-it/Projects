@@ -40,7 +40,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Heft = require(Shared.Logic.Heft)
-local Inventory = require(Shared.Logic.Inventory)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Sfx = require(Shared.Lib.Sfx)
@@ -97,6 +96,9 @@ function HandsService:Start()
 	)
 	Net.onServer("Grab", { interval = 0.15, burst = 6, types = { "string" } }, function(player, id)
 		self:Grab(player, id)
+	end)
+	Net.onServer("Tap", { interval = 0.12, burst = 4, types = { "string" } }, function(player, id)
+		self:Tap(player, id)
 	end)
 	Net.onServer("Release", { interval = 0.1, burst = 8, types = {} }, function(player)
 		self:Release(player)
@@ -170,6 +172,40 @@ function HandsService:_drag(player: Player, id: string, value: number, release: 
 	if piece and piece.primary.Parent then
 		if self:_canReach(player, piece.primary.Position, reach, piece.prop.model) then
 			self.Furniture:Drag(piece, value, player, release)
+		end
+	end
+end
+
+-- E tapped on a door or a drawer (a keyboard's version of its prompt: the
+-- squad playtest, 2026-10-08, "make everything grabbable with E"). The same
+-- as triggering the prompt, with the prompt's own reach, and only while the
+-- prompt itself would work.
+function HandsService:Tap(player: Player, id: string)
+	local world = self.World.World
+	if not world or not self.PlayerState:CanAct(player) then
+		return
+	end
+	local door = world.doors[id]
+	if door and door.slab.Parent then
+		local prompt = door.prompt
+		if
+			prompt
+			and prompt.Enabled
+			and self:_canReach(player, door.slab.Position, prompt.MaxActivationDistance + 1.5, door.model)
+		then
+			self.Doors:Toggle(door, player)
+		end
+		return
+	end
+	local piece = self.Furniture:Piece(id)
+	if piece and piece.primary.Parent then
+		local prompt = piece.prompt
+		if
+			prompt
+			and prompt.Enabled
+			and self:_canReach(player, piece.primary.Position, prompt.MaxActivationDistance + 1.5, piece.prop.model)
+		then
+			self.Furniture:Toggle(piece, player)
 		end
 	end
 end
@@ -358,8 +394,6 @@ function HandsService:Grab(player: Player, id: string)
 	thing.lastValidAt = now
 	self.held[player] = thing
 	thing.model:SetAttribute("HeldBy", player.UserId)
-	-- Taking hold of something puts your hands in your hands (slot 4).
-	self.Tools:SelectSlot(player, Inventory.HANDS_SLOT)
 	Sfx.play("Cloth", position, 0.25, 1.25)
 	self.Grabbed:Fire(player, thing)
 end

@@ -61,7 +61,7 @@ local GAP = 20 -- seconds between tips
 local TIPS = {
 	{
 		id = "hands",
-		text = "Hold the left mouse button on a drawer, a door or a small thing to pull, swing or carry it. The family's keys are in the drawers.",
+		text = "E opens a door or a drawer and picks small things up; hold E (or the mouse) to swing, pull or push. Carrying: click throws, E puts down. The family's keys are in the drawers.",
 		when = function(self)
 			return self:_runTime() >= 12
 		end,

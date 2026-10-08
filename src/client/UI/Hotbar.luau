@@ -1,7 +1,8 @@
--- The four slots you carry (owner, 2026-10-04; docs/plans/gameplay-rework.md
+-- The three slots you carry (owner, 2026-10-04; docs/plans/gameplay-rework.md
 -- section 4.1): slot 1 is the flashlight, 2 and 3 hold tools found around the
--- house, 4 is your bare hands, and one thing is in your hands at a time.
--- Bottom centre. Press 1 to 4, spin the wheel, or tap a slot; X puts the tool
+-- house, and one thing is in your hands at a time (an empty slot is a free
+-- hand; the bare-hands slot went with the squad playtest of 2026-10-08).
+-- Bottom centre. Press 1 to 3, spin the wheel, or tap a slot; X puts the tool
 -- in your hands down. Everything shown is read from the player's replicated
 -- attributes the server sets (Services/ToolService), so the bar can't disagree
 -- with what you're holding.
@@ -33,18 +34,7 @@ local Hotbar = {}
 Hotbar.__index = Hotbar
 
 -- A small picture of a tool: its model, seen from the front and a little above.
--- Your hands are a hand.
 local function icon(parent: Instance, id: string)
-	if id == Inventory.HANDS then
-		return Ui.label("✋", {
-			Name = "Icon",
-			Size = UDim2.fromScale(1, 1),
-			TextXAlignment = Enum.TextXAlignment.Center,
-			TextSize = 30,
-			TextColor3 = Ui.Theme.text,
-			Parent = parent,
-		})
-	end
 	local model = id == Inventory.TORCH and ToolModel.torch() or ToolModel.tool(id)
 	if not model then
 		return nil
@@ -169,8 +159,6 @@ end
 local function nameOf(id: string): string
 	if id == Inventory.TORCH then
 		return "Flashlight"
-	elseif id == Inventory.HANDS then
-		return "Your hands"
 	end
 	local info = Tools.ById[id]
 	return info and info.name or id

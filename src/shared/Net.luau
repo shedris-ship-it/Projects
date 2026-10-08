@@ -31,6 +31,7 @@ local DEFINITIONS = {
 	PuzzleInput = "RemoteEvent", -- C->S (id, action, word?, a?, b?)
 	PuzzleLeave = "RemoteEvent", -- C->S (id): step back
 	Grab = "RemoteEvent", -- (id): take hold of a small thing (Data/Physical)
+	Tap = "RemoteEvent", -- (id): E tapped on a door or drawer: open or shut it (its prompt's job)
 	Release = "RemoteEvent", -- let go of what you're carrying
 	Throw = "RemoteEvent", -- (aim): throw what you're carrying
 	SetReady = "RemoteEvent",

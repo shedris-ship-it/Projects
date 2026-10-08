@@ -165,3 +165,32 @@ Now players collide through their roots:
 **Studio:** holding Ctrl sets `Crouched`, a walk speed of 3.5 and no jump; letting go stands you up (walk 8, jump 3). 486 tests pass.
 
 **New tests:** TC-169 (the fall, the crawl, the low camera), TC-170 (revived: back up; the rescuer kneels; two clients), TC-171 (crouch: silent, he sees you later in the dark, a sofa hides you).
+
+## WP9 (build `.137`): E does it all
+
+"Having to switch from flashlight to hold doors and objects doesn't feel good", and "make everything grabbable with E". Grabbing anything used to switch you to slot 4 (bare hands), which swapped the torch's beam for the weak shirt light.
+
+**The owner's decision: E does it all.**
+- **Three slots.** Slot 4 is gone (`Logic/Inventory`). Your hands work from any slot, and grabbing never changes your slot. With the torch out, it stays at full beam while you drag, carry or push. An empty tool slot is a free hand (the torch clips on), and the wheel goes round all three.
+- **On a keyboard** (`HandsController:_onE`):
+  - Tap E on a door or a drawer and it opens or shuts. A new `Tap` remote does the prompt's own job, with its reach and only while the prompt would work.
+  - Hold E (0.22 s) on it, or on furniture, and your hand takes hold as the mouse button does.
+  - Tap E on a small thing and you carry it: a click throws (hold it to wind up) and E puts it down. Hold-click carrying works as before.
+  - The door and drawer prompts lose E on a keyboard, set locally on each client; gamepad and touch keep them. The hints say "E" and "Hold E".
+- **What you look at wins.**
+  - E is bound above the prompts. Aimed at a door next to a light switch, E opens the door; aimed at the switch, it works the switch.
+  - A door that swung out of your aim still answers to E through its shown prompt, unless another E prompt is showing.
+  - Furniture you hide in keeps E for hiding; its doors take the mouse.
+  - A small thing with its own E prompt (the music box's "Wind it", a wind-up toy) keeps E for that.
+- **Choosing a slot that holds a tool** puts down what you carry. The torch, or an empty slot, leaves your hand free.
+- **Also changed:** the controls line, the Settings controls, the hands tip and the HUD's carrying line ("Click: throw · E: put down · wheel: nearer, further").
+
+**Fixed on the way:** a door you shut stopped on you half way. Furniture beside a door makes it open towards you, and you, as its opener, were let through. Closing, it stopped against you, and the next tap read the half-shut door as "open it", so it could never be shut from where you stood. Now whoever swings a door, either way, isn't in its way (`DoorService:_bodyStop`).
+
+**Studio, seed 18, the grand hall:**
+- Tapping E opened the door and tapped again shut it from the same spot. The prompt's key was None on the keyboard, and the slot stayed 1.
+- E picked up a magazine with the torch unclipped, and a click threw it 36.8 studs.
+- Next to the hall's light switch: E aimed at the door opened it; aimed at the switch, it switched the light and the door stayed open.
+- In Studio the client records its last E decision in a `DebugHandsE` attribute, for tests.
+
+**New tests:** TC-172 (E on doors, drawers, things and furniture), TC-173 (gamepad and touch unchanged), TC-174 (the torch at full beam while carrying).

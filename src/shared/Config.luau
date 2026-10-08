@@ -1609,6 +1609,7 @@ Config.Hands = {
 	-- Weak and short: enough to see what you're doing, not to search a room
 	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.
 	ClipLight = Config.Torch.Clip,
+	TapSeconds = 0.22, -- E held longer than this takes hold (drag, push); shorter is a tap (open, shut)
 	-- Dragging doors with the mouse (section 4.5): hold the button on a door
 	-- and your hand moves with the mouse; the door turns to follow it.
 	Reach = 8, -- studs from your eye to what you can take hold of

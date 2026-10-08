@@ -162,7 +162,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"R: use · 1 2 3 4 / wheel: slots (4: hands) · X: put down · F: light · Shift: run · G: ping · Tab: map · F1: settings",
+		"E: open, pick up · hold E: drag, push · R: use · 1 2 3 / wheel: slots · X: put down · F: light · Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: settings",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),
@@ -244,13 +244,15 @@ function Hud:Update()
 	local tool = Tools.ById[toolId]
 	local activeSlot = player:GetAttribute(PA.ActiveSlot) or 1
 	local torchHeld = toolId == nil and activeSlot == 1
-	local handsFree = activeSlot == 4 -- Logic/Inventory.HANDS_SLOT
-	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or handsFree and "Your hands" or "")
+	-- An empty slot: a free hand (the torch on your shirt).
+	local handsFree = toolId == nil and activeSlot ~= 1
+	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or "A free hand")
 	local detail = ""
-	if torchHeld then
+	local hands = self.ctx.controllers.HandsController
+	if hands and hands:IsCarrying() then
+		detail = "Click: throw (hold to wind up) · E: put down · wheel: nearer, further"
+	elseif torchHeld then
 		detail = player:GetAttribute(PA.Flashlight) and "F: switch off" or "F: switch on"
-	elseif handsFree and self.ctx.controllers.HandsController and self.ctx.controllers.HandsController:IsCarrying() then
-		detail = "Right click: throw · wheel: distance"
 	elseif handsFree then
 		-- The torch rides clipped to your shirt while your hands are free.
 		detail = player:GetAttribute(PA.Flashlight) and "F: clip light off" or "F: clip light on"

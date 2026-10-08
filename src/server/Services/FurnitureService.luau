@@ -29,6 +29,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Props = require(Shared.Data.Props)
 local Joint = require(Shared.Lib.Joint)
 local MotionState = require(Shared.Lib.MotionState)
 local Net = require(Shared.Net)
@@ -234,6 +235,16 @@ function FurnitureService:_piece(id: string, model: Model, primary: BasePart, jo
 		end
 	end)
 	piece.prompt = prompt
+	-- On a keyboard, E is your hands' (the squad playtest, 2026-10-08: "make
+	-- everything grabbable with E"): a tap opens or shuts it (HandsService
+	-- :Tap), a hold drags it. Not on furniture you hide in, where E hides.
+	local kind = prop.kind and Props.Kinds[prop.kind]
+	if not (kind and kind.hide) then
+		prompt:SetAttribute("HandsOwned", true)
+		CollectionService:AddTag(prompt, Constants.Tags.HandsPrompt)
+	else
+		primary:SetAttribute("HideSpot", true)
+	end
 	return piece
 end
 

@@ -232,10 +232,10 @@ function ToolService:SelectSlot(player: Player, slot)
 		return
 	end
 	-- The light stays as it was: changing slots only moves the torch between
-	-- your hand and your shirt (_publish). Whatever your bare hands carried
-	-- is put down when they take something else.
+	-- your hand and your shirt (_publish). Whatever you carry is put down when
+	-- your hand takes a tool (the torch, or an empty slot, leaves it free).
 	if Inventory.select(inv, slot) then
-		if slot ~= Inventory.HANDS_SLOT then
+		if Inventory.isToolSlot(slot) and inv.slots[slot] then
 			self.services.HandsService:Release(player)
 		end
 		self:_publish(player)
@@ -497,15 +497,6 @@ end
 -- A tool lying at `cframe` for anyone to take (the safe room's).
 function ToolService:PlaceTool(toolId: string, cframe: CFrame)
 	self:_makePickup({ id = toolId, uid = newUid() }, cframe, 0)
-end
-
--- Back to the slot you had before your hands took something (a key rings
--- itself: your torch comes back to your hand).
-function ToolService:RestoreSlot(player: Player)
-	local inv = inventories[player]
-	if inv and Inventory.restore(inv) then
-		self:_publish(player)
-	end
 end
 
 -- Spend a tool from any slot (the salts): gone, not dropped. Whether one was carried.

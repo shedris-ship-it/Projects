@@ -244,44 +244,36 @@ function FocusMarkers:_build(marker)
 	}, { Ui.list(12, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center) })
 	local order = 0
 	-- Your hands can take hold of it (Controllers/HandsController). Not on
-	-- touch, where the prompt opens and shuts it instead.
-	if marker.drag and inputKind() ~= "touch" then
+	-- touch, where the prompt opens and shuts it instead. On a keyboard, E
+	-- does it all (the squad playtest, 2026-10-08): tap to open or pick up,
+	-- hold to drag or push.
+	local kind = inputKind()
+	local keyboard = kind == "keyboard"
+	if marker.drag and kind ~= "touch" then
 		order += 1
 		self:_row(
 			actions,
 			order,
-			inputKind() == "gamepad" and "RT" or "Hold click",
+			kind == "gamepad" and "RT" or (marker.hideSpot and "Hold click" or "Hold E"),
 			"Drag",
 			function() end,
 			function() end
 		)
 	end
-	if marker.grab and inputKind() ~= "touch" then
+	if marker.grab and kind ~= "touch" then
 		order += 1
-		self:_row(
-			actions,
-			order,
-			inputKind() == "gamepad" and "RT" or "Hold click",
-			"Pick up",
-			function() end,
-			function() end
-		)
+		self:_row(actions, order, kind == "gamepad" and "RT" or "E", "Pick up", function() end, function() end)
 	end
-	if marker.push and inputKind() ~= "touch" then
+	if marker.push and kind ~= "touch" then
 		order += 1
-		self:_row(
-			actions,
-			order,
-			inputKind() == "gamepad" and "RT" or "Hold click",
-			"Push",
-			function() end,
-			function() end
-		)
+		self:_row(actions, order, kind == "gamepad" and "RT" or "Hold E", "Push", function() end, function() end)
 	end
 	for _, prompt in marker.prompts do
 		order += 1
 		-- A long hold says so ("Hold E"): the shrine's wait was a secret before.
-		local key = keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
+		-- A door's or drawer's prompt has given E to your hands: a tap is E.
+		local key = (keyboard and prompt:GetAttribute("HandsOwned")) and "E"
+			or keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
 		if key and prompt.HoldDuration >= 0.5 then
 			key = "Hold " .. key
 		end
@@ -383,6 +375,8 @@ function FocusMarkers:Update(dt: number)
 			local entry = want(object)
 			table.insert(entry.prompts, prompt)
 			entry.drag = entry.drag or (inRun and hands ~= nil and hands:CanDrag(prompt.Parent))
+			-- Furniture you hide in keeps E for hiding: its doors take the mouse.
+			entry.hideSpot = entry.hideSpot or prompt.Parent:GetAttribute("HideSpot") == true
 			entry.name = entry.name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
 			local position = prompt.Parent:IsA("Attachment") and prompt.Parent.WorldPosition
 				or (prompt.Parent :: BasePart).Position
@@ -414,6 +408,7 @@ function FocusMarkers:Update(dt: number)
 	for object, entry in wanted do
 		local marker = self.markers[object]
 		local signature = (entry.drag and "D" or "")
+			.. (entry.hideSpot and "H" or "")
 			.. (entry.grab and "G" or "")
 			.. (entry.push and "P" or "")
 			.. inputKind()
@@ -431,6 +426,7 @@ function FocusMarkers:Update(dt: number)
 			marker.signature = signature
 			marker.prompts = entry.prompts
 			marker.drag = entry.drag
+			marker.hideSpot = entry.hideSpot
 			marker.grab = entry.grab
 			marker.push = entry.push
 			marker.name = entry.name
