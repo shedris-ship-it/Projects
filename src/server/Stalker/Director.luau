@@ -33,6 +33,8 @@ local CARDS = {
 	-- A scare he sets up on purpose, for whoever he has frightened least
 	-- lately (StalkerService:_beat; the squad playtest, 2026-10-08).
 	{ id = "guestBeat", weight = 2, cooldown = 90, minDrift = 20, minAct = 2, big = true },
+	-- His disguise: a friend's look, late in a bad night (StalkerService:_disguise).
+	{ id = "disguise", weight = 1, cooldown = 200, minDrift = 60, minAct = 3, big = true },
 	-- The house's own scares (Services/HouseEventService), by act: the deeper
 	-- the squad goes, the more the house does. minDrift is a Dread threshold.
 	{ id = "doorAjar", weight = 2, cooldown = 45, house = true },

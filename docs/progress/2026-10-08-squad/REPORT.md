@@ -316,3 +316,31 @@ The run checks every tick in every mode except hunts, which closes the gaps whil
 **Studio, seed 61, tier 2:** `beat behind` while I faced away. 0.8 s later he was 5.1 studs behind me; turning round, there he stood in the doorway, mask lit (the screenshot is the report's). 498 tests pass.
 
 **New test:** TC-185 (each beat: frightening, never unfair?).
+
+## WP15 (build `.143`): his disguise, a friend's look
+
+"Maybe the Guest should shapeshift."
+
+**The owner's decision: a teammate.** Late in a bad night (Dread 60+, act 3+, tier 3, not in a hunt), a new Director card, `disguise`, can show one player who is alone (nobody within 30 studs) a friend standing 25–45 studs off. It isn't the friend.
+- **The rules** (`Logic/Disguise`, pure, `Disguise.spec`):
+  - The friend he copies is at least 40 studs away and out of the player's sight.
+  - He starts unseen by everyone.
+  - Twice a night at most, once per player, five minutes apart.
+- **How it shows.**
+  - It's for that player alone: a `GuestEvent` to their client only. `GuestController` hides his body and welds on a copy of the friend's character. The copy is stripped of everything that isn't the body: no torch or other light, no name over it, no sound, nothing in its hands.
+  - The copy stands wrong (`PlayerPose.wrong`): the head tipped far over, the arms hanging dead, one shoulder high, a stiff-kneed walk.
+  - On the server his sight points drop to a person's height while disguised, so who-sees-whom stays honest.
+  - It's always his real body under the look: the only Guest anyone sees is the real one (the rule in `Logic/Atmosphere` stands).
+- **The tells:** no light, no name, silence, the head. And if the real friend has a light on, it's somewhere else.
+- **The reveal.** Go within 12 studs while looking and the look falls away. It's him, holding a stare for 1.5 s (he won't step aside), with a rasp. Your torch stutters, the lights round you shudder, and the caption reads "[that isn't them]". From there crowding him (WP13) applies as always.
+- **The quiet end.** Otherwise it ends after 45 s, or when the real friend comes within 15 studs of the player, and only while nobody can see him.
+- **F2 `disguise [name|self]`** shows it to you now; with `self` the friend is you.
+
+**Studio, seed 61, tier 3, `disguise self`:**
+- His body was hidden and a copy of my character stood by the stairs, head tipped over (screenshot).
+- I walked at it and at 9 studs it was gone, and there he stood: the tall silhouette, pinpoint eyes.
+- After that check he still stepped aside at once, so I added the stare.
+
+504 tests pass.
+
+**New test:** TC-186 (three clients: player A alone, player B far off; does A believe it's B? Do the tells give it away?).

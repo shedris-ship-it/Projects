@@ -106,6 +106,13 @@ end
 -- His head and chest in the world for the current pose, as clients draw
 -- them (a peeking head is two studs out from his body).
 function Body:ExposedPoints(): { Vector3 }
+	if self.disguised then
+		-- A friend's height (StalkerService:_disguise): what the one he fools
+		-- sees is a head and chest where a person's are.
+		local feet = self.root.Position.Y - self.built.groundOffset
+		local at = self.root.Position
+		return { Vector3.new(at.X, feet + 4.5, at.Z), Vector3.new(at.X, feet + 3, at.Z) }
+	end
 	local head, chest = GuestPose.exposed(self.pose, self.lean, nil, self.model:GetAttribute("GuestForm"))
 	local cf = self.root.CFrame
 	local points = {

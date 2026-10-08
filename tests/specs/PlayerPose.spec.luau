@@ -79,8 +79,20 @@ return function(test, check, Shared, require)
 		check.atLeast(knee.Position.Y, -0.1, "not through the floor")
 	end)
 
+	test("his disguise stands on the floor, its head tipped too far", function()
+		local still = solve(PlayerPose.wrong(0, 0))
+		check.near(y(still, "LeftFoot"), 0.15, 0.1, "standing")
+		local tipped = still.Head.RightVector.Y
+		check.truthy(math.abs(tipped) > 0.35, "the head tipped over")
+		for i = 0, 7 do
+			local parts = solve(PlayerPose.wrong(i * math.pi / 4, 1))
+			check.atLeast(math.min(y(parts, "LeftFoot"), y(parts, "RightFoot")), -0.2, "not through the floor")
+		end
+	end)
+
 	test("every pose has finite values for every joint; blends end where they should", function()
-		local poses = { PlayerPose.crouch(1.3, 0.7), PlayerPose.prone(2.2, 0.5), PlayerPose.kneel() }
+		local poses =
+			{ PlayerPose.crouch(1.3, 0.7), PlayerPose.prone(2.2, 0.5), PlayerPose.kneel(), PlayerPose.wrong(0.8, 1) }
 		for _, pose in poses do
 			for _, name in PlayerPose.Order do
 				local v = pose[name]

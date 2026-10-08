@@ -145,6 +145,30 @@ function PlayerPose.prone(phase: number, moving: number)
 	return values
 end
 
+-- Wrong, for his disguise (StalkerService:_disguise; the squad playtest,
+-- 2026-10-08: "maybe the guest should shapeshift", the owner's choice: a
+-- teammate). A friend's body, held the way no friend stands: the head
+-- tipped too far, the arms hanging dead, one shoulder high, and if it walks,
+-- stiff-kneed. `phase` runs with the ground covered.
+function PlayerPose.wrong(phase: number, moving: number)
+	local values = {}
+	local s = math.sin(phase) * moving
+	values.Root = { 0, 0, 0.04, 0, 0, 0 }
+	values.Waist = { 0.06, 0, 0.1, 0, 0, 0 }
+	values.Neck = { -0.12, 0.08, 0.55, 0, 0, 0 }
+	values.LeftShoulder = { -0.08 + 0.05 * s, 0, 0.05, 0, 0, 0 }
+	values.RightShoulder = { -0.08 - 0.05 * s, 0, -0.02, 0, 0.12, 0 }
+	values.LeftElbow, values.RightElbow = zero(), zero()
+	values.LeftWrist, values.RightWrist = zero(), zero()
+	-- Legs swing from the hip only: no knee bends.
+	values.LeftHip = { 0.3 * s, 0, 0, 0, 0, 0 }
+	values.RightHip = { -0.3 * s, 0, 0, 0, 0, 0 }
+	values.LeftKnee, values.RightKnee = zero(), zero()
+	values.LeftAnkle = { -0.3 * s, 0, 0, 0, 0, 0 }
+	values.RightAnkle = { 0.3 * s, 0, 0, 0, 0, 0 }
+	return values
+end
+
 -- Blend two poses (a = 0: first, 1: second), joint by joint.
 function PlayerPose.blend(a, b, t: number)
 	local out = {}

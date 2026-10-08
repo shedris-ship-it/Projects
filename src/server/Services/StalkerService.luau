@@ -38,6 +38,7 @@ local GuestPose = require(Shared.Logic.GuestPose)
 local HuntPhases = require(Shared.Logic.HuntPhases)
 local Net = require(Shared.Net)
 local Scent = require(Shared.Logic.Scent)
+local Disguise = require(Shared.Logic.Disguise)
 local ScareBeats = require(Shared.Logic.ScareBeats)
 local StalkRules = require(Shared.Logic.StalkRules)
 local Throw = require(Shared.Logic.Throw)
@@ -1173,6 +1174,9 @@ function StalkerService:_scare(card)
 	if card.id == "guestBeat" then
 		return self:_beatStart(nil, nil)
 	end
+	if card.id == "disguise" then
+		return self:_disguiseStart(nil, nil)
+	end
 	local divergence = services.DivergenceService
 	local angle = self.rng:NextNumber(0, math.pi * 2)
 	local around = pos + Vector3.new(math.cos(angle), 0, math.sin(angle)) * self.rng:NextNumber(14, 24)
@@ -1288,6 +1292,32 @@ function StalkerService:_update(dt: number)
 	-- While he turns on someone, nothing else moves him.
 	if not hunting then
 		self:_crowding(now, dt)
+	end
+	-- Just revealed (the disguise fell away): he stands and stares a moment,
+	-- not stepping aside for anyone (crowding him still counts).
+	if self.revealHold and not self.confront then
+		if now < self.revealHold.untilT and self.revealHold.player.Parent then
+			body:Hold()
+			body:FacePlayer(self.revealHold.player)
+			body:Update(now, function(player: Player): Vector3?
+				return (self.stalk:Known(player))
+			end)
+			self:_updateVisibility(now)
+			return
+		end
+		self.revealHold = nil
+		if self.bodyCtl then
+			self.bodyCtl:SetPose(Poses.Idle)
+		end
+	end
+	if self.disguise and not self.confront then
+		if self:_updateDisguise(now) then
+			body:Update(now, function(player: Player): Vector3?
+				return (self.stalk:Known(player))
+			end)
+			self:_updateVisibility(now)
+			return
+		end
 	end
 	if self.beat and not self.confront then
 		self:_updateBeat(now)
@@ -1475,6 +1505,9 @@ function StalkerService:_beginTelegraph(seconds: number?, reason: string?, false
 	-- unless his keys open the way (Logic/GuestKeys).
 	if not self.arrived or (not G.Keys and not self:_squadCanReach(self.bodyCtl.root.Position)) then
 		self:_forceArrive()
+	end
+	if self.disguise then
+		self:_disguiseEnd(false)
 	end
 	self.mode = Modes.Telegraph
 	self.hold = { held = 0, spent = false, unwatched = 0, holds = 0 }
@@ -1910,6 +1943,159 @@ function StalkerService:_updateBeat(now: number)
 			self.bodyCtl:SetPose(Poses.Idle)
 		end
 	end)
+end
+
+-- His disguise (Logic/Disguise; the squad playtest, 2026-10-08: "maybe the
+-- guest should shapeshift", the owner's choice: a teammate). To one player
+-- alone, late in a bad night, he wears a friend's look, far off, standing
+-- wrong; their own client draws it (Controllers/GuestController), nobody
+-- else's knows. Go to it and the look falls away: it's him, and close enough
+-- to crowd. It always ends unseen, or in that reveal. `forced`: F2.
+function StalkerService:_disguiseStart(forcedObserver: Player?, forcedFriend: Player?): boolean
+	if self.disguise or self.confront or self.beat or not self.arrived or self.parked or not self.bodyCtl then
+		return false
+	end
+	local services = self.services
+	local ps = services.PlayerStateService
+	local D = G.Disguise
+	local now = os.clock()
+	self.disguised = self.disguised or { count = 0, had = {}, last = -math.huge }
+	local here = self.body.root.Position
+	local seen = self.sight:AnyoneSees(self.bodyCtl:ExposedPoints(), 130)
+	local players = ps:ActivePlayers()
+	local function alone(player): boolean
+		local pos = ps:Position(player)
+		for _, other in players do
+			local otherPos = ps:Position(other)
+			if other ~= player and pos and otherPos and (otherPos - pos).Magnitude < D.AloneRadius then
+				return false
+			end
+		end
+		return true
+	end
+	for _, observer in forcedObserver and { forcedObserver } or players do
+		local pos = ps:Position(observer)
+		if pos then
+			for _, friend in forcedFriend and { forcedFriend } or players do
+				local friendPos = ps:Position(friend)
+				if friend ~= observer or forcedFriend then
+					local head = friendPos and ps:Head(friend)
+					local guestDistance = services.WorldService:Separation(here, pos) or math.huge
+					local yes = forcedObserver ~= nil
+						or Disguise.can({
+							dread = services.DriftService:Dread(),
+							act = self.director.act or 1,
+							tier = self.tier,
+							hunting = self:IsHunting(),
+							count = self.disguised.count,
+							observerHad = self.disguised.had[observer] == true,
+							sinceLast = now - self.disguised.last,
+							observerAlone = alone(observer),
+							teammateDistance = friendPos and (friendPos - pos).Magnitude or 0,
+							teammateSeen = head ~= nil and self.sight:Sees(observer, head.Position, 130),
+							guestDistance = guestDistance,
+							guestSeen = seen,
+						}, D)
+					if yes and friendPos then
+						self.disguise = { observer = observer, friend = friend, at = now }
+						self.disguised.count += 1
+						self.disguised.had[observer] = true
+						self.disguised.last = now
+						self.bodyCtl.disguised = true
+						self.bodyCtl:CancelSpecial()
+						self.bodyCtl:Hold()
+						self.bodyCtl:FacePlayer(observer)
+						self.bodyCtl:SetPose(Poses.Idle)
+						if self.stalk then
+							self.stalk.move = nil
+							self.stalk.target = observer
+						end
+						Net.get("GuestEvent")
+							:FireClient(observer, { kind = "disguise", on = true, friend = friend.UserId })
+						services.Telemetry:Log("GuestDisguise", { tier = self:TierNow() }, observer)
+						services.RunLogService:GuestDid("disguise")
+						return true
+					end
+				end
+			end
+		end
+	end
+	return false
+end
+
+-- While disguised: still, facing them, a friend's look for them alone.
+-- Returns whether the disguise still holds the body this tick.
+function StalkerService:_updateDisguise(now: number): boolean
+	local disguise = self.disguise
+	local observer = disguise.observer
+	local services = self.services
+	local ps = services.PlayerStateService
+	local D = G.Disguise
+	local body = self.bodyCtl
+	local pos = observer.Parent and ps:Position(observer)
+	local here = self.body.root.Position
+	if not pos or not ps:IsActive(observer) or self:IsHunting() then
+		self:_disguiseEnd(false)
+		return false
+	end
+	local distance = (Vector3.new(pos.X - here.X, 0, pos.Z - here.Z)).Magnitude
+	local seenByThem = self.sight:Sees(observer, body:ExposedPoints()[1], 130)
+	-- Close: the look falls away. It's him.
+	if distance <= D.RevealAt and seenByThem then
+		self:_disguiseEnd(true)
+		return false
+	end
+	-- Too long, or the real friend comes near: it goes, while nobody looks.
+	local friendPos = disguise.friend.Parent and ps:Position(disguise.friend)
+	local friendNear = friendPos and (friendPos - pos).Magnitude < D.FriendNear
+	if (now - disguise.at > D.Seconds or friendNear) and not self.sight:AnyoneSees(body:ExposedPoints(), 130) then
+		self:_disguiseEnd(false)
+		return false
+	end
+	body:Hold()
+	body:FacePlayer(observer)
+	return true
+end
+
+function StalkerService:_disguiseEnd(reveal: boolean)
+	local disguise = self.disguise
+	self.disguise = nil
+	if self.bodyCtl then
+		self.bodyCtl.disguised = false
+	end
+	if not disguise then
+		return
+	end
+	local observer = disguise.observer
+	if observer.Parent then
+		Net.get("GuestEvent"):FireClient(observer, { kind = "disguise", on = false, reveal = reveal })
+	end
+	if reveal and self.bodyCtl then
+		-- The look falls away: his own shape, and a rasp.
+		self.bodyCtl:SetPose(Poses.Hold)
+		self.bodyCtl:SetGaze(observer)
+		self.revealHold = { player = observer, untilT = os.clock() + 1.5 }
+		Sfx.play("GuestRasp", self.body.root.Position, 0.9, 0.9)
+		self.services.Telemetry:Log("GuestDisguiseRevealed", {}, observer)
+	end
+end
+
+-- F2 `disguise [name|self]`: him as that friend (or yourself), for you, now.
+function StalkerService:DebugDisguise(player: Player, name: string?): string
+	if self.disguise then
+		self:_disguiseEnd(false)
+		return "disguise ended"
+	end
+	local friend = player
+	if name and name ~= "self" then
+		for _, p in Players:GetPlayers() do
+			if string.lower(p.Name) == string.lower(name) or string.lower(p.DisplayName) == string.lower(name) then
+				friend = p
+			end
+		end
+	end
+	return self:_disguiseStart(player, friend) and ("disguised as " .. friend.DisplayName .. ", for you")
+		or "no disguise (he must be in the house, not hunting)"
 end
 
 -- F2 `beat [behind|dark|hand]`: one for you now (ignores the gap).

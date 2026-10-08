@@ -1125,6 +1125,20 @@ Config.Guest = {
 	BeatHoldSeen = 1.5, -- seen, he holds this long before the lights take him
 	DarkCloser = { 5, 8 }, -- the lights blink and he's this much closer
 	DarkReach = 25, -- (only from this close)
+	-- His disguise (Logic/Disguise; the squad playtest, 2026-10-08, the
+	-- owner's choice: a teammate). The Director's `disguise` card.
+	Disguise = {
+		Dread = 60, -- late in a bad night
+		Act = 3,
+		MaxPerRun = 2,
+		Gap = 300,
+		AloneRadius = 30, -- the one who sees it has nobody this close
+		TeammateMin = 40, -- the friend he copies is this far off at least
+		Near = { 25, 45 }, -- he stands this far from the one who sees it
+		RevealAt = 12, -- closer than this and the look falls away: it's him
+		Seconds = 45, -- it lasts at most this long (then it goes, unseen)
+		FriendNear = 15, -- the real friend comes this close to them: it goes
+	},
 	-- Close contact (Logic/StalkRules.contact): within this many studs of a Guest
 	-- you can see, he lunges at once. 5 is also where he senses you regardless
 	-- of facing (Perception:CanSee).

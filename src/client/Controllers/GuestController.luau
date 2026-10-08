@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
+local PlayerPose = require(Shared.Logic.PlayerPose)
 local Net = require(Shared.Net)
 
 local GuestFace = require(script.Parent.Parent.Lib.GuestFace)
@@ -37,6 +38,7 @@ local ushered = 0 -- times he stepped aside for you this session (captioned the 
 local shadows = {} -- door id -> the shadow of his feet under it (Stalk BehindTheDoor)
 local spottedTold = 0 -- "[it sees you]" captions so far
 local torchStutterAt = 0 -- the torch stutters on his breath, at most this often
+local disguise = nil -- { clone, joints, phase, last } while he wears a friend's look for you
 
 function GuestController:Init(controllers)
 	self.controllers = controllers
@@ -149,7 +151,20 @@ function GuestController:Start()
 		visible = isVisible == true
 		fade = nil
 		if guest then
-			setModifier(guest.model, visible and 0 or 1)
+			setModifier(guest.model, (visible and not disguise) and 0 or 1)
+		end
+		if disguise then
+			setModifier(disguise.clone, visible and 0 or 1)
+		end
+	end)
+	-- His disguise: the friend's look follows his body and stands wrong.
+	RunService.Stepped:Connect(function(_, dt)
+		if disguise then
+			local ok, err = pcall(self._disguiseFrame, self, dt)
+			if not ok then
+				warn("[Consensus] disguise failed: " .. tostring(err))
+				self:_undisguise(false)
+			end
 		end
 	end)
 	Net.get("HuntState").OnClientEvent:Connect(function(payload)
@@ -472,6 +487,135 @@ end
 
 -- Sounds and moments the server decides (Stalker/Stalk): the knock at the
 -- door, the warnings behind your back, the yank, the lunge, the catch.
+-- His disguise (StalkerService:_disguise; the squad playtest, 2026-10-08:
+-- "maybe the guest should shapeshift", the owner's choice: a teammate). For
+-- you alone, his body hidden and a friend's look in its place: a copy of
+-- their character, everything that isn't the body stripped (no torch, no
+-- light, no name, no sound), standing wrong (Logic/PlayerPose.wrong). Go
+-- close and it falls away (the server says reveal).
+local STRIP = {
+	Script = true,
+	LocalScript = true,
+	ModuleScript = true,
+	ProximityPrompt = true,
+	PointLight = true,
+	SpotLight = true,
+	SurfaceLight = true,
+	Sound = true,
+	BillboardGui = true,
+	SurfaceGui = true,
+	ParticleEmitter = true,
+}
+
+function GuestController:_disguise(friendId: number?)
+	self:_undisguise(false)
+	local friend = friendId and Players:GetPlayerByUserId(friendId)
+	local source = friend and friend.Character
+	if not guest or not source then
+		return
+	end
+	local archivable = source.Archivable
+	source.Archivable = true
+	local clone = source:Clone()
+	source.Archivable = archivable
+	if not clone then
+		return
+	end
+	clone.Name = "Guest's friend"
+	for _, d in clone:GetDescendants() do
+		-- (A model inside a character is a tool in their hands, their torch.)
+		local held = d:IsA("Model") and not d:FindFirstChildOfClass("Humanoid") and not d:IsA("Accessory")
+		if STRIP[d.ClassName] or held then
+			d:Destroy()
+		end
+	end
+	local humanoid = clone:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		humanoid.NameDisplayDistance = 0
+		humanoid.PlatformStand = true
+		humanoid.EvaluateStateMachine = false
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			animator:Destroy()
+		end
+	end
+	local root = clone:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		clone:Destroy()
+		return
+	end
+	for _, d in clone:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.Massless = true
+			d.LocalTransparencyModifier = visible and 0 or 1
+		end
+	end
+	-- Feet on his floor: his root rides higher than a person's.
+	root.CFrame = guest.root.CFrame * CFrame.new(0, -(GuestPose.Rig.rootY - PlayerPose.Rig.rootY), 0)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = guest.root
+	weld.Part1 = root
+	weld.Parent = root
+	clone.Parent = Workspace
+	local joints = {}
+	for _, d in clone:GetDescendants() do
+		if (d:IsA("AnimationConstraint") or d:IsA("Motor6D")) and PlayerPose.Rig[d.Name] then
+			joints[d.Name] = d
+		end
+	end
+	disguise = { clone = clone, joints = joints, phase = 0, last = guest.root.Position }
+	setModifier(guest.model, 1)
+end
+
+function GuestController:_undisguise(reveal: boolean)
+	local had = disguise
+	disguise = nil
+	if had then
+		had.clone:Destroy()
+	end
+	if guest then
+		setModifier(guest.model, visible and 0 or 1)
+	end
+	if reveal and had then
+		-- The look falls away: his own shape, your torch stutters, the lights
+		-- round you shudder.
+		self.controllers.ActionController:StutterTorch(1.2)
+		local effects = self.controllers.EffectsController
+		if effects then
+			effects:FlickerNear(25, 1)
+		end
+		self.controllers.AudioController:Caption("[that isn't them]")
+	end
+end
+
+function GuestController:_disguiseFrame(dt: number)
+	if not guest or not disguise.clone.Parent then
+		self:_undisguise(false)
+		return
+	end
+	-- Keep his own body hidden (anything that shows him again this frame).
+	if visible then
+		setModifier(guest.model, 1)
+	end
+	local here = guest.root.Position
+	local moved = Vector3.new(here.X - disguise.last.X, 0, here.Z - disguise.last.Z).Magnitude
+	disguise.last = here
+	disguise.phase += moved * 1.8
+	local values = PlayerPose.wrong(disguise.phase, math.clamp(moved / math.max(dt, 1e-3) / 3, 0, 1))
+	for name, joint in disguise.joints do
+		local v = values[name]
+		if v then
+			joint.Transform = CFrame.new(v[4], v[5], v[6]) * CFrame.Angles(v[1], v[2], v[3])
+		end
+	end
+end
+
 function GuestController:_event(event)
 	local audio = self.controllers.AudioController
 	local kind = event.kind
@@ -486,7 +630,13 @@ function GuestController:_event(event)
 		end
 		return blocked(camera.CFrame.Position, position, ignore)
 	end
-	if kind == "knock" then
+	if kind == "disguise" then
+		if event.on then
+			self:_disguise(event.friend)
+		else
+			self:_undisguise(event.reveal == true)
+		end
+	elseif kind == "knock" then
 		audio:PlayAt("FrontDoorKnock", event.position, 1, 1, muffled(event.position))
 		audio:Caption("[three knocks at the front door]")
 	elseif kind == "breath" then
