@@ -237,7 +237,7 @@ function Hud:Update()
 	end
 	local myState = state:PlayerState()
 	local active = myState == PS.Active
-	self.reticle.Visible = active and not state:IsHidden() and state.settings.centerDot == true
+	self.reticle.Visible = active and not state:IsTucked() and state.settings.centerDot == true
 
 	-- What's in your hands (the slots themselves are UI/Hotbar)
 	local toolId = player:GetAttribute(PA.Tool)
@@ -300,10 +300,9 @@ function Hud:Update()
 	self.hide.Visible = hidden
 	if hidden then
 		self.breathFill.Size = UDim2.fromScale(player:GetAttribute("Breath") or 1, 1)
-		-- In a walk-in closet you get out by sliding a door yourself.
+		-- In a walk-in place you get out by opening its door yourself.
 		-- (Short: the longer line ran off the end of its box.)
-		self.hideHint.Text = player:GetAttribute("HidePhysical")
-				and "SPACE: hold your breath · slide a door to get out"
+		self.hideHint.Text = player:GetAttribute("HidePhysical") and "SPACE: hold breath · E on the door: get out"
 			or "Right click: peek · SPACE: hold breath · E: leave"
 		self.hideDanger.Visible = player:GetAttribute("HideDanger") == true
 	end

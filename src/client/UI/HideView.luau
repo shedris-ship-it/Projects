@@ -7,11 +7,12 @@
 -- it opens up as your eye moves to the gap (Controllers/ActionController).
 -- Frames and gradients only: nothing uploaded.
 --
--- Not in a wardrobe, a cabinet or a locker: their doors have real louvres at
--- your eye (World/PropFactory ventedLeaf; the owner's solo playtest,
--- 2026-10-08: "the locker itself would have slits you can see through, I
--- don't want it to just be an overlay on the screen"), so you look out
--- between the slats themselves and nothing is drawn over them.
+-- Not in a wardrobe, a closet or a locker: you walk into those and shut
+-- yourself in, and look out through the real louvres in their doors with
+-- your own eyes (World/PropFactory ventedLeaf; Services/HidingService's
+-- physical spots; the owner, 2026-10-08: "I don't want it to just be an
+-- overlay on the screen", and 2026-10-09: "physically step into and close
+-- it"). Nothing is drawn over them.
 
 local Players = game:GetService("Players")
 
@@ -70,7 +71,7 @@ local function slats(parent: Instance, position: UDim2, size: UDim2, count: numb
 end
 
 local BUILDERS = {
-	-- A wardrobe's, a cupboard's or a locker's doors: the real louvres.
+	-- (A wardrobe's, a closet's or a locker's: the real louvres.)
 	louvre = function() end,
 	vents = function() end,
 	-- Under a bed: the mattress over you, a strip of floor under the skirt.

@@ -22,6 +22,10 @@ local Feel = require(Shared.Logic.Feel)
 local P, F = Config.Player, Config.Feel
 local player = Players.LocalPlayer
 
+-- How far ahead of your body's middle your eye sits in first person
+-- (measured in Studio, 2026-10-09: 0.49).
+local EYE_AHEAD = 0.5
+
 local FeelController = {}
 
 function FeelController:Init(controllers)
@@ -47,7 +51,7 @@ end
 
 -- First person in a run, on your feet or crawling, not hiding.
 function FeelController:_isActive(): boolean
-	return self.state:InRun() and not self.state:IsHidden() and player.CameraMode == Enum.CameraMode.LockFirstPerson
+	return self.state:InRun() and not self.state:IsTucked() and player.CameraMode == Enum.CameraMode.LockFirstPerson
 end
 
 function FeelController:_watch(character: Model)
@@ -120,6 +124,36 @@ function FeelController:Start()
 			)
 		end
 	end)
+end
+
+-- Shut in a wardrobe or a locker, your eye keeps off its doors: it sits half
+-- a stud ahead of your body, and Roblox draws nothing within half a stud of
+-- the camera, so pressed to them the louvres would vanish (the owner,
+-- 2026-10-09: wardrobes and lockers you step into). Studs to draw the eye
+-- back (Humanoid.CameraOffset's +Z is behind you).
+function FeelController:_standoff(root: BasePart, camera: Camera): number
+	local look = camera.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 0.2 then
+		return 0
+	end
+	if not self.standoffParams then
+		self.standoffParams = RaycastParams.new()
+		self.standoffParams.FilterType = Enum.RaycastFilterType.Exclude
+	end
+	self.standoffParams.FilterDescendantsInstances = { root.Parent :: Instance }
+	local reach = EYE_AHEAD + Config.Hide.DoorStandoff
+	local origin = Vector3.new(root.Position.X, camera.CFrame.Position.Y, root.Position.Z)
+	local hit = Workspace:Raycast(origin, flat.Unit * reach, self.standoffParams)
+	if not hit then
+		return 0
+	end
+	-- Only somewhere to hide (its doors, its slats), never a wall.
+	local node = hit.Instance:FindFirstAncestorWhichIsA("Model")
+	while node and not node:GetAttribute("HideSpot") do
+		node = node:FindFirstAncestorWhichIsA("Model")
+	end
+	return node and reach - hit.Distance or 0
 end
 
 function FeelController:_update(dt: number)
@@ -197,7 +231,9 @@ function FeelController:_update(dt: number)
 		or Config.Pose.CrouchSeconds
 	self.posture = (self.posture or Vector3.zero):Lerp(postureTarget, math.clamp(dt / postureRate * 2.5, 0, 1))
 	local bob = active and Vector3.new(x, y + idle - self.dip, 0) or Vector3.zero
-	humanoid.CameraOffset = bob + (self.state:InRun() and self.posture or Vector3.zero)
+	local back = self.state:InRun() and self:_standoff(root, camera) or 0
+	self.back = (self.back or 0) + (back - (self.back or 0)) * math.clamp(dt * 12, 0, 1)
+	humanoid.CameraOffset = bob + (self.state:InRun() and self.posture or Vector3.zero) + Vector3.new(0, 0, self.back)
 	-- How far the camera has moved with the bob: the hands lag behind it.
 	self.sway = active and Vector2.new(x, y + idle - self.dip) or Vector2.zero
 

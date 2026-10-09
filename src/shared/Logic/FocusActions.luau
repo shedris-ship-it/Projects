@@ -10,7 +10,8 @@
 --   kind       "piece" (a door, a drawer, a lid your hands take), "thing" (a
 --              small thing you carry), "pushable" (furniture) or "prompt"
 --              (anything else with a prompt: a switch, a note, a key)
---   hideSpot   furniture you hide in (E hides; its doors take the mouse)
+--   hideSpot   furniture you hide in (E hides you, or you walk in and shut
+--              its doors: a closet, a wardrobe, a locker)
 --   prompts    its E prompts, the one you look at most first:
 --              { { id, action, hold (seconds), hide (a hiding place's) } }
 --   pieceAction  what the door's or drawer's own prompt says ("Open", "Try")
@@ -61,8 +62,9 @@ function FocusActions.choose(target)
 	local push = target.canPush and { kind = "push", text = "Push" } or nil
 	if target.hideSpot then
 		-- E hides you; holding it pushes the furniture (its doors and drawers
-		-- take the mouse). A walk-in closet has no hiding prompt: you hide by
-		-- standing inside, so it's furniture with doors like any other.
+		-- take the mouse). A walk-in place (a closet, a wardrobe, a locker)
+		-- has no hiding prompt: you hide by shutting yourself in, so it's
+		-- furniture with doors like any other.
 		local hide = hideOf(prompts)
 		if hide then
 			return { kind = "prompt", id = hide.id, text = hide.action }, push

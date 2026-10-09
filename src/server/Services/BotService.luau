@@ -1319,8 +1319,10 @@ function BotService:_hunt()
 	if self.onHunt == "hide" then
 		local here = self.PlayerState:Position(self.player)
 		local best, bestId, bestDistance = nil, nil, math.huge
+		-- (One E hides you in: a bed, a table, a curtain. A walk-in place
+		-- wants its doors worked by hand.)
 		for id, spot in self.World.World.hidingSpots or {} do
-			if #spot.occupants < spot.capacity and spot.frontPosition and here then
+			if not spot.physical and #spot.occupants < spot.capacity and spot.frontPosition and here then
 				local d = self.World:Separation(here, spot.frontPosition)
 				if d < bestDistance then
 					best, bestId, bestDistance = spot, id, d

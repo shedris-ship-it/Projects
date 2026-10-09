@@ -481,6 +481,12 @@ The owner ran the first squad playtest on build `.130` and sent 17 notes (physic
 - **Barricades that hold and burst:** furniture pushed into an open door shuts the door ahead of it; a doorway barred says so; he bangs harder and harder, then the door flies open and the furniture flies into the room to a fair spot (`PushService:Burst`, `_landing`), knocking aside anyone in its path (the owner's choice: knocked back, never downed).
 - **Puzzles lit and heard** (the owner's choice): a shaded lamp over each station till it's solved, and a sound of its own the first time anyone comes near (`PuzzleService:_signpost`, `_tell`).
 
+**The owner's playtest of `.146` (build `.147`, 2026-10-09):** "I want wardrobes and lockers that you can open or slide the door and physically step into and close it", cabinets with shelves not hiding places, and "the guest has to find them legitimately".
+- **Walk-in wardrobes and lockers** (physical spots, like the closet): open, step in, pull the door shut; hidden while shut in with your light off; you look out through the real louvres at a standing eye (4.53 studs). E on the door gets you out.
+- **The closet trap fixed:** your hands work while shut in (`StateController:IsTucked` is hiding by E; a walk-in is only standing there), and E on either sliding door shuts whichever is open.
+- **Cabinets** are plain furniture again. The dining room gets drapes, the den a desk, and the pantry, the cellars and the old foyer a walk-in `TallCupboard`.
+- **His sight stops at the doors:** a pane solid to his eyes behind each louvre band. He finds you by seeing you get in, a light left on in there, hearing you, or opening it.
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.
@@ -491,6 +497,7 @@ The owner ran the first squad playtest on build `.130` and sent 17 notes (physic
 - **A hunt's chase** runs at your sprint (2026-10-08). The ways out are line of sight, a door, a throw, hiding, or two watchers at a distance (a stare doesn't hold him within 6 studs). The house tells him only the nearest player's room at the start, cued by the telegraph's hum.
 - **Crowding him** (2026-10-08): only standing in his face (3.5 studs, looking) or following him as he backs away fills it; a walk past never does. The first time is a scare that never downs; only a second within 3 minutes is a grab. Never in a hunt, at the table, or for the hidden, the downed, the just-revived or the safe.
 - **Peeking** (2026-10-08): he notices only a peek he can see for 0.8 s, within 14 studs, facing it, at tier 2 or in a hunt. He never sees through a hiding place's doors.
+- **Walk-in hiding** (2026-10-09): a wardrobe's, a locker's or a closet's louvres let you see out, never him in (a pane solid to his sight behind each band). He finds you only by seeing you get in (within 2 s of the doors shutting), a light left on in there that he's looking at, hearing you, or opening it on a search. Anyone shut in can always open the door.
 - **Beats and the disguise** (2026-10-08) never down anyone. A disguise is always his real body under the look, for one player alone, and falls away within 12 studs.
 - **A burst barricade** (2026-10-08): the bangs and the burst never down anyone. A flung piece lands only where a pushed one could stand: clear of walls and furniture, of every doorway and his walking points, on its floor, never on anyone; anyone in its path is knocked aside out of it before it lands. The delay is the shove's (8 s at most).
 - **Tidying:** only while he and the heirloom are both unseen and nobody is within 20 studs, never in a hunt or the dinner, and only back to where it was found (a puzzle never re-locks).

@@ -166,6 +166,7 @@ end
 
 function Hotbar:Update()
 	local state = self.ctx.state
+	-- (Hidden anywhere, the breath bar sits here.)
 	local visible = state:InRun() and state:PlayerState() == PS.Active and not state:IsHidden()
 	self.root.Visible = visible
 	if not visible then

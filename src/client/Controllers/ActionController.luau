@@ -84,7 +84,7 @@ function ActionController:Start()
 
 	self:_bind("ConsensusTool", function(inputState)
 		local hands = self.controllers.HandsController
-		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsTucked() then
 			-- The crowbar or the bolt cutters held to their lock: work at it
 			-- while R is down (HandsController:ToolWork).
 			if hands and hands:ToolWork(true) then
@@ -116,7 +116,7 @@ function ActionController:Start()
 			if
 				inputState == Enum.UserInputState.Begin
 				and self.state:IsActive()
-				and not self.state:IsHidden()
+				and not self.state:IsTucked()
 				and not Ui.modalOpen()
 			then
 				Net.get("SelectSlot"):FireServer(slot)
@@ -129,7 +129,7 @@ function ActionController:Start()
 		end
 	end, false, nil, Enum.KeyCode.DPadDown)
 	self:_bind("ConsensusDrop", function(inputState)
-		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsTucked() then
 			Net.get("DropItem"):FireServer()
 		end
 	end, false, nil, Enum.KeyCode.X)
@@ -252,14 +252,14 @@ function ActionController:Start()
 			and not processed
 			and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter
 			and self.state:IsActive()
-			and not self.state:IsHidden()
+			and not self.state:IsTucked()
 			and not (hands and hands:IsCarrying())
 		then
 			self:_cycleSlot(input.Position.Z > 0 and -1 or 1)
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement and self.state:IsHidden() then
+		if input.UserInputType == Enum.UserInputType.MouseMovement and self.state:IsTucked() then
 			peekYaw = math.clamp(peekYaw - input.Delta.X * 0.004, -0.6, 0.6)
 			peekPitch = math.clamp(peekPitch - input.Delta.Y * 0.004, -0.4, 0.4)
 		end
@@ -299,21 +299,22 @@ function ActionController:_applyCamera()
 		player.CameraMaxZoomDistance = Config.Camera.LobbyMaxZoom
 		player.CameraMinZoomDistance = 4
 	end
-	-- Prompts are for active Witnesses only.
-	ProximityPromptService.Enabled = (not inRun) or (state == PS.Active and not self.state:IsHidden())
+	-- Prompts are for active Witnesses only (shut in a wardrobe, its door's).
+	ProximityPromptService.Enabled = (not inRun) or (state == PS.Active and not self.state:IsTucked())
 end
 
 function ActionController:_onHidden(hidden: boolean)
 	local camera = Workspace.CurrentCamera
+	-- In a walk-in place (a closet, a wardrobe, a locker) you're just
+	-- standing there: your own eyes, and its doors to open yourself
+	-- (Services/HidingService's physical spots). They make their own sounds.
+	local physical = player:GetAttribute("HidePhysical") == true
 	-- Cloth settling and a door pulled to on the way in; the same on the way out.
 	local audio = self.controllers.AudioController
-	if audio then
+	if audio and not physical then
 		audio:PlayUi("Cloth", 0.45, hidden and 0.9 or 1.05)
 		audio:PlayUi("Drawer", 0.3, hidden and 0.85 or 1)
 	end
-	-- In a walk-in closet you're just standing there: your own eyes, and the
-	-- doors to slide open yourself (Services/HidingService's physical spots).
-	local physical = player:GetAttribute("HidePhysical") == true
 	if hidden then
 		peekYaw, peekPitch = 0, 0
 		if not physical then
@@ -424,7 +425,7 @@ function ActionController:_updateMovement(dt: number)
 	-- (Crawling or hiding uses no stamina.)
 	if
 		state ~= PS.Downed
-		and not self.state:IsHidden()
+		and not self.state:IsTucked()
 		and (state == PS.Active or state == PS.Lobby or state == PS.Lost)
 	then
 		local canSprint = sprintHeld and moving and not exhausted and state ~= PS.Lost
@@ -460,7 +461,7 @@ function ActionController:_updateMovement(dt: number)
 	elseif not player:GetAttribute(PA.BotDriven) then
 		humanoid.WalkSpeed = Feel.targetSpeed({
 			downed = state == PS.Downed,
-			hidden = self.state:IsHidden(),
+			hidden = self.state:IsTucked(), -- (shut in a wardrobe you can still step out)
 			hub = state == PS.Lobby,
 			sprinting = sprinting,
 			exhausted = exhausted,

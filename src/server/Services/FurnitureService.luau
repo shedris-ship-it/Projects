@@ -76,13 +76,18 @@ function FurnitureService:Start()
 			self:_step(piece, dt)
 		end
 	end)
-	-- Hide in a wardrobe and its doors pull shut behind you; leave (or be
-	-- found) and they swing open.
+	-- Hidden by E in furniture with doors, they pull to behind you; leave
+	-- (or be found) and they open. A walk-in place's doors are yours to
+	-- work (Services/HidingService's physical spots).
 	self.Hiding.Entered:Connect(function(_, spot)
-		self:_setAll(spot.model, false, false)
+		if not spot.physical then
+			self:_setAll(spot.model, false, false)
+		end
 	end)
 	self.Hiding.Left:Connect(function(_, spot, forced)
-		self:_setAll(spot.model, true, forced == true)
+		if not spot.physical then
+			self:_setAll(spot.model, true, forced == true)
+		end
 	end)
 end
 
@@ -237,9 +242,10 @@ function FurnitureService:_piece(id: string, model: Model, primary: BasePart, jo
 	piece.prompt = prompt
 	-- On a keyboard, E is your hands' (the squad playtest, 2026-10-08: "make
 	-- everything grabbable with E"): a tap opens or shuts it (HandsService
-	-- :Tap), a hold drags it. Not on furniture you hide in, where E hides.
+	-- :Tap), a hold drags it. Not on furniture E hides you in; a wardrobe or
+	-- a locker you walk into has doors like any other.
 	local kind = prop.kind and Props.Kinds[prop.kind]
-	if not (kind and kind.hide) then
+	if not (kind and kind.hide and not kind.physical) then
 		prompt:SetAttribute("HandsOwned", true)
 		CollectionService:AddTag(prompt, Constants.Tags.HandsPrompt)
 	else
@@ -330,7 +336,7 @@ function FurnitureService:_step(piece, dt: number)
 		self.moving[piece] = nil
 		piece.fast = nil
 		MotionState.settle(piece.primary, math.round(state.value * 100) / 100)
-		piece.prompt.ActionText = state.value > state.max / 2 and "Close" or "Open"
+		self:_label(piece)
 	else
 		MotionState.publish(piece.primary, state, H.MotionHz, piece.fast)
 	end
@@ -439,10 +445,55 @@ function FurnitureService:SetLocked(piece, locked: boolean)
 	piece.prompt.Enabled = not locked and piece.state.max > 0
 end
 
+-- A closet's two sliding doors (bypass doors, on two tracks): one of them
+-- open, either one shuts it. From inside, the door on the inner track hides
+-- the other, so you could open the outer one and never reach it again (the
+-- owner's solo playtest, 2026-10-09: stuck in a closet).
+function FurnitureService:_partnerOpen(piece)
+	if not piece.primary:GetAttribute("Bypass") then
+		return nil
+	end
+	for _, other in self.pieces do
+		if
+			other ~= piece
+			and other.prop.model == piece.prop.model
+			and other.primary:GetAttribute("Bypass")
+			and other.state.target >= other.state.max / 2
+		then
+			return other
+		end
+	end
+	return nil
+end
+
+-- What E on it does: "Close" while it (or, for a bypass door, either of
+-- the pair) is open.
+function FurnitureService:_label(piece)
+	local pair = { piece }
+	if piece.primary:GetAttribute("Bypass") then
+		for _, other in self.pieces do
+			if other ~= piece and other.prop.model == piece.prop.model and other.primary:GetAttribute("Bypass") then
+				table.insert(pair, other)
+			end
+		end
+	end
+	local open = false
+	for _, one in pair do
+		open = open or one.state.target >= one.state.max / 2
+	end
+	for _, one in pair do
+		one.prompt.ActionText = open and "Close" or "Open"
+	end
+end
+
 function FurnitureService:Toggle(piece, player: Player?)
 	local open = piece.state.target < piece.state.max / 2
+	local partner = open and self:_partnerOpen(piece)
+	if partner then
+		piece, open = partner, false
+	end
 	self:SetOpen(piece, open)
-	piece.prompt.ActionText = open and "Close" or "Open"
+	self:_label(piece)
 	local slide = piece.joint.kind == "slide"
 	Sfx.play(
 		slide and "Drawer" or (open and "DoorOpen" or "DoorClose"),

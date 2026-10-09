@@ -1,12 +1,18 @@
--- Hiding spots (doc section 5, "Hide mechanics"): lockers, wardrobes, beds,
--- curtains and tables. Capacity 1-2, a peek view, a noise value, spot heat
--- that the stalker learns from, and a hold-breath meter. You can't slip into
--- a spot while the stalker has direct line of sight to you.
+-- Hiding spots (doc section 5, "Hide mechanics"): beds, curtains and tables
+-- (E hides you), and closets, wardrobes and lockers (you walk in). Capacity
+-- 1-2, a noise value, spot heat that the stalker learns from, and a
+-- hold-breath meter. You can't slip into a spot while the stalker has direct
+-- line of sight to you.
 --
--- Walk-in closets (gameplay rework 4.8) are physical spots: no prompt, no
--- teleport, no invisibility. You're hidden while you stand inside with both
--- its sliding doors shut, and not the moment you step out or a door opens.
--- His inspection slides the doors open.
+-- Walk-in places are physical spots: walk-in closets (gameplay rework 4.8),
+-- and since the owner's word of 2026-10-09 ("I want wardrobes and lockers
+-- that you can open or slide the door and physically step into and close
+-- it") wardrobes and lockers too. No prompt, no teleport, no invisibility:
+-- you're hidden while you stand inside with every door shut and your light
+-- off, and not the moment you step out, a door opens or your light comes on
+-- (it shows through the slats). You look out through the louvres with your
+-- own eyes. If he watched you get in, he knows. His inspection opens the
+-- doors.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -26,6 +32,9 @@ local HidingService = {
 }
 
 local hidden: { [Player]: any } = {} -- player -> { spot, breath, holding, gaspUntil, lastBreathNoise }
+local shutIn: { [Player]: any } = {} -- player -> the walk-in place they stand in, its doors shut
+local seenGoingIn: { [Player]: number } = {} -- player -> when he last saw them in a walk-in's open door
+local glowSeen: { [Player]: any } = {} -- player -> the walk-in whose lit slats he noticed
 
 function HidingService:Init(services)
 	self.services = services
@@ -46,6 +55,9 @@ function HidingService:Start()
 			self:ForceLeave(player)
 		end
 		self.physical = {}
+		table.clear(shutIn)
+		table.clear(seenGoingIn)
+		table.clear(glowSeen)
 	end)
 	Net.onServer("LeaveHiding", { interval = 0.3, types = {} }, function(player)
 		self:Leave(player)
@@ -231,10 +243,10 @@ function HidingService:SpotOf(player: Player)
 end
 
 -- Called by the stalker when it inspects a spot. Returns the players found.
--- A closet's doors slide open on whoever is inside.
+-- A walk-in place's doors open on whoever is inside.
 function HidingService:Inspect(spot): { Player }
 	if spot.physical then
-		self:_slideOpen(spot)
+		self:_openDoors(spot)
 	end
 	local found = table.clone(spot.occupants)
 	for _, player in found do
@@ -243,7 +255,7 @@ function HidingService:Inspect(spot): { Player }
 	return found
 end
 
--- A closet's doors (FurnitureService pieces of its model).
+-- A walk-in place's doors (FurnitureService pieces of its model).
 function HidingService:_doors(spot)
 	if spot.doors and #spot.doors > 0 then
 		return spot.doors
@@ -259,32 +271,102 @@ function HidingService:_doors(spot)
 	return list
 end
 
-function HidingService:_slideOpen(spot)
+function HidingService:_openDoors(spot)
 	local furniture = self.services.FurnitureService
 	for _, piece in self:_doors(spot) do
 		furniture:SetOpen(piece, true, true)
 	end
 end
 
--- Walk-in closets: who stands inside with both doors shut is hidden; who
--- steps out, or opens a door, isn't.
+-- Whether someone stands inside a walk-in place.
+function HidingService:_inside(spot, player: Player): boolean
+	local root = self.PlayerState:Root(player)
+	if not root or not spot.interior then
+		return false
+	end
+	local p = spot.interior.cframe:PointToObjectSpace(root.Position)
+	local size = spot.interior.size / 2
+	return math.abs(p.X) <= size.X and math.abs(p.Y) <= size.Y and math.abs(p.Z) <= size.Z
+end
+
+-- Anyone in it, hidden or not (Services/PushService won't push a wardrobe
+-- with someone standing in it).
+function HidingService:Within(spot): boolean
+	if #spot.occupants > 0 then
+		return true
+	end
+	if spot.physical then
+		for _, player in self.PlayerState:ActivePlayers() do
+			if self:_inside(spot, player) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Whether he'd see a light through a walk-in place's slats: its front in
+-- his sight, as he'd see you (Stalker/Perception: range, cone, a clear line).
+function HidingService:_glowSeen(spot, stalker): boolean
+	local eye, facing = stalker:Gaze()
+	if not eye or not facing or not spot.anchor then
+		return false
+	end
+	local S = Config.Stalker
+	local glow = spot.anchor.Position + Vector3.new(0, 2, 0) -- (the slats' height)
+	local offset = glow - eye
+	if offset.Magnitude > S.VisionRangeLit then
+		return false
+	end
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	local look = Vector3.new(facing.X, 0, facing.Z)
+	if
+		flat.Magnitude > 0.1
+		and look.Magnitude > 0.1
+		and look.Unit:Dot(flat.Unit) < math.cos(math.rad(S.VisionConeDegrees / 2))
+	then
+		return false
+	end
+	return self.services.WitnessService:ClearLine(eye, glow, { spot.model })
+end
+
+-- Walk-in places: who stands inside with every door shut and their light
+-- off is hidden; who steps out, opens a door or lights up isn't. Your light
+-- goes off as you shut yourself in, as it does in any hiding place; turned
+-- on again, it shows through the slats.
 function HidingService:_physical()
+	local stalker = self.services.StalkerService
+	local now = os.clock()
 	for _, spot in self.physical or {} do
 		if spot.model.Parent and spot.interior then
 			local shut = true
 			for _, piece in self:_doors(spot) do
 				shut = shut and piece.state.value < 0.3
 			end
-			local box, size = spot.interior.cframe, spot.interior.size / 2
 			for _, player in self.PlayerState:ActivePlayers() do
-				local root = self.PlayerState:Root(player)
-				local inside = false
-				if root then
-					local p = box:PointToObjectSpace(root.Position)
-					inside = math.abs(p.X) <= size.X and math.abs(p.Y) <= size.Y and math.abs(p.Z) <= size.Z
+				local inside = self:_inside(spot, player)
+				local closed = inside and shut
+				if closed and shutIn[player] ~= spot then
+					shutIn[player] = spot
+					self.PlayerState:SetFlashlight(player, false)
+				elseif not closed and shutIn[player] == spot then
+					shutIn[player] = nil
+				end
+				-- Getting in with him watching: he knows where you went.
+				if inside and not shut and stalker and stalker:CanSeePlayer(player) then
+					seenGoingIn[player] = now
+				end
+				local lit = player:GetAttribute(PA.Flashlight) == true
+				-- A light on in there shows through the slats: he notices if
+				-- he's looking at it (his sight stops at the door itself).
+				if closed and lit and stalker and glowSeen[player] ~= spot and self:_glowSeen(spot, stalker) then
+					glowSeen[player] = spot
+					stalker:NoticePeek(player, spot)
+				elseif not closed and glowSeen[player] == spot then
+					glowSeen[player] = nil
 				end
 				local state = hidden[player]
-				if inside and shut and not state and #spot.occupants < spot.capacity then
+				if closed and not lit and not state and #spot.occupants < spot.capacity then
 					table.insert(spot.occupants, player)
 					spot.heat += 1
 					hidden[player] = {
@@ -299,11 +381,17 @@ function HidingService:_physical()
 					player:SetAttribute("Breath", 1)
 					spot.anchor:SetAttribute("Occupied", #spot.occupants)
 					if self.SquadProfile then
-						self.SquadProfile:RecordHide(spot, os.clock())
+						self.SquadProfile:RecordHide(spot, now)
 					end
 					self.Entered:Fire(player, spot)
-				elseif state and state.spot == spot and (not inside or not shut) then
+					if stalker and now - (seenGoingIn[player] or -math.huge) < Config.Hide.SeenGoingIn then
+						stalker:NoticePeek(player, spot)
+					end
+				elseif state and state.spot == spot and (not closed or lit) then
 					self:Leave(player, true)
+					if closed then
+						notify(player, "Your light shows through the slats.", "warning")
+					end
 				end
 			end
 		end

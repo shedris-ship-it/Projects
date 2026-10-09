@@ -405,7 +405,7 @@ function FocusMarkers:Update(dt: number)
 	local inRun = state:InRun()
 	-- Same rule as the prompts themselves (ActionController): always in the
 	-- hub; in a run only while Active and not hiding.
-	local active = not inRun or (state:IsActive() and not state:IsHidden())
+	local active = not inRun or (state:IsActive() and not state:IsTucked())
 
 	-- No cursor in first person; menus that free the mouse (Ui.modal) get it
 	-- back: a puzzle, the map, a note, the settings.

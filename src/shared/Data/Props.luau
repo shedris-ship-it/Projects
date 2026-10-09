@@ -4,6 +4,9 @@
 -- hide:     hiding spot category the stalker learns ("locker", "bed", ...)
 -- capacity: Witnesses that fit at once (doc: 1-2)
 -- noise:    noise radius when someone enters or leaves the spot
+-- physical: you hide by walking in and shutting its doors, not by a prompt
+--           (Services/HidingService); inside: { z, depth } of the room in
+--           there when it isn't the whole box bar its walls
 -- light:    the prop carries a light ("lamp", "tv")
 -- collide = false props are decor the stalker and players can pass through.
 -- top:      small things can stand on top (World/Dressing: photos, a telephone)
@@ -16,9 +19,14 @@
 
 local Props = {
 	Bed = { size = { 7, 3, 10 }, hide = "bed", capacity = 1, noise = 6, color = { 108, 88, 118 }, material = "Fabric" },
+	-- A wardrobe and a locker you walk into (the owner, 2026-10-09: "I want
+	-- wardrobes and lockers that you can open or slide the door and
+	-- physically step into and close it"): open a door, step in, pull it
+	-- shut and look out through its louvres. Physical spots, as the closet.
 	Wardrobe = {
 		size = { 6, 9, 3 },
 		hide = "wardrobe",
+		physical = true,
 		capacity = 2,
 		noise = 12,
 		color = { 92, 64, 44 },
@@ -31,26 +39,41 @@ local Props = {
 		size = { 6, 9, 4 },
 		hide = "closet",
 		physical = true,
+		-- (Its doors run inside the box, on two tracks: the room inside
+		-- stops short of them. Others: the whole box, bar its walls.)
+		inside = { z = -0.3, depth = 3.1 },
 		capacity = 2,
 		noise = 6,
 		color = { 214, 208, 194 },
 		material = "Wood",
 	},
+	-- Shelves behind plain doors: you open it, you don't hide in it (the
+	-- owner, 2026-10-09).
 	Cabinet = {
 		size = { 6, 8, 3 },
-		hide = "wardrobe",
-		capacity = 2,
-		noise = 12,
 		color = { 80, 70, 58 },
 		material = "Wood",
 	},
 	Locker = {
 		size = { 3, 8, 3 },
 		hide = "locker",
+		physical = true,
 		capacity = 1,
 		noise = 14,
 		color = { 86, 98, 104 },
 		material = "Metal",
+	},
+	-- A tall wooden cupboard for brooms and coats, built like the locker: where
+	-- a room's cabinet was its hiding place before cabinets with shelves
+	-- stopped being one (a pantry, the cellars, the foyer).
+	TallCupboard = {
+		size = { 3, 8, 3 },
+		hide = "locker",
+		physical = true,
+		capacity = 1,
+		noise = 10,
+		color = { 96, 72, 52 },
+		material = "Wood",
 	},
 	Table = {
 		size = { 8, 3.4, 5 },

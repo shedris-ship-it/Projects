@@ -208,7 +208,7 @@ function ViewModelController:_update(dt: number)
 		and firstPerson
 		and self.state:InRun()
 		and self.state:IsActive()
-		and not self.state:IsHidden()
+		and not self.state:IsTucked()
 	if not active then
 		self:_hideAll()
 		return

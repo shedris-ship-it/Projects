@@ -56,7 +56,7 @@ return function(test, check, Shared, require)
 		check.equal(hold, "holdPrompt")
 	end)
 
-	test("a wardrobe: tap hides you, hold pushes it (its door's own prompt is the mouse's)", function()
+	test("a hiding place E hides you in: tap hides you, hold pushes it (a door of its own is the mouse's)", function()
 		local tap, hold, t = kinds({
 			kind = "pushable",
 			hideSpot = true,
@@ -71,7 +71,7 @@ return function(test, check, Shared, require)
 		check.equal(hold, "push")
 	end)
 
-	test("a walk-in closet (no hiding prompt): its door's prompt, holding pushes", function()
+	test("a walk-in wardrobe, locker or closet (no hiding prompt): its door's prompt, holding pushes", function()
 		local tap, hold, t = kinds({
 			kind = "pushable",
 			hideSpot = true,

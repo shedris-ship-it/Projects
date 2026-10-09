@@ -185,7 +185,9 @@ return function(test, check, Shared, require)
 		})
 		check.truthy(found.layout.family ~= nil, "the layout carries the family")
 		for _, lock in found.plan.locks do
-			if lock.needs and lock.kind ~= "boards" and lock.kind ~= "chain" then
+			-- (Boards and a chain show themselves; the safe room's steel door
+			-- shows the fuse box's labels, LockService:SetPlateText.)
+			if lock.needs and lock.kind ~= "boards" and lock.kind ~= "chain" and not lock.vault then
 				check.truthy(lock.mark ~= nil, "every door that takes something has a charm")
 			end
 		end

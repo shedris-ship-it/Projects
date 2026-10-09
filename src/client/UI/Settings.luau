@@ -27,7 +27,7 @@ local HOW_TO = table.concat({
 	"",
 	"• Find the family's heirlooms and set each at its place at the table. Then get out by the front door.",
 	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. E opens and picks up; hold E (or the mouse) on anything to drag, pull or carry it.",
-	"• Something lives here. Two of you watching it in the light stops it; alone, your beam does, while the battery lasts. Hide (E), hold your breath (Space), and talk: Tab is the map, G pings.",
+	"• Something lives here. Two of you watching it in the light stops it; alone, your beam does, while the battery lasts. Hide (step into a wardrobe and shut it, or E under a bed), hold your breath (Space), and talk: Tab is the map, G pings.",
 }, "\n")
 
 function Settings.new(ctx)

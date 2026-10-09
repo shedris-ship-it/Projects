@@ -336,14 +336,6 @@ end
 LevelBuilder.lightFor = lightFor
 LevelBuilder.ceilingFixture = ceilingFixture
 
--- How far behind the front face your eye sits, hidden in it. Behind a
--- wardrobe's or a locker's louvred doors it's well back: Roblox draws
--- nothing within half a stud of the camera, so any closer and the doors
--- (and their slats, the owner's solo playtest, 2026-10-08) vanish.
-local function tuckBehind(category: string): number
-	return (category == "wardrobe" or category == "locker") and 1 or 0.15
-end
-
 local function hideGeometry(category: string, depth: number)
 	-- eye height while hidden, and where the body sits
 	if category == "bed" then
@@ -392,7 +384,7 @@ function LevelBuilder.furnish(world, ctx)
 					local frontDir = d.CFrame.LookVector
 					local base = d.CFrame * CFrame.new(0, -d.Size.Y / 2, 0)
 					local peekPos = (base * CFrame.new(0, eye, -depth / 2 - 0.35)).Position
-					local tuckPos = (base * CFrame.new(0, eye, -depth / 2 + tuckBehind(category))).Position
+					local tuckPos = (base * CFrame.new(0, eye, -depth / 2 + 0.15)).Position
 					local spotId = "hide:" .. room.id .. ":" .. d.Name .. #record.hidingSpots
 					d:SetAttribute(Attr.CId, spotId)
 					d:SetAttribute(Attr.Category, category)
@@ -440,13 +432,16 @@ function LevelBuilder.furnish(world, ctx)
 				keyLightPart, keyLightKind = lightPart, kind.light
 			end
 			if kind.hide then
-				-- E hides in it (Controllers/HandsController leaves E to its prompt).
+				-- Somewhere to hide: E hides you in it, or (physical) you walk in
+				-- and shut its doors, which are doors to your hands like any
+				-- other (Controllers/HandsController).
 				propModel:SetAttribute("HideSpot", true)
+				propModel:SetAttribute("WalkIn", kind.physical or nil)
 				local w, h, d = kind.size[1], kind.size[2], kind.size[3]
 				local eye, inside = hideGeometry(kind.hide, d)
 				local frontDir = cf.LookVector * -1 -- prop front is +Z
 				local peekPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 + 0.35))
-				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - tuckBehind(kind.hide)))
+				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - 0.15))
 				local anchor = PropFactory.part(
 					model,
 					"HideAnchor",
@@ -474,12 +469,12 @@ function LevelBuilder.furnish(world, ctx)
 					tuckCFrame = CFrame.lookAt(tuckPos, tuckPos + frontDir),
 					frontPosition = cf:PointToWorldSpace(Vector3.new(0, 0, d / 2 + 2.6)),
 					label = prop.kind,
-					-- A walk-in closet: hidden by standing inside with its doors
-					-- shut (Services/HidingService), not by a prompt.
+					-- A closet, a wardrobe or a locker: hidden by standing inside
+					-- with its doors shut (Services/HidingService), not by a prompt.
 					physical = kind.physical,
 					interior = kind.physical and {
-						cframe = cf * CFrame.new(0, h / 2, -0.3),
-						size = Vector3.new(w - 0.6, h, d - 0.9),
+						cframe = cf * CFrame.new(0, h / 2, kind.inside and kind.inside.z or 0),
+						size = Vector3.new(w - 0.6, h, kind.inside and kind.inside.depth or d - 0.4),
 					} or nil,
 				}
 				if kind.physical then

@@ -179,6 +179,13 @@ Config.Hide = {
 	NoticeSeconds = 0.8, -- a peek he can see for this long gives the place away...
 	NoticeRange = 14, -- ...from this close...
 	NoticeCone = 50, -- ...within this many degrees of where he faces
+	-- A walk-in place (a closet, a wardrobe, a locker): if he saw you in its
+	-- open door this recently when you shut yourself in, he knows you're there.
+	SeenGoingIn = 2,
+	-- Your eye kept this far back from a walk-in's doors (Roblox draws
+	-- nothing within half a stud of the camera: pressed to the door, its
+	-- louvres would vanish).
+	DoorStandoff = 0.85,
 }
 
 Config.Social = {

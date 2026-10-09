@@ -99,7 +99,7 @@ local TIPS = {
 	},
 	{
 		id = "hunt",
-		text = "It's coming. Hide (E on a wardrobe, a bed or a closet) or run and break its line of sight. Staring holds it a few seconds, no more.",
+		text = "It's coming. Hide (shut yourself in a wardrobe, a locker or a closet, or E under a bed) or run and break its line of sight. Staring holds it a few seconds, no more.",
 		when = function(self)
 			return self.huntTelegraphed
 		end,

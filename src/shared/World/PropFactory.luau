@@ -488,16 +488,15 @@ function builders.Bed(model, cf, size, color, material)
 	end
 end
 
--- Two doors hinged at the outer edges over a hollow body. A wardrobe has a
--- hat shelf and a rail; a cabinet two shelves.
--- A door with a band of louvres at the eye of whoever hides behind it (the
+-- A door with a band of louvres at the eye of whoever stands behind it (the
 -- owner's solo playtest, 2026-10-08: "the locker itself would have slits you
 -- can see through, I don't want it to just be an overlay on the screen"):
--- inside, you look out between real slats; outside, anyone sees the dark
--- gaps. o: { x (the leaf's middle across), width, bottom, height, z (its
--- middle, front to back), thick, eye (the band's middle above the floor),
--- band (its height), inset (solid door each side of it), slats, color,
--- material }. Returns the part below the band: the door's primary.
+-- shut in a wardrobe or a locker, you look out between real slats; outside,
+-- anyone sees the dark gaps. o: { x (the leaf's middle across), width,
+-- bottom, height, z (its middle, front to back), thick, eye (the band's
+-- middle above the floor), band (its height), inset (solid door each side of
+-- it), slats, color, material }. Returns the part below the band: the door's
+-- primary.
 local LOUVRE_TILT = math.rad(35)
 local function ventedLeaf(door: Model, cf: CFrame, o): BasePart
 	local top = o.bottom + o.height
@@ -544,39 +543,75 @@ local function ventedLeaf(door: Model, cf: CFrame, o): BasePart
 			{ collide = false, castShadow = false }
 		)
 	end
+	-- He sees no more through the slats than through the door (the owner,
+	-- 2026-10-09: "make sure the slits don't give an unfair line of sight to
+	-- the guest also, the guest has to find them legitimately"): a pane
+	-- nobody sees, solid like the door, so his sight (Stalker/Perception
+	-- looks past anything not solid, as the slats are) stops at it and he
+	-- has to open the door to find you. Your eyes and the room's light go
+	-- through; your hands take it for the door.
+	part(
+		door,
+		"Screen",
+		Vector3.new(o.width - o.inset * 2, o.band, o.thick * 0.3),
+		cf * CFrame.new(o.x, eye, o.z),
+		o.color,
+		o.material,
+		{ transparency = 1, castShadow = false }
+	)
 	return lower
 end
 
--- Where the eye of whoever hides in a wardrobe or a locker is (World/
--- LevelBuilder's hideGeometry): the louvres sit there.
-local HIDE_EYE = 5.6
+-- A player's eye above what they stand on (measured in Studio, 2026-10-09:
+-- 4.53): the louvres of a wardrobe or a locker you walk into sit round it,
+-- above its plinth.
+local STAND_EYE = 4.55
 
-local function cupboard(model, cf, size, color, material, label: string, fit)
+-- Two doors hinged at the outer edges over a hollow body. A wardrobe has a
+-- hat shelf and a rail, and room to step in and shut yourself in behind
+-- louvred doors (`vented`); a cabinet has two shelves and plain doors (the
+-- owner, 2026-10-09: "I liked the old closet design more that you couldn't
+-- hide in because there are shelves").
+local function cupboard(model, cf, size, color, material, label: string, fit, vented: boolean?)
 	local w, h, d = size.X, size.Y, size.Z
 	carcass(model, cf, size, color, material, 0.4, 0.3)
 	fit(model, cf, w, h, d)
 	local face = d / 2 + 0.155 -- the doors' front face
 	for _, sx in { -1, 1 } do
 		local door = piece(model, sx < 0 and "DoorL" or "DoorR")
-		local leaf = ventedLeaf(door, cf, {
-			x = sx * (w / 4 + 0.015),
-			width = w / 2 - 0.03,
-			bottom = 0.3,
-			height = h - 0.6,
-			z = d / 2 + 0.08,
-			thick = 0.15,
-			eye = HIDE_EYE,
-			band = 1.2,
-			inset = 0.35,
-			slats = 5,
-			color = shade(color, 1.12),
-			material = material,
-		})
+		local leaf
+		if vented then
+			leaf = ventedLeaf(door, cf, {
+				x = sx * (w / 4 + 0.015),
+				width = w / 2 - 0.03,
+				bottom = 0.3,
+				height = h - 0.6,
+				z = d / 2 + 0.08,
+				thick = 0.15,
+				eye = 0.4 + STAND_EYE, -- (on its plinth)
+				band = 2,
+				inset = 0.35,
+				slats = 9,
+				color = shade(color, 1.12),
+				material = material,
+			})
+		else
+			leaf = part(
+				door,
+				"Door",
+				Vector3.new(w / 2 - 0.03, h - 0.6, 0.15),
+				cf * CFrame.new(sx * (w / 4 + 0.015), h / 2, d / 2 + 0.08),
+				shade(color, 1.12),
+				material
+			)
+		end
+		-- (Below the louvres on a wardrobe.)
+		local handleY = vented and 0.4 + STAND_EYE - 1.6 or h / 2
 		part(
 			door,
 			"Handle",
 			Vector3.new(0.15, 1, 0.2),
-			cf * CFrame.new(sx * 0.35, h / 2 - 0.6, face + 0.095),
+			cf * CFrame.new(sx * 0.35, handleY, face + 0.095),
 			Color3.fromRGB(180, 160, 110),
 			PropFactory.material("Metal"),
 			{ collide = false }
@@ -645,6 +680,10 @@ function builders.Closet(model, cf, size, color, material)
 		})
 		leaf:SetAttribute("Group", "Door" .. i)
 		leaf:SetAttribute("Label", "Closet door")
+		-- Bypass doors: from inside, the one on the inner track hides the
+		-- other, so E on either shuts whichever is open (Services/
+		-- FurnitureService:Toggle).
+		leaf:SetAttribute("Bypass", true)
 	end
 end
 
@@ -652,7 +691,7 @@ function builders.Wardrobe(model, cf, size, color, material)
 	cupboard(model, cf, size, color, material, "Wardrobe", function(m, at, w, h, d)
 		part(m, "Shelf", Vector3.new(w - 0.4, 0.12, d - 0.5), at * CFrame.new(0, h - 2, 0.05), color, material)
 		trim(m, "Rail", Vector3.new(w - 0.4, 0.12, 0.12), at * CFrame.new(0, h - 2.5, -0.1), nil, CYL)
-	end)
+	end, true)
 end
 
 function builders.Cabinet(model, cf, size, color, material)
@@ -670,9 +709,14 @@ function builders.Cabinet(model, cf, size, color, material)
 	end)
 end
 
-function builders.Locker(model, cf, size, color, material)
+-- A tall single-door cupboard you can step into and pull shut, its louvres
+-- at your eye: the steel locker, and the wooden one in a pantry, a cellar or
+-- a hall (TallCupboard; the owner, 2026-10-09: wardrobes and lockers you
+-- step into, cabinets with shelves you don't). o: { label, back (its inside
+-- back), handle (colour) }.
+local function stepIn(model, cf, size, color, material, o)
 	local w, h, d = size.X, size.Y, size.Z
-	carcass(model, cf, size, color, material, 0.2, 0.2, Color3.fromRGB(40, 44, 46))
+	carcass(model, cf, size, color, material, 0.2, 0.2, o.back)
 	trim(model, "Hook", Vector3.new(0.12, 0.12, 0.5), cf * CFrame.new(0, h - 1.2, -d / 2 + 0.45))
 	local face = d / 2 + 0.125
 	local door = piece(model, "Door")
@@ -683,10 +727,10 @@ function builders.Locker(model, cf, size, color, material)
 		height = h - 0.3,
 		z = d / 2 + 0.065,
 		thick = 0.12,
-		eye = HIDE_EYE,
-		band = 1.1,
+		eye = 0.2 + STAND_EYE, -- (on its plinth)
+		band = 1.4,
 		inset = 0.45,
-		slats = 5,
+		slats = 6,
 		color = shade(color, 1.1),
 		material = material,
 	})
@@ -694,15 +738,30 @@ function builders.Locker(model, cf, size, color, material)
 		door,
 		"Handle",
 		Vector3.new(0.15, 0.8, 0.2),
-		cf * CFrame.new(w / 2 - 0.5, h / 2, face + 0.1),
-		Color3.fromRGB(160, 160, 160),
-		material,
+		cf * CFrame.new(w / 2 - 0.5, 0.2 + STAND_EYE - 1.3, face + 0.1), -- (below the louvres)
+		o.handle,
+		PropFactory.material("Metal"),
 		{ collide = false }
 	)
 	swings(door, leaf, cf, Vector3.new(-w / 2, 0, face), -1, {
 		group = "Main",
 		spot = cf * CFrame.new(0, 0.2, 0.1),
+		label = o.label,
+	})
+end
+
+function builders.Locker(model, cf, size, color, material)
+	stepIn(model, cf, size, color, material, {
 		label = "Locker",
+		back = Color3.fromRGB(40, 44, 46),
+		handle = Color3.fromRGB(160, 160, 160),
+	})
+end
+
+function builders.TallCupboard(model, cf, size, color, material)
+	stepIn(model, cf, size, color, material, {
+		label = "Cupboard",
+		handle = Color3.fromRGB(180, 160, 110),
 	})
 end
 

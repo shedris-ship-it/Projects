@@ -66,6 +66,7 @@ function PushService:Init(services)
 	self.Noise = services.NoiseService
 	self.Stalker = services.StalkerService
 	self.Doors = services.DoorService
+	self.Hiding = services.HidingService
 	self.pieces = {} -- prop id -> piece
 	self.moving = {} -- piece -> true while someone pushes it (or it coasts)
 end
@@ -247,9 +248,10 @@ end
 
 -- Hands ---------------------------------------------------------------------------
 
+-- Someone hides in it, or stands in it (a wardrobe or a locker you walk into).
 function PushService:_occupied(piece): boolean
 	for _, spot in piece.spots do
-		if #spot.occupants > 0 then
+		if #spot.occupants > 0 or (self.Hiding and self.Hiding:Within(spot)) then
 			return true
 		end
 	end
@@ -1202,6 +1204,9 @@ function PushService:_move(piece, step: Vector3)
 		spot.peekCFrame += step
 		if spot.tuckCFrame then
 			spot.tuckCFrame += step
+		end
+		if spot.interior then
+			spot.interior.cframe += step
 		end
 		spot.frontPosition += step
 	end

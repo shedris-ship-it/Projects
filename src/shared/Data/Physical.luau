@@ -113,6 +113,7 @@ local Furniture = {
 	Desk = { weight = 1.1, label = "Desk" },
 	Dresser = { weight = 1.3, label = "Dresser" },
 	Locker = { weight = 1.4, label = "Locker" },
+	TallCupboard = { weight = 1.2, label = "Cupboard" },
 	GrandfatherClock = { weight = 1.6, label = "Clock" },
 	Washer = { weight = 1.6, label = "Washing machine" },
 	Sofa = { weight = 1.8, label = "Sofa" },

@@ -16,6 +16,7 @@ NoteText.Furniture = {
 	Wardrobe = { name = "wardrobe" },
 	Cabinet = { name = "cabinet" },
 	Locker = { name = "locker" },
+	TallCupboard = { name = "tall cupboard" },
 	Counter = { name = "counter" },
 	Fridge = { name = "fridge" },
 	Chest = { name = "chest" },

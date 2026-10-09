@@ -22,7 +22,12 @@
 -- owner's standing OK when wardrobe, cabinet and locker doors got real
 -- louvres at the hiding eye (the owner's solo playtest, build 2026-10-08.146,
 -- two fresh runs, same seed and layout; +72 parts, all of them the 2 locker
--- and 8 cupboard doors): parts 2224, hash 1008106368. F2 `gatea` runs the same
+-- and 8 cupboard doors): parts 2224, hash 1008106368. Re-baselined with the
+-- owner's standing OK when wardrobes and lockers became places you walk
+-- into and cabinets got their plain doors back (build 2026-10-09.147, two
+-- fresh runs, same seed and layout: bigger louvres with a pane he can't see
+-- through, a tall cupboard in the foyer): parts 2235, hash 1016524583. F2
+-- `gatea` runs the same
 -- (World/PartDump). Run it before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")

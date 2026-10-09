@@ -395,8 +395,8 @@ function HandsController:_objectOf(instance: Instance, inRun: boolean): (Instanc
 			return thing, "thing"
 		end
 		local pushable = self:_pushableOf(instance)
-		if pushable and pushable:GetAttribute("HideSpot") then
-			return pushable, "pushable" -- a wardrobe's doors are the wardrobe: E hides you
+		if pushable and pushable:GetAttribute("HideSpot") and not pushable:GetAttribute("WalkIn") then
+			return pushable, "pushable" -- its doors are the hiding place: E hides you
 		end
 		local piece = self:_pieceOf(instance)
 		if piece then
@@ -505,7 +505,8 @@ local function toolLockOf(object: Instance)
 	return nil
 end
 
--- Can anything have your focus now (a screen up, hiding or down: no).
+-- Can anything have your focus now (a screen up, tucked away or down: no;
+-- shut in a wardrobe, yes: its door is how you get out).
 function HandsController:_canFocus(): boolean
 	if Ui.modalOpen() then
 		return false
@@ -513,7 +514,18 @@ function HandsController:_canFocus(): boolean
 	if not self.state:InRun() then
 		return true
 	end
-	return self.state:IsActive() and not self.state:IsHidden()
+	return self.state:IsActive() and not self.state:IsTucked()
+end
+
+-- Whether you stand inside it (a wardrobe or a locker you walked into).
+local function standingIn(object: Instance): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or not object:IsA("Model") or not object:GetAttribute("WalkIn") then
+		return false
+	end
+	local frame, size = object:GetBoundingBox()
+	local p = frame:PointToObjectSpace(root.Position)
+	return math.abs(p.X) < size.X / 2 and math.abs(p.Z) < size.Z / 2
 end
 
 -- The one thing you're looking at, and what E does to it (Logic/FocusActions).
@@ -600,7 +612,8 @@ function HandsController:_resolveFocus()
 		hideSpot = object:GetAttribute("HideSpot") == true,
 		prompts = prompts,
 		pieceAction = pieceAction,
-		canPush = kind == "pushable" and distance <= P.Reach + 1.5,
+		-- (Not the wardrobe you stand in.)
+		canPush = kind == "pushable" and distance <= P.Reach + 1.5 and not standingIn(object),
 	})
 	local toolLock = inRun and toolLockOf(object) or nil
 	if not tap and not hold and #keyed == 0 and not toolLock then
@@ -702,9 +715,9 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 		return pass -- gamepad and touch: Roblox's prompts
 	end
 	if inputState == Enum.UserInputState.Begin then
-		if self.state:InRun() and (not self.state:IsActive() or self.state:IsHidden()) then
+		if self.state:InRun() and (not self.state:IsActive() or self.state:IsTucked()) then
 			self:_note("pass: not active")
-			return pass -- (hidden, E gets you out)
+			return pass -- (tucked away, E gets you out)
 		end
 		if Ui.modalOpen() then
 			self:_note("pass: a screen is open")
@@ -820,7 +833,7 @@ function HandsController:ToolFor(lock): (string, string)
 end
 
 function HandsController:_active(): boolean
-	return self.state:InRun() and self.state:IsActive() and not self.state:IsHidden()
+	return self.state:InRun() and self.state:IsActive() and not self.state:IsTucked()
 end
 
 function HandsController:_begin(): boolean

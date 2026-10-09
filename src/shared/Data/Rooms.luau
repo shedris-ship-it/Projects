@@ -39,6 +39,7 @@ local Rooms = {
 			{ id = "coatrack", kind = "CoatRack", x = -17, z = -17 },
 			{ id = "bench", kind = "Bench", x = 12, z = -18.25 },
 			{ id = "closet", kind = "Cabinet", x = -18, z = 10, ry = 90 },
+			{ id = "coats", kind = "TallCupboard", x = -8, z = 17.5, ry = 180 },
 			{ id = "plant", kind = "Plant", x = 17, z = 17 },
 			{ id = "lamp", kind = "FloorLamp", x = -17, z = 17, key = true },
 			{ id = "rug", kind = "Rug", x = 0, z = 0 },
@@ -201,6 +202,8 @@ local Rooms = {
 			{ id = "chair6", kind = "Chair", x = 4, z = 4.5, ry = 180 },
 			{ id = "cabinet", kind = "Cabinet", x = -10, z = -18 },
 			{ id = "china", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
+			-- Floor-length drapes to hide behind (the china cabinet has shelves).
+			{ id = "drapes", kind = "Curtain", x = -18.75, z = 10, ry = 90 },
 			{ id = "plant", kind = "Plant", x = 17, z = 17 },
 		},
 		decor = {
@@ -478,6 +481,7 @@ local Rooms = {
 			{ id = "sofa", kind = "Sofa", x = -17.5, z = -9, ry = 90 },
 			{ id = "tv", kind = "TVStand", x = 18.5, z = -9, ry = 270, key = true },
 			{ id = "cabinet", kind = "Cabinet", x = 10, z = 18, ry = 180 },
+			{ id = "desk", kind = "Desk", x = -8, z = -17.75 },
 			{ id = "armchair", kind = "Armchair", x = -16, z = 16 },
 			{ id = "rug", kind = "Rug", x = 0, z = 0, ry = 90 },
 		},
@@ -505,6 +509,7 @@ local Rooms = {
 			{ id = "shelf2", kind = "Shelf", x = 10, z = -18.5 },
 			{ id = "shelf3", kind = "Shelf", x = 18.5, z = 10, ry = 270 },
 			{ id = "cupboard", kind = "Cabinet", x = -18, z = 10, ry = 90 },
+			{ id = "brooms", kind = "TallCupboard", x = 17.5, z = -14, ry = 270 },
 			{ id = "boxes", kind = "Boxes", x = 16.5, z = -8 },
 		},
 		decor = {
@@ -728,6 +733,7 @@ local CellarRooms = {
 			{ id = "rack3", kind = "WineRack", x = -18.5, z = 10, ry = 90 },
 			{ id = "rack4", kind = "WineRack", x = 18.5, z = 10, ry = 270 },
 			{ id = "cabinet", kind = "Cabinet", x = -11, z = 17.5, ry = 180 },
+			{ id = "cupboard", kind = "TallCupboard", x = 6, z = 17.5, ry = 180 },
 			{ id = "crate", kind = "Chest", x = 11, z = 17.5, ry = 180 },
 		},
 		decor = {},
@@ -804,6 +810,7 @@ local CellarRooms = {
 			{ id = "shelf1", kind = "Shelf", x = -12, z = -18.5 },
 			{ id = "shelf2", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
 			{ id = "cabinet", kind = "Cabinet", x = -18, z = 10, ry = 90 },
+			{ id = "cupboard", kind = "TallCupboard", x = -17.5, z = -8, ry = 90 },
 			{ id = "freezer", kind = "Chest", x = 11, z = 17.5, ry = 180 },
 			{ id = "boxes", kind = "Boxes", x = -10, z = 16 },
 		},

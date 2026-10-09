@@ -130,6 +130,14 @@ function StateController:IsHidden(): boolean
 	return player:GetAttribute(PA.Hidden) ~= nil
 end
 
+-- Hidden away by E (under a bed, behind a curtain): your body gone, your
+-- view at the gap, E to get out. Hidden in a walk-in place (a closet, a
+-- wardrobe, a locker) you're only standing there, shut in: your hands and
+-- your eyes are your own (Services/HidingService's physical spots).
+function StateController:IsTucked(): boolean
+	return self:IsHidden() and player:GetAttribute("HidePhysical") ~= true
+end
+
 function StateController:Get(name: string): any
 	return player:GetAttribute(name)
 end

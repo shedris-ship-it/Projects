@@ -51,6 +51,7 @@ LockPlanner.Containers = {
 	Wardrobe = true,
 	Cabinet = true,
 	Locker = true,
+	TallCupboard = true,
 	Counter = true,
 	Fridge = true,
 	Chest = true,

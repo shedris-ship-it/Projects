@@ -523,3 +523,89 @@ Out at 4:55: the same 13 steps, 0 failed, 0 stuck points, 8 waits for him, 0 dow
   - a friend seeing the louvres from outside while someone hides.
 
 **New tests:** TC-187 to TC-196.
+
+## The owner's playtest of `.146`: wardrobes and lockers you walk into (build `.147`)
+
+The owner tried `.146` (2026-10-09):
+- "You weren't able to hide in closets with shelves before, I'm not the biggest fan of that option now ... I liked the old closet design more that you couldn't hide in because there are shelves."
+- "I tested the wardrobe and I'm straight up stuck, can't get out."
+- "I want wardrobes and lockers that you can open or slide the door and physically step into and close it."
+- "Make sure the slits don't give an unfair line of sight to the guest also, the guest has to find them legitimately."
+
+### Why you got stuck
+
+Both traps were in the walk-in closets (12 of the 28 hiding places on seed 61 are corridor closets):
+- **Hands off while hidden.** Since `.137` your hands ignored everything while you were hidden, and in a closet you count as hidden while you stand inside with its doors shut. So once shut in, E did nothing and the doors couldn't be opened from inside. (R2c's "you can still act in there" was only true on the server.)
+- **The overlapping doors.** From inside, a closet's two sliding doors overlap: the one on the inner track hides the other. Once you'd opened the outer one, you could never reach it again to pull it shut.
+
+Hiding by E (a bed, a table, a curtain) was fine: E got me out in Studio.
+
+### Now
+
+**Wardrobes and lockers you walk into** (`Data/Props` `physical`, like the closet):
+- Open a door with E, step in, turn round and pull it shut with E on the door. Shut in with your light off, you're hidden, and your torch clicks off as you shut yourself in.
+- You look out through the louvres with your own eyes, free to look round, the room between the slats. No overlay and no camera tricks.
+- The louvres sit at a standing eye's height: measured at 4.53 studs above the floor. `.146`'s were at 5.6, above your eyes.
+  - A wardrobe's two doors have 9 slats over 2 studs each.
+  - A locker's door has 6 slats over 1.4 studs.
+- E on the door in front gets you out; looking out through the slats counts as looking at the door. The HUD says "SPACE: hold breath · E on the door: get out".
+- **Your torch on inside** shows through the slats: you're not hidden ("Your light shows through the slats."), and he notices if he's looking at it.
+- **Your eye keeps 0.85 studs off the doors** (`FeelController:_standoff`). First person puts the camera half a stud ahead of your body, and pressed to the door the louvres would vanish.
+- **No pushing** a wardrobe or a locker with someone standing in it (`HidingService:Within`).
+- The breath bar and the hint no longer sit under the hotbar.
+
+**Closets:** E on either sliding door shuts whichever one is open, and both say "Close" while one is open (`FurnitureService:_partnerOpen`, `_label`).
+
+**Cabinets with shelves** are no longer hiding places, and their plain doors are back.
+- Five mansion rooms had only a cabinet to hide in, and every room keeps somewhere to hide (a level-design rule, `RoomPurpose.spec`):
+  - the dining room gets floor-length drapes;
+  - the den gets a desk;
+  - the pantry, the wine cellar and the cold store get a **tall cupboard** (new, `TallCupboard`): a wooden walk-in for one, built like the locker, louvred.
+- The old house's foyer gets a tall cupboard too, so the old generator's houses stay exactly the same (`Golden.spec`).
+- The house numbers over 40 houses each, for 2 and for 4 players, are unchanged within noise (hiding reach, dead ends, rooms with a purpose, the score).
+
+**His sight** (the owner's last note):
+- **The problem.** The slats aren't solid, and his eyes (`Stalker/Perception`) look past anything that isn't. So through a louvre band he'd have seen straight in.
+- **The fix.** Each band now has a pane nobody sees, solid like the door. Your eyes and the room's light pass through it; his sight stops at it.
+- **Checked in Studio:** with him 5 studs in front of a shut wardrobe, all three of his sight lines to me hit the pane. With the pane taken out, they reached me.
+- **What he can still go on**, all legitimate:
+  - he can't see you at all while you're hidden (as before);
+  - if he saw you get in within 2 s of the doors shutting, he knows where you went (`Config.Hide.SeenGoingIn`);
+  - a light on in there, if he's looking at the place;
+  - your breathing when he's close (as before);
+  - the squad's habits when he searches.
+
+  His search opens the doors, as it always did for closets.
+
+**Gate A re-baselined under the standing OK:** parts 2235, hash 1016524583, the same on two fresh runs (was 2224, 1008106368). The changes in the old house: the cabinets' doors are plain again, the wardrobes' and lockers' louvres are bigger and have their panes, and the foyer's new tall cupboard.
+
+### Studio, seeds 61 and 1
+
+- **The mudroom locker:**
+  - E opened it, and I walked in (no teleport).
+  - E on the open door shut it: hidden, torch off.
+  - The view: the room between the slats.
+  - Torch on: "Your light shows through the slats", not hidden. Off: hidden again.
+  - E on the door: open, and I walked out.
+- **A corridor closet:**
+  - I opened the right door and walked in.
+  - From inside, E on the left door (which hid the right one) shut the right one: hidden.
+  - E on the door in front: open, and out.
+- **The storeroom wardrobe** (seed 1):
+  - From outside, the louvred doors with the handles below them.
+  - In and shut, the view through both doors' louvres.
+  - E looking straight out offered "Open".
+- **His sight:** with him 5 studs in front of the shut wardrobe and my torch on, his sight was blocked by the pane, and he noticed the glow ("PeekNoticed").
+- **Leaving a place hidden in by E** (the dining room's cabinet, before it stopped being one): fine.
+- **The bot's night on seed 61:** out at 4:41, the same 13 steps, 0 failed, 0 stuck points, 0 downs, 10 waits for him (8 before). No console errors.
+
+### Not checked in Studio
+
+- **His search on a hidden player:** opening a wardrobe or a locker on someone inside. It's the closet's path, but it needs a hunt to find you.
+- **Two players:**
+  - two people in one wardrobe;
+  - a friend opening the door on you;
+  - a friend outside looking at the slats while you're in there.
+- **The click:** only E and keys can be driven from the Studio test tool.
+
+**New tests:** TC-197 to TC-201.

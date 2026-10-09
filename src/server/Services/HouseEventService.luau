@@ -419,7 +419,7 @@ function HouseEventService:_knockInside(pos: Vector3): boolean
 			and (spot.category == "wardrobe" or spot.category == "locker" or spot.category == "closet")
 		then
 			local d = (anchor.Position - pos).Magnitude
-			if d > 6 and d < 40 and not (hiding.Occupied and hiding:Occupied(spot)) then
+			if d > 6 and d < 40 and not hiding:Within(spot) then
 				table.insert(candidates, spot)
 			end
 		end

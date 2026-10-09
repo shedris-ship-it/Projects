@@ -70,7 +70,8 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 | Notes, keys at a lock, puzzles, fixtures, switches, hiding (tap); revive, set a place at the table (hold) | **E** on it | X | Tap the prompt |
 | Pry the boards off, cut a chain (the crowbar or the bolt cutters in your hands) | hold **left mouse** or **R** on it | hold RT or RB | Tool button |
 | Crouch (a silent creep) | hold **Ctrl** (a setting makes it a toggle) | B | Crouch button |
-| Peek out of a hiding place (he may notice) | hold **right mouse** | hold LT | Peek button |
+| Hide in a wardrobe, a locker or a closet: open it, step in, pull the door shut (E on it); E on the door again to get out | **E** on the door | X | Tap the prompt |
+| Peek out from under a bed, a table or a curtain (he may notice) | hold **right mouse** | hold LT | Peek button |
 | Crank ratchet, dumbwaiter jam box | **Q** (prompt) | LB | Tap the prompt |
 | Squeeze past a barricade (hold) | **Q** (prompt) | R3 | Tap the prompt |
 | Brace a door | **B** (prompt) | LB | Tap the prompt |
@@ -107,7 +108,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
    - **Keys** go on your own ring and are used up at their door; drop one for a friend from the journal, which also says where each key's door is once someone has seen it. **Bolts** slide back only from their own side: shortcuts ("Bolted from the other side. There must be another way round.").
    - **Puzzles:** the home computer (a word-guessing terminal that prints a padlock's code), the breaker panel (power a door without tripping the main; its strips are numbered, and the names are on a brass plate by the door it powers, so one reads and one flips; alone, hold T on the panel to trace the wiring for 20 s), the wall safe (listen for the click), the music box and the piano (play its tune back).
    - **Two-person locks:** a crank door (one cranks, one goes through; alone, the slow and loud ratchet) and the dumbwaiter (one cranks downstairs, one takes the heirloom out upstairs; alone, jam the crank).
-   - The house is physical: pick things up and throw them (a hit staggers him), push furniture (beds need two), barricade a doorway, hide in a walk-in closet with the doors shut, flush a toilet or leave a tap running to send him the wrong way, switch lights off.
+   - The house is physical: pick things up and throw them (a hit staggers him), push furniture (beds need two), barricade a doorway, shut yourself in a wardrobe, a locker or a walk-in closet and look out through its slats, flush a toilet or leave a tap running to send him the wrong way, switch lights off.
 3. **He wants his dinner.** Each step forward wakes a hunt a minute or two later. While you carry an heirloom he knows which room you're in. Leave one lying and he puts it back where you found it. Carry them all and he waits at the head of the table.
 4. **The dinner.** Set the last heirloom (carry it to its place, hold E): the lights die, he takes his seat, the way from the dining room to the hall seals, every other lock springs open and the front door opens. Run out the long way while he hunts you.
 5. **Debrief.** The Dossier says who opened what, who carried what, the closest call, and what he learned about you.

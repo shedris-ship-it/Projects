@@ -27,7 +27,9 @@ function HideRules.noticed(ctx, cfg): (boolean, string?)
 	return true, nil
 end
 
--- The slit you see through, by the kind of hiding place (UI/HideView).
+-- The slit you see through, by the kind of hiding place (UI/HideView). A
+-- wardrobe, a closet or a locker you walk into shows none: its louvres are
+-- real (this is for one hidden in by E, like a prefab's).
 HideRules.Slits = {
 	wardrobe = "louvre",
 	closet = "louvre",
