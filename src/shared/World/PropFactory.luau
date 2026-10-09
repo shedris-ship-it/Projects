@@ -490,6 +490,67 @@ end
 
 -- Two doors hinged at the outer edges over a hollow body. A wardrobe has a
 -- hat shelf and a rail; a cabinet two shelves.
+-- A door with a band of louvres at the eye of whoever hides behind it (the
+-- owner's solo playtest, 2026-10-08: "the locker itself would have slits you
+-- can see through, I don't want it to just be an overlay on the screen"):
+-- inside, you look out between real slats; outside, anyone sees the dark
+-- gaps. o: { x (the leaf's middle across), width, bottom, height, z (its
+-- middle, front to back), thick, eye (the band's middle above the floor),
+-- band (its height), inset (solid door each side of it), slats, color,
+-- material }. Returns the part below the band: the door's primary.
+local LOUVRE_TILT = math.rad(35)
+local function ventedLeaf(door: Model, cf: CFrame, o): BasePart
+	local top = o.bottom + o.height
+	-- (A short door keeps its band inside it.)
+	local eye = math.clamp(o.eye, o.bottom + o.band / 2 + 0.3, top - o.band / 2 - 0.3)
+	local low, high = eye - o.band / 2, eye + o.band / 2
+	local lower = part(
+		door,
+		"Door",
+		Vector3.new(o.width, low - o.bottom, o.thick),
+		cf * CFrame.new(o.x, (o.bottom + low) / 2, o.z),
+		o.color,
+		o.material
+	)
+	part(
+		door,
+		"DoorTop",
+		Vector3.new(o.width, top - high, o.thick),
+		cf * CFrame.new(o.x, (high + top) / 2, o.z),
+		o.color,
+		o.material
+	)
+	for _, side in { -1, 1 } do
+		part(
+			door,
+			"Stile",
+			Vector3.new(o.inset, o.band, o.thick),
+			cf * CFrame.new(o.x + side * (o.width / 2 - o.inset / 2), eye, o.z),
+			o.color,
+			o.material
+		)
+	end
+	-- Slats tilted down toward the room: from inside you see out and down
+	-- between them; from outside, mostly dark.
+	local pitch = o.band / o.slats
+	for i = 1, o.slats do
+		part(
+			door,
+			"Louvre",
+			Vector3.new(o.width - o.inset * 2, 0.05, o.thick * 0.9),
+			cf * CFrame.new(o.x, low + pitch * (i - 0.5), o.z) * CFrame.Angles(-LOUVRE_TILT, 0, 0),
+			shade(o.color, 0.8),
+			o.material,
+			{ collide = false, castShadow = false }
+		)
+	end
+	return lower
+end
+
+-- Where the eye of whoever hides in a wardrobe or a locker is (World/
+-- LevelBuilder's hideGeometry): the louvres sit there.
+local HIDE_EYE = 5.6
+
 local function cupboard(model, cf, size, color, material, label: string, fit)
 	local w, h, d = size.X, size.Y, size.Z
 	carcass(model, cf, size, color, material, 0.4, 0.3)
@@ -497,19 +558,25 @@ local function cupboard(model, cf, size, color, material, label: string, fit)
 	local face = d / 2 + 0.155 -- the doors' front face
 	for _, sx in { -1, 1 } do
 		local door = piece(model, sx < 0 and "DoorL" or "DoorR")
-		local leaf = part(
-			door,
-			"Door",
-			Vector3.new(w / 2 - 0.03, h - 0.6, 0.15),
-			cf * CFrame.new(sx * (w / 4 + 0.015), h / 2, d / 2 + 0.08),
-			shade(color, 1.12),
-			material
-		)
+		local leaf = ventedLeaf(door, cf, {
+			x = sx * (w / 4 + 0.015),
+			width = w / 2 - 0.03,
+			bottom = 0.3,
+			height = h - 0.6,
+			z = d / 2 + 0.08,
+			thick = 0.15,
+			eye = HIDE_EYE,
+			band = 1.2,
+			inset = 0.35,
+			slats = 5,
+			color = shade(color, 1.12),
+			material = material,
+		})
 		part(
 			door,
 			"Handle",
 			Vector3.new(0.15, 1, 0.2),
-			cf * CFrame.new(sx * 0.35, h / 2, face + 0.095),
+			cf * CFrame.new(sx * 0.35, h / 2 - 0.6, face + 0.095),
 			Color3.fromRGB(180, 160, 110),
 			PropFactory.material("Metal"),
 			{ collide = false }
@@ -609,25 +676,20 @@ function builders.Locker(model, cf, size, color, material)
 	trim(model, "Hook", Vector3.new(0.12, 0.12, 0.5), cf * CFrame.new(0, h - 1.2, -d / 2 + 0.45))
 	local face = d / 2 + 0.125
 	local door = piece(model, "Door")
-	local leaf = part(
-		door,
-		"Door",
-		Vector3.new(w - 0.06, h - 0.3, 0.12),
-		cf * CFrame.new(0, h / 2, d / 2 + 0.065),
-		shade(color, 1.1),
-		material
-	)
-	for i = 1, 4 do
-		part(
-			door,
-			"Vent",
-			Vector3.new(w - 1, 0.1, 0.05),
-			cf * CFrame.new(0, h - 1 - i * 0.35, face + 0.015),
-			Color3.fromRGB(20, 20, 22),
-			material,
-			{ castShadow = false, collide = false }
-		)
-	end
+	local leaf = ventedLeaf(door, cf, {
+		x = 0,
+		width = w - 0.06,
+		bottom = 0.15,
+		height = h - 0.3,
+		z = d / 2 + 0.065,
+		thick = 0.12,
+		eye = HIDE_EYE,
+		band = 1.1,
+		inset = 0.45,
+		slats = 5,
+		color = shade(color, 1.1),
+		material = material,
+	})
 	part(
 		door,
 		"Handle",

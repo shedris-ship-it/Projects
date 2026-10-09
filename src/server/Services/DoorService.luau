@@ -371,6 +371,34 @@ function DoorService:SetAngle(door, degrees: number, rate: number?): boolean
 	return ok
 end
 
+-- Furniture pushed into an open door shuts it ahead of it (Services/
+-- PushService): toward `degrees`, never past shut, never out of someone's hands.
+function DoorService:Nudge(door, degrees: number)
+	if not door.state or door.locked or self:HeldBy(door) then
+		return
+	end
+	degrees = math.max(0, degrees)
+	if door.state.target <= degrees + 0.5 then
+		return
+	end
+	self:SetAngle(door, degrees)
+end
+
+-- A blow on a door held by a barricade (he's banging to get through,
+-- PushService:Bang): it jumps in its frame and settles back.
+function DoorService:Rattle(door, degrees: number)
+	if not door.state or self:HeldBy(door) then
+		return
+	end
+	local was = door.state.target
+	self:SetAngle(door, math.min(was + degrees, D.OpenAngle))
+	task.delay(0.1, function()
+		if door.state and not self:HeldBy(door) and not door.open then
+			self:SetAngle(door, was)
+		end
+	end)
+end
+
 -- Turn a shut door's swing round so it opens away from `player` (the
 -- prompt's opener), if it would have swung into them. Not a hidden door (it
 -- must clear the passage), and not with furniture by the door: a barricade

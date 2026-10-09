@@ -6,6 +6,12 @@
 -- tablecloth's hem, past a curtain's edge. Hold right click (LT) to peek and
 -- it opens up as your eye moves to the gap (Controllers/ActionController).
 -- Frames and gradients only: nothing uploaded.
+--
+-- Not in a wardrobe, a cabinet or a locker: their doors have real louvres at
+-- your eye (World/PropFactory ventedLeaf; the owner's solo playtest,
+-- 2026-10-08: "the locker itself would have slits you can see through, I
+-- don't want it to just be an overlay on the screen"), so you look out
+-- between the slats themselves and nothing is drawn over them.
 
 local Players = game:GetService("Players")
 
@@ -14,7 +20,6 @@ local Ui = require(script.Parent.Parent.Lib.Ui)
 local player = Players.LocalPlayer
 
 local DARK = Color3.fromRGB(4, 3, 3)
-local WOOD = Color3.fromRGB(16, 11, 8)
 
 local HideView = {}
 HideView.__index = HideView
@@ -65,21 +70,9 @@ local function slats(parent: Instance, position: UDim2, size: UDim2, count: numb
 end
 
 local BUILDERS = {
-	-- A wardrobe's or a cupboard's doors: a narrow gap down the middle,
-	-- louvres across it.
-	louvre = function(root: Instance)
-		panel(root, UDim2.fromScale(0, 0), UDim2.fromScale(0.44, 1), WOOD, "right")
-		panel(root, UDim2.fromScale(0.56, 0), UDim2.fromScale(0.44, 1), WOOD, "left")
-		slats(root, UDim2.fromScale(0.42, 0), UDim2.fromScale(0.16, 1), 22, 0.022, WOOD)
-	end,
-	-- A locker's door: five vents high up, the rest steel.
-	vents = function(root: Instance)
-		panel(root, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.3), DARK)
-		panel(root, UDim2.fromScale(0, 0.62), UDim2.fromScale(1, 0.38), DARK)
-		panel(root, UDim2.fromScale(0, 0.3), UDim2.fromScale(0.3, 0.32), DARK)
-		panel(root, UDim2.fromScale(0.7, 0.3), UDim2.fromScale(0.3, 0.32), DARK)
-		slats(root, UDim2.fromScale(0.3, 0.3), UDim2.fromScale(0.4, 0.32), 5, 0.12, DARK)
-	end,
+	-- A wardrobe's, a cupboard's or a locker's doors: the real louvres.
+	louvre = function() end,
+	vents = function() end,
 	-- Under a bed: the mattress over you, a strip of floor under the skirt.
 	skirt = function(root: Instance)
 		panel(root, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.62), DARK, "down")

@@ -63,11 +63,12 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
 | Choose a slot (1 the flashlight, 2 and 3 found tools; the torch clips to your shirt in 2 and 3, an empty one is a free hand) | **1 2 3** or mouse wheel | D-pad down (next) | Tap a slot |
-| Open or shut a door or drawer; pick something up | tap **E** (or hold **left mouse**) | X; hold RT to drag | Tap the prompt |
+| Use what you're looking at (one marker says what E does: open, pick up, play the piano, hide, a switch) | tap **E** | X; hold RT to drag | Tap the prompt |
 | Drag a door, drawer, cupboard door, lid or closet door | hold **E** (or **left mouse**) and move the mouse | hold RT (right stick moves your hand) | none yet |
 | Push furniture (heavy pieces need friends; walk backwards to pull) | hold **E** (or **left mouse**) on it and walk | hold RT and walk | none yet |
 | Throw what you carry (tap: a lob; hold: wind up) / put it down / nearer or further | **click** or **right mouse** / **E** / mouse wheel | LT | none yet |
-| Notes, keys at a lock, puzzles, fixtures, switches, hiding, revive, set a place at the table | **E** (prompts) | X | Tap the prompt |
+| Notes, keys at a lock, puzzles, fixtures, switches, hiding (tap); revive, set a place at the table (hold) | **E** on it | X | Tap the prompt |
+| Pry the boards off, cut a chain (the crowbar or the bolt cutters in your hands) | hold **left mouse** or **R** on it | hold RT or RB | Tool button |
 | Crouch (a silent creep) | hold **Ctrl** (a setting makes it a toggle) | B | Crouch button |
 | Peek out of a hiding place (he may notice) | hold **right mouse** | hold LT | Peek button |
 | Crank ratchet, dumbwaiter jam box | **Q** (prompt) | LB | Tap the prompt |
@@ -94,7 +95,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 2. **Opening the house.** Keys, codes and power open the next part of the house, and each part holds the way into the next:
    - **Leads, not rummaging.** Notes (press E to read) say which drawer something is in; a keepsake box on a dresser, a locked glass case (pick its lock, or throw something through the glass) or a key rack hold the rest.
    - **Marks.** Every locked door that takes something has a mark on its plate (a star, a phone, scissors...), and its key, code or breaker carries the same mark: the phone key fits the door with a phone. A key is always found once its door can be seen. Holding the wrong key, a door says so ("Your umbrella key doesn't fit. This lock has a sun."), and the objective line says where a key you hold fits.
-   - **Boards and chains.** A boarded door needs the crowbar, a chained one the bolt cutters; each lies in plain sight before its first door and opens every door of its kind. Hold E on the door while you carry it: a plank a hold, or one cut. It's loud (he may come), so keep a lookout; work already done stays done.
+   - **Boards and chains.** A boarded door needs the crowbar, a chained one the bolt cutters; each lies in plain sight before its first door and opens every door of its kind. Take the tool in your hands (its slot), look at the boards or the chain and hold the click (or R): a plank comes away each stroke while you hold on, or the chain snaps. It's loud (he may come), so keep a lookout; work already done stays done.
    - **Steps inside a wing** (three or four players). In a bigger wing, what you came for (the next key, or an heirloom) may be shut away inside it: a side room boarded up or chained, or a chest or the fridge nailed or chained shut. The tool for it lies across the wing or in the wing next door, so someone goes to fetch it while the others carry on.
    - **The map saves time.** A room you've been in gets a pencil tick once nothing you need is left in it; what you've seen but not done (a lock, a safe, a chained chest) has a ring. Read the house plans (blueprints on a desk or a workbench) and that floor's rooms go on everyone's map. The journal says who carries which key and tool.
    - **The safe room (optional).** A steel door marked SAFE ROOM, powered from the fuse box. Inside: batteries (a fresh set each), a Lantern, a Radio or the plans of another floor. The run never needs it: it's a gamble of time and noise.
@@ -130,7 +131,7 @@ goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · ch
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar) · items · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
-switch [list] · crank [go|up] · barricade [here|squeeze|shove] · piece [id|show]
+switch [list] · crank [go|up] · barricade [here|squeeze|shove|burst] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]
 furniture open|shut [all] · block <room> <room> · block off · plans [read] (the house plans: where, or read them) · saferoom · use [name] (the nearest fixture, or `use toy`) · bell [room] · monitor · landmarks

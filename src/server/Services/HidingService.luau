@@ -90,7 +90,15 @@ function HidingService:_setup(spot)
 	prompt.HoldDuration = 0.25
 	prompt.MaxActivationDistance = 7
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = spot.anchor
+	-- At the top of the anchor (a wardrobe's middle, a bed's top), not its
+	-- low middle: Roblox shows a prompt only while it's on screen, and a
+	-- player close to a locker looks at its door, not its feet (the owner's
+	-- solo playtest, 2026-10-08; E's focus fires only a prompt Roblox shows).
+	local at = Instance.new("Attachment")
+	at.Name = "PromptAt"
+	at.Position = Vector3.new(0, spot.anchor.Size.Y / 2, 0)
+	at.Parent = spot.anchor
+	prompt.Parent = at
 	prompt.Triggered:Connect(function(player)
 		self:Enter(player, spot)
 	end)

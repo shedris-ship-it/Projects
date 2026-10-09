@@ -39,8 +39,23 @@
 -- shuts (HandsService:Tap, the prompt's own job); hold E on it, or on
 -- furniture, and your hand takes hold as the mouse button does. Tap E on a
 -- small thing and you carry it: click to throw (hold to wind up), E to put
--- it down. Their prompts lose E on a keyboard (gamepad and touch keep them).
--- Furniture you hide in keeps E for hiding: its doors take the mouse.
+-- it down. Furniture you hide in: E hides you, holding it pushes, its doors
+-- take the mouse.
+--
+-- One focus (the owner's solo playtest, 2026-10-08: a light switch by a door
+-- took the door's E, and the piano offered only a push). E goes to the one
+-- thing you're looking at, the only marker with words (UI/FocusMarkers):
+-- what your eye ray hits, else the prompt nearest the middle of your view a
+-- few degrees out at most (a switch is small; a door is not).
+-- Logic/FocusActions says what a tap and a hold do to it. On a keyboard every
+-- E prompt gives up its key and always shows (drawn by nobody), so this
+-- fires the one you look at, not the one Roblox would have picked. Gamepad
+-- and touch keep Roblox's prompts.
+--
+-- Tools in hand (same playtest: "boltcutters and items like that should be
+-- held in the hand"): with the crowbar or the bolt cutters in your hands,
+-- hold the click (or R) on the boards or the chain and you work at them
+-- (Services/LockService, the ToolWork remote).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -53,15 +68,17 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Articulation = require(Shared.Logic.Articulation)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local FocusActions = require(Shared.Logic.FocusActions)
 local Heft = require(Shared.Logic.Heft)
 local Joint = require(Shared.Lib.Joint)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
 local Throw = require(Shared.Logic.Throw)
 local ThrowLift = require(Shared.Lib.ThrowLift)
+local ToolLocks = require(Shared.Logic.ToolLocks)
+local Tools = require(Shared.Data.Tools)
 local Util = require(Shared.Lib.Util)
 
-local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
@@ -70,6 +87,8 @@ local GameSettings = UserSettings():GetService("UserGameSettings")
 
 local H = Config.Hands
 local P = Config.Push
+local F = Config.Focus
+local PA = Constants.PlayerAttributes
 
 local player = Players.LocalPlayer
 
@@ -83,6 +102,8 @@ function HandsController:Init(controllers)
 	self.push = nil -- { id, model, sentAt } while you lean on a piece of furniture
 	self.aimedPush = nil -- the furniture you could push, where you look
 	self.aimedThing = nil -- the small thing you're looking at within reach
+	self.focus = nil -- the one thing E is for now (_resolveFocus)
+	self.working = nil -- the tool lock you're working at (ToolWork)
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
 	self.sentAt = 0
@@ -104,11 +125,13 @@ function HandsController:Start()
 			return Enum.ContextActionResult.Sink
 		end
 		if inputState == Enum.UserInputState.Begin then
-			if self:_begin() then
+			if self:ToolWork(true) or self:_begin() then
 				return Enum.ContextActionResult.Sink
 			end
 		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-			if self.drag then
+			if self:ToolWork(false) then
+				return Enum.ContextActionResult.Sink
+			elseif self.drag then
 				self:_finish()
 				return Enum.ContextActionResult.Sink
 			elseif self.carry then
@@ -137,44 +160,60 @@ function HandsController:Start()
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	-- E (keyboard): tap or hold, as above. Ahead of the prompts' own E (a
-	-- light switch by the door would take it), and passed on to them
-	-- whenever nothing of your hands' is where you look.
+	-- E (keyboard): the one thing you're looking at (_resolveFocus), tapped
+	-- or held. Ahead of everything else on E.
 	ContextActionService:BindActionAtPriority("ConsensusHandsE", function(_, inputState)
 		return self:_onE(inputState)
 	end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.E)
-	-- Door and drawer prompts give E to your hands while you play on a
-	-- keyboard; the server never changes this property, so ours stands.
-	local function own(prompt: Instance)
-		if prompt:IsA("ProximityPrompt") then
-			prompt.KeyboardKeyCode = self:_keyboard() and Enum.KeyCode.Unknown or Enum.KeyCode.E
+	-- On a keyboard every E prompt gives its key to this and always shows
+	-- (Style Custom: UI/FocusMarkers draws the one marker), so E fires
+	-- whichever you look at, never the one Roblox would pick. Gamepad and
+	-- touch get them back as they were. The server never changes these two
+	-- properties, so ours stand.
+	-- (A plain table: Roblox drops instance keys from weak ones while the
+	-- instance lives on.)
+	self.claimed = {} -- prompt -> true: one of E's
+	self.shown = {} -- prompt -> true while Roblox shows it
+	local function claim(prompt: Instance)
+		if not prompt:IsA("ProximityPrompt") then
+			return
 		end
+		if not self.claimed[prompt] then
+			if prompt.KeyboardKeyCode ~= Enum.KeyCode.E then
+				return
+			end
+			self.claimed[prompt] = true
+			prompt.Destroying:Once(function()
+				self.claimed[prompt] = nil
+				self.shown[prompt] = nil
+			end)
+		end
+		local keyboard = self:_keyboard()
+		prompt.KeyboardKeyCode = keyboard and Enum.KeyCode.Unknown or Enum.KeyCode.E
+		prompt.Exclusivity = keyboard and Enum.ProximityPromptExclusivity.AlwaysShow
+			or Enum.ProximityPromptExclusivity.OnePerButton
 	end
-	for _, prompt in CollectionService:GetTagged(Constants.Tags.HandsPrompt) do
-		own(prompt)
+	for _, d in Workspace:GetDescendants() do
+		claim(d)
 	end
-	CollectionService:GetInstanceAddedSignal(Constants.Tags.HandsPrompt):Connect(own)
-	-- Which of them Roblox would show now (a door swung open out of your
-	-- aim still says "E Close"): E works on those too.
-	self.shownHands, self.shownOthers = {}, {}
+	Workspace.DescendantAdded:Connect(claim)
 	ProximityPromptService.PromptShown:Connect(function(prompt)
-		if prompt:GetAttribute("HandsOwned") then
-			self.shownHands[prompt] = true
-		else
-			self.shownOthers[prompt] = true
-		end
+		self.shown[prompt] = true
 	end)
 	ProximityPromptService.PromptHidden:Connect(function(prompt)
-		self.shownHands[prompt] = nil
-		self.shownOthers[prompt] = nil
+		self.shown[prompt] = nil
 	end)
 	self.wasKeyboard = self:_keyboard()
 	UserInputService.LastInputTypeChanged:Connect(function()
 		local keyboard = self:_keyboard()
 		if keyboard ~= self.wasKeyboard then
 			self.wasKeyboard = keyboard
-			for _, prompt in CollectionService:GetTagged(Constants.Tags.HandsPrompt) do
-				own(prompt)
+			for prompt in self.claimed do
+				if prompt.Parent then
+					claim(prompt)
+				else
+					self.claimed[prompt] = nil
+				end
 			end
 		end
 	end)
@@ -298,40 +337,297 @@ function HandsController:_keyboard(): boolean
 		or string.find(last.Name, "^Mouse") ~= nil
 end
 
--- Does this small thing have an E prompt of its own (a music box's "Wind
--- it", a wind-up toy)? Then E is that prompt's, and your hands take it with
--- the mouse.
-local function ownPrompt(model: Model): boolean
-	for _, d in model:GetDescendants() do
-		if d:IsA("ProximityPrompt") and d.Enabled and d.KeyboardKeyCode == Enum.KeyCode.E then
-			return true
-		end
+-- One focus ------------------------------------------------------------------------
+
+-- How far off your line of sight the nearest point of a box is (radians),
+-- how far away that point is, and the point.
+local function offAim(eye: Vector3, look: Vector3, frame: CFrame, size: Vector3): (number, number, Vector3)
+	local along = math.max(0, (frame.Position - eye):Dot(look))
+	local onLine = frame:PointToObjectSpace(eye + look * along)
+	local half = size / 2
+	local nearest = frame:PointToWorldSpace(
+		Vector3.new(
+			math.clamp(onLine.X, -half.X, half.X),
+			math.clamp(onLine.Y, -half.Y, half.Y),
+			math.clamp(onLine.Z, -half.Z, half.Z)
+		)
+	)
+	local toward = nearest - eye
+	local distance = toward.Magnitude
+	if distance < 1e-3 then
+		return 0, 0, nearest
 	end
-	return false
+	return math.acos(math.clamp(look:Dot(toward / distance), -1, 1)), distance, nearest
 end
 
--- The door or drawer prompt showing now that you face most, or nil. Not
--- while another E prompt shows (a note, a switch): E is that one's.
-function HandsController:_shownPrompt(): ProximityPrompt?
-	for prompt in self.shownOthers or {} do
-		if prompt.Parent and prompt.Enabled and prompt.KeyboardKeyCode == Enum.KeyCode.E then
-			return nil
+-- The furniture a hiding place's prompt anchor (in front of it, in the room)
+-- belongs to: its sibling with the id the anchor names (World/LevelBuilder).
+local hideFurniture = setmetatable({}, { __mode = "k" })
+local function furnitureOf(anchor: Instance): Instance?
+	local id = anchor:GetAttribute("HideFor")
+	if not id then
+		return nil
+	end
+	local known = hideFurniture[anchor]
+	if known and known.Parent then
+		return known
+	end
+	for _, sibling in anchor.Parent and anchor.Parent:GetChildren() or {} do
+		if sibling ~= anchor and sibling:GetAttribute(Constants.Attributes.CId) == id then
+			hideFurniture[anchor] = sibling
+			return sibling
 		end
 	end
-	local camera = Workspace.CurrentCamera
-	local best, bestDot = nil, -math.huge
-	for prompt in self.shownHands or {} do
-		local part = prompt.Parent
-		if prompt.Enabled and part and part:IsA("BasePart") then
-			local dot = camera.CFrame.LookVector:Dot((part.Position - camera.CFrame.Position).Unit)
-			if dot > bestDot then
-				best, bestDot = prompt, dot
+	return nil
+end
+
+-- What a part belongs to, and what kind of thing that is: a small thing you
+-- carry, a door or drawer your hands take, furniture, or something with a
+-- prompt (a switch, a note, a key). Outside a run, only prompts.
+function HandsController:_objectOf(instance: Instance, inRun: boolean): (Instance?, string?)
+	local furniture = furnitureOf(instance)
+	if furniture then
+		return furniture, "pushable"
+	end
+	if inRun then
+		local thing = grabbable(instance)
+		if thing then
+			return thing, "thing"
+		end
+		local pushable = self:_pushableOf(instance)
+		if pushable and pushable:GetAttribute("HideSpot") then
+			return pushable, "pushable" -- a wardrobe's doors are the wardrobe: E hides you
+		end
+		local piece = self:_pieceOf(instance)
+		if piece then
+			return piece, "piece"
+		end
+		if pushable then
+			return pushable, "pushable"
+		end
+	end
+	local node = instance
+	while node and node ~= Workspace do
+		if node:GetAttribute(Constants.Attributes.CId) or node:FindFirstChildWhichIsA("ProximityPrompt") then
+			return node, "prompt"
+		end
+		node = node.Parent
+	end
+	return nil, nil
+end
+
+-- Its prompts: E's (those on the part you look at first) and those on keys
+-- of their own (Brace, the bolt), each once.
+function HandsController:_promptsOf(object: Instance, kind: string, near: Instance?)
+	local claimed, keyed, seen = {}, {}, {}
+	local function add(prompt: Instance)
+		-- Only one Roblox shows: one it doesn't (off screen, out of reach)
+		-- can't be fired, so it's not offered.
+		if not prompt:IsA("ProximityPrompt") or seen[prompt] or not prompt.Enabled or not self.shown[prompt] then
+			return
+		end
+		seen[prompt] = true
+		if self.claimed[prompt] then
+			-- A door's or drawer's own prompt is what a tap does (HandsService:Tap).
+			if not prompt:GetAttribute("HandsOwned") then
+				table.insert(claimed, prompt)
 			end
-		else
-			self.shownHands[prompt] = nil
+		elseif prompt.KeyboardKeyCode ~= Enum.KeyCode.Unknown then
+			table.insert(keyed, prompt)
 		end
 	end
-	return best
+	local node = near
+	while node and node ~= Workspace and node ~= object.Parent do
+		for _, child in node:GetChildren() do
+			add(child)
+		end
+		node = node.Parent
+	end
+	-- A door's prompts are on its model; anything else's are in it.
+	local scope = (kind == "piece" and object.Parent and object.Parent:IsA("Model")) and object.Parent or object
+	for _, d in scope:GetDescendants() do
+		add(d)
+	end
+	-- A hiding place's prompt is on an anchor in front of the furniture (on
+	-- an attachment at its top).
+	for prompt in self.shown do
+		local parent = prompt.Parent
+		local part = parent and (parent:IsA("Attachment") and parent.Parent or parent)
+		if part and furnitureOf(part) == object then
+			add(prompt)
+		end
+	end
+	return claimed, keyed
+end
+
+-- Nothing solid between your eye and `point` (on `part`) but what's part of
+-- `object`.
+function HandsController:_inSight(eye: Vector3, point: Vector3, part: BasePart, object: Instance): boolean
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = { player.Character, Workspace.CurrentCamera }
+	params.FilterDescendantsInstances = ignore
+	local toward = point - eye
+	local distance = toward.Magnitude
+	for _ = 1, 4 do
+		local hit = Workspace:Raycast(eye, toward, params)
+		if not hit or hit.Instance == part or hit.Instance:IsDescendantOf(object) or hit.Instance == object then
+			return true
+		end
+		if hit.Distance >= distance - 0.4 then
+			return true
+		end
+		if hit.Instance.Transparency < 0.99 or hit.Instance.CanCollide then
+			return false
+		end
+		table.insert(ignore, hit.Instance)
+		params.FilterDescendantsInstances = ignore
+	end
+	return true
+end
+
+-- The tool lock on it, if any: { kind, id, tool, action } (Services/LockService
+-- marks a boarded or chained door's slab, a nailed chest and its fixings).
+local function toolLockOf(object: Instance)
+	local node = object
+	for _ = 1, 3 do
+		if not node or node == Workspace then
+			break
+		end
+		local kind = node:GetAttribute("ToolLock")
+		local id = node:GetAttribute("WorkId")
+		local info = kind and ToolLocks.Kinds[kind]
+		if info and id then
+			return { kind = kind, id = id, tool = info.tool, action = info.action }
+		end
+		node = node.Parent
+	end
+	return nil
+end
+
+-- Can anything have your focus now (a screen up, hiding or down: no).
+function HandsController:_canFocus(): boolean
+	if Ui.modalOpen() then
+		return false
+	end
+	if not self.state:InRun() then
+		return true
+	end
+	return self.state:IsActive() and not self.state:IsHidden()
+end
+
+-- The one thing you're looking at, and what E does to it (Logic/FocusActions).
+function HandsController:_resolveFocus()
+	local inRun = self.state:InRun()
+	local camera = Workspace.CurrentCamera
+	local eye, look = camera.CFrame.Position, camera.CFrame.LookVector
+	local hit = self:_aim()
+	local object, kind, near, distance = nil, nil, nil, math.huge
+	local thing = inRun and self:_thingOf(hit) or nil
+	if thing then
+		object, kind, near, distance = thing, "thing", hit and hit.Instance, hit and hit.Distance or 0
+	elseif hit then
+		object, kind = self:_objectOf(hit.Instance, inRun)
+		near, distance = hit.Instance, hit.Distance
+		if kind == "prompt" then
+			-- Only with a prompt showing (Roblox shows a prompt in its reach).
+			local any = false
+			for prompt in self.shown do
+				if prompt.Parent and (prompt.Parent == object or prompt:IsDescendantOf(object)) then
+					any = true
+					break
+				end
+			end
+			if not any then
+				object, kind = nil, nil
+			end
+		end
+	end
+	-- Off your aim: the prompt nearest the middle of your view, a few degrees
+	-- out at most. Over furniture, only one right by your aim (a note lying
+	-- on a table, a place at the dinner table) takes it from the furniture.
+	if not object or kind == "pushable" then
+		local best, bestAngle = nil, math.rad(object and F.NearCone or F.Cone)
+		for prompt in self.shown do
+			local parent = prompt.Parent
+			local part = parent and (parent:IsA("Attachment") and parent.Parent or parent)
+			if prompt.Enabled and part and part:IsA("BasePart") then
+				local other, otherKind = self:_objectOf(part, inRun)
+				if other and other ~= object then
+					local angle, away, point = offAim(eye, look, part.CFrame, part.Size)
+					angle += away * 0.002 -- (nearer first, all else equal)
+					-- In sight where you look at it, or its middle.
+					if
+						angle < bestAngle
+						and (self:_inSight(eye, point, part, other) or self:_inSight(eye, part.Position, part, other))
+					then
+						best, bestAngle = { other, otherKind, part, away }, angle
+					end
+				end
+			end
+		end
+		if best then
+			object, kind, near, distance = best[1], best[2], best[3], best[4]
+		end
+	end
+	if not object or not kind then
+		return nil
+	end
+	local claimed, keyed = self:_promptsOf(object, kind, near)
+	local prompts = {}
+	for _, prompt in claimed do
+		table.insert(prompts, {
+			id = prompt,
+			action = prompt.ActionText,
+			hold = prompt.HoldDuration,
+			hide = prompt.Name == "HidePrompt",
+		})
+	end
+	local pieceAction, pieceName
+	if kind == "piece" then
+		-- Its own prompt says what it is now ("Boarded door") and what a tap does.
+		local scope = object.Parent or object
+		for _, d in scope:GetDescendants() do
+			if d:IsA("ProximityPrompt") and d:GetAttribute("HandsOwned") and d.Enabled then
+				pieceAction = d.ActionText
+				pieceName = d.ObjectText ~= "" and d.ObjectText or nil
+				break
+			end
+		end
+	end
+	local tap, hold = FocusActions.choose({
+		kind = kind,
+		hideSpot = object:GetAttribute("HideSpot") == true,
+		prompts = prompts,
+		pieceAction = pieceAction,
+		canPush = kind == "pushable" and distance <= P.Reach + 1.5,
+	})
+	local toolLock = inRun and toolLockOf(object) or nil
+	if not tap and not hold and #keyed == 0 and not toolLock then
+		return nil
+	end
+	local name = pieceName or object:GetAttribute("Label") or object:GetAttribute("PushLabel")
+	for _, prompt in claimed do
+		name = name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
+	end
+	for _, prompt in keyed do
+		name = name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
+	end
+	return {
+		object = object,
+		kind = kind,
+		name = name,
+		tap = tap,
+		hold = hold,
+		keyed = keyed,
+		toolLock = toolLock,
+		near = near,
+	}
+end
+
+-- The one thing you're looking at (UI/FocusMarkers marks it), or nil.
+function HandsController:Focus()
+	return self.focus
 end
 
 -- E pressed or let go (keyboard only: gamepad and touch use the prompts).
@@ -342,12 +638,76 @@ function HandsController:_note(what: string)
 	end
 end
 
+-- Fire a prompt as a tap would: held for its hold, then let go.
+local function tapPrompt(prompt: ProximityPrompt)
+	prompt:InputHoldBegin()
+	if prompt.HoldDuration <= 0 then
+		prompt:InputHoldEnd()
+	else
+		task.delay(prompt.HoldDuration + 0.05, function()
+			prompt:InputHoldEnd()
+		end)
+	end
+end
+
+-- Do what a tap of E does to the focus.
+function HandsController:_doTap(press): boolean
+	local action = press.tap
+	local focus = press.focus
+	if not action or not focus.object.Parent then
+		return false
+	end
+	if action.kind == "tap" then
+		Net.get("Tap"):FireServer(focus.object:GetAttribute(Constants.Attributes.CId))
+	elseif action.kind == "pick" then
+		if self:_pickUp(focus.object) and self.carry then
+			self.carry.viaE = true
+		end
+	elseif action.kind == "prompt" and action.id.Parent then
+		tapPrompt(action.id)
+	else
+		return false
+	end
+	self:_note("tap " .. action.kind .. " " .. tostring(action.text))
+	return true
+end
+
+-- Begin what holding E does to the focus. Returns whether it began.
+function HandsController:_doHold(press): boolean
+	local action = press.hold
+	local focus = press.focus
+	if not action or not focus.object.Parent then
+		return false
+	end
+	local began = false
+	if action.kind == "drag" then
+		local point = (press.near and press.near:IsDescendantOf(focus.object.Parent or focus.object) and press.at3)
+			or focus.object.Position
+		began = self:_takeHold(focus.object, point)
+	elseif action.kind == "push" then
+		began = self:_leanOn(focus.object)
+	elseif action.kind == "holdPrompt" and action.id.Parent then
+		action.id:InputHoldBegin()
+		press.prompt = action.id
+		began = true
+	end
+	self:_note((began and "hold " or "hold failed ") .. action.kind .. " " .. tostring(action.text))
+	return began
+end
+
 function HandsController:_onE(inputState: Enum.UserInputState)
 	local pass = Enum.ContextActionResult.Pass
 	local sink = Enum.ContextActionResult.Sink
+	if not self:_keyboard() then
+		return pass -- gamepad and touch: Roblox's prompts
+	end
 	if inputState == Enum.UserInputState.Begin then
-		if not self:_active() or Ui.modalOpen() then
-			self:_note(not self:_active() and "pass: not active" or "pass: a screen is open")
+		if self.state:InRun() and (not self.state:IsActive() or self.state:IsHidden()) then
+			self:_note("pass: not active")
+			return pass -- (hidden, E gets you out)
+		end
+		if Ui.modalOpen() then
+			self:_note("pass: a screen is open")
 			return pass
 		end
 		if self.carry then
@@ -359,46 +719,37 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 			self:_note("busy")
 			return sink
 		end
+		-- What you look at now, as you press (not last frame's).
+		local focus = self:_resolveFocus()
+		if not focus or not (focus.tap or focus.hold) then
+			self:_note("nothing")
+			return sink
+		end
 		local hit = self:_aim()
-		local thing = self:_thingOf(hit)
-		if thing then
-			if ownPrompt(thing) then
-				self:_note("pass: its own prompt")
-				return pass
+		local press = {
+			at = os.clock(),
+			focus = focus,
+			tap = focus.tap,
+			hold = focus.hold,
+			near = hit and hit.Instance,
+			at3 = hit and hit.Position,
+		}
+		if not focus.hold then
+			-- Only a tap: at once.
+			self:_doTap(press)
+			return sink
+		elseif not focus.tap then
+			-- Only a hold: at once too.
+			press.held = true
+			if self:_doHold(press) then
+				self.press = press
 			end
-			if self:_pickUp() and self.carry then
-				self.carry.viaE = true
-			end
-			self:_note("pick up " .. thing.Name)
 			return sink
 		end
-		local primary = hit and self:_pieceOf(hit.Instance)
-		if primary and not primary:GetAttribute("HideSpot") then
-			self.press = { at = os.clock(), primary = primary }
-			self:_note("press " .. tostring(primary:GetAttribute(Constants.Attributes.CId)))
-			return sink
-		end
-		local pushable = hit and hit.Distance <= P.Reach + 1.5 and self:_pushableOf(hit.Instance)
-		if pushable and pushable:GetAttribute("HideSpot") then
-			-- A wardrobe, a bed: E hides you in it (hold the mouse to push it).
-			self:_note("pass: a hiding place")
-			return pass
-		end
-		if pushable then
-			self.press = { at = os.clock() }
-			self:_note("press furniture")
-			return sink
-		end
-		-- Nothing under your aim: the door or drawer whose prompt is showing
-		-- (the one you're nearest and facing), as its prompt would have.
-		local shown = self:_shownPrompt()
-		if shown then
-			self.press = { at = os.clock(), primary = shown.Parent, tapOnly = true }
-			self:_note("press shown " .. tostring(shown.Parent:GetAttribute(Constants.Attributes.CId)))
-			return sink
-		end
-		self:_note("pass: nothing")
-		return pass
+		-- Both: a tap or a hold, as long as you keep it down (_update).
+		self.press = press
+		self:_note("press " .. focus.kind)
+		return sink
 	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
 		local press = self.press
 		if not press then
@@ -407,20 +758,65 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 		self.press = nil
 		if press.held then
 			-- Let go, as letting go of the mouse button would.
-			if self.drag then
+			if press.prompt then
+				press.prompt:InputHoldEnd()
+			elseif self.drag then
 				self:_finish()
 			elseif self.push then
 				self.push = nil
 			end
 			self:_note("let go")
-		elseif press.primary and press.primary.Parent then
-			-- A tap: open or shut it.
-			Net.get("Tap"):FireServer(press.primary:GetAttribute(Constants.Attributes.CId))
-			self:_note("tap " .. tostring(press.primary:GetAttribute(Constants.Attributes.CId)))
+		else
+			self:_doTap(press)
 		end
 		return sink
 	end
 	return pass
+end
+
+-- Tools in hand (the owner's solo playtest, 2026-10-08): the crowbar or the
+-- bolt cutters in your hands and the click (or R) held on the boards or the
+-- chain you look at: you work at them till you let go or they give
+-- (Services/LockService). `on` false lets go. Returns whether it was this.
+function HandsController:ToolWork(on: boolean): boolean
+	if not on then
+		if self.working then
+			self.working = nil
+			Net.get("ToolWork"):FireServer(false, nil)
+			return true
+		end
+		return false
+	end
+	if self.carry or self.drag or not self:_canFocus() then
+		return false
+	end
+	-- What you look at now, as you press (not last frame's).
+	local focus = self:_resolveFocus()
+	local lock = focus and focus.toolLock
+	if not lock or player:GetAttribute(PA.Tool) ~= lock.tool then
+		self:_note("tool: " .. (focus and focus.kind or "no focus") .. (lock and " wrong tool" or " no lock"))
+		return false
+	end
+	self:_note("tool: work " .. tostring(lock.id))
+	self.working = lock.id
+	Net.get("ToolWork"):FireServer(true, lock.id)
+	return true
+end
+
+-- The tool a lock wants: its name, and whether you carry it (in a slot, not
+-- your hands) or hold it.
+function HandsController:ToolFor(lock): (string, string)
+	local info = Tools.ById[lock.tool]
+	local name = info and info.name or lock.tool
+	if player:GetAttribute(PA.Tool) == lock.tool then
+		return name, "held"
+	end
+	for i, attribute in PA.Slots do
+		if player:GetAttribute(attribute) == lock.tool then
+			return name, tostring(i)
+		end
+	end
+	return name, "none"
 end
 
 function HandsController:_active(): boolean
@@ -436,11 +832,18 @@ function HandsController:_begin(): boolean
 		return self:_pickUp()
 	end
 	local primary = hit and self:_pieceOf(hit.Instance)
-	local joint = primary and Joint.read(primary)
-	if not hit or not primary or not joint then
+	if not hit or not primary then
 		return self:_lean(hit)
 	end
-	local point = hit.Position
+	return self:_takeHold(primary, hit.Position)
+end
+
+-- Take hold of a door, drawer or lid at `point` (on it).
+function HandsController:_takeHold(primary: BasePart, point: Vector3): boolean
+	local joint = Joint.read(primary)
+	if not joint or self.drag or self.carry then
+		return false
+	end
 	local value = math.clamp(Joint.valueOf(joint, primary.CFrame), 0, joint.max)
 	-- Where you took hold of it, on the part, and where that point sits when
 	-- it's shut (a door's angle is measured from there).
@@ -541,6 +944,13 @@ function HandsController:_lean(hit: RaycastResult?): boolean
 	if not model then
 		return false
 	end
+	return self:_leanOn(model)
+end
+
+function HandsController:_leanOn(model: Model): boolean
+	if self.drag or self.carry then
+		return false
+	end
 	self.push = { id = model:GetAttribute(Constants.Attributes.CId), model = model, sentAt = 0 }
 	return true
 end
@@ -569,11 +979,12 @@ function HandsController:_pushStep()
 end
 
 function HandsController:_update(dt: number)
-	-- E held past a tap: your hand takes hold, as the mouse button does.
+	-- E held past a tap: what holding it does (your hand takes hold, or a
+	-- long prompt's hold begins).
 	local press = self.press
-	if press and not press.held and not press.tapOnly and os.clock() - press.at >= H.TapSeconds then
+	if press and not press.held and os.clock() - press.at >= H.TapSeconds then
 		press.held = true
-		if not self:_begin() then
+		if not self:_doHold(press) then
 			self.press = nil
 		end
 	end
@@ -584,6 +995,33 @@ function HandsController:_update(dt: number)
 		self:_pushStep()
 	end
 	local looking = not self.drag and not self.carry and not self.push and self:_active()
+	self.focus = (not self.drag and not self.carry and not self.push and self:_canFocus()) and self:_resolveFocus()
+		or nil
+	if RunService:IsStudio() then
+		-- What has your focus, for tests in Studio (the MCP can't see this table).
+		local focus = self.focus
+		local said = focus
+				and string.format(
+					"%s %s%s tap=%s hold=%s shown=%d",
+					focus.kind,
+					focus.object.Name,
+					focus.object:GetAttribute("HideSpot") and " (hide)" or "",
+					focus.tap and (focus.tap.kind .. ":" .. tostring(focus.tap.text)) or "-",
+					focus.hold and (focus.hold.kind .. ":" .. tostring(focus.hold.text)) or "-",
+					(function()
+						local n = 0
+						for _ in self.shown do
+							n += 1
+						end
+						return n
+					end)()
+				)
+			or "nothing"
+		if said ~= self.saidFocus then
+			self.saidFocus = said
+			player:SetAttribute("DebugFocus", said)
+		end
+	end
 	local hit = looking and self:_aim() or nil
 	self.aimedThing = looking and self:_thingOf(hit) or nil
 	self.aimedPush = (looking and not self.aimedThing and hit and hit.Distance <= P.Reach + 1.5)
@@ -639,9 +1077,9 @@ end
 
 -- Ask for the small thing you're looking at. The server says yes by marking
 -- it HeldBy you and handing you its physics (_carryStep).
-function HandsController:_pickUp(): boolean
-	local model = self:_thingOf(self:_aim())
-	if not model then
+function HandsController:_pickUp(thing: Model?): boolean
+	local model = thing or self:_thingOf(self:_aim())
+	if not model or self.carry then
 		return false
 	end
 	local carry = {

@@ -636,6 +636,35 @@ function GuestController:_event(event)
 		else
 			self:_undisguise(event.reveal == true)
 		end
+	elseif kind == "bang" or kind == "burst" then
+		-- He's at a barricade (Services/PushService): blows that shake your
+		-- view if you're near, then the burst. The sounds come from the server.
+		local position = event.position
+		if typeof(position) ~= "Vector3" then
+			return
+		end
+		local distance = (position - camera.CFrame.Position).Magnitude
+		local near = math.clamp(1 - distance / 30, 0, 1)
+		local burst = kind == "burst"
+		if near > 0 then
+			local feel = self.controllers.FeelController
+			if feel then
+				feel:Shake((burst and 1.6 or (tonumber(event.strength) or 0.5)) * near, burst and 0.7 or 0.3)
+			end
+			local effects = self.controllers.EffectsController
+			if effects and (burst or near > 0.5) then
+				effects:FlickerNear(12, burst and 0.5 or 0.2)
+			end
+		end
+		if distance < 60 then
+			local now = os.clock()
+			if burst then
+				audio:Caption("[the door bursts open]")
+			elseif now - (self.bangCaptionAt or 0) > 5 then
+				self.bangCaptionAt = now
+				audio:Caption("[something pounds on the barricade]")
+			end
+		end
 	elseif kind == "knock" then
 		audio:PlayAt("FrontDoorKnock", event.position, 1, 1, muffled(event.position))
 		audio:Caption("[three knocks at the front door]")

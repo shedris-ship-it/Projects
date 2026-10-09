@@ -68,7 +68,7 @@ local HELP = table.concat({
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
 	"locks (the locks to Output) · unlock <seam|all> · try <seam|piece> (as if you pressed on it) · give <token> · items · solve [puzzle]",
 	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
-	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|scan]",
+	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|burst|scan]",
 }, "\n")
 
 -- A run player by (partial) display name, or the caller.
@@ -366,10 +366,10 @@ function DebugService:Run(player: Player, text: string)
 		local piece = services.LockService.pieceLocks[target]
 		if piece and not piece.open then
 			-- A step's chest or fridge: one hold, as its prompt does.
-			services.LockService:_tryPiece(target, player)
+			services.LockService:_tryPiece(target, player, "work")
 			reply(player, target .. (piece.open and " opened" or (" still shut, " .. piece.state.left .. " to go")))
 		elseif entry and not entry.open then
-			services.LockService:_try(entry.door, player, "prompt")
+			services.LockService:_try(entry.door, player, "work")
 			reply(player, target .. (entry.open and " opened" or " still locked"))
 		else
 			reply(player, entry and (target .. " is already open") or "no such lock")

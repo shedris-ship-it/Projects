@@ -11,11 +11,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
 local PuzzleKinds = require(Shared.Logic.PuzzleKinds)
 local Props = require(Shared.Data.Props)
+local Config = require(Shared.Config)
+local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
 
 local Stations = script.Parent.Parent.Puzzles
@@ -94,6 +97,7 @@ function PuzzleService:Start()
 			if kind and kind.tick then
 				kind.tick(self, session, elapsed)
 			end
+			self:_tell(session)
 		end
 	end)
 end
@@ -145,7 +149,11 @@ function PuzzleService:Begin(plan, _rng)
 		local puzzle = plan.puzzles[id]
 		local kind = KINDS[puzzle.kind]
 		if kind and kind.create then
-			self.sessions[id] = kind.create(self, id, puzzle)
+			local session = kind.create(self, id, puzzle)
+			self.sessions[id] = session
+			if session then
+				self:_signpost(session)
+			end
 		else
 			warn("[Consensus] no station for puzzle kind " .. tostring(puzzle.kind))
 		end
@@ -267,6 +275,21 @@ function PuzzleService:Push(session, events)
 end
 
 function PuzzleService:_solved(session, player: Player?)
+	-- Its lamp goes out: the lamps still lit are the puzzles left.
+	local lamp = session.lamp
+	if lamp and lamp.Parent then
+		local bulb = lamp:FindFirstChild("Bulb")
+		if bulb then
+			bulb.Material = Enum.Material.SmoothPlastic
+			bulb.Color = Color3.fromRGB(70, 64, 52)
+			for _, light in bulb:GetChildren() do
+				if light:IsA("Light") then
+					light.Enabled = false
+				end
+			end
+		end
+		Sfx.play("FlashlightClick", lamp:GetPivot().Position, 0.5, 0.6)
+	end
 	self.Drift:Apply("PuzzleSolved")
 	self.Solved:Fire(session.id, player)
 	local kind = KINDS[session.kind]
@@ -279,6 +302,127 @@ function PuzzleService:_solved(session, player: Player?)
 	end
 	if kind.solved then
 		kind.solved(self, session, player)
+	end
+end
+
+-- Every puzzle lit and heard (the owner's solo playtest, 2026-10-08: "there's
+-- no indicator that there's an important puzzle in the room"; the owner's
+-- choice: lit and heard). A shaded lamp hangs over each station, a warm pool
+-- of light in a dark room, till it's solved; and the first time anyone comes
+-- into its room near it, it makes a sound of its own, with a caption.
+local TELLS = {
+	musicbox = { sound = "MusicBoxNote", volume = 0.9, pitch = 0.6, caption = "[a piano key sounds, on its own]" },
+	terminal = { sound = "Ping", volume = 0.5, pitch = 0.6, caption = "[a computer beeps]" },
+	breaker = { sound = "Snap", volume = 0.6, pitch = 0.5, caption = "[a fuse box crackles]" },
+	safe = { sound = "LockClick", volume = 0.7, pitch = 0.8, caption = "[a click, from a safe's dial]" },
+	dumbwaiter = { sound = "Creak", volume = 0.7, pitch = 0.7, caption = "[the dumbwaiter's rope creaks]" },
+}
+
+local function lampPart(model: Model, name: string, size: Vector3, cframe: CFrame, color: Color3, material)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.CFrame = cframe
+	p.Color = color
+	p.Material = material
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Parent = model
+	return p
+end
+
+-- The lamp over a station: from the ceiling over it, a little into the room.
+function PuzzleService:_signpost(session)
+	local station = session.station
+	local S = Config.PuzzleLamp
+	if not station or not station.Parent or not TELLS[session.kind] then
+		return
+	end
+	local roomId = self.World:RoomAt(station.Position)
+	local room = roomId and self.World:Room(roomId)
+	local toward = room and Vector3.new(room.center.X - station.Position.X, 0, room.center.Z - station.Position.Z)
+	local at = station.Position + ((toward and toward.Magnitude > 0.1) and toward.Unit * S.Out or Vector3.zero)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local model = station:FindFirstAncestorWhichIsA("Model")
+	params.FilterDescendantsInstances = { model or station }
+	local up = Workspace:Raycast(at, Vector3.new(0, 14, 0), params)
+	local ceiling = up and up.Position.Y or at.Y + 6
+	local shadeY = math.max(ceiling - S.Drop, station.Position.Y + 2.5)
+	local lamp = Instance.new("Model")
+	lamp.Name = "PuzzleLamp"
+	local cord = ceiling - shadeY
+	local wire = lampPart(
+		lamp,
+		"Cord",
+		Vector3.new(cord, 0.06, 0.06),
+		CFrame.new(at.X, shadeY + cord / 2, at.Z) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(20, 18, 16),
+		Enum.Material.SmoothPlastic
+	)
+	wire.Shape = Enum.PartType.Cylinder
+	lampPart(
+		lamp,
+		"Shade",
+		Vector3.new(1.1, 0.5, 1.1),
+		CFrame.new(at.X, shadeY, at.Z),
+		Color3.fromRGB(46, 58, 40),
+		Enum.Material.Metal
+	)
+	local bulb = lampPart(
+		lamp,
+		"Bulb",
+		Vector3.new(0.34, 0.34, 0.34),
+		CFrame.new(at.X, shadeY - 0.3, at.Z),
+		Color3.fromRGB(255, 214, 150),
+		Enum.Material.Neon
+	)
+	bulb.Shape = Enum.PartType.Ball
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Angle = S.Angle
+	light.Range = S.Range
+	light.Brightness = S.Brightness
+	light.Color = Color3.fromRGB(255, 200, 140)
+	light.Shadows = true
+	light.Parent = bulb
+	local glow = Instance.new("PointLight")
+	glow.Range = S.Glow.Range
+	glow.Brightness = S.Glow.Brightness
+	glow.Color = light.Color
+	glow.Parent = bulb
+	lamp.Parent = self.World.content or Workspace
+	session.lamp = lamp
+end
+
+-- The first time anyone comes near it in its room: its sound.
+function PuzzleService:_tell(session)
+	local station = session.station
+	local tell = TELLS[session.kind]
+	if session.told or not tell or not station or not station.Parent then
+		return
+	end
+	if session.state and session.state.solved then
+		session.told = true
+		return
+	end
+	local roomId = self.World:RoomAt(station.Position)
+	for _, player in Players:GetPlayers() do
+		local position = self.PlayerState:Position(player)
+		if
+			position
+			and self.PlayerState:IsActive(player)
+			and (position - station.Position).Magnitude < Config.PuzzleLamp.TellRange
+			and math.abs(position.Y - station.Position.Y) < 6
+			and self.World:RoomAt(position) == roomId
+		then
+			session.told = true
+			Sfx.play(tell.sound, station.Position, tell.volume, tell.pitch, tell.caption)
+			return
+		end
 	end
 end
 

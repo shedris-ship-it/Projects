@@ -7,6 +7,13 @@
 -- Markers are screen frames placed by projecting the object's position each
 -- frame (rather than BillboardGuis), so touch input and fades behave like the
 -- rest of the UI.
+--
+-- On a keyboard there is one focus (the owner's solo playtest, 2026-10-08:
+-- "streamline the UI a little bit or make a better focus system"): the one
+-- thing E is for (Controllers/HandsController:Focus) gets the only marker
+-- with words, saying what a tap and a hold of E do; other things you could
+-- use close by get a faint ring and nothing else. Gamepad and touch keep a
+-- marker per prompt Roblox shows (touch taps their rows).
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +28,8 @@ local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local F = Config.Focus
 local Attr = Constants.Attributes
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 local GAMEPAD_GLYPH = {
 	ButtonA = "A",
@@ -224,6 +233,19 @@ function FocusMarkers:_build(marker)
 		BackgroundTransparency = 1,
 		Parent = holder,
 	}, { Ui.corner(6), Ui.stroke(Ui.Theme.accent, 1.5, 0.15) })
+	if marker.ring then
+		-- Something else you could use, close by: the ring alone.
+		marker.fade = {}
+		for _, d in gui:GetDescendants() do
+			if d:IsA("UIStroke") then
+				table.insert(marker.fade, { d, "Transparency", d.Transparency })
+			end
+		end
+		marker.gui = gui
+		marker.shownAlpha = -1
+		gui.Parent = self.screen
+		return
+	end
 	if marker.name then
 		Ui.label(marker.name, {
 			LayoutOrder = 2,
@@ -242,47 +264,8 @@ function FocusMarkers:_build(marker)
 		BackgroundTransparency = 1,
 		Parent = holder,
 	}, { Ui.list(12, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center) })
-	local order = 0
-	-- Your hands can take hold of it (Controllers/HandsController). Not on
-	-- touch, where the prompt opens and shuts it instead. On a keyboard, E
-	-- does it all (the squad playtest, 2026-10-08): tap to open or pick up,
-	-- hold to drag or push.
-	local kind = inputKind()
-	local keyboard = kind == "keyboard"
-	if marker.drag and kind ~= "touch" then
-		order += 1
-		self:_row(
-			actions,
-			order,
-			kind == "gamepad" and "RT" or (marker.hideSpot and "Hold click" or "Hold E"),
-			"Drag",
-			function() end,
-			function() end
-		)
-	end
-	if marker.grab and kind ~= "touch" then
-		order += 1
-		self:_row(actions, order, kind == "gamepad" and "RT" or "E", "Pick up", function() end, function() end)
-	end
-	if marker.push and kind ~= "touch" then
-		order += 1
-		local key = kind == "gamepad" and "RT" or (marker.hideSpot and "Hold click" or "Hold E")
-		self:_row(actions, order, key, "Push", function() end, function() end)
-	end
-	for _, prompt in marker.prompts do
-		order += 1
-		-- A long hold says so ("Hold E"): the shrine's wait was a secret before.
-		-- A door's or drawer's prompt has given E to your hands: a tap is E.
-		local key = (keyboard and prompt:GetAttribute("HandsOwned")) and "E"
-			or keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
-		if key and prompt.HoldDuration >= 0.5 then
-			key = "Hold " .. key
-		end
-		self:_row(actions, order, key, prompt.ActionText, function()
-			prompt:InputHoldBegin()
-		end, function()
-			prompt:InputHoldEnd()
-		end)
+	for i, row in marker.rows do
+		self:_row(actions, i, row.key, row.text, row.press or function() end, row.release or function() end)
 	end
 	-- Hold progress: a hairline that fills under the actions.
 	local track = Ui.new("Frame", {
@@ -336,6 +319,87 @@ function FocusMarkers:_place(marker, camera: Camera)
 	marker.gui.Position = UDim2.fromOffset(math.round(point.X), math.round(point.Y))
 end
 
+-- The prompts whose hold this marker shows filling.
+function FocusMarkers:_holdable(marker): { ProximityPrompt }
+	local focus = marker.focus
+	if not focus then
+		return marker.prompts or {}
+	end
+	local list = {}
+	for _, action in { focus.tap, focus.hold } do
+		if action and typeof(action.id) == "Instance" then
+			table.insert(list, action.id)
+		end
+	end
+	for _, prompt in focus.keyed or {} do
+		table.insert(list, prompt)
+	end
+	return list
+end
+
+-- The focus's rows on a keyboard: what a tap of E does, what holding it does,
+-- prompts on keys of their own, and a tool lock's tool.
+function FocusMarkers:_focusRows(focus, hands)
+	local rows = {}
+	if focus.tap then
+		table.insert(rows, { key = "E", text = focus.tap.text })
+	end
+	if focus.hold then
+		table.insert(rows, { key = "Hold E", text = focus.hold.text })
+	end
+	for _, prompt in focus.keyed or {} do
+		local key = keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
+		if key and prompt.HoldDuration >= 0.5 then
+			key = "Hold " .. key
+		end
+		table.insert(rows, { key = key, text = prompt.ActionText })
+	end
+	local lock = focus.toolLock
+	if lock and hands then
+		local name, where = hands:ToolFor(lock)
+		if where == "held" then
+			table.insert(rows, { key = "Hold click", text = lock.action })
+		elseif where ~= "none" then
+			-- In a slot, not your hands: the slot's key.
+			table.insert(rows, { key = where, text = "Take the " .. string.lower(name) })
+		end
+	end
+	return rows
+end
+
+-- A marker's rows on a gamepad or touch: your hands' (not on touch, where the
+-- prompt opens and shuts it instead) and each prompt Roblox shows.
+function FocusMarkers:_promptRows(entry, kind: string)
+	local rows = {}
+	if entry.drag and kind ~= "touch" then
+		table.insert(rows, { key = "RT", text = "Drag" })
+	end
+	if entry.grab and kind ~= "touch" then
+		table.insert(rows, { key = "RT", text = "Pick up" })
+	end
+	if entry.push and kind ~= "touch" then
+		table.insert(rows, { key = "RT", text = "Push" })
+	end
+	for _, prompt in entry.prompts do
+		-- A long hold says so ("Hold X"): the shrine's wait was a secret before.
+		local key = keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
+		if key and prompt.HoldDuration >= 0.5 then
+			key = "Hold " .. key
+		end
+		table.insert(rows, {
+			key = key,
+			text = prompt.ActionText,
+			press = function()
+				prompt:InputHoldBegin()
+			end,
+			release = function()
+				prompt:InputHoldEnd()
+			end,
+		})
+	end
+	return rows
+end
+
 function FocusMarkers:Update(dt: number)
 	local state = self.state
 	local inRun = state:InRun()
@@ -353,7 +417,7 @@ function FocusMarkers:Update(dt: number)
 	local function want(object: Instance)
 		local entry = wanted[object]
 		if not entry then
-			entry = { prompts = {}, drag = false, grab = false, push = false, name = nil, target = 0 }
+			entry = { prompts = {}, drag = false, grab = false, push = false, name = nil, target = 0, rows = nil }
 			wanted[object] = entry
 		end
 		return entry
@@ -370,52 +434,86 @@ function FocusMarkers:Update(dt: number)
 	end
 
 	local hands = self.ctx.controllers.HandsController
-	for prompt in self.shown do
-		if prompt.Parent and prompt.Enabled then
-			local object = objectOf(prompt.Parent)
-			local entry = want(object)
-			table.insert(entry.prompts, prompt)
-			entry.drag = entry.drag or (inRun and hands ~= nil and hands:CanDrag(prompt.Parent))
-			-- Furniture you hide in keeps E for hiding: its doors take the mouse.
-			entry.hideSpot = entry.hideSpot or prompt.Parent:GetAttribute("HideSpot") == true
-			entry.name = entry.name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
-			local position = prompt.Parent:IsA("Attachment") and prompt.Parent.WorldPosition
-				or (prompt.Parent :: BasePart).Position
-			entry.target = math.max(entry.target, math.max(F.PromptMinAlpha, gaze(position)))
-		else
-			self.shown[prompt] = nil
+	local kind = inputKind()
+	local keyboard = kind == "keyboard"
+	if keyboard then
+		-- The one focus, with words; faint rings on the rest close by.
+		local focus = hands and active and hands:Focus() or nil
+		if focus then
+			local entry = want(focus.object)
+			entry.focus = focus
+			entry.name = focus.name
+			entry.target = 1
+			entry.rows = self:_focusRows(focus, hands)
 		end
-	end
-
-	-- A small thing your hands could pick up (Controllers/HandsController).
-	local thing = (inRun and active and hands) and hands:AimedThing() or nil
-	if thing then
-		local entry = want(thing)
-		entry.grab = true
-		entry.name = entry.name or thing:GetAttribute("Label")
-		entry.target = 1
-	end
-
-	-- Furniture you could push, or are pushing (Controllers/HandsController).
-	local pushable = (inRun and active and hands) and hands:AimedPushable() or nil
-	if pushable then
-		local entry = want(pushable)
-		entry.push = true
-		entry.hideSpot = entry.hideSpot or pushable:GetAttribute("HideSpot") == true
-		entry.name = entry.name or pushable:GetAttribute("PushLabel")
-		entry.target = 1
+		for prompt in self.shown do
+			local parent = prompt.Parent
+			if parent and prompt.Enabled then
+				local position = parent:IsA("Attachment") and parent.WorldPosition
+					or (parent:IsA("BasePart") and parent.Position)
+				local object = objectOf(parent)
+				local mine = focus
+					and (
+						object == focus.object
+						or object:IsDescendantOf(focus.object)
+						or (parent:IsA("Attachment") and parent.Parent or parent):GetAttribute("HideFor")
+							== focus.object:GetAttribute(Attr.CId)
+					)
+				if position and not mine then
+					if (position - eye).Magnitude <= F.RingRange then
+						local entry = want(object)
+						if not entry.focus then
+							entry.ring = true
+							entry.target = math.max(entry.target, F.RingAlpha * gaze(position))
+						end
+					end
+				end
+			else
+				self.shown[prompt] = nil
+			end
+		end
+	else
+		for prompt in self.shown do
+			if prompt.Parent and prompt.Enabled then
+				local object = objectOf(prompt.Parent)
+				local entry = want(object)
+				table.insert(entry.prompts, prompt)
+				entry.drag = entry.drag or (inRun and hands ~= nil and hands:CanDrag(prompt.Parent))
+				entry.name = entry.name or (prompt.ObjectText ~= "" and prompt.ObjectText or nil)
+				local position = prompt.Parent:IsA("Attachment") and prompt.Parent.WorldPosition
+					or (prompt.Parent :: BasePart).Position
+				entry.target = math.max(entry.target, math.max(F.PromptMinAlpha, gaze(position)))
+			else
+				self.shown[prompt] = nil
+			end
+		end
+		-- A small thing your hands could pick up (Controllers/HandsController).
+		local thing = (inRun and active and hands) and hands:AimedThing() or nil
+		if thing then
+			local entry = want(thing)
+			entry.grab = true
+			entry.name = entry.name or thing:GetAttribute("Label")
+			entry.target = 1
+		end
+		-- Furniture you could push, or are pushing (Controllers/HandsController).
+		local pushable = (inRun and active and hands) and hands:AimedPushable() or nil
+		if pushable then
+			local entry = want(pushable)
+			entry.push = true
+			entry.name = entry.name or pushable:GetAttribute("PushLabel")
+			entry.target = 1
+		end
+		for _, entry in wanted do
+			entry.rows = self:_promptRows(entry, kind)
+		end
 	end
 
 	-- Build, update and retire markers.
 	for object, entry in wanted do
 		local marker = self.markers[object]
-		local signature = (entry.drag and "D" or "")
-			.. (entry.hideSpot and "H" or "")
-			.. (entry.grab and "G" or "")
-			.. (entry.push and "P" or "")
-			.. inputKind()
-		for _, prompt in entry.prompts do
-			signature ..= "|" .. prompt.ActionText
+		local signature = (entry.ring and "ring" or "") .. kind
+		for _, row in entry.rows or {} do
+			signature ..= "|" .. (row.key or "") .. ":" .. row.text
 		end
 		-- (Its name can change too: "Batteries (2)" to "(1)".)
 		signature ..= "|" .. (entry.name or "")
@@ -424,13 +522,12 @@ function FocusMarkers:Update(dt: number)
 			self.markers[object] = marker
 		end
 		marker.target = active and entry.target or 0
+		marker.focus = entry.focus
 		if marker.signature ~= signature then
 			marker.signature = signature
 			marker.prompts = entry.prompts
-			marker.drag = entry.drag
-			marker.hideSpot = entry.hideSpot
-			marker.grab = entry.grab
-			marker.push = entry.push
+			marker.rows = entry.rows or {}
+			marker.ring = entry.ring and not entry.focus
 			marker.name = entry.name
 			self:_build(marker)
 		end
@@ -444,13 +541,20 @@ function FocusMarkers:Update(dt: number)
 		if marker.gui then
 			-- Hold progress for whichever action is being held here.
 			local progress = 0
-			for _, prompt in marker.prompts do
+			for _, prompt in self:_holdable(marker) do
 				local started = self.promptHolds[prompt]
 				if started and prompt.HoldDuration > 0 then
 					progress = math.max(progress, math.clamp((now - started) / prompt.HoldDuration, 0, 1))
 				end
 			end
-			marker.fill.Size = UDim2.fromScale(progress, 1)
+			-- Work at a tool lock (Services/LockService says when each stroke began).
+			local since, seconds = player:GetAttribute("WorkSince"), player:GetAttribute("WorkSeconds")
+			if marker.focus and marker.focus.toolLock and since and seconds and seconds > 0 then
+				progress = math.max(progress, math.clamp((Workspace:GetServerTimeNow() - since) / seconds, 0, 1))
+			end
+			if marker.fill then
+				marker.fill.Size = UDim2.fromScale(progress, 1)
+			end
 			self:_setAlpha(marker, marker.alpha)
 			self:_place(marker, camera)
 		end

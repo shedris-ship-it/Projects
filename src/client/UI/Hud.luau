@@ -301,9 +301,10 @@ function Hud:Update()
 	if hidden then
 		self.breathFill.Size = UDim2.fromScale(player:GetAttribute("Breath") or 1, 1)
 		-- In a walk-in closet you get out by sliding a door yourself.
+		-- (Short: the longer line ran off the end of its box.)
 		self.hideHint.Text = player:GetAttribute("HidePhysical")
-				and "Hold SPACE to hold your breath · slide a door to get out"
-			or "Hold right click to peek · hold SPACE to hold your breath · E to leave"
+				and "SPACE: hold your breath · slide a door to get out"
+			or "Right click: peek · SPACE: hold breath · E: leave"
 		self.hideDanger.Visible = player:GetAttribute("HideDanger") == true
 	end
 

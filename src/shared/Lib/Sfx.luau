@@ -9,8 +9,9 @@ local Net = require(script.Parent.Parent.Net)
 
 local Sfx = {}
 
-function Sfx.play(key: string, position: Vector3, volume: number?, pitch: number?)
-	Net.get("Sfx"):FireAllClients(key, position, volume or 0.6, pitch or 1)
+-- `caption`: said on screen to whoever's near enough to hear it.
+function Sfx.play(key: string, position: Vector3, volume: number?, pitch: number?, caption: string?)
+	Net.get("Sfx"):FireAllClients(key, position, volume or 0.6, pitch or 1, caption)
 end
 
 -- For everyone but `except`, who already heard it on their own client (a

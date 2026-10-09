@@ -517,6 +517,18 @@ function ToolService:Consume(player: Player, toolId: string): boolean
 end
 
 -- Does this player carry this tool, in any slot?
+-- Is it the tool in your hands (not a slot)? Tool locks are worked with it
+-- in hand (LockService:_workBegin).
+function ToolService:Holds(player: Player, toolId: string): boolean
+	local inv = inventories[player]
+	return inv ~= nil and Inventory.toolId(inv) == toolId
+end
+
+function ToolService:NameOf(toolId: string): string
+	local info = Tools.ById[toolId]
+	return info and info.name or toolId
+end
+
 function ToolService:Carries(player: Player, toolId: string): boolean
 	local inv = inventories[player]
 	if not inv then

@@ -18,7 +18,11 @@
 -- layout): parts 2134, hash 1322547804. Re-baselined with the owner's
 -- standing OK when the dining table moved to the room's heart with six
 -- chairs (the loop pass WP5, build 2026-10-06.116, two fresh runs, same
--- seed and layout): parts 2152, hash 1995746720. F2 `gatea` runs the same
+-- seed and layout): parts 2152, hash 1995746720. Re-baselined with the
+-- owner's standing OK when wardrobe, cabinet and locker doors got real
+-- louvres at the hiding eye (the owner's solo playtest, build 2026-10-08.146,
+-- two fresh runs, same seed and layout; +72 parts, all of them the 2 locker
+-- and 8 cupboard doors): parts 2224, hash 1008106368. F2 `gatea` runs the same
 -- (World/PartDump). Run it before opening anything: an opened drawer moves parts.
 
 local level = workspace:FindFirstChild("ConsensusLevel")

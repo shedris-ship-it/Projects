@@ -244,6 +244,30 @@ function ViewModelController:_update(dt: number)
 		+ counter
 		+ Vector3.new(0, -self.lower * 0.9 - tuck * 0.28, tuck * 1.1)
 	local base = CFrame.new(camera.CFrame.Position) * aim * CFrame.new(offset)
+	-- At work on a tool lock (Services/LockService): the crowbar levers at the
+	-- boards, the cutters bite at the chain, stroke after stroke.
+	local working = player:GetAttribute("Working")
+	if working then
+		self.workPhase = (self.workPhase or 0) + dt
+		local t = self.workPhase
+		if working == "boards" then
+			local heave = math.sin(t * 7)
+			base *= CFrame.new(0, math.abs(heave) * 0.08 - 0.04, -0.14 * math.max(0, heave)) * CFrame.Angles(
+				heave * 0.24,
+				0,
+				0
+			)
+		else
+			local bite = math.max(0, math.sin(t * 9))
+			base *= CFrame.new(math.sin(t * 23) * 0.015, math.sin(t * 19) * 0.015, -0.12 * bite) * CFrame.Angles(
+				0,
+				0,
+				math.sin(t * 9) * 0.06
+			)
+		end
+	else
+		self.workPhase = 0
+	end
 
 	self.item:PivotTo(base * turnOf(pose))
 	local wrist = pose.wrist

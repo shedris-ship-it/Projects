@@ -16,8 +16,9 @@
 -- works the same way on its graph of rooms.
 --
 -- A barricade across a doorway ahead (Services/PushService): The Guest stops
--- at it, bangs, and shoves it clear within a few seconds (never more than
--- Config.Barricade.ShoveMax); if nothing will let it move, he slips past
+-- at it, bangs, harder and harder, and within a few seconds (never more than
+-- Config.Barricade.ShoveMax) bursts through: the door flies open and the
+-- furniture flies into the room (PushService:Burst); if nothing will let it move, he slips past
 -- once nobody can see. The Companion squeezes past, like a player.
 
 local PathfindingService = game:GetService("PathfindingService")
@@ -27,7 +28,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Barricade = require(Shared.Logic.Barricade)
 local Config = require(Shared.Config)
 local GuestKeys = require(Shared.Logic.GuestKeys)
-local Sfx = require(Shared.Lib.Sfx)
 
 local Clearance = require(script.Parent.Clearance)
 
@@ -450,7 +450,7 @@ function Walker:_beginBarricade(goal, entries, now: number)
 			self.Doors:SetOpen(door, true)
 		end
 	end
-	self.pendingBarricade = { seam = goal.seam, untilT = now + seconds, door = goal.door }
+	self.pendingBarricade = { seam = goal.seam, untilT = now + seconds, door = goal.door, began = now }
 	self.humanoid:MoveTo(self.root.Position)
 	self:_pause(now)
 end
@@ -489,39 +489,25 @@ function Walker:_atBarricade(now: number): boolean
 	self:_pause(now)
 	if now < pending.untilT then
 		if self.agent.opensDoors == "stalker" and now - (self.lastBang or 0) > B.BangEvery then
+			-- He bangs to get through, harder as it goes (PushService:Bang).
 			self.lastBang = now
-			local _, entry = next(entries)
-			local at = entry.piece.prop.frame.Position + Vector3.new(0, 3, 0)
-			Sfx.play("DoorBang", at, 0.9, 0.75)
-			local noise = self.services.NoiseService
-			if noise then
-				noise:Emit(at, B.BangNoise, nil, "slam")
-			end
+			local total = math.max(pending.untilT - (pending.began or now), 0.1)
+			self.services.PushService:Bang(self.World.World.seams[pending.seam], 1 - (pending.untilT - now) / total)
 		end
 		return true
 	end
 	if self.agent.opensDoors == "stalker" then
+		-- He bursts through: the door flies open and the pieces fly into
+		-- the room (PushService:Burst, the owner's solo playtest, 2026-10-08).
 		local push = self.services.PushService
 		local seam = self.World.World.seams[pending.seam]
-		local moved = true
-		for _, entry in entries do
-			moved = push:Shove(entry.piece, seam, self:Feet()) and moved
-		end
+		local moved = push:Burst(seam, self:Feet())
 		if moved then
 			self.stats.shoves = (self.stats.shoves or 0) + 1
 			if self.onShove then
 				self.onShove(pending.seam)
 			end
-			pending.untilT = now + B.ShoveTime + 0.2 -- the heave, then on
-			-- A door the piece held part-open swings the rest of the way.
-			local door = pending.door
-			if door then
-				task.delay(B.ShoveTime + 0.05, function()
-					if not door.open and not door.locked then
-						self.Doors:SetOpen(door, true)
-					end
-				end)
-			end
+			pending.untilT = now + B.Fling.Seconds + 0.3 -- the burst, then on
 			return true
 		end
 		-- Nothing lets it move: past it once nobody can see, else bang on.

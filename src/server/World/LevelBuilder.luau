@@ -336,6 +336,14 @@ end
 LevelBuilder.lightFor = lightFor
 LevelBuilder.ceilingFixture = ceilingFixture
 
+-- How far behind the front face your eye sits, hidden in it. Behind a
+-- wardrobe's or a locker's louvred doors it's well back: Roblox draws
+-- nothing within half a stud of the camera, so any closer and the doors
+-- (and their slats, the owner's solo playtest, 2026-10-08) vanish.
+local function tuckBehind(category: string): number
+	return (category == "wardrobe" or category == "locker") and 1 or 0.15
+end
+
 local function hideGeometry(category: string, depth: number)
 	-- eye height while hidden, and where the body sits
 	if category == "bed" then
@@ -384,7 +392,7 @@ function LevelBuilder.furnish(world, ctx)
 					local frontDir = d.CFrame.LookVector
 					local base = d.CFrame * CFrame.new(0, -d.Size.Y / 2, 0)
 					local peekPos = (base * CFrame.new(0, eye, -depth / 2 - 0.35)).Position
-					local tuckPos = (base * CFrame.new(0, eye, -depth / 2 + 0.15)).Position
+					local tuckPos = (base * CFrame.new(0, eye, -depth / 2 + tuckBehind(category))).Position
 					local spotId = "hide:" .. room.id .. ":" .. d.Name .. #record.hidingSpots
 					d:SetAttribute(Attr.CId, spotId)
 					d:SetAttribute(Attr.Category, category)
@@ -438,7 +446,7 @@ function LevelBuilder.furnish(world, ctx)
 				local eye, inside = hideGeometry(kind.hide, d)
 				local frontDir = cf.LookVector * -1 -- prop front is +Z
 				local peekPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 + 0.35))
-				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - 0.15))
+				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - tuckBehind(kind.hide)))
 				local anchor = PropFactory.part(
 					model,
 					"HideAnchor",
@@ -448,6 +456,8 @@ function LevelBuilder.furnish(world, ctx)
 					PropFactory.material("SmoothPlastic"),
 					{ collide = false, transparency = 1, castShadow = false }
 				)
+				-- E's focus finds the furniture from its anchor (Controllers/HandsController).
+				anchor:SetAttribute("HideFor", propId)
 				local spotId = "hide:" .. room.id .. ":" .. prop.id
 				local spot = {
 					id = spotId,

@@ -73,6 +73,19 @@ function FeelController:Kick(degrees: number)
 	self.burst = math.max(self.burst or 0, degrees * self:_intensity())
 end
 
+-- The view shakes (a blow on a door near you, a burst, a knock back), for
+-- `seconds`, dying away; scaled by Camera motion.
+function FeelController:Shake(strength: number, seconds: number)
+	local amount = strength * self:_intensity()
+	if amount <= 0 then
+		return
+	end
+	local now = os.clock()
+	self.shakeAmp = math.max(now < (self.shakeUntil or 0) and self.shakeAmp or 0, amount)
+	self.shakeUntil = math.max(self.shakeUntil or 0, now + seconds)
+	self.shakeSeconds = math.max(seconds, 0.05)
+end
+
 function FeelController:Start()
 	player.CharacterAdded:Connect(function(character)
 		self:_watch(character)
@@ -95,6 +108,16 @@ function FeelController:Start()
 		local holding = hands and hands.drag ~= nil
 		if camera and self.active and not holding and math.abs(self.roll) > 0.001 then
 			camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, math.rad(self.roll))
+		end
+		local now = os.clock()
+		if camera and self.active and not holding and now < (self.shakeUntil or 0) then
+			local left = (self.shakeUntil - now) / self.shakeSeconds
+			local a = math.rad(1.4) * self.shakeAmp * math.clamp(left, 0, 1)
+			camera.CFrame *= CFrame.Angles(
+				(math.random() - 0.5) * a,
+				(math.random() - 0.5) * a,
+				(math.random() - 0.5) * a * 0.6
+			)
 		end
 	end)
 end

@@ -770,6 +770,13 @@ Config.Focus = {
 	GazeNone = 0.8, -- ...and fading out by here
 	PromptMinAlpha = 0.35, -- an action in reach stays faintly visible off-centre
 	MaxDistance = 60, -- markers are never drawn beyond this
+	-- One focus on a keyboard (Controllers/HandsController, the owner's solo
+	-- playtest, 2026-10-08): what your eye ray hits, else the prompt nearest
+	-- the middle of your view this many degrees out at most (a switch is small).
+	Cone = 7,
+	NearCone = 3.5, -- over furniture, only a prompt this close takes it (a note lying on a table)
+	RingRange = 10, -- other things you could use this close get a faint ring, no words
+	RingAlpha = 0.45,
 }
 
 -- Post-processing and atmosphere on the client (docs/ART.md, "Softening the
@@ -1241,6 +1248,7 @@ Config.Guest = {
 -- by squad size, one to four. One player's work is shorter (nobody to keep
 -- watch); everyone's is loud.
 Config.ToolLocks = {
+	Reach = 7, -- studs from the door (or the chest) you work at it from, the tool in your hands
 	Boards = {
 		Planks = { 3, 4, 4, 4 }, -- a hold each
 		PiecePlanks = 2, -- nailed across a chest or the fridge (a step inside a wing)
@@ -1620,6 +1628,20 @@ Config.Barricade = {
 	PlayerCost = 20,
 	GuestCost = 60,
 	GuestHuntCost = 25,
+	-- He bursts through (the owner's solo playtest, 2026-10-08): the bangs
+	-- grow (BangStrength, 0 to 1, first to last), then the door flies open
+	-- and the pieces fly into the room (PushService:Burst).
+	Fling = {
+		BangStrength = { 0.3, 1 },
+		Distance = { 4, 10 }, -- studs a piece flies: at most for one person's weight, at least for three
+		Turns = { 0, 20, -20, 40, -40, 65, -65 }, -- degrees it may turn aside to find somewhere to land
+		Seconds = 0.55, -- in the air
+		Height = 2.4, -- studs at the top of its arc
+		Tip = math.rad(28), -- it tips forward as it flies, and lands square
+		KnockMargin = 1.2, -- studs past its footprint that its path knocks you
+		Knock = 30, -- studs a second you're knocked back
+		Stagger = 0.9, -- seconds you can't walk
+	},
 }
 
 -- The map (Services/MapService, UI/Map): what counts as seen.
@@ -1629,6 +1651,19 @@ Config.Map = {
 	SeenRange = 30, -- studs: a doorway or something lying about looked at this close is on the map
 	LockSeenRange = 10, -- and its lock (a padlock, a keyhole, a bolt) this close
 	ViewCone = 100, -- degrees across of a player's view that counts
+}
+
+-- Each puzzle lit and heard (Services/PuzzleService; the owner's solo
+-- playtest, 2026-10-08): a shaded lamp over its station till it's solved,
+-- and a sound of its own the first time anyone comes near.
+Config.PuzzleLamp = {
+	Out = 0.4, -- studs into the room from the station (over it, its pool on it)
+	Drop = 2.2, -- studs the shade hangs below the ceiling
+	Angle = 80,
+	Range = 14,
+	Brightness = 3,
+	Glow = { Range = 5, Brightness = 0.5 }, -- round the bulb itself, so the lamp reads from across a room
+	TellRange = 18, -- studs, in its room
 }
 
 -- The escape's puzzles (docs/plans/gameplay-rework.md section 7;

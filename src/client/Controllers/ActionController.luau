@@ -76,9 +76,25 @@ function ActionController:Start()
 		end
 	end)
 
+	-- Knocked back (Services/PushService: he burst a barricade and a piece
+	-- flew at you): shoved along its path for a moment, then a stagger.
+	Net.get("Knockback").OnClientEvent:Connect(function(velocity: Vector3, seconds: number)
+		self:_knockback(velocity, seconds)
+	end)
+
 	self:_bind("ConsensusTool", function(inputState)
+		local hands = self.controllers.HandsController
 		if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsHidden() then
+			-- The crowbar or the bolt cutters held to their lock: work at it
+			-- while R is down (HandsController:ToolWork).
+			if hands and hands:ToolWork(true) then
+				return
+			end
 			Net.get("UseTool"):FireServer(nil, nil)
+		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+			if hands then
+				hands:ToolWork(false)
+			end
 		end
 	end, true, "Tool", Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
 
@@ -438,7 +454,10 @@ function ActionController:_updateMovement(dt: number)
 	local pushing = hands and hands.push
 	local pushSpeed = pushing and pushing.model:GetAttribute("PushSpeed") or (pushing and 0 or nil)
 	-- (F2 `botrun`: the server walks this character and sets its speed.)
-	if not player:GetAttribute(PA.BotDriven) then
+	if os.clock() < (self.staggerUntil or 0) then
+		-- Knocked back by something he flung (Knockback): you stagger.
+		humanoid.WalkSpeed = 0
+	elseif not player:GetAttribute(PA.BotDriven) then
 		humanoid.WalkSpeed = Feel.targetSpeed({
 			downed = state == PS.Downed,
 			hidden = self.state:IsHidden(),
@@ -452,6 +471,36 @@ function ActionController:_updateMovement(dt: number)
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
 	self.sprinting = sprinting
+end
+
+function ActionController:_knockback(velocity: Vector3, seconds: number)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if typeof(velocity) ~= "Vector3" or not root then
+		return
+	end
+	self.staggerUntil = os.clock() + math.clamp(tonumber(seconds) or 0.8, 0, 2)
+	-- A brief push on your body that the walking controls can't brake.
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = root
+	local push = Instance.new("LinearVelocity")
+	push.Attachment0 = attachment
+	push.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	push.PrimaryTangentAxis = Vector3.xAxis
+	push.SecondaryTangentAxis = Vector3.zAxis
+	push.PlaneVelocity = Vector2.new(velocity.X, velocity.Z)
+	push.MaxForce = 1e6
+	push.RelativeTo = Enum.ActuatorRelativeTo.World
+	push.Parent = root
+	task.delay(0.22, function()
+		push:Destroy()
+		attachment:Destroy()
+	end)
+	local feel = self.controllers.FeelController
+	if feel then
+		feel:Shake(1.2, 0.5)
+		feel:Kick(5)
+	end
 end
 
 -- Crouch or stand (the server decides what others see: PlayerStateService).

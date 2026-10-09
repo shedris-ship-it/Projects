@@ -22,6 +22,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -81,6 +82,15 @@ function LockService:Start()
 	Net.onServer("DropKey", { interval = 0.3, burst = 3, types = { "string" } }, function(player, token)
 		self:DropKey(player, token)
 	end)
+	-- The tool in your hands held to a tool lock, or let go (_workBegin).
+	self.workers = {}
+	Net.onServer("ToolWork", { interval = 0.1, burst = 6, types = { "boolean", "string?" } }, function(player, on, id)
+		if on and id then
+			self:_workBegin(player, id)
+		else
+			self:_workEnd(player)
+		end
+	end)
 	self.PlayerState.StateChanged:Connect(function(player, state)
 		-- Downed, Lost or gone: the keys fall where they are (ItemService).
 		if state ~= Constants.PlayerStates.Active and self.rings[player] and next(self.rings[player]) then
@@ -91,14 +101,20 @@ function LockService:Start()
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
+		self.workers[player] = nil
 		local items = self.services.ItemService
 		if items and self.rings[player] and next(self.rings[player]) then
 			items:DropKeys(player, self:TakeRing(player))
 		end
 		self.rings[player] = nil
 	end)
-	local elapsed = 0
+	local elapsed, worked = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
+		worked += dt
+		if worked >= 0.1 then
+			worked = 0
+			self:_workTick()
+		end
 		elapsed += dt
 		if elapsed >= 0.5 then
 			elapsed = 0
@@ -148,6 +164,9 @@ function LockService:_clear()
 	table.clear(self.reach)
 	table.clear(self.entered)
 	table.clear(self.pieceLocks)
+	for player in self.workers do
+		self:_workEnd(player)
+	end
 	self.quiet = false
 	for player in self.rings do
 		if player.Parent then
@@ -504,8 +523,12 @@ function LockService:Begin(plan)
 				entry.state = ToolLocks.start(entry.work)
 				local parent = self.World.content or workspace
 				entry.fixings = lock.kind == "boards" and boards(door, entry.work.steps, parent) or chain(door, parent)
-				door.lockText = { object = info.object, action = info.action }
-				door.prompt.HoldDuration = entry.work.seconds
+				-- Worked with the tool in your hands (_workBegin); pressing on
+				-- it only tries it and says what would do.
+				door.lockText = { object = info.object, action = "Try" }
+				door.prompt.HoldDuration = 0
+				door.slab:SetAttribute("ToolLock", lock.kind)
+				door.slab:SetAttribute("WorkId", seamId)
 			else
 				entry.plate = plate(door, lock)
 				self.Doors:Adopt(door, entry.plate)
@@ -840,6 +863,95 @@ function LockService:_spent(player: Player, token: string, label: string)
 	notify(player, "Nothing left for the " .. label .. ".")
 end
 
+-- What a tool lock says when it's only tried: its refusal, or, if you carry
+-- the tool, to take it in your hands.
+function LockService:_toolHint(player: Player, info, refuse: string): string
+	local tools = self.services.ToolService
+	if tools and tools:Carries(player, info.tool) and not tools:Holds(player, info.tool) then
+		local name = string.lower(tools:NameOf(info.tool))
+		return "Take the " .. name .. " in your hands, then hold the click on it."
+	end
+	return refuse
+end
+
+-- Work at a tool lock with the tool in your hands (the owner's solo
+-- playtest, 2026-10-08: "boltcutters and items like that should be held in
+-- the hand to be used"): the click (or R) held on it. Each stroke takes the
+-- lock's seconds; holding on goes on to the next plank. The client shows the
+-- stroke filling (WorkSince, WorkSeconds) and the tool at work (Working).
+function LockService:_workBegin(player: Player, id: string)
+	self:_workEnd(player)
+	local door, piece = self.locks[id], self.pieceLocks[id]
+	local target = door or piece
+	if not target or target.open or not target.work or not self.PlayerState:CanAct(player) then
+		return
+	end
+	local info = ToolLocks.Kinds[target.lock.kind]
+	local tools = self.services.ToolService
+	if not (tools and tools:Holds(player, info.tool)) then
+		return
+	end
+	local at = door and door.door.position or piece.anchor.Position
+	local position = self.PlayerState:Position(player)
+	if not position or (position - at).Magnitude > Config.ToolLocks.Reach then
+		return
+	end
+	self.workers[player] = { id = id, piece = piece ~= nil, at = at, since = os.clock() }
+	player:SetAttribute("Working", target.lock.kind)
+	player:SetAttribute("WorkSeconds", target.work.seconds)
+	player:SetAttribute("WorkSince", Workspace:GetServerTimeNow())
+	-- The tool bites: a scrape under the strain.
+	Sfx.play(target.lock.kind == "boards" and "CreakAlt" or "DoorLatch", at, 0.45, 0.7)
+	if door then
+		self.seen[id] = true
+	end
+end
+
+function LockService:_workEnd(player: Player)
+	if not self.workers[player] then
+		return
+	end
+	self.workers[player] = nil
+	if player.Parent then
+		player:SetAttribute("Working", nil)
+		player:SetAttribute("WorkSeconds", nil)
+		player:SetAttribute("WorkSince", nil)
+	end
+end
+
+-- Each worker: still holding the tool, still there? A stroke done is a plank
+-- off (or the chain cut), and the next begins.
+function LockService:_workTick()
+	local tools = self.services.ToolService
+	for player, work in self.workers do
+		local target = work.piece and self.pieceLocks[work.id] or self.locks[work.id]
+		local ok = target ~= nil and not target.open and player.Parent ~= nil and self.PlayerState:CanAct(player)
+		if ok then
+			local info = ToolLocks.Kinds[target.lock.kind]
+			local position = self.PlayerState:Position(player)
+			ok = tools ~= nil
+				and tools:Holds(player, info.tool)
+				and position ~= nil
+				and (position - work.at).Magnitude <= Config.ToolLocks.Reach + 1
+		end
+		if not ok then
+			self:_workEnd(player)
+		elseif os.clock() - work.since >= target.work.seconds then
+			if work.piece then
+				self:_pieceStep(work.id, player)
+			else
+				self:_toolStep(work.id, target, player)
+			end
+			if target.open then
+				self:_workEnd(player)
+			else
+				work.since = os.clock()
+				player:SetAttribute("WorkSince", Workspace:GetServerTimeNow())
+			end
+		end
+	end
+end
+
 function LockService:_rattle(door)
 	Sfx.play("DoorBang", door.position, 0.25, 1.6)
 	Sfx.play("DoorLatch", door.position, 0.4, 0.7)
@@ -952,14 +1064,18 @@ function LockService:LockPiece(lockId: string, space)
 	if push then
 		push:Fix(prop.model, parts)
 	end
-	local tool = ToolLocks.Kinds[info.kind]
+	-- Worked with the tool in your hands (_workBegin); the prompt only tries it.
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ToolPrompt"
 	prompt.ObjectText = (string.gsub(info.thing, "^%l", string.upper))
-	prompt.ActionText = tool.action
+	prompt.ActionText = "Try"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
-	prompt.HoldDuration = work.seconds
+	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 6
+	for _, marked in { anchor, fixings, prop.model } do
+		marked:SetAttribute("ToolLock", info.kind)
+		marked:SetAttribute("WorkId", lockId)
+	end
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = anchor
 	prompt.Triggered:Connect(function(player)
@@ -978,22 +1094,33 @@ function LockService:LockPiece(lockId: string, space)
 	}
 end
 
--- One hold on a step's chest: with the tool, a plank off or the chain cut
--- (loud); without it, it won't budge and says what would do.
-function LockService:_tryPiece(lockId: string, player: Player)
+-- A step's chest tried: it won't budge, and says what would do. With `how`
+-- "work" (_workBegin's strokes, the bot) and the tool: a plank off or the
+-- chain cut (_pieceStep).
+function LockService:_tryPiece(lockId: string, player: Player, how: string?)
 	local entry = self.pieceLocks[lockId]
 	if not entry or entry.open or not self.PlayerState:CanAct(player) then
 		return
 	end
 	local info = ToolLocks.Kinds[entry.lock.kind]
-	local at = entry.anchor.Position
 	local tools = self.services.ToolService
-	if not (tools and tools:Carries(player, info.tool)) then
-		Sfx.play("DoorLatch", at, 0.4, 0.8)
-		notify(player, info.pieceRefuse)
-		self.PieceTried:Fire(lockId, player)
+	if how == "work" and tools and tools:Carries(player, info.tool) then
+		self:_pieceStep(lockId, player)
 		return
 	end
+	Sfx.play("DoorLatch", entry.anchor.Position, 0.4, 0.8)
+	notify(player, self:_toolHint(player, info, info.pieceRefuse))
+	self.PieceTried:Fire(lockId, player)
+end
+
+-- One stroke's work on a step's chest: a plank off or the chain cut (loud).
+function LockService:_pieceStep(lockId: string, player: Player)
+	local entry = self.pieceLocks[lockId]
+	if not entry or entry.open then
+		return
+	end
+	local info = ToolLocks.Kinds[entry.lock.kind]
+	local at = entry.anchor.Position
 	local done = ToolLocks.step(entry.state)
 	if entry.lock.kind == "boards" then
 		local step = entry.state.left + 1
@@ -1029,6 +1156,11 @@ function LockService:UnlockPiece(lockId: string, player: Player?, message: strin
 		return
 	end
 	entry.open = true
+	local model = entry.space and entry.space.prop and entry.space.prop.model
+	if model then
+		model:SetAttribute("ToolLock", nil)
+		model:SetAttribute("WorkId", nil)
+	end
 	local furniture = self.services.FurnitureService
 	for _, piece in entry.pieces do
 		furniture:SetLocked(piece, false)
@@ -1160,16 +1292,17 @@ function LockService:_try(door, player: Player?, how: string?)
 		notify(player, "It won't move. Not that way.")
 		return
 	elseif ToolLocks.is(lock.kind) then
-		-- Boards or a chain (section 11, L3.3): held work with the tool, a
-		-- step a hold; pulling on it only rattles.
+		-- Boards or a chain (section 11, L3.3): worked with the tool in your
+		-- hands (`how` "work": _workBegin, or the bot); pressing on it or
+		-- pulling only rattles, and says what would do.
 		local info = ToolLocks.Kinds[lock.kind]
 		local tools = self.services.ToolService
-		if how ~= "prompt" or not (tools and tools:Carries(player, info.tool)) then
-			self:_rattle(door)
-			notify(player, info.refuse)
+		if how == "work" and tools and tools:Carries(player, info.tool) then
+			self:_toolStep(door.lockId, entry, player)
 			return
 		end
-		self:_toolStep(door.lockId, entry, player)
+		self:_rattle(door)
+		notify(player, self:_toolHint(player, info, info.refuse))
 		return
 	end
 	self.Noise:Emit(door.position, 6, player, "door")
@@ -1214,6 +1347,8 @@ function LockService:Unlock(seamId: string, player: Player?, message: string?)
 	if entry.work then
 		entry.door.lockText = nil
 		entry.door.prompt.HoldDuration = 0
+		entry.door.slab:SetAttribute("ToolLock", nil)
+		entry.door.slab:SetAttribute("WorkId", nil)
 		self.Doors:RefreshPrompt(entry.door)
 	end
 	if entry.hidden then

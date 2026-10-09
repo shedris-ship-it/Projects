@@ -446,7 +446,7 @@ Acceptance (the plan's): 0 stuck points and 0 "no way" on every seed, first door
 
 **Waiting on the owner**: TC-123 to TC-137 (`docs/TESTING.md`), and the finish line's three solo runs (frightened twice in the first ten minutes with no hunt; never wondering what to do next for more than two minutes; looking at him never ends a hunt by itself; start to dinner under 40 minutes with no F2). Then the Guest-AI rework and the look (the owner's choice, 2026-10-06).
 
-## 17. The first squad playtest (2026-10-08; builds `2026-10-08.131` to `.144`)
+## 17. The first squad playtest (2026-10-08; builds `2026-10-08.131` to `.146`)
 
 The owner ran the first squad playtest on build `.130` and sent 17 notes (physics sync was praised). The full record, one work package per build with its Studio evidence, is `docs/progress/2026-10-08-squad/REPORT.md`.
 
@@ -474,6 +474,13 @@ The owner ran the first squad playtest on build `.130` and sent 17 notes (physic
 
 **The bot, before and after:** see the REPORT.
 
+**The owner's solo playtest of `.145` (builds `.146`):** five more notes, all done (the REPORT's last section):
+- **One focus** (`Logic/FocusActions`, `HandsController:_resolveFocus`): E goes to the one thing you look at (the eye ray, else the prompt nearest the middle of your view within 7°); the only marker with words is its; furniture with a use of its own takes a tap of E for it and a hold for a push (the piano, the washing machine, hiding places). On a keyboard every E prompt gives up its key and always shows, so this fires the one you look at.
+- **Tools in hand:** the crowbar and the bolt cutters work their locks only in your hands: hold the click (or R) on the boards or the chain (`LockService:_workBegin`, the `ToolWork` remote). E on them only tries them.
+- **Real slits:** wardrobe, cabinet and locker doors have louvres at the hiding eye (`PropFactory` ventedLeaf), and the eye sits a stud behind them (Roblox draws nothing within half a stud). The drawn-on slits are gone for those (beds, tables and curtains keep theirs).
+- **Barricades that hold and burst:** furniture pushed into an open door shuts the door ahead of it; a doorway barred says so; he bangs harder and harder, then the door flies open and the furniture flies into the room to a fair spot (`PushService:Burst`, `_landing`), knocking aside anyone in its path (the owner's choice: knocked back, never downed).
+- **Puzzles lit and heard** (the owner's choice): a shaded lamp over each station till it's solved, and a sound of its own the first time anyone comes near (`PuzzleService:_signpost`, `_tell`).
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.
@@ -485,6 +492,7 @@ The owner ran the first squad playtest on build `.130` and sent 17 notes (physic
 - **Crowding him** (2026-10-08): only standing in his face (3.5 studs, looking) or following him as he backs away fills it; a walk past never does. The first time is a scare that never downs; only a second within 3 minutes is a grab. Never in a hunt, at the table, or for the hidden, the downed, the just-revived or the safe.
 - **Peeking** (2026-10-08): he notices only a peek he can see for 0.8 s, within 14 studs, facing it, at tier 2 or in a hunt. He never sees through a hiding place's doors.
 - **Beats and the disguise** (2026-10-08) never down anyone. A disguise is always his real body under the look, for one player alone, and falls away within 12 studs.
+- **A burst barricade** (2026-10-08): the bangs and the burst never down anyone. A flung piece lands only where a pushed one could stand: clear of walls and furniture, of every doorway and his walking points, on its floor, never on anyone; anyone in its path is knocked aside out of it before it lands. The delay is the shove's (8 s at most).
 - **Tidying:** only while he and the heirloom are both unseen and nobody is within 20 studs, never in a hunt or the dinner, and only back to where it was found (a puzzle never re-locks).
 - **At the table** he's visible to everyone, follows the watch rules, can't reach any place (ContactRadius + 2) and leaves after 120 s.
 - **Two-person locks:** a crank door never drops on a body and can always be latched from inside; the dumbwaiter never strands an item; a power door never re-locks.

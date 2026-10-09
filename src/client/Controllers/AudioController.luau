@@ -145,9 +145,14 @@ function AudioController:Start()
 	end)
 	-- Sounds the server asks for (doors, the stalker): played here so the
 	-- sliders, wall muffling and rolloff apply (Lib/Sfx).
-	Net.get("Sfx").OnClientEvent:Connect(function(key, position, volume, pitch)
+	Net.get("Sfx").OnClientEvent:Connect(function(key, position, volume, pitch, caption)
 		if type(key) == "string" and typeof(position) == "Vector3" then
 			self:PlayAt(key, position, tonumber(volume), tonumber(pitch), self:_behindWall(position))
+			-- (A puzzle's sound of its own: said to whoever's near enough to hear it.)
+			local camera = workspace.CurrentCamera
+			if type(caption) == "string" and camera and (camera.CFrame.Position - position).Magnitude < 45 then
+				self:Caption(caption)
+			end
 		end
 	end)
 

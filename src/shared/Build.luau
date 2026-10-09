@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-08.145",
-	note = "key 4 no longer bound (three slots), stale slot-4 comments",
+	id = "2026-10-08.146",
+	note = "the solo playtest: one focus for E, tools in hand, real louvres, barricades that burst, puzzles lit and heard",
 }

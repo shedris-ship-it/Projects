@@ -65,6 +65,7 @@ function PushService:Init(services)
 	self.PlayerState = services.PlayerStateService
 	self.Noise = services.NoiseService
 	self.Stalker = services.StalkerService
+	self.Doors = services.DoorService
 	self.pieces = {} -- prop id -> piece
 	self.moving = {} -- piece -> true while someone pushes it (or it coasts)
 end
@@ -143,6 +144,7 @@ function PushService:_setup(world)
 				riders = {},
 				scrapedAt = 0,
 				velocity = Vector3.zero,
+				home = prop.frame, -- where the house put it (a flung piece may land back there)
 				barring = {}, -- seam id -> true while it bars that doorway
 			}
 		end
@@ -437,7 +439,7 @@ end
 -- open far enough to walk through (it stops against the piece), or by a
 -- piece that then bars the doorway; an open door's leaf (it doesn't collide
 -- while open) is kept clear.
-function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3): boolean
+function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3, nudge: boolean?): boolean
 	local world = self.World.World
 	for _, node in piece.navNear or {} do
 		local p = node.p
@@ -460,9 +462,17 @@ function PushService:_keepsClear(piece, from: CFrame, to: CFrame, size: Vector3)
 			and onDoorFloor(to, door)
 			and gap(to, size, Vector3.new(hinge.X, to.Y + 1, hinge.Z)) < DOOR_LENGTH + P.DoorClear
 		then
-			if door.open then
-				local at = door.state.value
-				if self:_doorRoom(piece, to, door, at) < at - 1 and self:_doorRoom(piece, from, door, at) >= at - 1 then
+			local at = door.state.value
+			if door.open or at > D.LatchAngle then
+				local room = self:_doorRoom(piece, to, door, at)
+				if room < at - 1 and self:_doorRoom(piece, from, door, at) >= at - 1 then
+					-- It pushes the door shut ahead of it (the owner's solo
+					-- playtest, 2026-10-08: a table pushed at an open door
+					-- stuck short of it and never blocked it). The door gives
+					-- as far as the piece lets it; the piece goes on as it does.
+					if nudge then
+						self.Doors:Nudge(door, room - 1.5)
+					end
 					return false
 				end
 			else
@@ -647,6 +657,19 @@ function PushService:_setBar(piece, seam, on: boolean)
 		local _, side = laneOf(seam, piece.prop.frame.Position)
 		piece.barring[seam.id] = true
 		seam.barricades[piece.id] = { piece = piece, side = side }
+		-- Pushed into place: it lands against the doorway with a thud, and
+		-- whoever pushed it is told it's barred (the owner's solo playtest,
+		-- 2026-10-08, couldn't tell whether the table blocked the door).
+		local told = false
+		for player in piece.pushers do
+			if player.Parent then
+				Net.get("Notify"):FireClient(player, "The doorway's barred.", "good")
+				told = true
+			end
+		end
+		if told then
+			Sfx.play("Thud", seam.floorPosition + Vector3.new(0, 2, 0), 0.7, 0.85)
+		end
 	else
 		piece.barring[seam.id] = nil
 		seam.barricades[piece.id] = nil
@@ -774,6 +797,17 @@ function PushService:Shove(piece, seam, from: Vector3): boolean
 		return false
 	end
 	self:_gather(piece)
+	local step = self:_shoveStep(piece, seam, from)
+	if not step then
+		return false
+	end
+	self:_slide(piece, step)
+	return true
+end
+
+-- How far a shove from `from` moves it clear of the doorway, or nil if every
+-- way is blocked.
+function PushService:_shoveStep(piece, seam, from: Vector3): Vector3?
 	local frame = piece.prop.frame
 	local lane, side = laneOf(seam, frame.Position)
 	local mine = (from - seam.floorPosition):Dot(flat(seam.normal).Unit) >= 0 and 1 or -1
@@ -787,12 +821,286 @@ function PushService:Shove(piece, seam, from: Vector3): boolean
 				and not self:_barsAt(piece, frame + step, seam.id)
 				and self:_clearAlong(piece, frame, step)
 			then
-				self:_slide(piece, step)
-				return true
+				return step
 			end
 		end
 	end
-	return false
+	return nil
+end
+
+-- He's at the barricade (Stalker/Walker), banging to get through: each blow
+-- louder as he nears the end of his patience (`progress` 0 to 1). The pieces
+-- shudder in the doorway, the door rattles in its frame, and everyone near
+-- feels it (Controllers/GuestController: the view shakes, the lights blink).
+function PushService:Bang(seam, progress: number)
+	local entries = seam and seam.barricades
+	if not entries then
+		return
+	end
+	local at = seam.floorPosition + Vector3.new(0, 3.5, 0)
+	local F = B.Fling
+	local strength = F.BangStrength[1] + (F.BangStrength[2] - F.BangStrength[1]) * math.clamp(progress, 0, 1)
+	Sfx.play("DoorBang", at, math.min(1, 0.7 + strength * 0.3), 0.85 - strength * 0.2)
+	Sfx.play("Thud", at, 0.6 + strength * 0.3, 0.7)
+	self.Noise:Emit(at, B.BangNoise * (1 + strength), nil, "slam")
+	for _, entry in entries do
+		local piece = entry.piece
+		if piece.model.Parent and not piece.shoving then
+			-- A shudder into the room and back: seen, not moved.
+			local lane = laneOf(seam, piece.prop.frame.Position)
+			local jolt = Vector3.new(lane.ix, 0, lane.iz) * (0.12 + 0.18 * strength)
+			local before = table.create(#piece.parts)
+			local after = table.create(#piece.parts)
+			for i, p in piece.parts do
+				before[i] = p.CFrame
+				after[i] = p.CFrame + jolt
+			end
+			Workspace:BulkMoveTo(piece.parts, after, Enum.BulkMoveMode.FireCFrameChanged)
+			task.delay(0.09, function()
+				if piece.model.Parent and not piece.shoving then
+					Workspace:BulkMoveTo(piece.parts, before, Enum.BulkMoveMode.FireCFrameChanged)
+				end
+			end)
+		end
+	end
+	local door = seam.door
+	if door and door.state and not door.open and not door.locked then
+		self.Doors:Rattle(door, 2 + 4 * strength)
+	end
+	Net.get("GuestEvent"):FireAllClients({ kind = "bang", position = at, strength = strength })
+end
+
+-- He bursts through (the owner's solo playtest, 2026-10-08: "when he's
+-- trying to get through a door that's blocked he bangs on it really hard and
+-- loudly and after a delay the door flies open and the furniture blocking it
+-- flies across the room"). Each piece barring `seam` is flung away from him
+-- into its room, to a spot it can fairly land on: clear of walls and other
+-- furniture, of every doorway and of his walking points, on the same floor,
+-- never on anyone. Anyone in its path is knocked back (the owner's choice:
+-- knocked back and staggered, never downed). One with nowhere to land is
+-- shoved clear as before. Then the door slams open. Returns whether every
+-- piece moved.
+function PushService:Burst(seam, from: Vector3): boolean
+	local entries = seam and seam.barricades
+	if not entries then
+		return false
+	end
+	local all = true
+	local pieces = {}
+	for _, entry in entries do
+		table.insert(pieces, entry.piece)
+	end
+	for _, piece in pieces do
+		if not self:_fling(piece, seam, from) and not self:Shove(piece, seam, from) then
+			all = false
+		end
+	end
+	local at = seam.floorPosition + Vector3.new(0, 3.5, 0)
+	Sfx.play("DoorSlam", at, 1, 0.8)
+	Sfx.play("Thud", at, 1, 0.6)
+	self.Noise:Emit(at, B.BangNoise * 2.5, nil, "slam")
+	Net.get("GuestEvent"):FireAllClients({ kind = "burst", position = at })
+	local door = seam.door
+	if door then
+		task.delay(0.08, function()
+			if not door.open and not door.locked then
+				self.Doors:SetOpen(door, true, nil, true)
+			end
+		end)
+	end
+	return all
+end
+
+-- Where a flung piece lands: away from him into its room, as far as its
+-- weight lets it fly, turning aside if it must; or back where the house
+-- first put it (always fair, unless something stands there now). Nil if
+-- nowhere will do.
+function PushService:_landing(piece, seam, from: Vector3): Vector3?
+	local world = self.World.World
+	local F = B.Fling
+	local frame = piece.prop.frame
+	local lane = laneOf(seam, frame.Position)
+	local into = Vector3.new(lane.ix, 0, lane.iz)
+	-- Away from him, mostly into the room.
+	local away = flat(frame.Position - from)
+	local dir = (away.Magnitude > 0.1 and (away.Unit + into * 2) or into).Unit
+	local heavy = math.clamp((piece.weight - 1) / 2, 0, 1)
+	local reach = F.Distance[2] + (F.Distance[1] - F.Distance[2]) * heavy
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { piece.model, table.unpack(piece.riders) }
+	local bodies = self:_bodies()
+	local function fits(to: CFrame): boolean
+		if next(solids(piece, to)) ~= nil then
+			return false
+		end
+		-- Not through a wall: a ray at waist height to where it lands meets
+		-- nothing but furniture (it flies over that).
+		local start = frame.Position + Vector3.new(0, 1.5, 0)
+		local hit = Workspace:Raycast(start, to.Position + Vector3.new(0, 1.5, 0) - start, params)
+		if hit and hit.Instance.CollisionGroup ~= Groups.Heavy and not isCharacter(hit.Instance) then
+			return false
+		end
+		-- On a floor (not over the stairs or the hall's gallery).
+		local down = Workspace:Raycast(to.Position + Vector3.new(0, 1, 0), Vector3.new(0, -2.5, 0), params)
+		if not down or math.abs(down.Position.Y - frame.Y) > 0.6 then
+			return false
+		end
+		for _, body in bodies do
+			if over(to, piece.size, body, 0.7) then
+				return false
+			end
+		end
+		-- Never across any doorway, or on his walking points.
+		for id, other in world.seams do
+			if
+				other.connected
+				and math.abs(other.floorPosition.Y - frame.Y) < 4
+				and flat(other.floorPosition - to.Position).Magnitude < 14
+				and self:_barsAt(piece, to, id)
+			then
+				return false
+			end
+		end
+		for _, node in piece.navNear or {} do
+			if over(to, piece.size, node.p, P.KeepClear) then
+				return false
+			end
+		end
+		return true
+	end
+	for _, turn in F.Turns do
+		local heading = CFrame.Angles(0, math.rad(turn), 0):VectorToWorldSpace(dir)
+		local distance = reach
+		while distance >= F.Distance[1] do
+			local to = frame + heading * distance
+			if fits(to) then
+				return to.Position
+			end
+			distance -= 1
+		end
+	end
+	local home = piece.home
+	if home and flat(home.Position - frame.Position).Magnitude >= 2 and math.abs(home.Y - frame.Y) < 0.5 then
+		local to = CFrame.new(home.X, frame.Y, home.Z) * frame.Rotation
+		if fits(to) then
+			return to.Position
+		end
+	end
+	return nil
+end
+
+-- Fling a piece clear of the doorway (Burst): it flies in an arc, tipping as
+-- it goes, and lands square where _landing said. Riders go with it.
+function PushService:_fling(piece, seam, from: Vector3): boolean
+	if not piece.model.Parent or piece.shoving or self:_occupied(piece) then
+		return false
+	end
+	self:_gather(piece)
+	local frame = piece.prop.frame
+	local landing = self:_landing(piece, seam, from)
+	-- Nowhere far: it still flies, as far as a shove would take it.
+	local step = landing and Vector3.new(landing.X - frame.X, 0, landing.Z - frame.Z)
+		or self:_shoveStep(piece, seam, from)
+	if not step or step.Magnitude < 0.05 then
+		return false
+	end
+	local F = B.Fling
+	-- A short throw stays low.
+	local height = F.Height * math.clamp(step.Magnitude / F.Distance[2], 0.35, 1)
+	local heading = step.Unit
+	local axis = heading:Cross(Vector3.yAxis)
+	local centre = frame.Position + Vector3.new(0, piece.size.Y / 2, 0)
+	piece.shoving = true
+	piece.velocity = Vector3.zero
+	-- Everything that flies, where it started.
+	local parts = table.clone(piece.parts)
+	for _, rider in piece.riders do
+		for _, d in rider:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
+		end
+	end
+	local starts = table.create(#parts)
+	for i, p in parts do
+		starts[i] = p.CFrame
+	end
+	self:_knock(piece, frame.Position, step)
+	task.spawn(function()
+		local began = os.clock()
+		while true do
+			local t = math.clamp((os.clock() - began) / F.Seconds, 0, 1)
+			if not piece.model.Parent then
+				break
+			end
+			-- Up and over, tipping forward and back down square.
+			local lift = 4 * height * t * (1 - t)
+			local tip = math.sin(math.pi * t) * F.Tip
+			local move = CFrame.new(centre + step * t + Vector3.new(0, lift, 0))
+				* CFrame.fromAxisAngle(axis, -tip)
+				* CFrame.new(-centre)
+			local cframes = table.create(#parts)
+			for i, start in starts do
+				cframes[i] = move * start
+			end
+			Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+			if t >= 1 then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+		-- Square where it landed: put everything back where it started and
+		-- move it there the usual way (its hiding spots, riders, joints and
+		-- what it bars all follow).
+		if piece.model.Parent then
+			Workspace:BulkMoveTo(parts, starts, Enum.BulkMoveMode.FireCFrameChanged)
+			self:_move(piece, step)
+			self.Furniture:Settle(piece.model)
+			for _, rider in piece.riders do
+				self.Furniture:Settle(rider)
+			end
+			local at = piece.prop.frame.Position
+			Sfx.play("Thud", at, 1, 0.7)
+			Sfx.play("CreakAlt", at, 0.8, 0.55)
+		end
+		piece.shoving = nil
+	end)
+	return true
+end
+
+-- Anyone in a flung piece's path (and on its floor) is knocked aside out of
+-- it, and staggered, the moment its leading edge reaches them (Controllers/
+-- ActionController). Aside, not along: along it, it would land on them.
+function PushService:_knock(piece, from: Vector3, step: Vector3)
+	local F = B.Fling
+	local length = step.Magnitude
+	local heading = step.Unit
+	local reach = math.max(piece.size.X, piece.size.Z) / 2 + F.KnockMargin
+	-- How far its leading edge is ahead of its middle, flying this way.
+	local frame = piece.prop.frame
+	local lead = math.abs(heading:Dot(frame.RightVector)) * piece.size.X / 2
+		+ math.abs(heading:Dot(frame.LookVector)) * piece.size.Z / 2
+	for _, player in Players:GetPlayers() do
+		local root = self.PlayerState:Root(player)
+		if root and self.PlayerState:IsActive(player) and math.abs(root.Position.Y - from.Y - 3) < 4 then
+			local offset = flat(root.Position - from)
+			local along = offset:Dot(heading)
+			local side = offset - heading * along
+			if along > -0.5 and along < length + reach and side.Magnitude < reach then
+				local delay = F.Seconds * math.clamp((along - lead) / math.max(length, 0.1), 0, 1)
+				local aside = side.Magnitude > 0.2 and side.Unit or Vector3.new(-heading.Z, 0, heading.X)
+				local push = (aside * 0.9 + heading * 0.35).Unit
+				task.delay(delay, function()
+					if player.Parent and self.PlayerState:IsActive(player) then
+						self.PlayerState:MarkTeleport(player)
+						Net.get("Knockback"):FireClient(player, push * F.Knock, F.Stagger)
+						Sfx.play("Thud", root.Position, 0.9, 1.1)
+					end
+				end)
+			end
+		end
+	end
 end
 
 -- Nothing in the way of a shove, every stud of it.
@@ -876,7 +1184,7 @@ function PushService:_try(piece, step: Vector3): boolean
 			return false
 		end
 	end
-	if not self:_keepsClear(piece, from, to, size) then
+	if not self:_keepsClear(piece, from, to, size, true) then
 		return false
 	end
 	self:_move(piece, step)
@@ -892,6 +1200,9 @@ function PushService:_move(piece, step: Vector3)
 	for _, spot in piece.spots do
 		spot.insideCFrame += step
 		spot.peekCFrame += step
+		if spot.tuckCFrame then
+			spot.tuckCFrame += step
+		end
 		spot.frontPosition += step
 	end
 	for _, rider in piece.riders do
@@ -1003,6 +1314,22 @@ function PushService:DebugBarricade(player: Player, mode: string?, pieceId: stri
 			)
 		end
 		return table.concat(lines, "; ")
+	elseif mode == "burst" then
+		-- As if he were on the far side of the nearest barricade: three
+		-- blows, then he bursts through (stand behind it to be knocked back).
+		if not nearest then
+			return "no barricade within 12 studs"
+		end
+		local p = nearest.floorPosition
+		local from = Vector3.new(2 * p.X - here.X, p.Y, 2 * p.Z - here.Z)
+		task.spawn(function()
+			for i = 1, 3 do
+				self:Bang(nearest, i / 3)
+				task.wait(B.BangEvery)
+			end
+			self:Burst(nearest, from)
+		end)
+		return "bang, bang, bang, then the burst"
 	end
 	local lines = {}
 	for id, seam in world.seams do

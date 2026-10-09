@@ -874,7 +874,7 @@ function BotService:_door(step): (boolean, string?)
 				break
 			end
 			task.wait((work.seconds or 1.5) + 0.3)
-			services.LockService:_try(entry.door, player, "prompt")
+			services.LockService:_try(entry.door, player, "work")
 		end
 	end
 	task.wait(1.2)
@@ -943,7 +943,7 @@ function BotService:_piece(step): (boolean, string?)
 		if entry.open or not self.active then
 			break
 		end
-		services.LockService:_tryPiece(step.piece, self.player)
+		services.LockService:_tryPiece(step.piece, self.player, "work")
 		task.wait((work.seconds or 1.5) + 0.3)
 	end
 	if not entry.open then

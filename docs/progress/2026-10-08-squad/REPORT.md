@@ -1,6 +1,6 @@
 # The first squad playtest: the fixes (2026-10-08)
 
-Branch `claude/overnight-foundation`, builds `2026-10-08.131` to `.144`, from `2026-10-06.130`.
+Branch `claude/overnight-foundation`, builds `2026-10-08.131` to `.146`, from `2026-10-06.130`.
 
 The owner ran the first squad playtest on build `.130` and sent 17 notes. Physics sync was praised. The rest are fixed here, one work package (WP) per build. The plan is in section 17 of `docs/plans/gameplay-rework.md`.
 
@@ -403,3 +403,123 @@ What it says:
   - the torch in a fully dark room (it was checked in a corridor and a big room).
 - **By ear:** the scream, the two music stems, the whoosh, the piano's keys against the box.
 - **The question that matters most:** after a real night, "did it ever feel like it cheated?", especially the sprint-fast chase and the crowding grab.
+
+## The owner's solo playtest of `.145` (build `.146`)
+
+The owner played `.145` alone in Studio and sent five notes. They also asked for two decisions (2026-10-08):
+- **Puzzle signposts:** "Lit and heard".
+- **A piece flung at you:** "Knocks you back".
+
+Midway, about the locker: "I was thinking that the locker itself would have slits you can see through, I don't want it to just be an overlay on the screen."
+
+(Before this, the owner had seen the fourth slot again. They had joined the **published** game, still build `.130`, through the Roblox app. Nothing here was published: that's theirs to do, from Studio's File → Publish to Roblox.)
+
+### 1. "Doors next to light switches override the door"
+
+**Why:** E's choice was two systems at once.
+- My aim ray handled the door when it hit the door.
+- Anywhere else (its frame, past reach) E fell back to whichever prompt Roblox was showing. Roblox picks the prompt nearest the middle of the screen, and that was the switch.
+- Every prompt also got a marker of its own, so a door by a switch showed two.
+
+**Now: one focus.**
+- **What has your focus.** `HandsController:_resolveFocus` takes what your eye ray hits. Failing that, it takes the prompt nearest the middle of your view, within 7°, judged to the nearest point of its part (`Config.Focus.Cone`). A switch is small; a door is not. A note or a place at the table right by your aim (3.5°) wins over the furniture under it.
+- **What tap and hold do.** `Logic/FocusActions` (pure, 14 tests) decides:
+  - a door or drawer: tap opens or shuts it, hold drags it;
+  - furniture with a use of its own (the piano, the washing machine): tap uses it, hold pushes it;
+  - a hiding place: tap hides you, hold pushes it;
+  - a long prompt (setting the table, the shrine): hold E is that, and the mouse pushes;
+  - a small thing: tap picks it up (the music box: hold winds it).
+- **How E fires it.** On a keyboard every E prompt gives up its key and always shows (Style Custom: nobody draws it), so E fires the one you look at, never Roblox's pick. Only prompts Roblox is showing are offered, since one it isn't can't be fired.
+- **The markers.** One marker has words, the focus's. Other things you could use within 10 studs get a faint ring.
+- **Gamepad and touch** keep Roblox's prompts as before.
+- **Two traps found in Studio:**
+  - Roblox drops instance keys from weak tables while the instance lives on. The list of claimed prompts emptied, and switching to the keyboard claimed nothing. It's a plain table now, emptied as prompts are destroyed.
+  - A hiding place's prompt sat on a helper part 2.5 studs off the floor. Close to a locker it was below the screen, so Roblox never showed it and E opened the locker's door instead. It now hangs on an attachment at the top of that part (no part moved).
+- **Where else this hit:** in `.145` E on any furniture was a push, so the piano, the washing machine and the dryer could only be pushed. Fixed by the same rules.
+
+**Studio, seeds 61 and 18:**
+- E at a door's frame beside the switch opened the door; E at the switch worked the switch, once.
+- "Piano · E Play · Hold E Push": E opened the piano.
+- "Locker · E Hide · Hold E Push": E hid me.
+
+### 2. "Boltcutters and items like that should be held in the hand to be used"
+
+- **Now:** the crowbar and the bolt cutters work their locks only from your hands. With one out (its slot), look at the boards or the chain and hold the click, or R.
+  - The marker says "Hold click Pry". With the tool in another slot it says "2 Take the crowbar".
+- **On the server:** `LockService:_workBegin` checks the tool is in your hands and that you're within 7 studs. Each stroke takes the lock's seconds; holding on goes on to the next plank, and letting go loses only the stroke under way.
+- **In your hands:** the crowbar levers and the cutters bite (`ViewModelController`); the marker's hairline fills with each stroke.
+- **E on them** only tries them: "Take the crowbar in your hands, then hold the click on it."
+- **Chests** nailed or chained shut work the same way.
+- **The bot** still uses the server path (`how` "work").
+- **Studio, seed 61:**
+  - R held with the crowbar out took the planks off ("A board screeches and comes away. 2 to go.") and opened the door.
+  - The Studio test tool's mouse clicks never reach the game's click binding (they arrive as a Cancel), so the click itself is the owner's to try. It runs the same code as R.
+
+### 3. "It would be cooler if you could see out of locker slits"
+
+**First attempt (dropped):** I hid the doors in front of your eye for you alone and kept the slits drawn on the screen. The owner said no to an overlay.
+
+**Now: real louvres.**
+- Wardrobe, cabinet and locker doors have a band of tilted slats at the hiding eye (5.6 studs up): `PropFactory` `ventedLeaf`, used by the locker and `cupboard`.
+- From outside you see the dark gaps; from inside you look out between the slats themselves. Nothing is drawn over the screen for these (beds, tables and curtains keep their drawn views).
+- The eye sits a full stud behind the doors: Roblox draws nothing within half a stud of the camera, and the old eye point (0.15 behind) made the doors vanish.
+- **Gate A re-baselined under the standing OK:** parts 2224, hash 1008106368, on two fresh runs (was 2152, 1995746720).
+  - All 72 new parts are the louvred doors: 2 locker doors at +4 each and 8 cupboard doors at +8 each.
+- **Studio, seed 61:**
+  - From the mudroom locker's eye, slats cross the view with the lit room between them.
+  - The cabinet's doors show their louvres from outside.
+
+Also fixed: the hiding hint ran off its box ("...hold SPACE to hold your"). It's now "Right click: peek · SPACE: hold breath · E: leave". And a pushed hiding place's eye point now moves with it (`PushService:_move`).
+
+### 4. "Table got stuck ... couldn't block the door completely" and the burst
+
+**Why it stuck:** pushed furniture may never enter an open door's swing, so a table pushed at an open door stopped short, and the doorway stayed open.
+
+**Now:**
+- **Furniture shuts the door ahead of it.** The door gives as far as the piece lets it (`DoorService:Nudge`), and the piece goes on as it does. Pushed into place, the doorway says so: "The doorway's barred."
+  - Studio: the kitchen table, pushed at the open kitchen door, swung it shut over about six seconds and ended up barring the doorway.
+- **The bangs** (`PushService:Bang`): each blow heavier than the last.
+  - The pieces shudder in the doorway and the door jumps in its frame.
+  - Anyone within 30 studs feels it: the view shakes, and close by the lights near you blink.
+  - The caption reads "[something pounds on the barricade]".
+- **The burst** (`PushService:Burst`): the door slams open and each piece flies into the room in an arc, tipping, and lands square.
+  - **Where it lands** (`_landing`): only where a pushed piece could stand: clear of walls and furniture, every doorway and his walking points, on its floor, never on anyone. Failing that, back where the house first put it. Failing that, a short throw to where the old shove went.
+  - **Anyone in its path** is knocked aside out of it as its leading edge reaches them: a 0.22 s push and a 0.9 s stagger, never a down (the owner's choice).
+  - The caption reads "[the door bursts open]".
+- **The delay is unchanged:** 3–6 s by weight, ×0.8 in a hunt, never more than 8 s.
+- **F2 `barricade burst`** plays three blows and the burst at the nearest barricade, as if he were on its far side.
+- **Studio, seed 61:**
+  - The kitchen table barring a doorway took three blows, then flew about 13 studs back to its own place in an arc (its top rose 2.3 studs).
+  - I stood behind it and was knocked sideways into the wall beside me.
+
+### 5. "The piano puzzle still feels super unintuitive ... no indicator"
+
+**The piano:** E on it now plays it (above), and so does the washing machine. In `.145` it only pushed.
+
+**Puzzles lit and heard** (the owner's choice):
+- **The lamp.** A shaded lamp hangs from the ceiling over each puzzle: the piano, the computer, the fuse box, the safe, the dumbwaiter.
+  - It's a warm pool of light in a dark room, plus a faint glow round the bulb so it reads from across the room (`Config.PuzzleLamp`).
+  - Solved, its lamp goes out with a click, so the lamps still lit are the puzzles left.
+- **The sound.** The first time anyone comes into its room within 18 studs, it makes a sound of its own, captioned:
+  - "[a piano key sounds, on its own]"
+  - "[a computer beeps]"
+  - "[a fuse box crackles]"
+  - "[a click, from a safe's dial]"
+  - "[the dumbwaiter's rope creaks]"
+
+  `Lib/Sfx.play` takes an optional caption for this.
+- **Studio, seed 18:** walking into the music room gave the piano's caption. The piano stood in its own light: the wall behind, the sheet and the key stickers lit, the bulb glowing.
+
+### The bot (seed 61, solo, after everything above)
+
+Out at 4:55: the same 13 steps, 0 failed, 0 stuck points, 8 waits for him, 0 downs. The boarded door was opened through the new work path ("toolDoor ... ok in 14.6s"). No console errors.
+
+### Not checked in Studio
+
+- **By ear:** the bangs and the burst. The flight was checked by numbers, not watched in motion: the Studio test tool is too slow to film a half-second flight.
+- **By hand:** the click on the boards (above).
+- **Two players:**
+  - a second player watching a burst from the far side;
+  - a friend seeing the louvres from outside while someone hides.
+
+**New tests:** TC-187 to TC-196.

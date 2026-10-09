@@ -5,7 +5,7 @@ Two layers: automated tests for the pure game logic, which run anywhere with Lun
 ## Automated
 
 ```sh
-lune run tests/run        # 504 tests in 77 specs (about 90-150 s; 2-4 minutes while Studio runs)
+lune run tests/run        # 518 tests in 78 specs (about 90-150 s; 2-4 minutes while Studio runs)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint: undefined globals, unused variables, shadowing…
 ```
@@ -211,6 +211,16 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-184 | Walking past is safe | Walk past him in a corridor at a walk: nothing happens (he may step aside). Only standing in his face or following him does |
 | TC-185 | Scares he sets up | F2 `beat behind`, `beat hand`, `beat dark`: he's behind you when you turn (a breath first); his hand at your shoulder; the lights blink and he's closer. None of them downs you. Frightening? Ever unfair? |
 | TC-186 | His disguise (three clients) | `drift 70`, act 3 (or F2 `disguise <friend>`): player A alone; player B far off. A sees B standing 25–45 studs away: no light, no name, silent, head tipped wrong. Walk to it: within 12 studs it's him. Did A believe it was B? Which tell gave it away? |
+| TC-187 | One focus (the solo playtest, 2026-10-08) | A door with a light switch beside it: look at the door (or its frame) and tap E: the door opens, the switch doesn't. Look at the switch: E works the switch. Only the thing you look at has a marker with words; other things close by show a faint ring |
+| TC-188 | The piano by E | Look at the piano: "Piano · E Play · Hold E Push". Tap E: the piano opens. Hold E and walk: you push it |
+| TC-189 | Hiding by E | A wardrobe, a cabinet or a locker: "E Hide · Hold E Push"; tap E and you're in. Hold E and walk: you push it. Its doors still swing with the mouse |
+| TC-190 | The washing machine and other furniture with a use | Look at the washing machine: E starts it (it used to only push) |
+| TC-191 | Tools in hand | Carry the crowbar in a slot, not in your hands: the boarded door's marker says "2 Take the crowbar". Take it out: "Hold click Pry". Hold the click (or R) on the boards: the crowbar levers in your hands, a plank comes away each stroke while you hold, the door opens at the last. Let go mid-stroke: that stroke is lost, the planks already off stay off. Same for the bolt cutters and a chain, and for a nailed or chained chest. E on it only tries it ("Take the crowbar in your hands...") |
+| TC-192 | Real slits | Look at a locker, a wardrobe or a cabinet: a band of louvres at head height. Hide in it: you look out between the real slats (nothing drawn over the screen). A friend outside sees the dark gaps. Is the view through them good? |
+| TC-193 | Pushing furniture into an open door | Open a door into a room and push a table at it: the door swings shut ahead of the table, and the table ends up barring the doorway ("The doorway's barred."). Does it feel right? |
+| TC-194 | The bangs | Barricade a door and let him come (or F2 `barricade burst` standing behind it): three or more blows, each heavier; the furniture shudders, the door jumps in its frame, your view shakes if you're near, "[something pounds on the barricade]" |
+| TC-195 | The burst | After the blows: the door slams open, the furniture flies into the room in an arc and lands square, somewhere fair (never across a doorway or where he walks); "[the door bursts open]". Standing in its path you're knocked aside and stagger for a second, never downed. Frightening? Ever unfair? |
+| TC-196 | Puzzles lit and heard | Every puzzle (the piano, the computer, the fuse box, the safe, the dumbwaiter) has a shaded lamp hanging over it, lit, in a dark room. The first time you come into its room it makes a sound of its own ("[a piano key sounds, on its own]", "[a computer beeps]"...). Solved, its lamp goes out. Did you notice the puzzles sooner? |
 | TC-89 | The run's journal and Marks | Finish or lose a run: the Dossier's THE HOUSE lists, with times, who opened which door and who solved which puzzle, who carried each heirloom and who set it, how often he put things back, when each act began, how many hunts, and the closest call while carrying. Marks: about +10 per region opened and per puzzle solved and +15 per hunt survived, won or lost. Output shows `[Consensus:event]` lines for each (RegionEntered, LockOpened, PuzzleSolved, HeirloomTaken, HeirloomSet, ActBegan, HuntStarted, Tidied, LeadRead, Smashed, CrankRaised) |
 | TC-44 | EXIT sign and plant | The EXIT door's sign is a band of crisp red letters across the top of the door, clear of the lower panels and the knob. Plants are a pot with a short stem and about nine thin blade leaves that stay inside the pot's 2-stud footprint: no leaf pokes into a wall, shelf or closet, and there is no speckled green ball |
 
