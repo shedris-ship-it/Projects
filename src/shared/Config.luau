@@ -1694,8 +1694,9 @@ Config.Push = {
 -- pushed furniture otherwise keeps clear of): Logic/Barricade.
 Config.Barricade.NodeClear = Config.Push.KeepClear
 
--- Your hands (docs/plans/gameplay-rework.md section 4): slot 4, and the torch
--- clipped to your shirt while you hold anything but it.
+-- Your hands (docs/plans/gameplay-rework.md section 4; from any slot since the
+-- squad playtest, 2026-10-08), and the torch clipped to your shirt while you
+-- hold anything but it.
 Config.Hands = {
 	-- Weak and short: enough to see what you're doing, not to search a room
 	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.

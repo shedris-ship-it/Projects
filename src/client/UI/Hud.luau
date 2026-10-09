@@ -1,5 +1,5 @@
 -- The HUD is deliberately small (doc section 8): a Focus ring, what is in your
--- hands (the four slots are UI/Hotbar) and the squad. There is no crosshair (UI/FocusMarkers marks what you
+-- hands (the three slots are UI/Hotbar) and the squad. There is no crosshair (UI/FocusMarkers marks what you
 -- look at). Drift is never a bar; you read it from the world, and from one word.
 
 local Players = game:GetService("Players")

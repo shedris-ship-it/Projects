@@ -1,8 +1,8 @@
 -- Tools (doc section 6; owner, 2026-10-04): the Lantern and the Radio are
--- found around the house, not picked in the hub. Each player has four slots
+-- found around the house, not picked in the hub. Each player has three slots
 -- (Logic/Inventory): slot 1 is the flashlight, always, 2 and 3 hold found
--- tools, 4 is bare hands, one thing in your hands at a time (anything but the
--- torch clips it to your shirt). This service owns the inventories, the
+-- tools (an empty one is a free hand), one thing in your hands at a time
+-- (anything but the torch clips it to your shirt). This service owns the inventories, the
 -- pickups lying on tables, what each tool does, and Lantern shrines (which
 -- make a room safe to rest in). The Witness Camera and the Plumb Line
 -- retired with the clue loop (R2c).

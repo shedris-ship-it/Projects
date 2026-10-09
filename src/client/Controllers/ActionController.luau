@@ -2,9 +2,9 @@
 -- through ContextActionService so every action gets a mobile button.
 --
 --   R  use tool               F  flashlight
---   1 2 3 4 or wheel  choose a slot (1 torch, 4 hands)   X  put the tool down
---   Shift  sprint             G  hold for pings    C  callouts
---   Tab  map                  E  doors / hide / revive (prompts)
+--   1 2 3 or wheel  choose a slot (1 torch)   X  put the tool down
+--   Shift  sprint             G  hold for pings    C  callouts   Ctrl  crouch
+--   Tab  map                  E  open, pick up, hold to drag (HandsController); prompts
 --   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
 --   Space (hidden)  hold breath                    E (hidden)  leave
 --   F1  settings              F2  debug overlay (Studio)
@@ -90,9 +90,10 @@ function ActionController:Start()
 		end
 	end, true, "Light", Enum.KeyCode.F, Enum.KeyCode.DPadUp)
 
-	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools, 4 is
-	-- your bare hands. The server decides; these only ask.
-	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four } do
+	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools (the
+	-- fourth, bare hands, went with the squad playtest, 2026-10-08). The
+	-- server decides; these only ask.
+	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three } do
 		self:_bind("ConsensusSlot" .. slot, function(inputState)
 			-- Not while a screen is up: the piano's keys are 1 to 8 too, and
 			-- a slot change put down the music box you'd carried to it.
