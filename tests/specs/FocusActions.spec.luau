@@ -22,6 +22,17 @@ return function(test, check, Shared, require)
 		check.equal(h.id, 1)
 	end)
 
+	test("the wall safe: a short prompt on its door (the dial) is the tap", function()
+		local tap, hold, t = kinds({
+			kind = "piece",
+			pieceAction = "Open",
+			prompts = { { id = "dial", action = "Work the dial", hold = 0 } },
+		})
+		check.equal(tap, "prompt")
+		check.equal(t.id, "dial")
+		check.equal(hold, "drag", "the mouse still swings it")
+	end)
+
 	test("the piano: tap plays it, hold pushes it", function()
 		local tap, hold, t = kinds({
 			kind = "pushable",

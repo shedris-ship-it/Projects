@@ -356,12 +356,10 @@ function FocusMarkers:_focusRows(focus, hands)
 	end
 	local lock = focus.toolLock
 	if lock and hands then
-		local name, where = hands:ToolFor(lock)
-		if where == "held" then
+		local _, where = hands:ToolFor(lock)
+		if where ~= "none" then
+			-- In your hands, or a slot's (holding the click takes it up).
 			table.insert(rows, { key = "Hold click", text = lock.action })
-		elseif where ~= "none" then
-			-- In a slot, not your hands: the slot's key.
-			table.insert(rows, { key = where, text = "Take the " .. string.lower(name) })
 		end
 	end
 	return rows

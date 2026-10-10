@@ -273,7 +273,7 @@ function DoorService:_step(door, dt: number)
 		if not Articulation.passable(state) then
 			door.slab.CanCollide = true
 		end
-		door.prompt.ActionText = state.target >= D.PassAngle and "Close" or "Open"
+		self:_labelSwing(door)
 		self:_dragStopped(door)
 		if now - (door.bumpedAt or 0) > 1 then
 			door.bumpedAt = now
@@ -358,7 +358,7 @@ function DoorService:Drag(door, degrees: number, player: Player, release: number
 		door.heldUntil = now + H.HoldSeconds
 	end
 	self.moving[door] = true
-	door.prompt.ActionText = state.target >= D.PassAngle and "Close" or "Open"
+	self:_labelSwing(door)
 	return ok
 end
 
@@ -375,7 +375,7 @@ function DoorService:SetAngle(door, degrees: number, rate: number?): boolean
 	local ok = Articulation.drive(door.state, degrees)
 	door.slamRate = rate
 	self.moving[door] = true
-	door.prompt.ActionText = door.state.target >= D.PassAngle and "Close" or "Open"
+	self:_labelSwing(door)
 	return ok
 end
 
@@ -726,6 +726,17 @@ function DoorService:SetLocked(door, locked: boolean)
 		if locked then
 			self:_unbolt(door)
 		end
+	end
+end
+
+-- What its prompt says as it swings: Open or Close, or, while it's locked,
+-- what its lock says (a hidden door's "Search" gave itself away as "Open"
+-- after a rattle: the progression audit, 2026-10-10).
+function DoorService:_labelSwing(door)
+	if door.locked then
+		self:RefreshPrompt(door)
+	else
+		door.prompt.ActionText = door.state.target >= D.PassAngle and "Close" or "Open"
 	end
 end
 

@@ -825,7 +825,9 @@ function HandsController:ToolWork(on: boolean): boolean
 	-- What you look at now, as you press (not last frame's).
 	local focus = self:_resolveFocus()
 	local lock = focus and focus.toolLock
-	if not lock or player:GetAttribute(PA.Tool) ~= lock.tool then
+	-- In your hands or in a slot (the server takes it into your hands).
+	local where = lock and select(2, self:ToolFor(lock)) or "none"
+	if not lock or where == "none" then
 		self:_note("tool: " .. (focus and focus.kind or "no focus") .. (lock and " wrong tool" or " no lock"))
 		return false
 	end

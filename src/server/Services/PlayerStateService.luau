@@ -26,6 +26,10 @@ local PlayerStateService = {
 }
 
 local records: { [Player]: any } = {}
+-- Where each player last stood, kept a while after they leave: what they
+-- carried is dropped there even when their character is already gone (the
+-- progression audit, 2026-10-10: a leaver's keys and tools were lost).
+local lastSeen: { [Player]: Vector3 } = {}
 
 function PlayerStateService:Init(services)
 	self.services = services
@@ -99,6 +103,9 @@ function PlayerStateService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		local record = records[player]
 		records[player] = nil
+		task.delay(10, function()
+			lastSeen[player] = nil
+		end)
 		if record and record.inRun then
 			self.StateChanged:Fire(player, "Left")
 		end
@@ -120,6 +127,12 @@ function PlayerStateService:Start()
 		end
 		local step = accumulator
 		accumulator = 0
+		for _, player in Players:GetPlayers() do
+			local root = self:Root(player)
+			if root then
+				lastSeen[player] = root.Position
+			end
+		end
 		self:_bodies(step)
 		self:_tick(step)
 	end)
@@ -228,6 +241,12 @@ end
 function PlayerStateService:Root(player: Player): BasePart?
 	local character = player.Character
 	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
+-- Where they stand, or where they last stood (gone, or leaving).
+function PlayerStateService:LastPosition(player: Player): Vector3?
+	local root = self:Root(player)
+	return root and root.Position or lastSeen[player]
 end
 
 function PlayerStateService:Head(player: Player): BasePart?

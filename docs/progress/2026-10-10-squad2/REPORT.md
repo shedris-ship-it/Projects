@@ -1,6 +1,6 @@
 # The second squad playtest: the fixes (2026-10-10)
 
-Branch `claude/overnight-foundation`, builds `2026-10-10.148` to `.150`, from `2026-10-09.147` (published that day).
+Branch `claude/overnight-foundation`, builds `2026-10-10.148` to `.151`, from `2026-10-09.147` (published that day).
 
 The owner ran a squad playtest (three players, then two) and sent notes plus a tester's answers to the post-playtest questions. The verdict: "like Resident Evil", but players wandered without knowing what to look for, never needed each other, and found the Guest too present and easy to mess with. Run 1 ended with everyone Lost.
 
@@ -74,6 +74,38 @@ Checked in Studio on seed 2 for two (F2 `squad 2`): both levers built with clean
 The first version made things worse. His "far" roam keeps about 45 studs from the nearest player and favours rooms where an unfound heirloom lies, which is where the squad is heading. So in a lull he hovered at the edge of sight. In a lull he now goes to the room furthest from everyone, up to `LullFar` (120 studs), with nothing drawing him back (`Stalk:_farPoint(away)`). The fast bot plays its whole night inside the five-minute intro, so it can't show whether he feels rarer later in a night: that's TC-212. Waits for him vary from 0 to 39 by house in earlier reports; this house is one of the high ones with or without the lull.
 
 **Not checked by Claude:** anything with two clients (TC-204, TC-211, TC-215), the hold-click on tools (TC-207), and whether the Guest now feels rarer and deadlier (TC-212 to TC-214: the fast bot never leaves the five-minute intro).
+
+## Build `.151`: the progression audit
+
+The owner, after the playtest stalled at a chained door: "I just want to make sure all the progression systems work." The bot can't catch input bugs: it opens doors and solves puzzles from the server. So every lock and puzzle was checked twice, once by plan and once by real inputs.
+
+**Every plan can be finished.** `tools/completable` builds houses exactly as a run does (Logic/HouseSize for squads 1-4, Normal and Hard, the full and the short night, every one of HouseSearch's 12 candidates) and walks each plan as the bot does, to the table and out of the front door. Result: **3,840 houses, 0 that can't be finished**, with every lock kind (key, double, padlock, power, crank, boards, chain, levers, pocket, bolt, hidden) and every puzzle (fuse box, computer, safe, music box, dumbwaiter, levers). `Completable.spec` keeps 64 of them in the test suite.
+
+**Every mechanism through a player's own keys** (Studio, one client, on seeds 1800820264, 6, 3 and 11 solo and for four):
+
+| Mechanism | Checked | Result |
+| --- | --- | --- |
+| Key door | took the key off a rack with E, E on its door | opened |
+| Chain (bolt cutters) | cutters in slot 2, torch in hand, hold R on the door | the cutters came into the hands; cut |
+| Nailed fridge (crowbar, a wing step) | crowbar in a slot, hold R | pried open; the planks lie on the floor |
+| Crank door, alone | Q (ratchet), hold E | raised |
+| Twin levers, alone | hold E on one, let go, hold E on its twin | opened |
+| Bolt | E from its own side | opened |
+| Hidden panel | E from the room side | found and opened |
+| Padlock | E on its door | its wheels' screen |
+| Fuse box, computer, piano | E | their screens |
+| Music box | E | wound; its tune strip played |
+| Dumbwaiter | hold E on its crank | the car rose to the upper floor |
+| Wall safe | painting aside with E, E on the safe | **broken, fixed**: its screen now opens |
+| The table | walked up carrying an heirloom | set (build `.148`) |
+
+**Fixed:**
+- **The wall safe couldn't be opened on a keyboard.** Its "Work the dial" prompt is on the safe's door, and E on a door-like piece always did the piece's own open/shut. The door is locked until solved, so E only rattled it. This has been the case since the one-focus change (`.146`). Now a quick prompt on a piece takes the tap (`Logic/FocusActions`, spec). The only other such prompt, the open/shut of furniture you hide in, does the same thing either way.
+- **A tool in a slot did nothing at its lock.** The cutters only worked while in your hands, so carrying them in slot 2 and holding the click just rattled the door. That's a likely second cause of the playtest's stall, besides the click bug. Now holding the click or R on the lock takes the tool from whichever slot carries it (`ToolService:Equip`, `LockService:_workBegin`), and the marker says "Hold click" whenever you carry it.
+- **A leaver's keys and tools could vanish.** Drops needed the character, which may already be gone when a player leaves. Now they fall where the player last stood (`PlayerStateService:LastPosition`).
+- **Locked doors' labels.** Any small swing (a rattle, a door nudged ajar) relabelled a locked door "Open", so a hidden panel's "Search" gave itself away and locked doors stopped saying "Try" (`DoorService:_labelSwing`).
+
+Not checkable here: the held click itself (the MCP's clicks reach the game only as a cancel, so R stood in, which runs the same code), entering a code on the padlock's wheels, and anything with two players.
 
 ## For later
 

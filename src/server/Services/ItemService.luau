@@ -960,7 +960,8 @@ function ItemService:DropKeys(player: Player, ring)
 	if not self.plan then
 		return
 	end
-	local position = self.PlayerState:Position(player)
+	-- (Where they last stood, if their character is already gone.)
+	local position = self.PlayerState:LastPosition(player)
 	if not position then
 		return
 	end

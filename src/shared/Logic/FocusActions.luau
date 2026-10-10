@@ -82,9 +82,13 @@ function FocusActions.choose(target)
 	elseif target.kind == "piece" then
 		-- A door or a drawer: tap to open or shut it (its own prompt's job),
 		-- hold to take hold of it. A long prompt on it (picking a lock, a
-		-- crank) is the hold instead; the mouse still drags.
+		-- crank) is the hold instead; the mouse still drags. A short prompt
+		-- on it (the wall safe's dial, on the safe's door) is the tap: it's
+		-- what the piece is for (the progression audit, 2026-10-10: E only
+		-- rattled the locked safe door, so the safe couldn't be opened).
 		local held = first(prompts, true)
-		return { kind = "tap", text = target.pieceAction or "Open" },
+		local short = first(prompts, false)
+		return short and promptAction(short) or { kind = "tap", text = target.pieceAction or "Open" },
 			held and promptAction(held) or { kind = "drag", text = "Drag" }
 	elseif target.kind == "pushable" or target.hideSpot then
 		-- Furniture: its own short prompt is the tap (the piano's Play, the

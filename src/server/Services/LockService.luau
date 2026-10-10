@@ -889,7 +889,9 @@ function LockService:_workBegin(player: Player, id: string)
 	end
 	local info = ToolLocks.Kinds[target.lock.kind]
 	local tools = self.services.ToolService
-	if not (tools and tools:Holds(player, info.tool)) then
+	-- Carried in a slot and not in your hands: it comes into them (a playtest
+	-- stalled at a chained door with the cutters in slot 2: 2026-10-10).
+	if not (tools and tools:Equip(player, info.tool)) then
 		return
 	end
 	local at = door and door.door.position or piece.anchor.Position

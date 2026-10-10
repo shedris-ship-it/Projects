@@ -321,6 +321,13 @@ end
 function ToolService:_putDown(player: Player, item)
 	local root = self.PlayerState:Root(player)
 	if not root then
+		-- Gone already (left the game): on the floor where they last stood,
+		-- never lost (a planned tool can be the only way through a door).
+		local last = self.PlayerState:LastPosition(player)
+		if last then
+			local feet = Vector3.new(last.X, self.World:FloorBase(last.Y), last.Z)
+			self:_makePickup(item, CFrame.new(feet), Rng.new(Rng.hash(item.uid)):NextNumber(0, math.pi * 2))
+		end
 		return
 	end
 	local character = player.Character
@@ -522,6 +529,25 @@ end
 function ToolService:Holds(player: Player, toolId: string): boolean
 	local inv = inventories[player]
 	return inv ~= nil and Inventory.toolId(inv) == toolId
+end
+
+-- Into your hands from whichever slot carries it (a tool lock worked with the
+-- tool in a slot: the progression audit, 2026-10-10). Returns whether it's held.
+function ToolService:Equip(player: Player, toolId: string): boolean
+	if self:Holds(player, toolId) then
+		return true
+	end
+	local inv = inventories[player]
+	if not inv then
+		return false
+	end
+	for slot, id in Inventory.ids(inv) do
+		if id == toolId then
+			self:SelectSlot(player, slot)
+			return self:Holds(player, toolId)
+		end
+	end
+	return false
 end
 
 function ToolService:NameOf(toolId: string): string
