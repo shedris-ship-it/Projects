@@ -1105,6 +1105,7 @@ Config.Guest = {
 	-- out of everyone's sight this long (Stalk:_choose), by tier: he roams far
 	-- off, minds his errands, follows a lure.
 	Lull = { { 40, 70 }, { 30, 55 }, { 20, 40 } },
+	LullFar = 120, -- in a lull he roams to the room furthest from everyone, up to this far (studs)
 	StareBackAwaySeconds = 4, -- tier 2: watched this long up close, he backs off
 	StareBackAwayRange = 16,
 	PeekHoldSeconds = { 6, 14 },

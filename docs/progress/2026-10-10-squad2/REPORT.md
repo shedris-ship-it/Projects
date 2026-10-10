@@ -1,6 +1,6 @@
 # The second squad playtest: the fixes (2026-10-10)
 
-Branch `claude/overnight-foundation`, builds `2026-10-10.148` and `.149`, from `2026-10-09.147` (published that day).
+Branch `claude/overnight-foundation`, builds `2026-10-10.148` to `.150`, from `2026-10-09.147` (published that day).
 
 The owner ran a squad playtest (three players, then two) and sent notes plus a tester's answers to the post-playtest questions. The verdict: "like Resident Evil", but players wandered without knowing what to look for, never needed each other, and found the Guest too present and easy to mess with. Run 1 ended with everyone Lost.
 
@@ -61,6 +61,17 @@ The "walking past never counts" rule and its spec still hold.
 - Specs: `Levers.spec` (the timings), `LeverPlans.spec` (never solo; the far lever in another room, a walk away; most squad houses have a team lock).
 
 Checked in Studio on seed 2 for two (F2 `squad 2`): both levers built with clean consoles; screenshots of both; solo, the door's lever caught and stayed lit amber, its twin pulled in time opened the door. `botrun fast` solved the levers and went on (see below).
+
+**The lull, measured (build `.150`).** `botrun fast` on seed 2 for two, three times on the same house: the lull as first built, no lull, then the lull with the fix:
+
+| | first lull | no lull | lull, fixed (`.150`) |
+| --- | --- | --- | --- |
+| out in | 5:47 | 4:46 | 4:44 |
+| waits for him | 45 | 36 | 33 |
+| parked | 1:15 | 0:55 | 1:05 |
+| sightings | 9 | 6 | 6 |
+
+The first version made things worse. His "far" roam keeps about 45 studs from the nearest player and favours rooms where an unfound heirloom lies, which is where the squad is heading. So in a lull he hovered at the edge of sight. In a lull he now goes to the room furthest from everyone, up to `LullFar` (120 studs), with nothing drawing him back (`Stalk:_farPoint(away)`). The fast bot plays its whole night inside the five-minute intro, so it can't show whether he feels rarer later in a night: that's TC-212. Waits for him vary from 0 to 39 by house in earlier reports; this house is one of the high ones with or without the lull.
 
 **Not checked by Claude:** anything with two clients (TC-204, TC-211, TC-215), the hold-click on tools (TC-207), and whether the Guest now feels rarer and deadlier (TC-212 to TC-214: the fast bot never leaves the five-minute intro).
 

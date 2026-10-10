@@ -440,8 +440,9 @@ end
 -- hunt is waking (Stalker/Director:Arm) he drifts towards where the squad
 -- went: he heard them, and he's coming to meet them. And he visits his
 -- things: rooms where heirlooms nobody has found yet are kept. Returns the
--- point, and the room when it's one of those.
-function Stalk:_farPoint(): (Vector3?, number?)
+-- point, and the room when it's one of those. In a lull (`away`) he simply
+-- goes far: the room furthest from everyone, nothing drawing him back.
+function Stalk:_farPoint(away: boolean?): (Vector3?, number?)
 	local worldService = self.services.WorldService
 	local director = self.service.director
 	local armed = director and director.armedRooms
@@ -452,11 +453,15 @@ function Stalk:_farPoint(): (Vector3?, number?)
 		local d = self.service:_minPlayerDistance(point)
 		if d >= 30 and self.body:Fits(point) then
 			local score = -math.abs(d - 45) + self.rng:NextNumber(0, 15)
-			if armed and armed[id] then
-				score += Config.Pacing.ProwlBonus
-			end
-			if haunts[id] then
-				score += Config.Scent.HauntBonus
+			if away then
+				score = math.min(d, G.LullFar) + self.rng:NextNumber(0, 10)
+			else
+				if armed and armed[id] then
+					score += Config.Pacing.ProwlBonus
+				end
+				if haunts[id] then
+					score += Config.Scent.HauntBonus
+				end
 			end
 			if score > bestScore then
 				best, bestScore, bestHaunt = point, score, haunts[id] and id or nil
@@ -516,8 +521,8 @@ local function relocate(self, move, now)
 end
 
 MOVES.DistantRoam = {
-	start = function(self, move)
-		move.goal, move.haunt = self:_farPoint()
+	start = function(self, move, ctx)
+		move.goal, move.haunt = self:_farPoint(ctx ~= nil and ctx.now < self.lullUntil)
 		return move.goal ~= nil
 	end,
 	update = function(self, move, now)
