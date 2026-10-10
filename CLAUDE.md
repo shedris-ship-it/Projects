@@ -60,7 +60,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (518 as of 2026-10-08; about 90-150 s, 2-4 minutes while Studio runs)
+lune run tests/run        # unit tests (525 as of 2026-10-10; about 90-150 s, 2-4 minutes while Studio runs)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -172,7 +172,8 @@ The agreed plan, in order:
      - **his sight stops at the doors:** a pane solid to him behind each louvre band (his rays skip non-solid parts, and the slats are); he finds you by seeing you get in (`Config.Hide.SeenGoingIn`), a light he's looking at, hearing you, or opening it.
      - **Gate A re-baselined (standing OK): parts 2235, hash 1016524583.**
 
-     518 tests. Waiting on the owner: TC-158 to TC-201 (several need 2–3 clients), the scream and music by ear (`Assets.luau` lists alternatives), and publishing (the Roblox app still runs `.130`).
+     518 tests. Waiting on the owner: TC-158 to TC-201 (several need 2–3 clients), the scream and music by ear (`Assets.luau` lists alternatives), and publishing (done 2026-10-10: `.147`).
+   - **The second squad playtest (2026-10-10; builds `2026-10-10.148` to `.149`; `docs/progress/2026-10-10-squad2/REPORT.md`).** Root cause of three notes: ProximityPrompts are clickable by default, so clicks fired whatever prompt showed (`ClickablePrompt` off on a keyboard; the hands' click passes while a screen is up; notes close on any click). Also: readying during the countdown joins the squad; the table's cards name what each place wants (facing the setter), a dark shadow of it on the plate, carrying one up sets it (`FinaleService:_autoSet`), the objective names what's still wanted once the table's been seen; the map one floor at a time; doors ajar give when walked into (`DoorService:_shoulder`); speech reuses Roblox's voice listener (a second one doubled every voice). The owner's decisions: **team puzzles, solo-safe** (built: **twin levers**, `Logic/Puzzles/Levers`, `server/Puzzles/Levers`, `Config.Levers`; crank doors and levers drawn more for squads), **the Guest rarer and deadlier** (`Config.Guest.Lull` after every sighting, longer gaps, crowding counted sooner and remembered 7 min, `ChaseLead` 1.1), **his animations after the fixes** (next, with the owner watching). 525 tests. Waiting on the owner: TC-202 to TC-217.
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)

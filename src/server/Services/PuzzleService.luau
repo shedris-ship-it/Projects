@@ -316,6 +316,7 @@ local TELLS = {
 	breaker = { sound = "Snap", volume = 0.6, pitch = 0.5, caption = "[a fuse box crackles]" },
 	safe = { sound = "LockClick", volume = 0.7, pitch = 0.8, caption = "[a click, from a safe's dial]" },
 	dumbwaiter = { sound = "Creak", volume = 0.7, pitch = 0.7, caption = "[the dumbwaiter's rope creaks]" },
+	levers = { sound = "DoorLatch", volume = 0.6, pitch = 0.6, caption = "[an iron lever clanks]" },
 }
 
 local function lampPart(model: Model, name: string, size: Vector3, cframe: CFrame, color: Color3, material)

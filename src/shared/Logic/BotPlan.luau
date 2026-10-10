@@ -26,6 +26,9 @@ local LockPlanner = require(script.Parent.LockPlanner)
 
 local BotPlan = {}
 
+-- Doors their puzzle opens for good when it's solved: nothing to carry there.
+local SELF_OPENING = { power = true, levers = true }
+
 local function sortedKeys(t)
 	local keys = {}
 	for k in t or {} do
@@ -109,7 +112,7 @@ function BotPlan.next(plan, state)
 	for _, seamId in sortedKeys(plan.locks) do
 		local lock = plan.locks[seamId]
 		local seam = seams[seamId]
-		if seam and not opened[seamId] and lock.needs and not lock.optional and lock.kind ~= "power" then
+		if seam and not opened[seamId] and lock.needs and not lock.optional and not SELF_OPENING[lock.kind] then
 			local ready = true
 			for _, need in lock.needs do
 				ready = ready and had[need] == true
@@ -317,9 +320,10 @@ function BotPlan.walk(plan, seams, startRooms, maxSteps: number?)
 			else
 				state.had[step.token] = true
 			end
-			-- A power door opens itself once its breaker is solved.
+			-- A power door opens itself once its breaker is solved (a levers
+			-- door once its levers are pulled together).
 			for seamId, lock in plan.locks do
-				if lock.kind == "power" and lock.needs and lock.needs[1] == step.token then
+				if SELF_OPENING[lock.kind] and lock.needs and lock.needs[1] == step.token then
 					state.opened[seamId] = true
 					local seam = seams[seamId]
 					if seam then

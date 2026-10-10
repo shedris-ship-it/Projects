@@ -25,6 +25,7 @@ local LOCKS = {
 	power = "powered the door to %s",
 	bolt = "slid the bolt on %s",
 	crank = "cranked up the door to %s",
+	levers = "pulled the twin levers for %s",
 }
 local PUZZLES = {
 	terminal = "the home computer",
@@ -33,6 +34,7 @@ local PUZZLES = {
 	safe = "the safe",
 	musicbox = "the music box",
 	dumbwaiter = "the dumbwaiter",
+	levers = "the twin levers",
 }
 
 local RunLogService = {}

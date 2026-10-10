@@ -21,4 +21,5 @@ return {
 	safe = require(Puzzles.Safe),
 	musicbox = require(Puzzles.MusicBox),
 	dumbwaiter = require(Puzzles.Dumbwaiter),
+	levers = require(Puzzles.Levers),
 }

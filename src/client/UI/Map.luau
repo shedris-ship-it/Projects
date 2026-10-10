@@ -42,6 +42,7 @@ local DOORS = {
 	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
 	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },
 	crank = { color = Color3.fromRGB(180, 150, 120), tag = "CRANK" },
+	levers = { color = Color3.fromRGB(210, 170, 90), tag = "2 LEVERS" },
 	-- Tool locks (docs/plans/level-design.md section 11, L3.3).
 	boards = { color = Color3.fromRGB(150, 110, 70), tag = "BOARDS" },
 	chain = { color = Color3.fromRGB(160, 160, 170), tag = "CHAIN" },
@@ -54,6 +55,7 @@ local MARKS = {
 	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
 	tunebox = { text = "MUSIC BOX", color = Color3.fromRGB(220, 190, 230) },
 	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
+	levers = { text = "LEVER", color = Color3.fromRGB(210, 170, 90) },
 	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
 	-- A step's chest or fridge, chained or nailed shut (its label says which).
 	piece = { text = "SHUT", color = Color3.fromRGB(170, 160, 150) },

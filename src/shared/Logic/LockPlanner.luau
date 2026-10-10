@@ -229,6 +229,15 @@ LockPlanner.Where = {
 	end,
 	-- A lived-in room for a wall safe behind a painting: a bedroom, the
 	-- study, the den... (not the hall or the dining room).
+	-- The far lever: any room but a corridor, a stair or the hall.
+	levers = function(ctx, id)
+		local template = ctx.templatesById[ctx.byId[id].template]
+		return template ~= nil
+			and not ctx.corridor[id]
+			and template.id ~= "grand_hall"
+			and template.id ~= "foyer"
+			and template.family ~= "stair"
+	end,
 	homely = function(ctx, id)
 		local template = ctx.templatesById[ctx.byId[id].template]
 		return template ~= nil
@@ -295,6 +304,21 @@ LockPlanner.Gates = {
 	-- A heavy shutter raised by a crank on its outer side (Services/
 	-- CrankService): nothing to find, two people (or a slow, loud ratchet).
 	{ id = "crank", side = true },
+	-- Twin levers (the squad playtest, 2026-10-10; Logic/Puzzles/Levers): one
+	-- by the door, its twin in another room already open; both down together
+	-- opens it. Two of you at once, or one alone on the levers' catch (slow,
+	-- loud). Its weight comes from the squad's size (none alone).
+	{
+		id = "levers",
+		token = "levers",
+		puzzle = "levers",
+		where = "levers",
+		side = true,
+		mansion = true,
+		label = function(name)
+			return "The levers for the " .. name .. " door"
+		end,
+	},
 	-- Two keyholes, two keys kept far apart (docs/plans/level-design.md
 	-- section 5.3): a squad of three or four splits up for them. Its weight
 	-- comes from the squad's size (Config.Mansion.BySquad).
@@ -1572,10 +1596,18 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 			end
 			if enabled[kind.id] and weight > 0 then
 				if kind.puzzle then
-					if not usedPuzzles[kind.puzzle] and plan.stats.puzzles < cfg.MaxPuzzles then
+					if
+						not usedPuzzles[kind.puzzle]
+						and plan.stats.puzzles < cfg.MaxPuzzles
+						and (ctx.mansion or not kind.mansion)
+					then
 						local rooms = {}
 						for _, id in ctx.ids do
 							local fits = id ~= ctx.dining and LockPlanner.Where[kind.where](ctx, id)
+							-- (The far lever never in the door's own room.)
+							if kind.id == "levers" and id == outer then
+								fits = false
+							end
 							if fits and position[roomRegion[id]] < index then
 								table.insert(rooms, id)
 							end
@@ -1697,6 +1729,21 @@ local function attempt(ctx, rng, cfg, k: number, wings)
 				for _, id in choice.rooms do
 					if seen(roomRegion[id]) then
 						table.insert(suited, id)
+					end
+				end
+				if kind.id == "levers" and walk then
+					-- The far lever a walk away from the door, out of sight of
+					-- it: too far to run between in a squad's moment.
+					local L = cfg.LeverApart or { 35, 160 }
+					local apart = {}
+					for _, id in #suited > 0 and suited or choice.rooms do
+						local studs = walk[id]
+						if studs and studs >= L[1] and studs <= L[2] then
+							table.insert(apart, id)
+						end
+					end
+					if #apart > 0 then
+						suited = apart
 					end
 				end
 				plan.puzzles[puzzleId] = {

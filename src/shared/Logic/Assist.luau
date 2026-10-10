@@ -134,6 +134,7 @@ local STATIONS = {
 	musicbox = "the piano",
 	crank = "the crank",
 	dumbwaiter = "the dumbwaiter",
+	levers = "the lever",
 	display = "the glass case",
 	padlock = "the padlock",
 }

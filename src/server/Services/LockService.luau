@@ -241,7 +241,8 @@ local function plate(door, lock)
 			p.Size = Vector3.new(1.4, 0.18, 0.12)
 			p.CFrame = face * CFrame.new(0.3, 1.2, side * 0.06)
 			p.Color = Color3.fromRGB(70, 70, 74)
-		elseif lock.kind == "power" then
+		elseif lock.kind == "power" or lock.kind == "levers" then
+			-- (Twin levers' lamp too: green once both are down.)
 			p.Size = Vector3.new(0.5, 0.8, 0.16)
 			p.CFrame = face * CFrame.new(0, 0.6, side * 0.08)
 			p.Color = Color3.fromRGB(80, 84, 82)
@@ -1269,6 +1270,16 @@ function LockService:_try(door, player: Player?, how: string?)
 			"An electric lock"
 				.. (mark and (" with " .. mark .. " on it") or "")
 				.. ". The lamp by it is dark: no power."
+		)
+	elseif lock.kind == "levers" then
+		-- Twin levers (server/Puzzles/Levers): nothing to carry.
+		self:_rattle(door)
+		local mark = aMark(lock)
+		notify(
+			player,
+			"A heavy bolt"
+				.. (mark and (" with " .. mark .. " on it") or "")
+				.. ". A lever beside the door works it, and the plate says it has a twin."
 		)
 	elseif lock.kind == "hidden" then
 		-- A servants' passage's door (docs/plans/level-design.md section 10.4):

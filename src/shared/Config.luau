@@ -331,6 +331,9 @@ Config.Mansion = {
 			wingSteps = { 0, 0 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
 			mansion = { RearCorridorChance = 0.3, TurnChance = 0.25, StackChance = 0.2 },
+			-- Two of you: locks that want you both (the squad playtest,
+			-- 2026-10-10), solo-safe if one of you is lost.
+			flavours = { levers = 2, crank = 2 },
 		},
 		-- Three or four: one door may want two keys from two far rooms.
 		{
@@ -341,7 +344,7 @@ Config.Mansion = {
 			maxTools = 2,
 			wingSteps = { 0, 1 },
 			storeys = { cellar = 1, attic = 1 },
-			flavours = { double = 1.5 },
+			flavours = { double = 1.5, levers = 2, crank = 2 },
 		},
 		{
 			rooms = { 19, 22 },
@@ -351,7 +354,7 @@ Config.Mansion = {
 			maxTools = 2,
 			wingSteps = { 1, 2 },
 			storeys = { cellar = 1, attic = 1 },
-			flavours = { double = 1.5 },
+			flavours = { double = 1.5, levers = 2, crank = 2 },
 		},
 	},
 	Lattice = 10,
@@ -1014,6 +1017,7 @@ Config.Guest = {
 	-- with long gaps between them, and only these ways of showing himself.
 	Intro = {
 		Gap = { 35, 60 }, -- seconds unseen after each sighting (Tier1Cooldown otherwise)
+		Lull = { 45, 75 }, -- the lull after a sighting (Lull otherwise)
 		PeekHold = { 2, 4 }, -- a peek held this long, at most (PeekHoldSeconds otherwise)
 		MinDistance = 30, -- never nearer than this (PeekMinDistance otherwise)
 		Moves = {
@@ -1090,10 +1094,17 @@ Config.Guest = {
 	CreepSpeedWatched = 0.7, -- tier 3, while one Witness stares at him
 	BackAwaySpeed = 3.5,
 	BackAwayMaxSeconds = 10,
-	ChaseLead = 0.7, -- seconds ahead of a fleeing player he can see that he runs for
+	ChaseLead = 1.1, -- seconds ahead of a fleeing player he can see that he runs for (was 0.7: a loop round a table lost him)
 	ZoomSpeed = 55, -- the yank out of sight
 	SpottedFleeSeconds = 0.45, -- tier 1: how long you see him before he's gone
-	Tier1Cooldown = { 14, 30 }, -- tier 1: quiet between appearances
+	-- Rarer and deadlier (the squad playtest, 2026-10-10, the owner's choice:
+	-- "he's too prevalent and you can still just go up to him"): fewer
+	-- appearances, each one counting, and getting in his face costs sooner.
+	Tier1Cooldown = { 30, 55 }, -- tier 1: quiet between appearances (was 14-30)
+	-- Seen and backed off (a yank, a withdraw, a duck, backing away), he keeps
+	-- out of everyone's sight this long (Stalk:_choose), by tier: he roams far
+	-- off, minds his errands, follows a lure.
+	Lull = { { 40, 70 }, { 30, 55 }, { 20, 40 } },
 	StareBackAwaySeconds = 4, -- tier 2: watched this long up close, he backs off
 	StareBackAwayRange = 16,
 	PeekHoldSeconds = { 6, 14 },
@@ -1129,18 +1140,18 @@ Config.Guest = {
 	-- in his face, or following him as he backs away, for CrowdSeconds and he
 	-- turns on you (a scare); again within GrabWindow and he grabs you (a down).
 	CrowdRadius = 3.5, -- in his face: this close...
-	CrowdFacing = 40, -- ...looking at him, within this many degrees
+	CrowdFacing = 50, -- ...looking at him, within this many degrees (was 40)
 	FollowRadius = 7, -- following him as he backs away: this close, closing in
-	FollowRate = 0.7, -- (fills a little slower than standing in his face)
+	FollowRate = 1, -- (as fast as standing in his face; was 0.7)
 	CrowdSeconds = 1.2,
-	GrabWindow = 180,
+	GrabWindow = 420, -- the scare is a warning that holds this long (was 180)
 	ConfrontSeconds = 2.6, -- the scare: he leans in, your lights die, he's gone
 	ConfrontBlind = 1.4, -- ...he goes this far in, while your lights are out
 	ConfrontRadius = 30, -- the lights that die round you
 	GrabWindup = 0.5, -- the grab's tell: a rasp, and he reaches
 	-- Scares he sets up on purpose (Logic/ScareBeats; the Director's
 	-- guestBeat card): for the player he has frightened least lately.
-	BeatGap = 150, -- at least this long since that player's last scare
+	BeatGap = 210, -- at least this long since that player's last scare (was 150)
 	BeatDownGap = 30, -- never right after someone went down near them
 	BehindDistance = { 4, 6 }, -- behind you: this far back, where you can't see
 	HandDistance = 2.2, -- his hand at your shoulder: this close behind, to one side
@@ -1338,7 +1349,8 @@ Config.Progression = {
 	-- section 11).
 	UnseenStation = 0.3,
 	DoorWeight = 3, -- a gate is a doorway with a door this many times more often
-	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0, boards = 1, chain = 0.7 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double by squad)
+	Flavours = { key = 3, padlock = 2, power = 2, crank = 1, double = 0, levers = 0, boards = 1, chain = 0.7 }, -- what kind of lock a gate gets (weights; Logic/LockPlanner.Gates; double and levers by squad)
+	LeverApart = { 35, 160 }, -- walking studs between twin levers (Config.Levers)
 	MaxTools = 2, -- tool kinds a house's tool locks use (docs/plans/level-design.md 11, L3.3; by squad)
 	-- Steps inside a wing (section 11, L3.4): a wing's prize behind boards or a
 	-- chain inside it, the tool across the wing or in its sibling. How many a
@@ -1378,6 +1390,7 @@ Config.Progression = {
 		crank = true,
 		dumbwaiter = true,
 		double = true,
+		levers = true,
 		boards = true,
 		chain = true,
 	},
@@ -1608,6 +1621,22 @@ Config.Crank = {
 	Reach = 6, -- studs from the crank or the latch to work it
 	Beside = 3.5, -- the crank this far past the door's edge (about 7 studs from the doorway's middle)
 	Clearance = 1.6, -- anyone this close to the doorway's line stops it dropping
+}
+
+-- Twin levers (Logic/Puzzles/Levers, server/Puzzles/Levers; the squad
+-- playtest, 2026-10-10): a door that opens only while both its levers are
+-- down, one by the door and its twin in another room.
+Config.Levers = {
+	Grace = 1.5, -- seconds a lever let go stays down, with two or more players left
+	SoloWalkSpeed = 10, -- one player left: the catch holds it for the walk at this speed...
+	SoloMargin = 5, -- ...plus this many seconds
+	MinApart = Config.Progression.LeverApart[1], -- walking studs between the twins at least (Logic/LockPlanner)...
+	MaxApart = Config.Progression.LeverApart[2], -- ...and at most
+	TickEvery = 0.5, -- on its catch it ticks this often...
+	TickNoise = 22, -- ...heard this far (by him too)
+	PullNoise = 10, -- pulled or let go: a clank, heard this far
+	Reach = 6, -- studs from a lever to work it
+	Beside = 2.4, -- the door's lever this far past the door's edge
 }
 
 -- The dumbwaiter (R2c; Logic/Dumbwaiter, server/Puzzles/Dumbwaiter): a

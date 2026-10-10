@@ -37,6 +37,20 @@ local function lanternNear(): boolean
 	return false
 end
 
+-- A twin lever within a few strides (server/Puzzles/Levers).
+local function leverNear(): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return false
+	end
+	for _, plate in CollectionService:GetTagged("ConsensusLever") do
+		if plate:IsA("BasePart") and (plate.Position - root.Position).Magnitude < 10 then
+			return true
+		end
+	end
+	return false
+end
+
 -- The piano's music box within a few strides (server/Puzzles/MusicBox).
 local function musicBoxNear(): boolean
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -135,6 +149,11 @@ local TIPS = {
 		id = "musicbox",
 		text = "A music box. Hold E to wind it: each note lights a coloured tooth on its comb. Remember the colours; something in this house wants that tune.",
 		when = musicBoxNear,
+	},
+	{
+		id = "levers",
+		text = "A lever with a twin somewhere else, wearing the same mark. Hold E on this one while a friend holds the other: both down at once opens its door. Alone, a lever catches and ticks while you run to its twin.",
+		when = leverNear,
 	},
 	{
 		id = "piano",

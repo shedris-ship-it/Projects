@@ -65,6 +65,10 @@ Objectives.Stations = {
 	dumbwaiter = function(room: string)
 		return "Something sits in the dumbwaiter in the " .. room .. "."
 	end,
+	-- Twin levers (the squad playtest, 2026-10-10): this one is the far one.
+	levers = function(room: string)
+		return "A lever in the " .. room .. " won't stay down on its own. Its twin is by a door."
+	end,
 }
 
 local NUMBERS = { "One", "Two", "Three", "Four", "Five" }
@@ -77,6 +81,7 @@ local DOORS = {
 	double = "is locked. It needs two keys.",
 	padlock = "has a padlock.",
 	power = "has no power.",
+	levers = "won't open. Its two levers must be down at once: one by the door, one elsewhere.",
 	pocket = "is locked.",
 	boards = "is boarded up.",
 	chain = "is chained shut.",

@@ -48,6 +48,8 @@ local HOST_FIXTURES = { Radio = true, Television = true, ["Record player"] = tru
 
 -- Tier 1, seen (Logic/GuestMood "seen"): his recoil.
 local RECOILS = { Yank = "Yank", Withdraw = "SlowWithdraw", Duck = "Duck" }
+-- Seen and gone: each starts the lull (Config.Guest.Lull).
+local LULLED = { Yank = true, SlowWithdraw = true, Duck = true, BackAway = true }
 
 local Stalk = {}
 Stalk.__index = Stalk
@@ -93,6 +95,7 @@ function Stalk.new(service)
 		presence = {}, -- player -> StalkRules.parkBudget state
 		makingWayFor = nil, -- the player he has stepped aside for ("after you")
 		withdrawUntil = 0,
+		lullUntil = 0, -- after he's been seen and backs off, he keeps out of sight till then
 		lostSince = nil,
 		sensedPos = nil, -- where he believes the target is (nil = lost them)
 		sensedSeen = false, -- ... and he can see them right now
@@ -120,6 +123,7 @@ function Stalk:_resetFor(world)
 		self.presence = {}
 		self.makingWayFor = nil
 		self.withdrawUntil = 0
+		self.lullUntil = 0
 		self.lostSince = nil
 	end
 end
@@ -2029,6 +2033,17 @@ function Stalk:_choose(ctx)
 	if ctx.known then
 		feasibility.Search = 0
 	end
+	-- The lull after a sighting (the squad playtest, 2026-10-10: "he's too
+	-- prevalent"; the owner's choice, rarer and deadlier): seen and backed
+	-- off, he keeps away from everyone for a while, at every tier, so each
+	-- time he shows himself counts. His errands and a lure still move him.
+	if ctx.tier >= 1 and ctx.now < self.lullUntil then
+		for id in aimed do
+			feasibility[id] = 0
+		end
+		feasibility.Search = 0
+		feasibility.DistantRoam = 1
+	end
 	-- A noise nobody made: worth a look while he's lost you, less so each
 	-- time he's been fooled lately.
 	if feasibility.Investigate > 0 then
@@ -2095,6 +2110,10 @@ function Stalk:_begin(id: string, ctx, scored)
 	self.move = move
 	self.lastUsed[id] = ctx.now
 	self.counts[id] = (self.counts[id] or 0) + 1
+	if LULLED[id] and ctx.tier >= 1 then
+		local range = G.Lull[math.clamp(ctx.tier, 1, 3)]
+		self.lullUntil = math.max(self.lullUntil, ctx.now + self:_introRange(range, "Lull"))
+	end
 	self.services.RunLogService:GuestMove(id)
 	local top = {}
 	for i = 1, math.min(3, scored and #scored or 0) do
