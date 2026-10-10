@@ -104,7 +104,7 @@ function HouseEventService:_ensureTelephone(rng)
 	end
 	for _, roomId in first do
 		local record = world.rooms[roomId]
-		local cf = self.services.ItemService:TopSpot(roomId, rng)
+		local cf = self.services.ItemService:TopSpot(roomId, rng, Config.Dressing.Sizes.Telephone)
 		if cf and record and record.model then
 			Dressing.telephone(record.model, cf)
 			self.phones = nil

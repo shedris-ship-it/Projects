@@ -418,8 +418,10 @@ function ToolService:_spawnWorldTools(rng, squadSize: number)
 	local surfaces = ToolPickups.surfaces(world, distances)
 	local supply = ToolPlacement.supply(squadSize, Tools.Supply, Config.Tools)
 	local placed = ToolPlacement.plan(rng, surfaces, supply, Tools.Homes, Config.Tools)
+	local size = Config.Dressing.Sizes.Tool
 	for _, entry in placed do
-		local spot = Dressing.claim(entry.surface.source)
+		-- (A long tool, turned a little: room for its length, else as ever.)
+		local spot = Dressing.claim(entry.surface.source, size[1], size[2]) or Dressing.claim(entry.surface.source)
 		if spot then
 			local item = { id = entry.tool, uid = newUid() }
 			self:_makePickup(item, spot, rng:NextNumber(-0.5, 0.5))
@@ -457,9 +459,11 @@ function ToolService:PlacePlanned(plan, rng)
 			end
 		end
 		local pool = #homes > 0 and homes or any
-		local spot = #pool > 0 and Dressing.claim(rng:Pick(pool).source) or nil
+		local size = Config.Dressing.Sizes.Tool
+		local source = #pool > 0 and rng:Pick(pool).source or nil
+		local spot = source and (Dressing.claim(source, size[1], size[2]) or Dressing.claim(source)) or nil
 		if not spot then
-			spot = CFrame.new(self.World:RandomPointIn(room, rng))
+			spot = CFrame.new(self.World:ClearFloorPoint(room, rng))
 		end
 		self:_makePickup({ id = token.tool, uid = newUid() }, spot, rng:NextNumber(-0.5, 0.5))
 	end

@@ -114,8 +114,7 @@ function MonitorService:Begin(rng)
 				if top then
 					return top
 				end
-				local point = self.World:RandomPointIn(id, rng)
-				return CFrame.new(point.X, self.World:FloorBase(point.Y), point.Z)
+				return CFrame.new(self.World:ClearFloorPoint(id, rng))
 			end
 			local transmitter = unit("BabyMonitor", spot(), self.World.content, Color3.fromRGB(230, 226, 214))
 			self.services.HandsService:AddThing(transmitter, Physical.Dressing.BabyMonitor)

@@ -192,9 +192,9 @@ end
 -- in flight.
 function Kind.box(service, session, roomId: number, rng)
 	local items = service.services.ItemService
-	local at = items:TopSpot(roomId, rng)
+	local at = items:TopSpot(roomId, rng, Config.Dressing.Sizes.MusicBox)
 	if not at then
-		local point = service.World:RandomPointIn(roomId, rng)
+		local point = service.World:ClearFloorPoint(roomId, rng)
 		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	end
 	local model = Instance.new("Model")

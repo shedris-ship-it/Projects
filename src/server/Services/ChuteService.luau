@@ -69,6 +69,18 @@ function ChuteService:_build(world)
 		return
 	end
 	local into = Vector3.new(chute.into.x, 0, chute.into.z)
+	-- Its stretch of wall in both rooms is its own: no portrait or clock hung
+	-- over the hatch or the mouth (the overlap scan, 2026-10-10: a portrait
+	-- through the laundry's chute mouth).
+	local spotAt = onWall(chute, 0, 0)
+	for _, record in { upper, ground } do
+		for _, slot in record.wallSlots or {} do
+			local p = slot.cframe.Position
+			if (Vector3.new(p.X, 0, p.Z) - Vector3.new(spotAt.X, 0, spotAt.Z)).Magnitude < C.Width / 2 + 2.2 then
+				slot.used = true
+			end
+		end
+	end
 
 	-- Upstairs: a steel hatch in the wall at waist height, with a handle.
 	local hatchAt = onWall(chute, PITCH + C.HatchHeight, 0.02)

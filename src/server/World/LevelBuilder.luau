@@ -661,6 +661,17 @@ function LevelBuilder.furnish(world, ctx)
 		local s = template.shrine
 		local pos = roomCF:PointToWorldSpace(Vector3.new(s.x, 0, s.z))
 		local cf = CFrame.lookAt(pos, Vector3.new(center.X, 0, center.Z)) * CFrame.Angles(0, math.pi, 0)
+		if inner then
+			-- A fitted room (the mansion): turned only by quarter turns, so it
+			-- keeps the square footprint RoomFit kept clear for it; at any
+			-- angle its pedestal's corner went into the wall beside it (the
+			-- overlap scan, 2026-10-10: 1.36 studs into a workshop's wall).
+			local look = roomCF:VectorToObjectSpace(cf.LookVector)
+			local axis = math.abs(look.X) > math.abs(look.Z) and Vector3.new(math.sign(look.X), 0, 0)
+				or Vector3.new(0, 0, math.sign(look.Z))
+			local facing = roomCF:VectorToWorldSpace(axis)
+			cf = CFrame.lookAt(pos, pos + facing)
+		end
 		local shrineModel, glass = PropFactory.build("Shrine", cf, model, { name = "LanternShrine" })
 		local lanternLight = Instance.new("PointLight")
 		lanternLight.Name = "LanternLight"

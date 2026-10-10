@@ -732,6 +732,22 @@ Config.Dressing = {
 	ClutterPerSurface = 2,
 	ClutterChance = 0.7, -- per surface
 	SpotWidth = 1.4, -- studs of tabletop per item
+	ItemWidth = 1.3, -- what an ordinary thing set on a top is taken to be, across and deep (World/Dressing.claim)
+	ItemHeight = 1.2, -- and how tall: the space over a top that must be clear of anything beside it
+	-- What the run's things take up on a top, { across, deep } in studs (their
+	-- models measured in Studio, a little to spare for their turn).
+	Sizes = {
+		HousePlans = { 2.4, 1.7 },
+		Note = { 1, 1.2 },
+		Keepsake = { 1.3, 0.95 },
+		DisplayCase = { 1.4, 1.2 },
+		MusicBox = { 1.3, 0.9 },
+		Telephone = { 1.2, 0.9 },
+		Kettle = { 1.4, 1.4 },
+		RecordPlayer = { 1.6, 1.45 },
+		Tool = { 1.9, 1.2 }, -- the longest tool (the bolt cutters, 1.75) turned up to half a radian
+		Computer = { 4.3, 2.3 }, -- the monitor, the keyboard and the printer side by side
+	},
 	Jitter = 18, -- degrees each item is turned off square
 	-- Photos age with Drift (docs/ART.md, the run's arc): normal, then the
 	-- faces blur from Breaking, then they're gone from Collapsing.
@@ -1520,6 +1536,7 @@ Config.BellBoard = {
 Config.Landmarks = {
 	Clear = 6.5, -- studs from any doorway of its corridor (and so a door's swing)
 	Height = 4.8, -- its middle above the floor
+	Footprint = { 3.4, 3.9, 0.8 }, -- the wall it needs clear: across, up, out from the wall
 }
 
 -- The children's drawings (section 4, L3.6; Services/ItemService): where

@@ -4,6 +4,7 @@
 -- someone has been in its corridor (Services/MapService marks).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -115,7 +116,7 @@ function LandmarkService:_wallSpot(roomId: number): CFrame?
 		{ Vector3.new(cx - hx, 0, cz), Vector3.zAxis, hz, Vector3.xAxis },
 		{ Vector3.new(cx + hx, 0, cz), Vector3.zAxis, hz, -Vector3.xAxis },
 	}
-	local best, bestScore = nil, -1
+	local spots = {}
 	for _, w in walls do
 		local t = -w[3] + 1.6
 		while t <= w[3] - 1.6 do
@@ -124,18 +125,76 @@ function LandmarkService:_wallSpot(roomId: number): CFrame?
 			for _, d in doorways do
 				score = math.min(score, (Vector3.new(d.X, 0, d.Z) - at).Magnitude)
 			end
-			if score > bestScore then
-				best, bestScore = { at = at, into = w[4] }, score
+			if score >= Config.Landmarks.Clear then
+				table.insert(spots, { at = at, into = w[4], along = w[2], score = score })
 			end
 			t += 1
 		end
 	end
-	if not best or bestScore < Config.Landmarks.Clear then
-		return nil
+	table.sort(spots, function(a, b)
+		return a.score > b.score
+	end)
+	-- The best spot with nothing already against the wall there: a walk-in
+	-- closet, a wardrobe, a window, a picture, a sconce, a switch (the
+	-- progression audit's clip scan, 2026-10-10: a landmark through a
+	-- corridor closet's back).
+	local blockers = self:_wallThings(roomId)
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = blockers
+	local L = Config.Landmarks
+	for _, spot in spots do
+		local at = Vector3.new(spot.at.X, floorY + L.Height, spot.at.Z)
+		local box = CFrame.lookAt(at + spot.into * L.Footprint[3] / 2, at + spot.into * 2)
+		if
+			#blockers == 0
+			or #Workspace:GetPartBoundsInBox(
+					box,
+					Vector3.new(L.Footprint[1], L.Footprint[2], L.Footprint[3]),
+					params
+				)
+				== 0
+		then
+			-- (Looking into the wall: its +Z is the way into the room.)
+			return CFrame.lookAt(at, at - spot.into)
+		end
 	end
-	local at = Vector3.new(best.at.X, floorY + Config.Landmarks.Height, best.at.Z)
-	-- (Looking into the wall: its +Z is the way into the room.)
-	return CFrame.lookAt(at, at - best.into)
+	return nil
+end
+
+-- What stands against a room's walls: its furniture, windows, pictures and
+-- sconces, and the house's light switches.
+function LandmarkService:_wallThings(roomId: number): { Instance }
+	local world = self.World.World
+	local record = world.rooms and world.rooms[roomId]
+	local list = {}
+	if record then
+		for _, prop in record.props or {} do
+			if prop.model and prop.model.Parent then
+				table.insert(list, prop.model)
+			end
+		end
+		for _, painting in record.paintings or {} do
+			if painting.model and painting.model.Parent then
+				table.insert(list, painting.model)
+			end
+		end
+		for _, window in record.windows or {} do
+			if window.glass and window.glass.Parent then
+				table.insert(list, window.glass.Parent)
+			end
+		end
+		for _, child in record.model and record.model:GetChildren() or {} do
+			if child.Name == "Sconce" or child.Name == "Window" then
+				table.insert(list, child)
+			end
+		end
+	end
+	local fixtures = self.World.content and self.World.content:FindFirstChild("Fixtures")
+	if fixtures then
+		table.insert(list, fixtures)
+	end
+	return list
 end
 
 function LandmarkService:Describe(): string

@@ -12,6 +12,7 @@ local Rooms = require(Shared.Data.Rooms)
 local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
 
+local Dressing = require(script.Parent.Parent.World.Dressing)
 local LevelBuilder = require(script.Parent.Parent.World.LevelBuilder)
 local MansionBuilder = require(script.Parent.Parent.World.MansionBuilder)
 local FloorPlan = require(Shared.Logic.FloorPlan)
@@ -107,6 +108,7 @@ function WorldService:Build(layout, rng)
 	content.Name = "RunContent"
 	content.Parent = folder
 	self.content = content
+	Dressing.watch(content) -- (what's set on tops keeps clear of the run's things)
 	folder.Parent = Workspace
 	self.lastBuildSeconds = os.clock() - started
 	print(
@@ -657,6 +659,25 @@ function WorldService:RoomIds(): { number }
 	end
 	table.sort(ids)
 	return ids
+end
+
+-- A point on the floor of `roomId` with nothing standing there (a box
+-- `size`, an ordinary small thing's if not given: World/Dressing.clearAt),
+-- for something set down where no top has room (the overlap scan,
+-- 2026-10-10: a baby monitor in a cabinet radio). A few tries, then the first.
+function WorldService:ClearFloorPoint(roomId: number, rng, size: Vector3?): Vector3
+	local D = Config.Dressing
+	local box = size or Vector3.new(D.ItemWidth, D.ItemHeight, D.ItemWidth)
+	local first = nil
+	for _ = 1, 16 do
+		local p = self:RandomPointIn(roomId, rng)
+		local at = Vector3.new(p.X, self:FloorBase(p.Y), p.Z)
+		first = first or at
+		if Dressing.clearAt(CFrame.new(at), box, nil, 0.2) then
+			return at
+		end
+	end
+	return first
 end
 
 -- Random walkable point inside a room's clear centre area. In a corridor it

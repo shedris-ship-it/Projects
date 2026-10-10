@@ -17,9 +17,11 @@ local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
 local Terminal = require(Shared.Logic.Puzzles.Terminal)
 
+local Dressing = require(script.Parent.Parent.World.Dressing)
 local Items = require(script.Parent.Parent.World.Items)
 
 local part = PropFactory.part
+local SIZE = Config.Dressing.Sizes.Computer
 local BEIGE = Color3.fromRGB(196, 186, 162)
 local PHOSPHOR = Color3.fromRGB(110, 255, 140)
 
@@ -46,13 +48,58 @@ function Kind.create(service, id: string, puzzle)
 	return session
 end
 
+-- A top with a clear stretch as wide as the computer, the desk first, claimed
+-- before anything else of the run's is set on a top (Services/PuzzleService
+-- :Reserve; the progression audit, 2026-10-10: it stood wherever the desk's
+-- middle was, through the photos and the music box already there). With no
+-- room on any, the house's own dressing on the best top makes way. Returns
+-- { surface, x } or nil.
+function Kind.reserve(service, _id: string, puzzle)
+	local roomId = puzzle.room
+	local world = service.World
+	local tops, fallback = {}, nil
+	for _, s in world.World.surfaces or {} do
+		if s.record.id == roomId and s.prop.model.Parent and s.kind.size[1] >= SIZE[1] + 0.2 then
+			table.insert(tops, s)
+			if not fallback or (s.prop.kind == "Desk" and fallback.prop.kind ~= "Desk") then
+				fallback = s
+			end
+		end
+	end
+	table.sort(tops, function(a, b)
+		return (a.prop.kind == "Desk" and 0 or 1) < (b.prop.kind == "Desk" and 0 or 1)
+	end)
+	local chosen, x = nil, nil
+	-- (Its middle front to back: the monitor at the back, the keyboard before it.)
+	local function middle(s): number
+		return -s.kind.size[3] / 2 + 1.45
+	end
+	for _, s in tops do
+		x = Dressing.claimSpan(s, SIZE[1], SIZE[2], middle(s))
+		if x then
+			chosen = s
+			break
+		end
+	end
+	if not chosen and fallback and Dressing.makeRoom(fallback, SIZE[1], tops) then
+		chosen, x = fallback, Dressing.claimSpan(fallback, SIZE[1], SIZE[2], middle(fallback))
+	end
+	return chosen and x and { surface = chosen, x = x } or nil
+end
+
 function Kind.build(service, session, roomId: number)
 	local world = service.World
 	local model = Instance.new("Model")
 	model.Name = "HomeComputer"
-	local surface = service:Surface(roomId)
 	local top
-	if surface then
+	local held = service.reserved[session.id] or Kind.reserve(service, session.id, { room = roomId })
+	local chosen, x = held and held.surface, held and held.x
+	local surface = not chosen and service:Surface(roomId) or nil
+	if chosen and x then
+		local size = chosen.kind.size
+		-- (Its parts stand about the frame from 2.15 left to 2.05 right.)
+		top = chosen.prop.cframe * CFrame.new(x + 0.05, size[2], -size[3] / 2 + 1.1)
+	elseif surface then
 		top = surface.frame * CFrame.new(0, surface.size[2], -surface.size[3] / 2 + 1.1)
 	else
 		local at = world:Room(roomId).center

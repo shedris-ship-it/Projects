@@ -266,9 +266,10 @@ local PLAN_TITLES = { [-1] = "CELLAR", [0] = "GROUND FLOOR", [1] = "FIRST FLOOR"
 -- that floor's rooms on everyone's map (Services/MapService). The safe room
 -- may hold a second set (Services/SafeRoomService).
 function ItemService:PlacePlans(room: number, storey: number, rng, at: CFrame?)
-	at = at or self:_top(room, rng)
+	at = at or self:_top(room, rng, Config.Dressing.Sizes.HousePlans)
 	if not at then
-		local point = self.World:RandomPointIn(room, rng)
+		local size = Config.Dressing.Sizes.HousePlans
+		local point = self.World:ClearFloorPoint(room, rng, Vector3.new(size[1], 0.3, size[2]))
 		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	end
 	local _, sheet = LeadProps.plans(at, self.folder, "PLAN - " .. (PLAN_TITLES[storey] or "FLOOR") .. " - 1961")
@@ -380,8 +381,8 @@ function ItemService:_keep(id: string, room: number, rng)
 		end
 		return space
 	end
-	-- Nowhere to keep it: lying on the floor in that room.
-	local at = self.World:RandomPointIn(room, rng)
+	-- Nowhere to keep it: lying on the floor in that room, somewhere clear.
+	local at = self.World:ClearFloorPoint(room, rng)
 	local cf = CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	if state then
 		state.home.cframe = cf
@@ -536,22 +537,45 @@ end
 
 -- A free spot on a top in `room` (World/Dressing), turned so +Z is the
 -- furniture's front. Nil when every top there is full.
-function ItemService:_top(room: number, rng): CFrame?
+-- `size`: what goes there, { across, deep } (Config.Dressing.Sizes); an
+-- ordinary small thing if not given. Only a top with room for all of it.
+function ItemService:_top(room: number, rng, size: { number }?): CFrame?
 	local world = self.World.World
+	local width = size and size[1]
 	local options = {}
 	for _, s in world.surfaces or {} do
-		if s.record.id == room and s.prop.model.Parent and Dressing.free(s) > 0 then
+		if s.record.id == room and s.prop.model.Parent and Dressing.free(s, width) > 0 then
 			table.insert(options, s)
 		end
 	end
 	local s = rng:Pick(options)
-	local spot = s and Dressing.claim(s)
+	if not s then
+		-- No top has room: the house's own dressing on the widest makes way
+		-- (a music box beside the home computer went to the floor).
+		local tops = {}
+		for _, t in world.surfaces or {} do
+			if t.record.id == room and t.prop.model.Parent then
+				table.insert(tops, t)
+			end
+		end
+		table.sort(tops, function(a, b)
+			return a.kind.size[1] > b.kind.size[1]
+		end)
+		for _, t in tops do
+			if Dressing.makeRoom(t, width or Config.Dressing.ItemWidth, tops) then
+				s = t
+				break
+			end
+		end
+	end
+	local spot = s and Dressing.claim(s, width, size and size[2])
 	return spot and spot * CFrame.Angles(0, math.pi, 0)
 end
 
--- For other systems' things on a top (the music box).
-function ItemService:TopSpot(room: number, rng): CFrame?
-	return self:_top(room, rng)
+-- For other systems' things on a top (the music box, a telephone, the safe
+-- room's things), `size` as for _top.
+function ItemService:TopSpot(room: number, rng, size: { number }?): CFrame?
+	return self:_top(room, rng, size)
 end
 
 -- A free wall spot in `room`, turned so +Z faces into the room, at about
@@ -563,7 +587,7 @@ end
 
 -- A keepsake box on a top: `token` inside (or, a decoy, nothing of his).
 function ItemService:_placeKeepsake(token: string?, room: number, rng): boolean
-	local at = self:_top(room, rng)
+	local at = self:_top(room, rng, Config.Dressing.Sizes.Keepsake)
 	if not at then
 		return false
 	end
@@ -600,7 +624,7 @@ end
 -- A display case on a top, `token` in plain sight behind locked glass (or,
 -- a decoy, a porcelain figure). Pick the lock, or break the glass.
 function ItemService:_placeDisplay(token: string?, room: number, rng): boolean
-	local at = self:_top(room, rng)
+	local at = self:_top(room, rng, Config.Dressing.Sizes.DisplayCase)
 	if not at then
 		return false
 	end
@@ -868,13 +892,14 @@ function ItemService:AddNote(noteRoom: number, text: string, rng, token: string?
 		at = self:_wall(noteRoom, rng)
 		onWall = at ~= nil
 	end
-	at = at or self:_top(noteRoom, rng)
+	at = at or self:_top(noteRoom, rng, Config.Dressing.Sizes.Note)
 	if not at then
 		at = self:_wall(noteRoom, rng)
 		onWall = at ~= nil
 	end
 	if not at then
-		local point = self.World:RandomPointIn(noteRoom, rng)
+		local size = Config.Dressing.Sizes.Note
+		local point = self.World:ClearFloorPoint(noteRoom, rng, Vector3.new(size[1], 0.3, size[2]))
 		at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	end
 	self.noteCount = (self.noteCount or 0) + 1

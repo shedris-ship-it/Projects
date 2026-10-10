@@ -8,6 +8,7 @@
 -- Drift (EffectsController).
 
 local CollectionService = game:GetService("CollectionService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Assets = require(Shared.Assets)
@@ -21,6 +22,74 @@ local D = Config.Dressing
 local DECOR = { collide = false, query = false, castShadow = false }
 
 local Dressing = {}
+
+-- Things standing about the house that the space queries can't see (the
+-- house's decor is built query-free: a cabinet radio), so a claim checks
+-- them by their boxes (DecorService adds them). Emptied with every house.
+local obstacles: { Model } = {}
+
+function Dressing.obstacle(model: Model)
+	table.insert(obstacles, model)
+end
+
+-- And everything the run has set out (its tools, keys, heirlooms, notes,
+-- the toys: mostly query-free too), by their boxes, in this folder
+-- (WorldService's RunContent).
+local runContent: Instance? = nil
+
+function Dressing.watch(folder: Instance?)
+	runContent = folder
+end
+
+-- Each model the run has set out, one folder deep.
+local function runModels(): { Model }
+	local list = {}
+	for _, child in runContent and runContent:GetChildren() or {} do
+		if child:IsA("Model") then
+			table.insert(list, child)
+		elseif child:IsA("Folder") then
+			for _, model in child:GetChildren() do
+				if model:IsA("Model") then
+					table.insert(list, model)
+				end
+			end
+		end
+	end
+	return list
+end
+
+-- Do two boxes meet (the separating-axis test, as World/ClipScan's)?
+local function boxesMeet(cfA: CFrame, sizeA: Vector3, cfB: CFrame, sizeB: Vector3): boolean
+	local axesA = { cfA.RightVector, cfA.UpVector, cfA.LookVector }
+	local axesB = { cfB.RightVector, cfB.UpVector, cfB.LookVector }
+	local ha, hb = { sizeA.X / 2, sizeA.Y / 2, sizeA.Z / 2 }, { sizeB.X / 2, sizeB.Y / 2, sizeB.Z / 2 }
+	local offset = cfB.Position - cfA.Position
+	local function apart(axis: Vector3): boolean
+		if axis.Magnitude < 1e-4 then
+			return false
+		end
+		axis = axis.Unit
+		local ra, rb = 0, 0
+		for i = 1, 3 do
+			ra += math.abs(axesA[i]:Dot(axis)) * ha[i]
+			rb += math.abs(axesB[i]:Dot(axis)) * hb[i]
+		end
+		return math.abs(offset:Dot(axis)) >= ra + rb
+	end
+	for i = 1, 3 do
+		if apart(axesA[i]) or apart(axesB[i]) then
+			return false
+		end
+	end
+	for i = 1, 3 do
+		for j = 1, 3 do
+			if apart(axesA[i]:Cross(axesB[j])) then
+				return false
+			end
+		end
+	end
+	return true
+end
 
 -- An old rotary telephone. `cf` sits on the surface with its LookVector
 -- facing out of the furniture's front, so the front of the phone is -Z.
@@ -146,12 +215,50 @@ end
 -- Each spot is a CFrame on the surface whose LookVector faces out of the
 -- furniture's front.
 local function surfaceSpots(rng, prop, kind)
-	local plan = SurfaceSpots.plan(rng, kind, Props.Keepouts(prop.kind, kind.size), D)
+	local keepouts = Props.Keepouts(prop.kind, kind.size)
+	local plan = SurfaceSpots.plan(rng, kind, keepouts, D)
 	local spots = {}
 	for _, spot in plan do
 		table.insert(spots, prop.cframe * CFrame.new(spot.x, spot.y, spot.z) * CFrame.Angles(0, spot.yaw, 0))
 	end
-	return spots
+	return spots, plan, keepouts
+end
+
+-- A top's record of what's on it (the progression audit, 2026-10-10: things
+-- were handed spots without their size, so the home computer and the music
+-- box shared one): its spots as planned (`raw`, in the prop's frame), which
+-- are taken, the stretches of its width in use, and the dressing on each.
+local function ready(s, rng)
+	if s.spots then
+		return
+	end
+	local spots, plan, keepouts = surfaceSpots(rng, s.prop, s.kind)
+	s.spots, s.raw = spots, plan
+	s.next = s.next or 0
+	s.taken = {}
+	s.items = {}
+	s.used = {}
+	for _, k in keepouts do
+		table.insert(s.used, { x0 = k.x0, x1 = k.x1 })
+	end
+end
+
+-- How far a model reaches along `axis` (a unit vector), end to end.
+local function extentAlong(model: Model, axis: Vector3): number
+	local cf, size = model:GetBoundingBox()
+	return math.abs(axis:Dot(cf.RightVector)) * size.X
+		+ math.abs(axis:Dot(cf.UpVector)) * size.Y
+		+ math.abs(axis:Dot(cf.LookVector)) * size.Z
+end
+
+-- Mark spot `i` taken by something `width` wide centred at `x`.
+local function occupy(s, x: number, width: number)
+	table.insert(s.used, { x0 = x - width / 2, x1 = x + width / 2 })
+	for i, spot in s.raw do
+		if not s.taken[i] and math.abs(spot.x - x) < width / 2 + D.SpotWidth / 2 - 0.05 then
+			s.taken[i] = true
+		end
+	end
 end
 
 -- Clutter ---------------------------------------------------------------------
@@ -181,6 +288,7 @@ local function mug(parent, cf, rng)
 	)
 	bit(model, "Handle", Vector3.new(0.3, 0.07, 0.3), cf * CFrame.new(0.26, 0.22, 0), tint, "SmoothPlastic")
 	model.Parent = parent
+	return model
 end
 
 local function plate(parent, cf, rng)
@@ -208,6 +316,7 @@ local function plate(parent, cf, rng)
 		)
 	end
 	model.Parent = parent
+	return model
 end
 
 local function books(parent, cf, rng)
@@ -228,6 +337,7 @@ local function books(parent, cf, rng)
 		y += h
 	end
 	model.Parent = parent
+	return model
 end
 
 local function vase(parent, cf, rng)
@@ -263,6 +373,7 @@ local function vase(parent, cf, rng)
 		)
 	end
 	model.Parent = parent
+	return model
 end
 
 local function magazine(parent, cf, rng)
@@ -278,11 +389,13 @@ local function magazine(parent, cf, rng)
 		"Fabric"
 	)
 	model.Parent = parent
+	return model
 end
 
 local CLUTTER = { mug, plate, books, vase, magazine }
 
 function Dressing.build(world, rng)
+	table.clear(obstacles)
 	local phones, photos = 0, 0
 	-- Telephones first, in the hall-like rooms, then photos everywhere else.
 	local surfaces = {}
@@ -309,19 +422,27 @@ function Dressing.build(world, rng)
 	-- something else. The last spot on every top is left free: the house leaves
 	-- a found tool there (Services/ToolService, World/ToolPickups).
 	local function take(s)
-		s.spots = s.spots or surfaceSpots(rng, s.prop, s.kind)
-		if (s.next or 0) >= #s.spots - 1 then
+		ready(s, rng)
+		if s.next >= #s.spots - 1 then
 			return nil
 		end
-		s.next = (s.next or 0) + 1
-		return s.spots[s.next]
+		s.next += 1
+		s.taken[s.next] = true
+		return s.spots[s.next], s.next
+	end
+	-- What was set on spot `i`: its stretch of the top, as wide as it really is.
+	local function set(s, i: number, model: Model, keep: boolean?)
+		local half = extentAlong(model, s.prop.cframe.RightVector) / 2
+		local stretch = { x0 = s.raw[i].x - half, x1 = s.raw[i].x + half }
+		s.items[i] = { model = model, keep = keep, stretch = stretch }
+		table.insert(s.used, stretch)
 	end
 
 	for _, s in surfaces do
 		if phones < D.Telephones and hallLike(s) and rng:Chance(D.TelephoneChance) then
-			local spot = take(s)
+			local spot, i = take(s)
 			if spot then
-				telephone(s.record.model, spot)
+				set(s, i, telephone(s.record.model, spot), true)
 				phones += 1
 			end
 		end
@@ -331,9 +452,9 @@ function Dressing.build(world, rng)
 		local fits = D.PhotoKinds[s.prop.kind] and family ~= "utility"
 		if photos < D.MaxPhotos and fits and rng:Chance(D.PhotoChance) then
 			for _ = 1, rng:NextInteger(1, 2) do
-				local spot = take(s)
+				local spot, i = take(s)
 				if spot and photos < D.MaxPhotos then
-					photoFrame(s.record.model, spot, rng:NextInteger(1, #Assets.Photos))
+					set(s, i, photoFrame(s.record.model, spot, rng:NextInteger(1, #Assets.Photos)))
 					photos += 1
 				end
 			end
@@ -347,9 +468,9 @@ function Dressing.build(world, rng)
 		end
 		if rng:Chance(D.ClutterChance) then
 			for _ = 1, rng:NextInteger(1, D.ClutterPerSurface) do
-				local spot = take(s)
+				local spot, i = take(s)
 				if spot and clutter < D.MaxClutter then
-					CLUTTER[rng:NextInteger(1, #CLUTTER)](s.record.model, spot, rng)
+					set(s, i, CLUTTER[rng:NextInteger(1, #CLUTTER)](s.record.model, spot, rng))
 					clutter += 1
 				end
 			end
@@ -359,24 +480,193 @@ function Dressing.build(world, rng)
 	-- with its spots. The extra random draws come after all the others, so no
 	-- earlier placement moves.
 	for _, s in surfaces do
-		s.spots = s.spots or surfaceSpots(rng, s.prop, s.kind)
-		s.next = s.next or 0
+		ready(s, rng)
 	end
 	world.surfaces = surfaces
 	return phones, photos, clutter
 end
 
--- Places left on a top after the dressing, and the next of them.
-function Dressing.free(s): number
-	return #s.spots - s.next
+-- The top's half-width, and its back and front edges, in the prop's frame.
+local function bounds(s): (number, number, number)
+	local near, far = SurfaceSpots.depthSpan(s.kind)
+	return s.kind.size[1] / 2, near, far
 end
 
-function Dressing.claim(s): CFrame?
-	if Dressing.free(s) <= 0 then
+-- Where on the top a thing `width` wide would go: its x in the prop's frame
+-- and the spot it takes after (its z and turn), or nil.
+local function place(s, width: number): (number?, any)
+	local candidates, order = {}, {}
+	for i, spot in s.raw do
+		if not s.taken[i] then
+			table.insert(candidates, spot.x)
+			table.insert(order, spot)
+		end
+	end
+	local halfWidth = bounds(s)
+	local x = SurfaceSpots.findX(candidates, s.used, halfWidth, width)
+	if not x then
+		return nil, nil
+	end
+	for _, spot in order do
+		if spot.x == x then
+			return x, spot
+		end
+	end
+	return x, order[1] or s.raw[1]
+end
+
+-- How many more ordinary things (an ItemWidth each) the top has room for.
+function Dressing.free(s, width: number?): number
+	if not s.raw then
+		return 0
+	end
+	local w = width or D.ItemWidth
+	local used = table.clone(s.used)
+	local halfWidth = bounds(s)
+	local n = 0
+	for i, spot in s.raw do
+		if not s.taken[i] and SurfaceSpots.fits(spot.x, w, used, halfWidth) then
+			n += 1
+			table.insert(used, { x0 = spot.x - w / 2, x1 = spot.x + w / 2 })
+		end
+	end
+	return n
+end
+
+-- A place on the top for something `width` wide and `depth` deep (an
+-- ItemWidth square if not given): on the surface, facing out of the
+-- furniture's front, clear of everything already there and of the top's
+-- edges. nil when it won't fit.
+function Dressing.claim(s, width: number?, depth: number?): CFrame?
+	if not s.raw then
 		return nil
 	end
-	s.next += 1
-	return s.spots[s.next]
+	local w = width or D.ItemWidth
+	local _, near, far = bounds(s)
+	-- (A few tries: a spot with something standing over it is passed by.)
+	for _ = 1, #s.raw + 1 do
+		local x, spot = place(s, w)
+		if not x or not spot then
+			return nil
+		end
+		local z = SurfaceSpots.clampZ(spot.z, depth or w, near, far)
+		occupy(s, x, w)
+		local cf = s.prop.cframe * CFrame.new(x, spot.y, z) * CFrame.Angles(0, spot.yaw, 0)
+		if Dressing.clear(s, cf, w, depth or w) then
+			return cf
+		end
+	end
+	return nil
+end
+
+-- Nothing solid in the space a thing `width` by `depth` would fill standing
+-- at `cf` on the top, but the furniture under it (the overlap scan,
+-- 2026-10-10: a baby monitor's aerial in a cabinet radio's shelf beside its
+-- dresser: things beside a top, not on it, are only found this way).
+function Dressing.clear(s, cf: CFrame, width: number, depth: number): boolean
+	return Dressing.clearAt(cf, Vector3.new(width, D.ItemHeight, depth), { s.prop.model })
+end
+
+-- Nothing solid in the box `size` standing on `cf` (its base on the
+-- surface, `lift` above it: a floor's rug isn't in the way), but `exclude`:
+-- the parts there and the query-free obstacles.
+function Dressing.clearAt(cf: CFrame, size: Vector3, exclude: { Instance }?, lift: number?): boolean
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = exclude or {}
+	local box = cf * CFrame.new(0, size.Y / 2 + (lift or 0.05), 0)
+	local skip = {}
+	for _, x in exclude or {} do
+		skip[x] = true
+	end
+	for _, list in { obstacles, runModels() } do
+		for _, model in list do
+			if model.Parent and not skip[model] then
+				local ocf, osize = model:GetBoundingBox()
+				if boxesMeet(box, size, ocf, osize) then
+					return false
+				end
+			end
+		end
+	end
+	for _, part in Workspace:GetPartBoundsInBox(box, size, params) do
+		-- (Not a window's glass or anything else you see through, not a body.)
+		local holder = part:FindFirstAncestorOfClass("Model")
+		local body = holder ~= nil and holder:FindFirstChildOfClass("Humanoid") ~= nil
+		if part.Transparency < 0.5 and not body then
+			return false
+		end
+	end
+	return true
+end
+
+-- A stretch of the top `width` wide for something that sets itself out in
+-- the prop's own frame (the home computer): its middle's x, or nil. With
+-- `depth` and `z` (its middle front to back), the space it fills is checked
+-- as a claim's is.
+function Dressing.claimSpan(s, width: number, depth: number?, z: number?): number?
+	if not s.raw then
+		return nil
+	end
+	for _ = 1, #s.raw + 1 do
+		local x = place(s, width)
+		if not x then
+			return nil
+		end
+		occupy(s, x, width)
+		if not depth then
+			return x
+		end
+		local cf = s.prop.cframe * CFrame.new(x, s.kind.size[2], z or 0)
+		if Dressing.clear(s, cf, width, depth) then
+			return x
+		end
+	end
+	return nil
+end
+
+-- Make room for something `width` wide on a top that has none: the house's
+-- own dressing on it (a mug, a photo, never anything of the run's) moves to
+-- another of `others` where it fits, or goes (the telephone stays), one
+-- piece at a time until there's room. Returns whether there now is.
+function Dressing.makeRoom(s, width: number, others: { any }): boolean
+	if not s.raw then
+		return false
+	end
+	local ids = {}
+	for i in s.items do
+		table.insert(ids, i)
+	end
+	table.sort(ids)
+	for _, i in ids do
+		if place(s, width) then
+			return true
+		end
+		local entry = s.items[i]
+		if entry and not entry.keep and entry.model and entry.model.Parent then
+			s.items[i] = nil
+			local at = table.find(s.used, entry.stretch)
+			if at then
+				table.remove(s.used, at)
+			end
+			local moved = false
+			for _, other in others do
+				if other ~= s and other.raw then
+					local cf = Dressing.claim(other, extentAlong(entry.model, other.prop.cframe.RightVector))
+					if cf then
+						-- As it stood on its old spot, now on the new one.
+						entry.model:PivotTo(cf * s.spots[i]:Inverse() * entry.model:GetPivot())
+						moved = true
+						break
+					end
+				end
+			end
+			if not moved then
+				entry.model:Destroy()
+			end
+		end
+	end
+	return place(s, width) ~= nil
 end
 
 Dressing.telephone = telephone

@@ -116,9 +116,8 @@ function ToyService:Begin(rng)
 	for _, id in self.World:RoomIds() do
 		local record = world.rooms[id]
 		if record and record.template and table.find(Interactables.WindUpToy.placed.rooms, record.template.id) then
-			local point = self.World:RandomPointIn(id, rng)
-			local floor = self.World:FloorBase(point.Y)
-			local cf = CFrame.new(point.X, floor, point.Z) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+			local point = self.World:ClearFloorPoint(id, rng)
+			local cf = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 			local model, body = robot(cf, self.World.content)
 			local info = Physical.Dressing.WindUpToy
 			local thing = hands and hands:AddThing(model, info)

@@ -934,17 +934,28 @@ function DebugService:Run(player: Player, text: string)
 			-- they stand in.
 			local extras = {}
 			local content = services.WorldService.content
-			for _, folder in content and content:GetChildren() or {} do
-				if folder:IsA("Folder") then
-					for _, model in folder:GetChildren() do
-						if model:IsA("Model") then
-							local id = services.WorldService:RoomAt(model:GetPivot().Position)
-							if id then
-								extras[id] = extras[id] or {}
-								table.insert(extras[id], model)
-							end
+			local function add(model: Model)
+				local id = services.WorldService:RoomAt(model:GetPivot().Position)
+				if id then
+					extras[id] = extras[id] or {}
+					table.insert(extras[id], model)
+				end
+			end
+			-- (Fixed to a wall or a door by design, or overhead: not worth a line.)
+			local onWalls =
+				{ Lever = true, BellBoard = true, Boards = true, Chain = true, PuzzleLamp = true, CrankDoor = true }
+			for _, child in content and content:GetChildren() or {} do
+				if child:IsA("Folder") then
+					for _, model in child:GetChildren() do
+						if model:IsA("Model") and not onWalls[model.Name] then
+							add(model)
 						end
 					end
+				elseif child:IsA("Model") and not onWalls[child.Name] then
+					-- Run things kept loose in the content (the home computer, an
+					-- heirloom, a key, a toy): the progression audit found the
+					-- computer and the music box on one spot, unseen by this scan.
+					add(child)
 				end
 			end
 			for _, id in services.WorldService:RoomIds() do

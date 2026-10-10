@@ -93,4 +93,29 @@ return function(test, check, Shared, require)
 		check.truthy(#some < #all, "the keep-out removes at least one spot")
 		check.equal(free:NextInteger(1, 1000000), blocked:NextInteger(1, 1000000), "later draws are unchanged")
 	end)
+
+	test("a thing fits only where its whole width is clear, and never off the edge", function()
+		local used = { { x0 = -1, x1 = 0.5 } }
+		check.truthy(not SurfaceSpots.fits(0, 1, used, 3.5), "over what's there")
+		check.truthy(SurfaceSpots.fits(1.5, 1, used, 3.5), "beside it")
+		check.truthy(not SurfaceSpots.fits(3.2, 1, used, 3.5), "hanging off the end")
+	end)
+
+	test("a wide thing finds a stretch wide enough, or nothing", function()
+		-- A desk 7 wide with a photo at x = -2.4 and a mug at 0.8.
+		local used = { { x0 = -3.05, x1 = -1.75 }, { x0 = 0.15, x1 = 1.45 } }
+		local x = SurfaceSpots.findX({ -2.4, 0.8 }, used, 3.5, 4.2)
+		check.equal(x, nil, "4.2 doesn't fit between them")
+		local clear = SurfaceSpots.findX({ 2.4 }, { { x0 = -3.05, x1 = -1.75 } }, 3.5, 4.2)
+		check.truthy(clear ~= nil, "it fits beside the photo")
+		check.truthy(SurfaceSpots.fits(clear, 4.2, { { x0 = -3.05, x1 = -1.75 } }, 3.5), "and is clear")
+	end)
+
+	test("front to back, a thing stays on the top", function()
+		-- A top 1.6 deep (back -0.8, front 0.8): the house plans' paper (1.6
+		-- deep) is centred; a note (1.1) near the back is brought forward.
+		check.near(SurfaceSpots.clampZ(-0.6, 1.6, -0.8, 0.8), 0, 1e-6, "too deep: centred")
+		check.near(SurfaceSpots.clampZ(-0.6, 1.1, -0.8, 0.8), -0.2, 1e-6, "off the wall")
+		check.near(SurfaceSpots.clampZ(0.1, 0.5, -0.8, 0.8), 0.1, 1e-6, "already fine")
+	end)
 end

@@ -45,6 +45,7 @@ function PuzzleService:Init(services)
 	self.plan = nil
 	self.sessions = {} -- puzzle id -> session
 	self.padlocks = {} -- seam id -> puzzle id
+	self.reserved = {} -- puzzle id -> its station's place, claimed early (Reserve)
 end
 
 function PuzzleService:Start()
@@ -72,6 +73,7 @@ function PuzzleService:Start()
 		self.plan = nil
 		table.clear(self.sessions)
 		table.clear(self.padlocks)
+		table.clear(self.reserved)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		for _, session in self.sessions do
@@ -134,6 +136,25 @@ function PuzzleService:Prompt(session, parent: Instance, action: string, object:
 		self:_open(session, player)
 	end)
 	return prompt
+end
+
+-- Before anything else of the run is set on a top (tools, notes, keepsakes,
+-- the kettle): a station that needs a wide stretch of one claims it now (the
+-- home computer: server/Puzzles/Terminal.reserve).
+function PuzzleService:Reserve(plan)
+	table.clear(self.reserved)
+	local ids = {}
+	for id in plan.puzzles or {} do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	for _, id in ids do
+		local puzzle = plan.puzzles[id]
+		local kind = KINDS[puzzle.kind]
+		if kind and kind.reserve then
+			self.reserved[id] = kind.reserve(self, id, puzzle)
+		end
+	end
 end
 
 function PuzzleService:Begin(plan, _rng)

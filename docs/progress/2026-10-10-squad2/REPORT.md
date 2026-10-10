@@ -1,6 +1,6 @@
 # The second squad playtest: the fixes (2026-10-10)
 
-Branch `claude/overnight-foundation`, builds `2026-10-10.148` to `.151`, from `2026-10-09.147` (published that day).
+Branch `claude/overnight-foundation`, builds `2026-10-10.148` to `.152`, from `2026-10-09.147` (published that day).
 
 The owner ran a squad playtest (three players, then two) and sent notes plus a tester's answers to the post-playtest questions. The verdict: "like Resident Evil", but players wandered without knowing what to look for, never needed each other, and found the Guest too present and easy to mess with. Run 1 ended with everyone Lost.
 
@@ -106,6 +106,31 @@ The owner, after the playtest stalled at a chained door: "I just want to make su
 - **Locked doors' labels.** Any small swing (a rattle, a door nudged ajar) relabelled a locked door "Open", so a hidden panel's "Search" gave itself away and locked doors stopped saying "Try" (`DoorService:_labelSwing`).
 
 Not checkable here: the held click itself (the MCP's clicks reach the game only as a cancel, so R stood in, which runs the same code), entering a code on the padlock's wheels, and anything with two players.
+
+## Build `.152`: nothing through anything on a top
+
+The owner, during the audit: "Did you see how the music box overlapped with the computer? ... if you're able to just fix item overlap that would be awesome."
+
+**Why it happened.** Tops are split into spots that placers claim (World/Dressing), but:
+- a claim was one spot, whatever the size of the thing, so anything wider than a spot (1.4 studs) ran into its neighbours;
+- the home computer never claimed at all: it stood at the desk's middle, through whatever was there;
+- nothing kept a thing's depth on the top, so the house plans' paper poked into the wall.
+
+The F2 `clip` scan couldn't see most of this. It covered run things kept in folders, but not those placed loose in the run's content (the computer, heirlooms, keys, toys).
+
+**Fixed:**
+- **Claims know their size.** A top records which stretches of its width are taken (the house's own mugs and photos by their measured width, then every run thing as it's set). A claim lands only where its whole width is clear, and its depth is kept on the top (`Logic/SurfaceSpots` fits, findX and clampZ, spec; `Dressing.claim(s, width, depth)`). Each placer passes its size (`Config.Dressing.Sizes`, measured in Studio): the house plans, notes, keepsake boxes, display cases, the music box, a telephone, the kettle, the record player, tools and the computer.
+- **The computer reserves its stretch first**, before any tool or lead is set out (`PuzzleService:Reserve`, `Terminal.reserve`), on a top with 4.3 studs clear, the desk by preference.
+- **When no top has room**, the house's own dressing (never a run thing; the telephone stays) moves to another top in the room, or goes, until there is (`Dressing.makeRoom`). The music box beside the computer had dropped to the floor before this.
+- **Landmarks keep off** closets, wardrobes, windows, pictures, sconces and switches on their wall (`LandmarkService:_wallSpot`).
+- **F2 `clip` now sees every run thing**, except those fixed to walls or doors by design (levers, the bell board, boards and chains, puzzle lamps, crank doors' boxes).
+- **A last physical check on every claim.** Before a spot is used, the space the thing would fill is tested against what's really there (anything but the furniture under it), including the house's decor, which is built query-free (`Dressing.clear`, `Dressing.obstacle`). The decor is now placed before the run's things so they can see it. This came from a baby monitor's aerial in a cabinet radio's shelf beside its dresser. The check also tests, by bounding box, everything the run has already set out (`Dressing.watch` on the run's content), because tool pickups and most leads are query-free too. A baby monitor had landed on a crowbar on the floor.
+- **Three more from the wider scan:**
+  - a Lantern shrine's pedestal turned at any angle went 1.36 studs into a workshop's wall. In fitted rooms it now turns only by quarter turns, keeping the square footprint RoomFit kept clear (the old house's shrines are untouched);
+  - a portrait hung through the laundry chute's mouth. The chute now keeps its stretch of wall in both rooms;
+  - the baby monitor in the cabinet radio. No top in the nursery had room, so it fell back to a random floor spot, and that fallback checked nothing. Every place that sets a thing on the floor when no top has room now takes a clear spot (`WorldService:ClearFloorPoint`): the monitor, an heirloom with no drawer, the music box, notes, the house plans, the safe room's things, planned tools and wind-up toys.
+
+**Checked in Studio.** Before: 6 houses, 7 overlaps (the computer through a photo, a telephone, the music box and a keepsake box; a landmark through a closet; the house plans through batteries and into a wall). After, on 12 houses (1 to 4 players, including all six): none, and Gate A unchanged (parts 2235, hash 1016524583). Seed 11 for four: screenshot of the study desk, with the music box beside the monitor and the printer at the other end. Clean console. Rojo stopped applying changes partway through (the plugin connected, the server served the new code, Studio didn't change), so the later changes went in as byte-checked patches from the repo. All 21 changed scripts in Studio were then confirmed to match the repo byte for byte.
 
 ## For later
 

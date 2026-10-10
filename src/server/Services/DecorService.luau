@@ -11,6 +11,8 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local PropFactory = require(Shared.World.PropFactory)
 
+local Dressing = require(script.Parent.Parent.World.Dressing)
+
 local DecorService = {}
 
 function DecorService:Init(services)
@@ -113,6 +115,8 @@ function DecorService:_placeDecor(rng, rooms)
 				radios += 1
 				local model = PropFactory.buildTellBase("Radio", slot.cframe, self.folder)
 				model:SetAttribute(Constants.Attributes.CId, "decor:radio:" .. radios)
+				-- (Things set on a top beside it keep clear: World/Dressing.clear.)
+				Dressing.obstacle(model)
 				table.insert(self.decor, model)
 			end
 		end

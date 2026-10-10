@@ -51,7 +51,7 @@ function SafeRoomService:Begin(plan, rng, squad: number)
 	self.loot = loot
 	local place = rng:Fork("place")
 	for _, entry in loot do
-		local at = self:_spot(safe.room, place)
+		local at = self:_spot(safe.room, place, Config.Dressing.Sizes[entry.kind == "plans" and "HousePlans" or "Tool"])
 		if entry.kind == "tool" then
 			self.services.ToolService:PlaceTool(entry.tool, at)
 		elseif entry.kind == "batteries" then
@@ -63,12 +63,12 @@ function SafeRoomService:Begin(plan, rng, squad: number)
 end
 
 -- On a top in the room, else on the floor.
-function SafeRoomService:_spot(room: number, rng): CFrame
-	local at = self.Items:TopSpot(room, rng)
+function SafeRoomService:_spot(room: number, rng, size: { number }?): CFrame
+	local at = self.Items:TopSpot(room, rng, size)
 	if at then
 		return at
 	end
-	local point = self.World:RandomPointIn(room, rng)
+	local point = self.World:ClearFloorPoint(room, rng)
 	return CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 end
 

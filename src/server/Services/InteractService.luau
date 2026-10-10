@@ -111,10 +111,10 @@ function InteractService:_placed(world)
 			self:_fixture(self:_kettle(prop.frame * CFrame.new(0.8, 3.6, 0.3)), Interactables.Kettle)
 		end
 	end
-	local function topIn(roomId: number): CFrame?
+	local function topIn(roomId: number, size: { number }): CFrame?
 		for _, s in world.surfaces or {} do
-			if s.record.id == roomId and s.prop.model.Parent and Dressing.free(s) > 0 then
-				return Dressing.claim(s)
+			if s.record.id == roomId and s.prop.model.Parent and Dressing.free(s, size[1]) > 0 then
+				return Dressing.claim(s, size[1], size[2])
 			end
 		end
 		return nil
@@ -127,7 +127,7 @@ function InteractService:_placed(world)
 			and record.template
 			and record.template.id == Interactables.Kettle.placed.room
 		then
-			local spot = topIn(roomId)
+			local spot = topIn(roomId, Config.Dressing.Sizes.Kettle)
 			if spot then
 				kettled[roomId] = true
 				-- (Side on, its spout showing.)
@@ -137,7 +137,7 @@ function InteractService:_placed(world)
 	end
 	local templates = world.layout.mode == "Mansion" and Rooms.MansionById or Rooms.ById
 	for _, roomId in RoomPurpose.placedRooms(world.layout, templates, "RecordPlayer") do
-		local spot = topIn(roomId)
+		local spot = topIn(roomId, Config.Dressing.Sizes.RecordPlayer)
 		if spot then
 			self:_fixture(self:_recordPlayer(spot), Interactables.RecordPlayer)
 			break

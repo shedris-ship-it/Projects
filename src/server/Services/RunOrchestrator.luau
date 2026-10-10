@@ -258,11 +258,14 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.NoiseService:Clear()
 		services.SquadProfileService:Reset()
 		services.PlayerStateService:BeginRun(players)
+		-- The "anomaly" fork keeps its old name so the house is dressed the
+		-- same per seed as it was before the clue loop retired. First, so what
+		-- is set on tops after it keeps clear of its radios (World/Dressing).
+		services.DecorService:Begin(rng:Fork("anomaly"))
+		-- (The home computer's stretch of desk, before any tool or lead is set out.)
+		services.PuzzleService:Reserve(plan)
 		services.ToolService:BeginRun(players, rng:Fork("tools"))
 		services.DriftService:Begin(difficulty)
-		-- The "anomaly" fork keeps its old name so the house is dressed the
-		-- same per seed as it was before the clue loop retired.
-		services.DecorService:Begin(rng:Fork("anomaly"))
 		-- Toilets, taps, TVs, radios and every room's light switch.
 		services.InteractService:Begin()
 		-- Wind-up toys in the children's rooms (docs/plans/level-design.md 4).
