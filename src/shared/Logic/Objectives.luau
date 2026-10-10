@@ -5,6 +5,8 @@
 -- facts: {
 --   served: the dinner is served (the run out)
 --   places, placesLeft: places laid at the table, and how many are empty
+--   wanting: once someone has seen the table, what its empty places' cards
+--     ask for ({ "Mom's locket", ... }): the line names them
 --   keys: the keys someone holds, by token: { { mark, place?, two? } }; `place`
 --     where its door is ("the Study") once someone has seen it
 --   doors: the locked doors someone has tried and nobody has opened, oldest
@@ -129,14 +131,27 @@ function Objectives.lockLine(facts): string?
 	return nil
 end
 
+-- "a", "a and b", "a, b and c".
+function Objectives.list(items: { string }): string
+	if #items <= 1 then
+		return items[1] or ""
+	end
+	return table.concat(items, ", ", 1, #items - 1) .. " and " .. items[#items]
+end
+
 function Objectives.line(facts): string
 	if facts.served then
 		return "The front door is open. Get out."
 	end
 	local parts = {}
 	local left = facts.placesLeft or 0
+	local wanting = facts.wanting
 	if left <= 0 then
 		table.insert(parts, "The table is set.")
+	elseif wanting and #wanting > 0 then
+		-- The cards at the empty places say what each wants (the squad
+		-- playtest, 2026-10-10: "you at least know what you're looking for").
+		table.insert(parts, "The table still wants " .. Objectives.list(wanting) .. ".")
 	elseif left == facts.places then
 		table.insert(
 			parts,

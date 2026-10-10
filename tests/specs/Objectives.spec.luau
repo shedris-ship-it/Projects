@@ -13,6 +13,16 @@ return function(test, check, Shared, require)
 		check.truthy(not has(line, "locked"), "nothing about locks nobody has tried")
 	end)
 
+	test("once the table is seen, the line names what its empty places want", function()
+		local line = Objectives.line({ places = 3, placesLeft = 2, wanting = { "Mom's locket", "Grandpa's watch" } })
+		check.truthy(has(line, "The table still wants Mom's locket and Grandpa's watch."), line)
+		line = Objectives.line({ places = 3, placesLeft = 1, wanting = { "Mom's locket" } })
+		check.truthy(has(line, "still wants Mom's locket."), line)
+		check.equal(Objectives.list({ "a", "b", "c" }), "a, b and c", "a list of three")
+		line = Objectives.line({ places = 3, placesLeft = 0, wanting = {} })
+		check.truthy(has(line, "The table is set."), "set")
+	end)
+
 	test("what's been seen is mentioned, and goes when it's dealt with", function()
 		local computer = { kind = "terminal", room = "Study" }
 		local doors = { { mark = "star", kind = "key", place = "the Upper Hall" } }

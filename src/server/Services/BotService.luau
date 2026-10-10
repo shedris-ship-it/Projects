@@ -1178,13 +1178,8 @@ end
 function BotService:_set(step): (boolean, string?)
 	local services = self.services
 	local finale = services.FinaleService
-	local place = nil
-	for _, p in finale.places do
-		if not p.token then
-			place = p
-			break
-		end
-	end
+	-- The place whose card wants it (FinaleService:_placeFor).
+	local place = finale:_placeFor(step.token)
 	if not place then
 		return false, "no empty place"
 	end

@@ -1,7 +1,10 @@
 -- The dinner, the escape's finale (docs/plans/gameplay-rework.md section 6).
 -- The dining table is laid from the start with empty places, one for each
--- heirloom (Services/ItemService). Carry one to an empty place and hold E to
--- set it: its candle lights. When the last is set, the dinner is served:
+-- heirloom (Services/ItemService), its card naming the one it wants and a
+-- faint shape of it on the plate. Carry an heirloom up to the table and it is
+-- set at its own place: its candle lights (the squad playtest, 2026-10-10: a
+-- tester never knew to set the table, and E while carrying puts down). When
+-- the last is set, the dinner is served:
 --
 --   1. every light in the house dies, and a chair scrapes at the head of the
 --      table: he's sitting there;
@@ -33,6 +36,7 @@ local Props = require(Shared.Data.Props)
 local RoomRects = require(Shared.Logic.RoomRects)
 local PropFactory = require(Shared.World.PropFactory)
 local Sfx = require(Shared.Lib.Sfx)
+local Items = require(script.Parent.Parent.World.Items)
 
 local RS = Constants.RunState
 local part = PropFactory.part
@@ -150,6 +154,8 @@ function FinaleService:Start()
 			return
 		end
 		elapsed = 0
+		self:_lookAtTable()
+		self:_autoSet()
 		self:_lookForStations()
 		self:_assist()
 		-- (A tool picked up or put down changes the line too.)
@@ -503,6 +509,7 @@ end
 function FinaleService:_publish()
 	if self.plan then
 		self.facts.doors, self.facts.keys, self.facts.tools = self:_lockFacts()
+		self.facts.wanting = self:_wanting()
 	end
 	local line = Objectives.line(self.facts)
 	if line ~= self.line then
@@ -567,8 +574,9 @@ function FinaleService:_table(world)
 	return CFrame.new(room.center.X, floor, room.center.Z), Vector3.new(6, 3.4, 12)
 end
 
--- One empty place: a plate, a card, an unlit candle, and the prompt to set it.
-function FinaleService:_place(index: number, at: CFrame, folder: Instance)
+-- One empty place: a plate, a card naming the heirloom it wants, a faint
+-- shape of that heirloom on the plate, and a candle.
+function FinaleService:_place(index: number, at: CFrame, folder: Instance, wants: string?)
 	local white = Color3.fromRGB(232, 228, 216)
 	local china = PropFactory.material("SmoothPlastic")
 	local model = Instance.new("Model")
@@ -581,23 +589,27 @@ function FinaleService:_place(index: number, at: CFrame, folder: Instance)
 	local card = part(
 		model,
 		"Card",
-		Vector3.new(0.6, 0.35, 0.03),
-		at * CFrame.new(0, 0.2, -0.95) * CFrame.Angles(math.rad(-12), 0, 0),
+		Vector3.new(0.9, 0.42, 0.03),
+		-- Beyond the plate (towards the table's middle), leaning back, its
+		-- writing to whoever stands at this place (it used to face across).
+		-- Plain card stock, so the name reads.
+		at * CFrame.new(0, 0.24, 0.98) * CFrame.Angles(math.rad(12), 0, 0),
 		Color3.fromRGB(236, 230, 214),
-		PropFactory.material("Fabric"),
+		Enum.Material.SmoothPlastic,
 		{ collide = false, castShadow = false }
 	)
 	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
-	gui.CanvasSize = Vector2.new(120, 70)
-	gui.LightInfluence = 1
+	gui.Face = Enum.NormalId.Front
+	gui.CanvasSize = Vector2.new(180, 84)
+	gui.LightInfluence = 0.7
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.fromScale(0.92, 0.86)
+	label.Position = UDim2.fromScale(0.04, 0.07)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.SpecialElite
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(60, 40, 30)
-	label.Text = "..."
+	label.Text = wants and self.Items:Label(wants) or "..."
 	label.Parent = gui
 	gui.Parent = card
 	part(model, "Candle", Vector3.new(0.6, 0.16, 0.16), at * CFrame.new(0.8, 0.3, -0.7) * UPRIGHT, white, china, {
@@ -621,19 +633,123 @@ function FinaleService:_place(index: number, at: CFrame, folder: Instance)
 	glow.Enabled = true
 	glow.Parent = flame
 	model.Parent = folder
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "PlacePrompt"
-	prompt.ActionText = "Set the table"
-	prompt.ObjectText = "Empty place"
-	prompt.HoldDuration = 1
-	prompt.MaxActivationDistance = 8
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = plate
-	local place = { index = index, at = at, model = model, label = label, flame = flame, glow = glow, prompt = prompt }
-	prompt.Triggered:Connect(function(player)
-		self:_set(place, player)
-	end)
-	return place
+	local ghost = wants and self:_ghost(wants, at * CFrame.new(0, 0.1, 0), model)
+	return {
+		index = index,
+		at = at,
+		model = model,
+		label = label,
+		flame = flame,
+		glow = glow,
+		wants = wants,
+		ghost = ghost,
+		plate = plate,
+	}
+end
+
+-- The heirloom a place wants, as a faint shadow of itself on its plate, like
+-- the mark left where a thing has always stood. Nothing touches it, nothing
+-- sees it.
+function FinaleService:_ghost(token: string, at: CFrame, parent: Instance): Model?
+	local kind = self.Items.heirloomKinds[token]
+	if not kind then
+		return nil
+	end
+	local D = Config.Dinner
+	local ghost = Items.heirloom(kind.id, at, parent)
+	ghost.Name = "Wants"
+	for _, d in ghost:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.CastShadow = false
+			d.Material = Enum.Material.SmoothPlastic
+			d.MaterialVariant = ""
+			d.Color = Color3.fromRGB(D.GhostColor[1], D.GhostColor[2], D.GhostColor[3])
+			d.Transparency = math.max(d.Transparency, D.GhostTransparency)
+		elseif d:IsA("Decal") or d:IsA("Texture") or d:IsA("SurfaceGui") or d:IsA("Light") then
+			d:Destroy()
+		end
+	end
+	return ghost
+end
+
+-- Someone has seen the table (in the dining room, near it): from then on the
+-- objective line names what its cards want.
+function FinaleService:_lookAtTable()
+	if self.facts.tableSeen or not self.tableFrame or not self.plan then
+		return
+	end
+	local room = self.World.World.layout.deliberation
+	for _, player in self.PlayerState:ActivePlayers() do
+		local position = self.PlayerState:Position(player)
+		if
+			position
+			and self.World:RoomAt(position) == room
+			and (position - self.tableFrame.Position).Magnitude < Config.Dinner.SeenRange
+		then
+			self.facts.tableSeen = true
+			self:_publish()
+			return
+		end
+	end
+end
+
+-- What the empty places' cards want, once the table has been seen.
+function FinaleService:_wanting(): { string }?
+	if not self.facts.tableSeen then
+		return nil
+	end
+	local list = {}
+	for _, place in self.places do
+		if not place.token and place.wants then
+			table.insert(list, self.Items:Label(place.wants))
+		end
+	end
+	return list
+end
+
+-- Anyone carrying an heirloom up to the table sets it.
+function FinaleService:_autoSet()
+	if self.served or not self.tableFrame then
+		return
+	end
+	local range = Config.Dinner.AutoSetRange
+	for _, player in self.PlayerState:ActivePlayers() do
+		local thing = self.Hands:Held(player)
+		local token = thing and thing.model:GetAttribute("Item")
+		local place = token and self:_placeFor(token)
+		local position = place and self.PlayerState:Position(player)
+		if position then
+			local flat = Vector3.new(position.X - place.at.Position.X, 0, position.Z - place.at.Position.Z)
+			local nearTable = (position - self.tableFrame.Position).Magnitude < range + self.tableSize.Magnitude / 2
+			if flat.Magnitude < range or nearTable then
+				if math.abs(position.Y - place.at.Position.Y) < 6 then
+					self:_set(place, player)
+				end
+			end
+		end
+	end
+end
+
+-- The empty place that wants `token` (or, failing that, any empty one).
+function FinaleService:_placeFor(token: string)
+	local info = self.plan and self.plan.tokens[token]
+	if not info or info.kind ~= "heirloom" then
+		return nil
+	end
+	local free = nil
+	for _, place in self.places do
+		if not place.token then
+			if place.wants == token then
+				return place
+			end
+			free = free or (place.wants == nil and place) or nil
+		end
+	end
+	return free
 end
 
 function FinaleService:Begin(plan)
@@ -667,7 +783,7 @@ function FinaleService:Begin(plan)
 		local inward = frame:PointToWorldSpace(long and Vector3.new(0, size.Y, along) or Vector3.new(along, size.Y, 0))
 		-- The card stands at the far side of the plate, facing whoever sits here.
 		local at = CFrame.lookAt(position, Vector3.new(inward.X, position.Y, inward.Z)) * CFrame.Angles(0, math.pi, 0)
-		table.insert(self.places, self:_place(i, at, folder))
+		table.insert(self.places, self:_place(i, at, folder, plan.finale.heirlooms[i]))
 	end
 	local head = layout.head * sign
 	self.head = frame:PointToWorldSpace(long and Vector3.new(0, 0, head) or Vector3.new(head, 0, 0))
@@ -746,16 +862,15 @@ local function notifyAll(text: string, kind: string?)
 	Net.get("Notify"):FireAllClients(text, kind or "info")
 end
 
--- Someone holding an heirloom sets it at a place.
+-- Someone holding an heirloom sets it, at the place that wants it.
 function FinaleService:_set(place, player: Player)
-	if self.served or place.token or not self.PlayerState:CanAct(player) then
+	if self.served or not self.PlayerState:CanAct(player) then
 		return
 	end
 	local thing = self.Hands:Held(player)
 	local token = thing and thing.model:GetAttribute("Item")
-	local info = token and self.plan and self.plan.tokens[token]
-	if not info or info.kind ~= "heirloom" then
-		Net.get("Notify"):FireClient(player, "Something belongs here. Something of the family's.")
+	place = token and self:_placeFor(token)
+	if not place then
 		return
 	end
 	self.Hands:Forget(thing, false)
@@ -775,7 +890,10 @@ function FinaleService:_set(place, player: Player)
 	place.glow.Range = 9
 	place.glow.Brightness = 1.2
 	place.glow.Enabled = true
-	place.prompt.Enabled = false
+	if place.ghost then
+		place.ghost:Destroy()
+		place.ghost = nil
+	end
 	Sfx.play("Match", place.at.Position, 0.5, 1)
 	self.Drift:Apply("ItemFound")
 	local left = 0
@@ -837,7 +955,10 @@ function FinaleService:Serve()
 	self.served = true
 	self.services.RunLogService:Served()
 	for _, place in self.places do
-		place.prompt.Enabled = false
+		if place.ghost then
+			place.ghost:Destroy()
+			place.ghost = nil
+		end
 	end
 	local world = self.World.World
 	-- The lights die.

@@ -294,6 +294,14 @@ function LobbyService:_checkStart()
 			runState:SetAttribute(Constants.RunState.LobbyStartsAt, nil)
 			self.countdownThread = nil
 			self.firstReadyAt = nil
+			-- Whoever readied during the countdown comes too (the squad
+			-- playtest, 2026-10-10: three pressed Ready, the timer's majority
+			-- went in with two and left the third behind).
+			for _, player in (self:_readiness()) do
+				if not table.find(squad, player) then
+					table.insert(squad, player)
+				end
+			end
 			while #squad > Config.Run.MaxPlayers do
 				table.remove(squad)
 			end

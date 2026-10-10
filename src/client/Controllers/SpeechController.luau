@@ -40,12 +40,20 @@ local function disableDefaultChat()
 end
 
 -- Emitters are only heard through an AudioListener, which sits on the camera.
+-- Roblox's own voice chat puts one there already: use it. A second listener
+-- on the same spot played every voice twice, a hair apart (the squad
+-- playtest, 2026-10-10: "proxy voice chat sounds muffled and inconsistent").
 local function ensureListener()
 	local camera = Workspace.CurrentCamera
 	if not camera then
 		return
 	end
 	if listener and listener.Parent == camera then
+		return
+	end
+	local existing = camera:FindFirstChildOfClass("AudioListener")
+	if existing then
+		listener = existing
 		return
 	end
 	listener = Instance.new("AudioListener")

@@ -265,6 +265,10 @@ function Hud:Update()
 		detail = player:GetAttribute("LanternOn") and "Lantern lit (R near a shrine to light it)"
 			or "R: lantern · near a shrine: light it"
 	end
+	if tool and not (hands and hands:IsCarrying()) then
+		-- (The squad playtest, 2026-10-10: "I didn't know how to drop stuff.")
+		detail ..= (detail ~= "" and "  ·  " or "") .. "X: drop"
+	end
 	local carrying = player:GetAttribute(PA.Carrying)
 	if carrying then
 		detail ..= "  ·  carrying a key"

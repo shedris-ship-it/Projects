@@ -21,6 +21,9 @@
 -- Opened with its prompt, a shut door swings away from whoever opened it,
 -- and never stops against them (owner's playtest, 2026-10-05: standing in
 -- its swing, the door opened a third of the way into you and stuck there).
+--
+-- A door left ajar gives when you walk into it from behind (the squad
+-- playtest, 2026-10-10): it swings on open ahead of you (_shoulder).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -64,10 +67,15 @@ function DoorService:Start()
 	self.World.Cleared:Connect(function()
 		table.clear(self.moving)
 	end)
-	local boltCheck = 0
+	local boltCheck, shoulderCheck = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
 		for door in self.moving do
 			self:_step(door, dt)
+		end
+		shoulderCheck += dt
+		if shoulderCheck >= D.Shoulder.Every then
+			shoulderCheck = 0
+			self:_shoulder()
 		end
 		boltCheck += dt
 		if boltCheck >= 1 then
@@ -397,6 +405,71 @@ function DoorService:Rattle(door, degrees: number)
 			self:SetAngle(door, was)
 		end
 	end)
+end
+
+-- Doors ajar that someone walks into from behind swing on open ahead of them,
+-- a soft creak (like easing it open by hand). Never a shut one (that's E),
+-- a locked or bolted one, one in someone's hands, or one he is opening.
+function DoorService:_shoulder()
+	local world = self.World.World
+	if not world or not world.doors then
+		return
+	end
+	local S = D.Shoulder
+	local players = {}
+	for _, player in self.PlayerState:ActivePlayers() do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local v = root.AssemblyLinearVelocity
+			local flat = Vector3.new(v.X, 0, v.Z)
+			if flat.Magnitude >= S.MinSpeed then
+				table.insert(players, { player = player, at = root.Position, velocity = flat })
+			end
+		end
+	end
+	if #players == 0 then
+		return
+	end
+	for _, door in world.doors do
+		local state = door.state
+		if
+			state
+			and not door.open
+			and not door.locked
+			and not door.privacy
+			and not door.byGuest
+			and state.value > D.LatchAngle
+			and not Articulation.moving(state)
+			and not self:HeldBy(door)
+			and door.slab.Parent
+		then
+			local slab = door.slab.CFrame
+			-- The way its middle goes as it opens, and along the leaf.
+			local ahead = Joint.pose(door.joint, math.min(state.value + 2, D.OpenAngle)).Position - slab.Position
+			ahead = Vector3.new(ahead.X, 0, ahead.Z)
+			if ahead.Magnitude > 1e-3 then
+				ahead = ahead.Unit
+				local along = Vector3.new(0, 1, 0):Cross(ahead)
+				for _, entry in players do
+					local rel = entry.at - slab.Position
+					local behind = -rel:Dot(ahead)
+					if
+						math.abs(rel.Y) < 4
+						and behind > 0
+						and behind < H.BodyRadius + S.Reach
+						and math.abs(rel:Dot(along)) < DOOR_LENGTH / 2 + 0.3
+						and entry.velocity:Dot(ahead) >= S.MinSpeed * 0.6
+					then
+						door.opener = entry.player
+						self:SetAngle(door, math.max(S.OpenTo, state.value))
+						Sfx.play("DoorOpen", door.position, 0.22, 0.95)
+						self.Noise:Emit(door.position, S.Noise, entry.player, "door")
+						break
+					end
+				end
+			end
+		end
+	end
 end
 
 -- Turn a shut door's swing round so it opens away from `player` (the

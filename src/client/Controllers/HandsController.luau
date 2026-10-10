@@ -111,6 +111,12 @@ end
 
 function HandsController:Start()
 	ContextActionService:BindActionAtPriority("ConsensusGrab", function(_, inputState)
+		-- A screen up (a note, a puzzle, the map): the click is its buttons'
+		-- (the squad playtest, 2026-10-10: a click on a note's "Put it down"
+		-- took the note up again).
+		if inputState == Enum.UserInputState.Begin and Ui.modalOpen() then
+			return Enum.ContextActionResult.Pass
+		end
 		local carry = self.carry
 		if carry and carry.viaE then
 			-- Picked up with E: the click throws (held, it winds up).
@@ -147,7 +153,7 @@ function HandsController:Start()
 	-- Hold to wind up, let go to throw (a tap still throws, softly).
 	ContextActionService:BindActionAtPriority("ConsensusThrow", function(_, inputState)
 		local carry = self.carry
-		if inputState == Enum.UserInputState.Begin and carry and carry.owned then
+		if inputState == Enum.UserInputState.Begin and carry and carry.owned and not Ui.modalOpen() then
 			carry.windingSince = os.clock()
 			return Enum.ContextActionResult.Sink
 		elseif
@@ -174,9 +180,21 @@ function HandsController:Start()
 	-- instance lives on.)
 	self.claimed = {} -- prompt -> true: one of E's
 	self.shown = {} -- prompt -> true while Roblox shows it
+	self.prompts = {} -- every prompt, for the click rule
 	local function claim(prompt: Instance)
 		if not prompt:IsA("ProximityPrompt") then
 			return
+		end
+		-- Never by the mouse on a keyboard (the squad playtest, 2026-10-10): a
+		-- shown prompt takes any click, so a note's "Put it down" opened the
+		-- note again, a right click changed the contract, and the click meant
+		-- for the bolt cutters went to the door. Touch still taps them.
+		prompt.ClickablePrompt = not self:_keyboard()
+		if not self.prompts[prompt] then
+			self.prompts[prompt] = true
+			prompt.Destroying:Once(function()
+				self.prompts[prompt] = nil
+			end)
 		end
 		if not self.claimed[prompt] then
 			if prompt.KeyboardKeyCode ~= Enum.KeyCode.E then
@@ -208,10 +226,11 @@ function HandsController:Start()
 		local keyboard = self:_keyboard()
 		if keyboard ~= self.wasKeyboard then
 			self.wasKeyboard = keyboard
-			for prompt in self.claimed do
+			for prompt in self.prompts do
 				if prompt.Parent then
 					claim(prompt)
 				else
+					self.prompts[prompt] = nil
 					self.claimed[prompt] = nil
 				end
 			end

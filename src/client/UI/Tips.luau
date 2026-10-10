@@ -90,6 +90,18 @@ local TIPS = {
 			return type(keys) == "string" and keys ~= ""
 		end,
 	},
+	-- The squad playtest (2026-10-10): a tester never knew the table wanted it.
+	{
+		id = "heirloom",
+		text = "Something of the family's. Carry it to the dining table: a card at one of the empty places names it, and it's set as you walk up.",
+		when = function(self)
+			local hands = self.ctx.controllers.HandsController
+			local carry = hands and hands.carry
+			local model = carry and carry.model
+			return model ~= nil and model.Name == "Heirloom"
+		end,
+		urgent = true,
+	},
 	{
 		id = "guest",
 		text = "Something is watching you. Two of you looking at it in the light stop it. Alone, your beam does, while the battery lasts.",

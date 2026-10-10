@@ -14,6 +14,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
@@ -62,7 +63,9 @@ local MARKS = {
 local TICK = Color3.fromRGB(150, 205, 150)
 
 function Map.new(ctx)
-	local self = setmetatable({ ctx = ctx, tab = "Map", open = false, state = nil }, Map)
+	-- `floor`: the storey on show (the squad playtest, 2026-10-10: one floor
+	-- at a time, flipped, opening on the one you stand on).
+	local self = setmetatable({ ctx = ctx, tab = "Map", open = false, state = nil, floor = nil }, Map)
 	local gui = Ui.screen("ConsensusMap", 40, ctx.playerGui)
 	gui.Enabled = false
 	self.gui = gui
@@ -89,7 +92,8 @@ function Map.new(ctx)
 	})
 	self.summary = Ui.label("", {
 		Position = UDim2.new(0, 20, 0, 42),
-		Size = UDim2.new(1, -40, 0, 20),
+		Size = UDim2.new(1, -300, 0, 20),
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextSize = 14,
 		TextColor3 = Ui.Theme.textDim,
 		Parent = panel,
@@ -107,6 +111,48 @@ function Map.new(ctx)
 			self:Render()
 		end)
 	end
+	-- Up and down a floor (also the arrow keys, or the shoulder buttons).
+	self.floorBar = Ui.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -20, 0, 44),
+		Size = UDim2.fromOffset(250, 22),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = panel,
+	}, { Ui.list(6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
+	self.floorDown = Ui.button(
+		"Down",
+		{ Size = UDim2.fromOffset(56, 22), TextSize = 12, LayoutOrder = 1, Parent = self.floorBar },
+		function()
+			self:Flip(-1)
+		end
+	)
+	self.floorName = Ui.label("", {
+		Size = UDim2.fromOffset(120, 22),
+		TextSize = 14,
+		Font = Ui.Theme.fontBold,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		LayoutOrder = 2,
+		Parent = self.floorBar,
+	})
+	self.floorUp = Ui.button(
+		"Up",
+		{ Size = UDim2.fromOffset(56, 22), TextSize = 12, LayoutOrder = 3, Parent = self.floorBar },
+		function()
+			self:Flip(1)
+		end
+	)
+	UserInputService.InputBegan:Connect(function(input)
+		if not self.open or self.tab ~= "Map" then
+			return
+		end
+		local key = input.KeyCode
+		if key == Enum.KeyCode.Up or key == Enum.KeyCode.PageUp or key == Enum.KeyCode.ButtonR1 then
+			self:Flip(1)
+		elseif key == Enum.KeyCode.Down or key == Enum.KeyCode.PageDown or key == Enum.KeyCode.ButtonL1 then
+			self:Flip(-1)
+		end
+	end)
 	self.body = Ui.new("ScrollingFrame", {
 		Position = UDim2.fromOffset(20, 72),
 		Size = UDim2.new(1, -40, 1, -92),
@@ -142,6 +188,20 @@ function Map:Toggle()
 	self.open = not self.open
 	self.gui.Enabled = self.open
 	if self.open then
+		-- Open on the floor you stand on.
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		self.floor = root and self.ctx.state:StoreyAt(root.Position.Y) or self.floor
+		self:Render()
+	end
+end
+
+-- Show the next floor up (1) or down (-1) that someone has seen.
+function Map:Flip(step: number)
+	local floors = self.floors or {}
+	local at = table.find(floors, self.floor) or 1
+	local nextFloor = floors[math.clamp(at + step, 1, math.max(1, #floors))]
+	if nextFloor ~= nil and nextFloor ~= self.floor then
+		self.floor = nextFloor
 		self:Render()
 	end
 end
@@ -155,6 +215,7 @@ end
 function Map:Render()
 	self:_clear()
 	self.title.Text = string.upper(self.tab)
+	self.floorBar.Visible = false
 	if self.tab == "Journal" then
 		self:_renderJournal()
 	else
@@ -247,7 +308,9 @@ function Map:_renderMap()
 	-- mansion's storeys side by side, two to a row when the house has a cellar
 	-- or an attic as well (docs/plans/level-design.md section 10.1), and only
 	-- the storeys somebody has seen a room on.
-	local low, high = 0, 0
+	-- One storey at a time (the squad playtest, 2026-10-10), of those somebody
+	-- has seen a room on; the others a flip away. The frame is the whole of
+	-- what's been seen, so a floor keeps its place when you flip.
 	local storeyShown = {}
 	for _, room in shown do
 		local bottom = room.floor or 0
@@ -256,19 +319,31 @@ function Map:_renderMap()
 			storeyShown[f] = true
 		end
 	end
-	if layout.mode == "Mansion" then
-		local range = layout.storeys or { 0, 1 }
-		low, high = range[1], range[2]
-		while low < high and not storeyShown[low] do
-			low += 1
-		end
-		while high > low and not storeyShown[high] do
-			high -= 1
-		end
+	local floors = {}
+	for f in storeyShown do
+		table.insert(floors, f)
 	end
-	local count = high - low + 1
-	local cols = math.min(count, 2)
-	local rows = math.ceil(count / cols)
+	table.sort(floors)
+	self.floors = floors
+	if self.floor == nil or not storeyShown[self.floor] then
+		-- The nearest seen floor to the one asked for (or the ground floor).
+		local want, best = self.floor or 0, nil
+		for _, f in floors do
+			if best == nil or math.abs(f - want) < math.abs(best - want) then
+				best = f
+			end
+		end
+		self.floor = best or 0
+	end
+	local view = self.floor
+	local low, high = view, view
+	local count = #floors
+	self.floorBar.Visible = count > 1
+	self.floorName.Text = STOREY_NAMES[view] or ("Floor " .. view)
+	local at = table.find(floors, view) or 1
+	self.floorDown.Visible = at > 1
+	self.floorUp.Visible = at < count
+	local cols, rows = 1, 1
 	local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
 	local smallest = math.huge
 	for _, room in shown do
@@ -301,23 +376,18 @@ function Map:_renderMap()
 		local i = math.clamp(floor, low, high) - low
 		return (i % cols) * (maxX - minX + gap) * scale, (i // cols) * rowPixels
 	end
-	local function toMap(x: number, z: number, floor: number)
-		local left, top = corner(floor)
+	-- Where a point on the floor on show goes; nil on another floor.
+	local function toMap(x: number, z: number, floor: number?): (number?, number?)
+		if (floor or 0) ~= view then
+			return nil, nil
+		end
+		local left, top = corner(view)
 		return left + ((x - ox) - minX) * scale, top + ((z - oz) - minZ) * scale
 	end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local here = root and self.ctx.state:RoomAt(root.Position)
 	for floor = low, high do
 		local left, top = corner(floor)
-		if count > 1 and storeyShown[floor] then
-			Ui.label(STOREY_NAMES[floor] or ("Floor " .. floor), {
-				Position = UDim2.fromOffset(left, top + height * scale + 4),
-				Size = UDim2.fromOffset((maxX - minX) * scale, 18),
-				TextSize = 13,
-				TextColor3 = Ui.Theme.textDim,
-				Parent = canvas,
-			})
-		end
 		local lanterns = {}
 		for _, entry in state.lanterns or {} do
 			lanterns[entry.room] = entry.lit
@@ -336,8 +406,12 @@ function Map:_renderMap()
 		end
 	end
 	-- The table.
+	local tableX, tableY = nil, nil
 	if state.table then
-		local x, y = toMap(state.table.x, state.table.z, state.table.floor)
+		tableX, tableY = toMap(state.table.x, state.table.z, state.table.floor)
+	end
+	if tableX and tableY then
+		local x, y = tableX, tableY
 		self:_dot(
 			canvas,
 			x,
@@ -350,6 +424,9 @@ function Map:_renderMap()
 	for _, door in state.doors do
 		local look = DOORS[door.kind] or DOORS.door
 		local x, y = toMap(door.x, door.z, door.floor)
+		if not x or not y then
+			continue
+		end
 		local size = look.tag and 9 or 6
 		if look.tag then
 			-- A lock seen and not yet open: something to do here.
@@ -377,10 +454,16 @@ function Map:_renderMap()
 	end
 	for _, note in state.notes do
 		local x, y = toMap(note.x, note.z, note.floor)
+		if not x or not y then
+			continue
+		end
 		self:_dot(canvas, x, y, 8, Color3.fromRGB(230, 222, 196), "note")
 	end
 	for _, item in state.items do
 		local x, y = toMap(item.x, item.z, item.floor)
+		if not x or not y then
+			continue
+		end
 		local color = item.kind == "heirloom" and Color3.fromRGB(230, 200, 120) or Color3.fromRGB(214, 180, 90)
 		self:_dot(canvas, x, y, 8, color, item.label)
 	end
@@ -388,20 +471,35 @@ function Map:_renderMap()
 		local look = MARKS[mark.kind] or { text = mark.label or mark.kind, color = Ui.Theme.text }
 		local text = (mark.kind == "piece" or mark.kind == "landmark") and mark.label or look.text
 		local x, y = toMap(mark.x, mark.z, mark.floor)
+		if not x or not y then
+			continue
+		end
 		local color = mark.done and Ui.Theme.textDim or look.color
 		if not mark.done and mark.kind ~= "landmark" then
 			self:_ring(canvas, x, y, 18, color)
 		end
 		self:_dot(canvas, x, y, 8, color, text .. (mark.done and " (done)" or ""))
 	end
+	local elsewhere = {}
 	for _, down in state.downed do
 		local x, y = toMap(down.x, down.z, down.floor)
-		self:_dot(canvas, x, y, 12, Color3.fromRGB(220, 60, 50), down.name .. " is down")
+		if x and y then
+			self:_dot(canvas, x, y, 12, Color3.fromRGB(220, 60, 50), down.name .. " is down")
+		else
+			local where = STOREY_NAMES[down.floor or 0] or "another floor"
+			table.insert(elsewhere, down.name .. " is down (" .. string.lower(where) .. ")")
+		end
+	end
+	if #elsewhere > 0 then
+		self.summary.Text ..= "  ·  " .. table.concat(elsewhere, ", ")
 	end
 	-- You: a dot, and a stroke the way you face.
+	local youX, youY = nil, nil
 	if root then
-		local floor = self.ctx.state:StoreyAt(root.Position.Y)
-		local x, y = toMap(root.Position.X, root.Position.Z, floor)
+		youX, youY = toMap(root.Position.X, root.Position.Z, self.ctx.state:StoreyAt(root.Position.Y))
+	end
+	if root and youX and youY then
+		local x, y = youX, youY
 		local look = root.CFrame.LookVector
 		local facing = Vector2.new(look.X, look.Z)
 		if facing.Magnitude > 1e-3 then

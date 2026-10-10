@@ -938,6 +938,15 @@ Config.Scent = {
 	ErrandReach = 4, -- an errand's spot counts as reached within this many studs
 }
 
+-- Setting the table (Services/FinaleService; the squad playtest, 2026-10-10:
+-- carry an heirloom up to it and it's set, each card names what it wants).
+Config.Dinner = {
+	AutoSetRange = 5, -- studs from its place (or this beyond the table's edge) an heirloom you carry is set
+	SeenRange = 20, -- within this of the table, in its room, the squad has seen it: the line names what it wants
+	GhostColor = { 62, 52, 44 }, -- the wanted heirloom's shadow on its plate (RGB)
+	GhostTransparency = 0.45,
+}
+
 -- Each Witness's own unsettling moments (Logic/Atmosphere): the Drift each
 -- kind waits for.
 Config.Atmosphere = {
@@ -1304,6 +1313,15 @@ Config.Doors = {
 	-- knocks, below what it simply stops, and how keenly a held one follows.
 	Motion = { friction = 260, restitution = 0.25, slamSpeed = 160, knockSpeed = 120, stopSpeed = 8, stiffness = 18 },
 	SlamNoise = 25,
+	-- A door ajar gives when you walk into it from behind (Services/DoorService
+	-- _shoulder; the squad playtest, 2026-10-10).
+	Shoulder = {
+		Every = 0.1, -- seconds between looks
+		MinSpeed = 3, -- studs a second you must be walking at it
+		Reach = 0.9, -- studs beyond your body's radius from the leaf
+		OpenTo = 80, -- it swings on to this angle (walkable from PassAngle)
+		Noise = 6, -- a soft creak, heard this far
+	},
 }
 
 -- The escape's locks and keys (docs/plans/gameplay-rework.md section 5;

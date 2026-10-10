@@ -78,7 +78,7 @@ function Reader.new(ctx)
 	}, function()
 		self:Close()
 	end)
-	Ui.label("E or Esc to put it down", {
+	Ui.label("E or a click to put it down", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.5, 290),
 		Size = UDim2.fromOffset(300, 20),
@@ -103,7 +103,11 @@ function Reader.new(ctx)
 			return
 		end
 		local key = input.KeyCode
-		if key == Enum.KeyCode.E or key == Enum.KeyCode.Escape or key == Enum.KeyCode.ButtonB then
+		-- Any click too, wherever it lands (the squad playtest, 2026-10-10:
+		-- the button alone didn't: in first person the click never reached it).
+		local click = input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.MouseButton2
+		if click or key == Enum.KeyCode.E or key == Enum.KeyCode.Escape or key == Enum.KeyCode.ButtonB then
 			self:Close()
 		end
 	end)

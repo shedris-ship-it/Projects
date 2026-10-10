@@ -66,6 +66,8 @@ selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
 ```
 
+To run one spec while iterating, pass part of its file name: `lune run tests/run LockPlanner` runs every `tests/specs/*.spec.luau` whose name contains `LockPlanner`. Run the full suite before committing.
+
 All must pass. When MCP is available, also start a play session and check the console for errors. Report results honestly: if something wasn't checked in Studio, say so.
 
 ## Roblox skill
