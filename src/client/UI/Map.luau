@@ -18,6 +18,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
+local GuestMood = require(Shared.Logic.GuestMood)
 local Net = require(Shared.Net)
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
@@ -670,7 +671,7 @@ end
 -- The journal -----------------------------------------------------------------------
 
 function Map:_renderJournal()
-	self.summary.Text = "What you've read, the keys you carry, and who carries what."
+	self.summary.Text = "What you've read, the keys you carry, who carries what, and his moods."
 	local list = Ui.new("Frame", {
 		Size = UDim2.new(1, -10, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -752,6 +753,32 @@ function Map:_renderJournal()
 			Size = UDim2.new(1, 0, 0, 20),
 			TextSize = 14,
 			LayoutOrder = 61 + i,
+			Parent = list,
+		})
+	end
+	-- His moods you've seen ("a Guest you can read", 2026-10-11): a field
+	-- guide, each with its tell and what to do (Logic/GuestMood.lesson).
+	heading("His moods you've seen", 80)
+	local guest = self.ctx.controllers.GuestController
+	local moods = guest and guest:MoodsSeen() or {}
+	if #moods == 0 then
+		Ui.label("None yet. Watch him a moment when he stands still: how he holds himself says what he's about.", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			TextSize = 14,
+			TextColor3 = Ui.Theme.textDim,
+			LayoutOrder = 81,
+			Parent = list,
+		})
+	end
+	for i, id in moods do
+		Ui.label(GuestMood.lesson(id) or id, {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			TextSize = 14,
+			LayoutOrder = 81 + i,
 			Parent = list,
 		})
 	end

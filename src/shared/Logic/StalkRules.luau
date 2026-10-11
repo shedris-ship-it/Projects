@@ -249,22 +249,37 @@ function StalkRules.contact(ctx, cfg): (boolean, string?)
 	return true, nil
 end
 
--- Crowding him (the squad playtest, 2026-10-08: "players can get in his
--- personal space while he's backing away without consequences"; the owner's
--- choice: a scare, then a down). Pressure builds while you stand in his face
--- (within CrowdRadius, looking at him) or follow him as he backs away
--- (within FollowRadius, closing in), and drains otherwise. Full, it's the
--- scare: he turns on you, your lights die, he's gone. Full again within
--- GrabWindow of that, it's the grab: a down. Walking past him never fills
--- it (a walk spends well under CrowdSeconds inside CrowdRadius), and his own
--- approach never counts. Two watchers and his making way don't protect you
--- at arm's reach.
--- state (per player, kept by the caller): { pressure, lastScareAt }.
--- ctx: now, distance, facing (degrees between your look and him), closing
--- (studs a second you come at him), backingAway, tier, hunting, seated,
--- stunned, visibleToThem, lineOfSight, hidden, downed, graced, safeRoom,
--- verticalGap. Returns "scare", "grab" or nil, and why not.
-function StalkRules.crowding(state, ctx, dt: number, cfg): (string?, string?)
+-- Pestering him: rule two of three ("a Guest you can read", 2026-10-11; the
+-- owner's choice: his head turns to you, one warning, then the reach). It
+-- joins what were two rules: crowding (the squad playtest, 2026-10-08:
+-- "players can get in his personal space while he's backing away without
+-- consequences") and tailing (the owner, 2026-10-11: "if the player is
+-- following the guest around but not in range for the lunge I want this to
+-- be punished"). One meter, 0 to 1, filled by three things:
+--   * in his face: within CrowdRadius, looking at him (full in CrowdSeconds);
+--   * following him close as he backs away: within FollowRadius, closing in
+--     (FollowRate times as fast);
+--   * tailing him further off: keeping him in view within TailRadius as he
+--     goes away from you and you go his way (full in TailSeconds; the caller
+--     says whether tailing counts now, `tailCounts`).
+-- The close part drains as fast as it fills, so walking past him never adds
+-- up (a walk spends well under CrowdSeconds inside CrowdRadius); the tailing
+-- part fades slowly (TailDrain), so stop-start shadowing does. The two parts
+-- add up: tail him a while, then step into his face, and it's full.
+-- From PesterNotice his head turns to you ("notice": back off). Full, he
+-- warns you ("warn": never a down). Full again within PesterMemory of the
+-- warning, he comes for you with his hands out ("reach"), and goes on doing
+-- so until PesterMemory has passed since the last time; then it's a warning
+-- again. His own approach, his making way and you walking past never count.
+-- Running at him is the contact lunge, not this (StalkRules.contact).
+-- state (per player, kept by the caller): { close, tail, warnedAt }.
+-- ctx: now, distance (flat), facing (degrees between your look and him),
+-- closing (studs a second you come at him), backingAway, away (his speed
+-- away from you) and along (your speed his way), both averaged by the
+-- caller, tailCounts, tier, hunting, seated, stunned, visibleToThem,
+-- lineOfSight, hidden, downed, graced, safeRoom, verticalGap.
+-- Returns "notice", "warn", "reach" or nil, and why not.
+function StalkRules.pestering(state, ctx, dt: number, cfg): (string?, string?)
 	local why = nil
 	if ctx.hunting then
 		why = "hunting"
@@ -283,82 +298,44 @@ function StalkRules.crowding(state, ctx, dt: number, cfg): (string?, string?)
 	elseif ctx.verticalGap > 4 then
 		why = "another floor"
 	end
-	local rate = -1
+	local closeRate, tailRate = -1 / cfg.CrowdSeconds, -cfg.TailDrain / cfg.TailSeconds
 	if not why then
 		if ctx.distance <= cfg.CrowdRadius and ctx.facing <= cfg.CrowdFacing then
-			rate = 1
+			closeRate = 1 / cfg.CrowdSeconds
 		elseif ctx.backingAway and ctx.distance <= cfg.FollowRadius and (ctx.closing or 0) > 0.5 then
-			rate = cfg.FollowRate
-		else
+			closeRate = cfg.FollowRate / cfg.CrowdSeconds
+		end
+		if
+			ctx.tailCounts ~= false
+			and ctx.distance <= cfg.TailRadius
+			and ctx.facing <= cfg.TailFacing
+			and (ctx.away or 0) >= cfg.TailSpeed
+			and (ctx.along or 0) >= cfg.TailSpeed
+		then
+			tailRate = 1 / cfg.TailSeconds
+		end
+		if closeRate < 0 and tailRate < 0 then
 			why = "keeping your distance"
 		end
 	end
-	state.pressure = math.clamp((state.pressure or 0) + rate * dt, 0, cfg.CrowdSeconds)
-	if state.pressure < cfg.CrowdSeconds then
+	state.close = math.clamp((state.close or 0) + closeRate * dt, 0, 1)
+	state.tail = math.clamp((state.tail or 0) + tailRate * dt, 0, 1)
+	local meter = state.close + state.tail
+	if meter < 1 then
+		if meter >= cfg.PesterNotice then
+			return "notice", nil
+		end
 		return nil, why or "building"
 	end
-	state.pressure = 0
-	if state.lastScareAt and ctx.now - state.lastScareAt < cfg.GrabWindow then
-		state.lastScareAt = nil
-		return "grab", nil
-	end
-	state.lastScareAt = ctx.now
-	return "scare", nil
+	state.close, state.tail = 0, 0
+	local warned = state.warnedAt ~= nil and ctx.now - state.warnedAt < cfg.PesterMemory
+	state.warnedAt = ctx.now
+	return warned and "reach" or "warn", nil
 end
 
--- Tailing him (the owner, 2026-10-11: "if the player is following the guest
--- around but not in range for the lunge I want this to be punished ... the
--- guest can notice that the player is brave and then starts walking toward
--- them reaching a hand out and if they get too close its a down"). Further
--- off than crowding: boldness builds while you keep him in view within
--- TailRadius as he walks away from you and you go his way. It fades slowly
--- otherwise (TailDrain), so stop-start shadowing still adds up. Full, he
--- comes for you with a hand out (StalkerService:_reachBegin). Within
--- TailMemory of the last time, he notices sooner (TailAgain). His own
--- approach, his making way past you and you walking past him never count:
--- he has to be going away and you after him.
--- state (per player, kept by the caller): { boldness, lastReachAt }.
--- ctx: now, distance (flat), facing (degrees between your look and him),
--- away (his speed away from you, studs a second), along (your speed his
--- way; both averaged over Config.Guest.TailSmooth by the caller), tier, hunting, seated, stunned, visibleToThem, lineOfSight, hidden,
--- downed, graced, safeRoom, verticalGap. Returns "reach" or nil, and why not.
-function StalkRules.tailing(state, ctx, dt: number, cfg): (string?, string?)
-	local why = nil
-	if ctx.hunting then
-		why = "hunting"
-	elseif ctx.seated then
-		why = "at the table"
-	elseif ctx.tier < 1 then
-		why = "tier"
-	elseif ctx.stunned then
-		why = "stunned"
-	elseif not ctx.visibleToThem or not ctx.lineOfSight then
-		why = "not seen"
-	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
-		why = "protected"
-	elseif ctx.graced then
-		why = "just back up"
-	elseif ctx.verticalGap > 4 then
-		why = "another floor"
-	elseif ctx.distance > cfg.TailRadius then
-		why = "far off"
-	elseif ctx.facing > cfg.TailFacing then
-		why = "not watching him"
-	elseif ctx.away < cfg.TailSpeed then
-		why = "he isn't going"
-	elseif ctx.along < cfg.TailSpeed then
-		why = "not following"
-	end
-	local again = state.lastReachAt ~= nil and ctx.now - state.lastReachAt < cfg.TailMemory
-	local need = again and cfg.TailAgain or cfg.TailSeconds
-	local rate = why and -cfg.TailDrain or 1
-	state.boldness = math.clamp((state.boldness or 0) + rate * dt, 0, need)
-	if state.boldness < need then
-		return nil, why or "building"
-	end
-	state.boldness = 0
-	state.lastReachAt = ctx.now
-	return "reach", nil
+-- How full a player's pester meter is (0 to 1), for the overlay.
+function StalkRules.pesterMeter(state): number
+	return math.min(1, (state.close or 0) + (state.tail or 0))
 end
 
 -- His hand reaches you while he comes for you (the reach): this close

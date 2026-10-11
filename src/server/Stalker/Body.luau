@@ -106,6 +106,13 @@ function Body:SetGaze(player: Player?)
 	self:_attr("GuestGaze", (player and player.Parent) and player.UserId or 0)
 end
 
+-- How much of a hunt's stare hold is left, 0 to 1 (nil: not held, or held
+-- between hunts, where it never wears out). Clients draw it wearing thin
+-- (Controllers/GuestController). In twentieths, so it isn't sent every tick.
+function Body:SetHoldLeft(share: number?)
+	self:_attr("GuestHoldLeft", share and math.floor(math.clamp(share, 0, 1) * 20 + 0.5) / 20 or nil)
+end
+
 -- Where you can see him ----------------------------------------------------------
 
 -- His head and chest in the world for the current pose, as clients draw

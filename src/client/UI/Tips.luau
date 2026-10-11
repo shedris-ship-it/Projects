@@ -2,8 +2,9 @@
 -- eight-bullet how-to taught nothing). One short tip at a time, when the
 -- thing it teaches first comes up: your hands, the map, a locked door's
 -- mark, your first key, the first time he shows himself, the first hunt, a
--- dying torch, your beam holding him. Each shows once a session, never two
--- within twenty seconds, and the "Show tips" setting turns them off.
+-- dying torch, your beam holding him, each of his moods. Each shows once a
+-- session, never two within twenty seconds, and the "Show tips" setting
+-- turns them off.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
+local GuestMood = require(Shared.Logic.GuestMood)
 local Net = require(Shared.Net)
 
 local PA = Constants.PlayerAttributes
@@ -116,16 +118,26 @@ local TIPS = {
 		end,
 		urgent = true,
 	},
+	-- His three rules ("a Guest you can read", 2026-10-11), each taught when
+	-- it first matters, in the words of the how-to (UI/Settings).
 	{
 		id = "guest",
-		text = "Something is watching you. Two of you looking at it in the light stop it, until it comes for one of you: then break its sight, shut a door or hide. Alone, your beam does, while the battery lasts.",
+		text = "Watch him. He only creeps closer while nobody's looking. Two of you watching him in the light stop him (alone, your beam does), until he's after someone.",
 		when = function(self)
 			return self.seenGuest
 		end,
 	},
 	{
+		id = "pester",
+		text = "His head turned to you: don't pester him. Standing in his face or following him gets one warning; then he comes for you with his hands out. Run at him and he lunges.",
+		when = function(self)
+			return self.pestered
+		end,
+		urgent = true,
+	},
+	{
 		id = "hunt",
-		text = "It's coming. Hide (shut yourself in a wardrobe, a locker or a closet, or E under a bed) or run and break its line of sight. Staring holds it a few seconds, no more.",
+		text = "He's hunting. Break his line of sight (shut a door, throw something), hide (a wardrobe, a locker, under a bed), or get to a lit lantern. Staring holds him a few seconds at most.",
 		when = function(self)
 			return self.huntTelegraphed
 		end,
@@ -197,6 +209,20 @@ local TIPS = {
 	},
 }
 
+-- His moods (Logic/GuestMood; "a Guest you can read", 2026-10-11): the first
+-- time you've watched him a moment in one (GuestController:HasSeenMood), its
+-- tell, what it means and what to do about it.
+for _, id in GuestMood.Order do
+	table.insert(TIPS, {
+		id = "mood:" .. id,
+		text = GuestMood.lesson(id),
+		when = function(self)
+			local guest = self.ctx.controllers.GuestController
+			return guest ~= nil and guest:HasSeenMood(id)
+		end,
+	})
+end
+
 function Tips.new(ctx)
 	local self = setmetatable({
 		ctx = ctx,
@@ -204,6 +230,7 @@ function Tips.new(ctx)
 		shown = {},
 		lastAt = -math.huge,
 		seenGuest = false,
+		pestered = false,
 		huntTelegraphed = false,
 		hunting = false,
 		elapsed = 0,
@@ -211,6 +238,11 @@ function Tips.new(ctx)
 	Net.get("StalkerVisibility").OnClientEvent:Connect(function(visible)
 		if visible == true and self.state:InRun() then
 			self.seenGuest = true
+		end
+	end)
+	Net.get("GuestEvent").OnClientEvent:Connect(function(event)
+		if type(event) == "table" and event.kind == "notice" and self.state:InRun() then
+			self.pestered = true
 		end
 	end)
 	Net.get("HuntState").OnClientEvent:Connect(function(payload)
@@ -224,7 +256,7 @@ function Tips.new(ctx)
 	self.state.PhaseChanged:Connect(function(phase)
 		if phase == "Lobby" or phase == "Generating" then
 			-- A new run teaches again only what hasn't been shown this session.
-			self.seenGuest, self.huntTelegraphed, self.hunting = false, false, false
+			self.seenGuest, self.huntTelegraphed, self.hunting, self.pestered = false, false, false, false
 		end
 	end)
 	return self

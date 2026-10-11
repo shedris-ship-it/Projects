@@ -179,6 +179,10 @@ local function d(x: number): number
 	return rad(x)
 end
 
+-- How far a stare's hold wearing thin shakes his head, at its last (degrees,
+-- each way's span; GuestPose.step `tremble`).
+local TREMBLE_DEGREES = 7
+
 -- Polite posture: hands clasped low in front, like an undertaker.
 -- The upper arms hang straight; turning them inward makes the bent
 -- forearms bring the hands together in front instead of crossing.
@@ -274,6 +278,10 @@ function GuestPose.target(ctx)
 			-- Nodding along to a tune only he hears.
 			add(t, "Neck", d(5) * sin(clock * 4.4))
 			add(t, "Waist", 0, 0, d(2.5) * sin(clock * 2.2))
+		elseif pose == P.Idle and mood == "Host" then
+			-- Playing host: a little bow, as to a guest, his face still on you.
+			add(t, "Waist", d(-11))
+			add(t, "Neck", d(11))
 		end
 		if pose == P.Hold and (ctx.heldFor or 0) > 0 then
 			-- Frozen but alive (the owner's choice, 2026-10-06): held, he never
@@ -756,6 +764,8 @@ end
 --   pose, tilt, lean, stoop, gazeYaw, gazePitch, neckYawMax, mood
 --   (Logic/GuestMood), heldFor (seconds held: "frozen but alive"),
 --   snapNeck (the head snaps to a light this frame), unfold, form,
+--   tremble (0 to 1: a stare's hold wearing thin, his head shaking; `shake`
+--   a function -> 0..1 for it, else `random`),
 --   random = function() -> 0..1 (cosmetic)
 --   root      { x, y, z, fx, fz }: his root in the world and the flat way
 --             he faces (if absent, a stand-in walks straight on `forward`)
@@ -869,6 +879,17 @@ function GuestPose.step(state, input, dt: number)
 			for i = 1, 3 do
 				o[i] += twitch.values[i] * fade
 			end
+		end
+	end
+	-- A stare's hold wearing thin (input.tremble, 0 to 1; "a Guest you can
+	-- read", 2026-10-11): his head shakes, harder as it runs out. Drawn only,
+	-- never sprung, so it never builds up.
+	local tremble = math.clamp(input.tremble or 0, 0, 1)
+	if tremble > 0 and out.Neck then
+		local shake = input.shake or input.random or math.random
+		local o, size = out.Neck, d(TREMBLE_DEGREES) * tremble
+		for i = 1, 3 do
+			o[i] += (shake() - 0.5) * size
 		end
 	end
 

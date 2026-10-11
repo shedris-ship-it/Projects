@@ -21,13 +21,19 @@ local Settings = {}
 Settings.__index = Settings
 
 -- Three bullets (the audit of 2026-10-06: the eight-bullet wall taught
--- nothing). The house teaches the rest as it comes up (UI/Tips).
+-- nothing). The house teaches the rest as it comes up (UI/Tips). The third
+-- is his three rules ("a Guest you can read", 2026-10-11), word for word as
+-- the tips say them.
 local HOW_TO = table.concat({
 	"The front door has locked behind you. The dining table is laid for a guest, with empty places.",
 	"",
 	"• Find the family's heirlooms and set each at its place at the table. Then get out by the front door.",
 	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. E opens and picks up; hold E (or the mouse) on anything to drag, pull or carry it.",
-	"• Something lives here. Two of you watching it in the light stops it, until it comes for one of you; alone, your beam does, while the battery lasts. Hide (step into a wardrobe and shut it, or E under a bed), hold your breath (Space), and talk: Tab is the map, G pings. Caught, you're down: a friend has 30 seconds to hold E on you.",
+	"• Something lives here, and it keeps three rules:",
+	"   1. Watch him. He only creeps closer while nobody's looking; two of you watching him in the light stop him (alone, your beam), until he's after someone.",
+	"   2. Don't pester him. In his face or on his heels, his head turns: back off. Keep on and he warns you once, then comes for you with his hands out.",
+	"   3. When he hunts: break his sight (shut a door, throw something), hide (a wardrobe, under a bed), or get to a lit lantern.",
+	"   Caught, you're down: a friend has 30 seconds to hold E on you. Talk: Tab is the map, G pings.",
 }, "\n")
 
 function Settings.new(ctx)

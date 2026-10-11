@@ -63,6 +63,10 @@ return function(test, check, Shared, require)
 			check.truthy(mood, id .. " is defined")
 			check.truthy(type(mood.tell) == "string" and #mood.tell > 0, id .. " has a tell")
 			check.truthy(type(mood.counter) == "string" and #mood.counter > 0, id .. " has a counter")
+			check.truthy(type(mood.name) == "string" and #mood.name > 0, id .. " has a name for players")
+			local lesson = GuestMood.lesson(id)
+			check.truthy(lesson and string.find(lesson, mood.counter, 1, true), id .. ": the lesson says the counter")
+			check.truthy(lesson and string.find(lesson, "He's " .. mood.name, 1, true), id .. ": the lesson names it")
 			for move, w in mood.stalk do
 				check.truthy(StalkMoves.ById[move], id .. ": no move " .. move)
 				check.truthy(w > 0, id .. ": weight for " .. move)
@@ -80,6 +84,8 @@ return function(test, check, Shared, require)
 				check.truthy(total > 0, id .. " has " .. key .. " options")
 			end
 		end
+		check.equal(GuestMood.lesson(nil), nil)
+		check.equal(GuestMood.lesson("Nobody"), nil)
 		for _, t in Temperaments.List do
 			check.truthy(type(t.line) == "string" and #t.line > 0, t.id .. " has a Dossier line")
 			for mood, w in t.moodOdds do

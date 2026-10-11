@@ -138,6 +138,12 @@ Config.Stare = {
 	HoldMinDistance = 6,
 	CoStareEndsHunt = false, -- the old rule: a 3 s co-stare ended a hunt
 	Cues = 2, -- how many times a run each player is told "[it stops in the light]" and the like
+	-- A hunt's hold, seen wearing thin (Body:SetHoldLeft, GuestController):
+	-- below this share left his head shakes and his fingers twitch, harder as
+	-- it runs out; at CreakShare his mask creaks; spent, a crack and his head
+	-- snaps up. Between hunts a hold never wears out.
+	ThinShare = 0.5,
+	CreakShare = 0.3,
 }
 
 -- Players collide (the squad playtest, 2026-10-08), but nobody can block a
@@ -1186,32 +1192,29 @@ Config.Guest = {
 	WarningMemorySeconds = 6,
 	NoLungeNearDownSeconds = 20,
 	NoLungeNearDownRadius = 30,
-	-- Crowding him (Logic/StalkRules.crowding; the squad playtest, 2026-10-08):
-	-- in his face, or following him as he backs away, for CrowdSeconds and he
-	-- turns on you (a scare); again within GrabWindow and he grabs you (a down).
+	-- Pestering him (Logic/StalkRules.pestering; "a Guest you can read",
+	-- 2026-10-11): one meter, filled by standing in his face, following him
+	-- close as he backs away, or tailing him further off. From PesterNotice
+	-- his head turns to you; full, he warns you (never a down); full again
+	-- within PesterMemory of that, he comes for you with his hands out.
 	CrowdRadius = 3.5, -- in his face: this close...
 	CrowdFacing = 50, -- ...looking at him, within this many degrees (was 40)
 	FollowRadius = 7, -- following him as he backs away: this close, closing in
 	FollowRate = 1, -- (as fast as standing in his face; was 0.7)
-	CrowdSeconds = 1.2,
-	GrabWindow = 420, -- the scare is a warning that holds this long (was 180)
-	ConfrontSeconds = 2.6, -- the scare: he leans in, your lights die, he's gone
-	ConfrontBlind = 1.4, -- ...he goes this far in, while your lights are out
-	ConfrontRadius = 30, -- the lights that die round you
-	GrabWindup = 0.5, -- the grab's tell: a rasp, and he reaches
-	-- Tailing him (Logic/StalkRules.tailing; the owner, 2026-10-11): follow
-	-- him about between hunts, beyond crowding's reach, and he notices. He
-	-- turns, lifts a hand and walks at you; it reaching you is a down.
-	TailRadius = 32, -- following him this close (flat)...
+	CrowdSeconds = 1.2, -- in his face this long fills the meter
+	TailRadius = 32, -- tailing him: this close (flat)...
 	TailFacing = 60, -- ...watching him, within this many degrees...
 	TailSpeed = 1.5, -- ...as he goes away from you and you go his way, each at least this fast (studs/s)...
 	TailSmooth = 1.5, -- ...on average over about this long (walk, stop, walk is still following)
-	TailSeconds = 6, -- this long, all told, and he notices you
-	TailDrain = 0.25, -- (it fades this fast when you stop: stop-start following still adds up)
-	TailAgain = 3, -- noticed again sooner...
-	TailMemory = 300, -- ...within this long of the last time
+	TailSeconds = 6, -- this long, all told, fills the meter
+	TailDrain = 0.25, -- (that part fades this fast when you stop: stop-start following still adds up)
+	PesterNotice = 0.4, -- this full, his head turns to you
+	PesterMemory = 300, -- the warning holds this long: full again within it is the reach
+	WarnSeconds = 1.6, -- the warning: his knuckles crack and he squares up to you this long, then backs off
+	ConfrontRadius = 30, -- the lights that blink round you in the scares he sets up (Logic/ScareBeats)
 	ReachSpeed = 7, -- he walks at you, a hand out (your walk is 8: back away and you keep ahead)
 	ReachGrab = 3.6, -- his hand reaches you (flat, roots): a down
+	ReachWindup = 0.7, -- ...never before his hands are up this long (from your face, a step back within 0.3 s clears it; 0.5 caught a test that backed off at once from 2 studs)
 	ReachSeconds = 12, -- he comes at most this long...
 	ReachLost = 3, -- ...gives up when he hasn't seen you this long...
 	ReachGiveUp = 40, -- ...or you're this far off (flat)
@@ -1294,6 +1297,10 @@ Config.Guest = {
 	-- His moods (Logic/GuestMood) and temperament (Data/Temperaments).
 	MoodSeconds = { 60, 180 }, -- how long a mood lasts before he takes on another
 	LonelySeconds = 90, -- seeing nobody this long makes him curious or playful
+	-- A mood is "seen" (and taught: GuestMood.lesson, UI/Tips) once he has
+	-- stood in your view this long in it, this close, his head on screen.
+	MoodSeenSeconds = 1.5,
+	MoodSeenRange = 45,
 	-- "After you" (StalkRules.makesWay): between hunts he never parks in your way.
 	ParkSeconds = 6, -- standing within ParkRadius of a player this long, he makes way
 	MakeWayRange = 10, -- a player walking his way this close: he makes way

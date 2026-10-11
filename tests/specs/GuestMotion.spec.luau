@@ -182,4 +182,34 @@ return function(test, check, Shared, require)
 			check.atLeast(middle[1] * sign, 1.6 + 0.25, side .. ": his face is out past the frame's edge")
 		end
 	end)
+
+	test("a hold wearing thin shakes his head, a little, and never builds up", function()
+		-- The same hold drawn steady and trembling: the head moves only by the
+		-- shake each frame (it isn't sprung, so nothing accumulates).
+		local steady, shaking = {}, {}
+		local flip = 0
+		local function alternate()
+			flip = 1 - flip
+			return flip
+		end
+		drive("Hold", 3, { 0, 0 }, 0, -1, 0, 0, function()
+			return { heldFor = 1 }
+		end, function(v)
+			table.insert(steady, { v.Neck[1], v.Neck[2], v.Neck[3] })
+		end)
+		drive("Hold", 3, { 0, 0 }, 0, -1, 0, 0, function()
+			return { heldFor = 1, tremble = 1, shake = alternate }
+		end, function(v)
+			table.insert(shaking, { v.Neck[1], v.Neck[2], v.Neck[3] })
+		end)
+		local worst = 0
+		for i, a in steady do
+			local b = shaking[i]
+			for k = 1, 3 do
+				worst = math.max(worst, math.abs(a[k] - b[k]))
+			end
+		end
+		check.atLeast(worst, math.rad(2), "it shows")
+		check.atMost(worst, math.rad(4), "a shake, not a snap")
+	end)
 end

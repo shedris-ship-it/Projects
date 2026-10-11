@@ -487,6 +487,8 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 	local stats = services.RunLogService:Summary()
 	if stats then
 		summary.stats = services.RunLogService:SummaryLines()
+		-- His moods tonight, so the Dossier can teach them (Logic/GuestMood).
+		summary.moods = stats.moods
 		print("[Consensus:summary] seed " .. tostring(run.seed))
 		for _, line in summary.stats do
 			print("[Consensus:summary]   " .. line)

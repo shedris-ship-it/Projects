@@ -40,6 +40,9 @@ local shadows = {} -- door id -> the shadow of his feet under it (Stalk BehindTh
 local spottedTold = 0 -- "[it sees you]" captions so far
 local torchStutterAt = 0 -- the torch stutters on his breath, at most this often
 local disguise = nil -- { clone, joints, phase, last } while he wears a friend's look for you
+local moodsSeen = {} -- mood id -> true, this session (taught once: UI/Tips, the journal)
+local moodOrder = {} -- the same, in the order you saw them
+local moodWatch = { mood = nil, seconds = 0 } -- how long you've watched him in the mood he's in
 
 function GuestController:Init(controllers)
 	self.controllers = controllers
@@ -61,6 +64,16 @@ end
 
 function GuestController:Model(): Model?
 	return guest and guest.model
+end
+
+-- The moods you've seen him in this session, in order (Logic/GuestMood;
+-- UI/Tips teaches each one, the journal lists them).
+function GuestController:MoodsSeen(): { string }
+	return moodOrder
+end
+
+function GuestController:HasSeenMood(id: string): boolean
+	return moodsSeen[id] == true
 end
 
 function GuestController:_detach()
@@ -352,6 +365,35 @@ function GuestController:_drawnRoot(dt: number): Vector3
 	return p
 end
 
+-- A mood counts as seen once he has stood in your view in it for a moment
+-- (Config.Guest.MoodSeenSeconds): standing, where its tell shows (his head's
+-- tilt, the bow, the nodding, the stillness), on screen, near enough, and
+-- nothing between you.
+function GuestController:_watchMood(mood: string?, pose: string, shown: boolean, camera: Camera, dt: number)
+	if not mood or not shown or moodsSeen[mood] or (pose ~= "Idle" and pose ~= "Hold") then
+		moodWatch.seconds = math.max(0, moodWatch.seconds - dt)
+		return
+	end
+	if moodWatch.mood ~= mood then
+		moodWatch.mood, moodWatch.seconds = mood, 0
+	end
+	local head = guest.head.Position
+	local eye = camera.CFrame.Position
+	local _, onScreen = camera:WorldToViewportPoint(head)
+	if
+		onScreen
+		and (head - eye).Magnitude <= G.MoodSeenRange
+		and not blocked(eye, head, { guest.model, player.Character })
+	then
+		moodWatch.seconds += dt
+		if moodWatch.seconds >= G.MoodSeenSeconds then
+			moodsSeen[mood] = true
+			table.insert(moodOrder, mood)
+			moodWatch.seconds = 0
+		end
+	end
+end
+
 function GuestController:_frame(dt: number)
 	local model, root = guest.model, guest.root
 	local position = self:_drawnRoot(dt)
@@ -405,6 +447,14 @@ function GuestController:_frame(dt: number)
 	local camera = Workspace.CurrentCamera
 	local now = os.clock()
 	local mood = model:GetAttribute("GuestMood")
+	-- A hunt's hold wearing thin (rule one's tell; Body:SetHoldLeft): 0 while
+	-- there's plenty left, 1 as it runs out.
+	local holdLeft = model:GetAttribute("GuestHoldLeft")
+	local thin = 0
+	if pose == "Hold" and type(holdLeft) == "number" then
+		local share = Config.Stare.ThinShare
+		thin = math.clamp((share - holdLeft) / share, 0, 1)
+	end
 	-- Your beam lands on him: his head snaps to it first, then the body
 	-- follows; and while it's on him he moves in stutters (below).
 	local beam = self:_beamOnHim(camera)
@@ -456,6 +506,7 @@ function GuestController:_frame(dt: number)
 		heldFor = guest.heldFor,
 		snapNeck = now < (guest.snapUntil or 0),
 		unfold = unfold,
+		tremble = thin,
 		random = math.random,
 	}, dt)
 
@@ -530,6 +581,10 @@ function GuestController:_frame(dt: number)
 		local drum = ((pose == "Hold" and (guest.heldFor or 0) > 1.5) or (pose == "Idle" and mood == "Playful"))
 				and 0.35
 			or 0
+		if thin > 0 then
+			-- The hold running out: his fingers twitch, harder and harder.
+			drum = math.max(drum, 0.35 + 0.45 * thin)
+		end
 		for side, hand in guest.hands do
 			local grip = (pose == "Peek" or pose == "FingersPeek") and ((lean >= 0) == (side == "Right"))
 			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum, FINGER_SPREAD[pose])
@@ -563,6 +618,7 @@ function GuestController:_frame(dt: number)
 	end
 
 	self:_glass(dt, camera, shown)
+	self:_watchMood(mood, pose, shown and not disguise and fade == nil, camera, dt)
 
 	-- His mood, by ear (Logic/GuestMood): an irritated Guest's knuckles and
 	-- neck crack; a playful one giggles under his breath; and held past five
@@ -578,6 +634,27 @@ function GuestController:_frame(dt: number)
 		elseif pose ~= "Hold" then
 			guest.neckCracked = false
 		end
+		-- Rule one, heard: a sharp breath in as eyes stop him; in a hunt, his
+		-- mask creaking as the hold runs low; and when it breaks, a crack and
+		-- his head snaps up (Config.Stare.ThinShare, CreakShare).
+		if pose == "Hold" then
+			if not guest.wasHold then
+				audio:PlayAt("GuestSniff", head, 0.45, 1.25, muffle)
+			end
+			if type(holdLeft) == "number" then
+				guest.lastHoldLeft = holdLeft
+				if holdLeft <= Config.Stare.CreakShare and not guest.holdCreaked then
+					guest.holdCreaked = true
+					audio:PlayAt("CreakAlt", head, 0.55, 1.5, muffle)
+				end
+			end
+		elseif guest.wasHold then
+			if (guest.lastHoldLeft or 1) <= Config.Stare.ThinShare then
+				audio:PlayAt("GuestCrack", head, 0.85, 1.05, muffle)
+				guest.snapUntil = now + G.LightSnapSeconds
+			end
+			guest.lastHoldLeft, guest.holdCreaked = nil, false
+		end
 		if now >= (guest.nextMoodSound or 0) then
 			local sound = MOOD_SOUNDS[mood or ""]
 			guest.nextMoodSound = now
@@ -586,7 +663,10 @@ function GuestController:_frame(dt: number)
 				audio:PlayAt(sound.key, head, sound.volume, sound.pitch + math.random() * 0.08, muffle)
 			end
 		end
+	elseif pose ~= "Hold" then
+		guest.lastHoldLeft, guest.holdCreaked = nil, false
 	end
+	guest.wasHold = pose == "Hold"
 
 	-- You only hear him walk while he's visible to you (owner, 2026-10-03):
 	-- steps from something you can't see felt unnatural. His breath and
@@ -823,6 +903,12 @@ function GuestController:_event(event)
 	elseif kind == "pursuing" then
 		-- He's after someone: eyes on him don't stop him (StalkRules.stareHolds).
 		audio:Caption("[it's after someone. Your eyes won't stop it now]")
+	elseif kind == "notice" then
+		-- You're pestering him (StalkRules.pestering): his head turns to you.
+		audio:Caption("[its head turns to follow you]")
+	elseif kind == "warn" then
+		-- Full: his warning. Next time it's the reach.
+		audio:Caption("[it doesn't like that. Back off]")
 	elseif kind == "graced" then
 		-- Just pulled up with him right there (Config.Run.ReviveGraceSeconds).
 		audio:Caption("[it lets you get up. Run.]")

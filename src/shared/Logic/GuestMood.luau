@@ -15,11 +15,19 @@
 -- A mood never shortens a tell, a cooldown or a fairness gate
 -- (Logic/StalkRules); `creep` scales his creeping speed within 0.8-1.2 with
 -- the temperament's.
+--
+-- Taught (2026-10-11, "a Guest you can read"): the first time you see him in
+-- a mood, a tip says its tell and its counter (UI/Tips); the journal keeps
+-- the ones you've seen and the Dossier lists the night's. `name` is the word
+-- for it in those lines ("he's <name>"). Every tell is drawn on his body or
+-- heard from him (Logic/GuestPose, Controllers/GuestController), and every
+-- counter is true of what the mood's weights make him do.
 
 local GuestMood = {}
 
 GuestMood.Moods = {
 	Curious = {
+		name = "curious",
 		tell = "His head tilts one way, then the other.",
 		counter = "He's looking, not hunting: stay out of his way and keep quiet.",
 		sound = nil,
@@ -39,6 +47,7 @@ GuestMood.Moods = {
 		creep = 1,
 	},
 	Stalking = {
+		name = "stalking one of you",
 		tell = "Low and loose, hands hanging, fingers spread.",
 		counter = "He's after one of you: keep together and look behind you.",
 		sound = nil,
@@ -57,9 +66,12 @@ GuestMood.Moods = {
 		creep = 1.1,
 	},
 	Host = {
-		tell = "Hands clasped in front of him, humming.",
-		counter = "The hum carries: you can hear where he is.",
-		sound = "Hum",
+		name = "playing host",
+		-- (No hum: no library sound fitted, so the tell is the bow and the
+		-- counter is his errands, HostAction, which this mood favours.)
+		tell = "Hands clasped in front of him, a little bow, as if you were his guests.",
+		counter = "He tends his house: a radio switched on or a light put out is him, so you know where he is.",
+		sound = nil,
 		stalk = { DoorwayStand = 1.1, DistantRoam = 1.2, CreepBehind = 0.7, StareDown = 1.1, HostAction = 2.2 },
 		tactics = { MimicKnock = 1.4, Ambush = 1.2 },
 		seen = { Yank = 0.8, Withdraw = 1.5, Duck = 0.7 },
@@ -67,7 +79,8 @@ GuestMood.Moods = {
 		creep = 0.9,
 	},
 	Playful = {
-		tell = "Fingertips tapping, head bobbing to a tune only he hears.",
+		name = "playful",
+		tell = "Fingertips tapping, head bobbing to a tune only he hears, a giggle under his breath.",
 		counter = "His games are noisy: don't follow every sound.",
 		sound = "Tap",
 		stalk = {
@@ -86,6 +99,7 @@ GuestMood.Moods = {
 		creep = 1,
 	},
 	Patient = {
+		name = "waiting",
 		tell = "Dead still, not even breathing.",
 		counter = "He waits where you're going: take the other door.",
 		sound = nil,
@@ -103,6 +117,7 @@ GuestMood.Moods = {
 		creep = 0.85,
 	},
 	Irritated = {
+		name = "irritated",
 		tell = "His knuckles crack and his head jerks.",
 		counter = "Something you did annoyed him: stop doing it for a while.",
 		sound = "Crack",
@@ -123,6 +138,16 @@ GuestMood.Moods = {
 }
 
 GuestMood.Order = { "Curious", "Stalking", "Host", "Playful", "Patient", "Irritated" }
+
+-- The lesson a mood teaches the first time you see it (UI/Tips, the
+-- journal): its tell, what that means, and what to do. Nil for no mood.
+function GuestMood.lesson(id: string?): string?
+	local mood = id and GuestMood.Moods[id]
+	if not mood then
+		return nil
+	end
+	return string.format("%s He's %s. %s", mood.tell, mood.name, mood.counter)
+end
 
 -- Events that shift his mood, and what they lean him towards.
 GuestMood.Events = {

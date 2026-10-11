@@ -280,7 +280,7 @@ function Reel.run(service, player: Player, only: string?): string
 		body:SetPose(Poses.Idle)
 		wait(1.5)
 	end)
-	beat("reach", "Coming for whoever tailed him, a hand out (it can't catch you here)", function()
+	beat("reach", "Coming for whoever pestered him after a warning, hands out (it can't catch you here)", function()
 		body:Place(front(16), p)
 		body:FacePlayer(player)
 		body:SetGaze(player)

@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GuestMood = require(Shared.Logic.GuestMood)
 local Net = require(Shared.Net)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
@@ -144,6 +145,23 @@ function Dossier:Show(data)
 				break
 			end
 			table.insert(lines, string.format("  %s (×%d)", t.description, t.count))
+		end
+	end
+	-- His moods tonight, each with what to do about it next time
+	-- (Logic/GuestMood; "a Guest you can read", 2026-10-11).
+	local moods = {}
+	for _, entry in s.moods or {} do
+		local mood = GuestMood.Moods[entry.id]
+		if mood then
+			local name = string.upper(string.sub(mood.name, 1, 1)) .. string.sub(mood.name, 2)
+			table.insert(moods, string.format("  %s (×%d). %s %s", name, entry.count, mood.tell, mood.counter))
+		end
+	end
+	if #moods > 0 then
+		table.insert(lines, "")
+		table.insert(lines, "HIS MOODS TONIGHT")
+		for _, line in moods do
+			table.insert(lines, line)
 		end
 	end
 	table.insert(lines, "")

@@ -251,12 +251,15 @@ function StalkerService:Begin(ctx)
 	self.squadLungeLast = nil
 	self.recentDowns = {}
 	self.notice = {} -- player -> when they last had a sign of him (a look, a tell, a step heard)
-	self.reach = nil -- coming for someone who tailed him (StalkerService:_reachBegin)
+	self.reach = nil -- coming for someone who pestered him after a warning (StalkerService:_reachBegin)
 	self.debugHold = false -- (F2 `guest here` from the last run: he'd never come in)
 	self.wasHeld = false
 	self.pursuitCues = {} -- player -> times told their eyes won't stop him now
 	self.pursuitCueAt = {}
-	self.tail = {} -- player -> StalkRules.tailing state
+	self.pester = {} -- player -> StalkRules.pestering state
+	self.noticing = nil -- the player whose pestering has his head turned this tick
+	self.noticeTold = {} -- player -> times told "[its head turns to you]"
+	self.warnTold = {} -- player -> times told the warning
 	self.reachTold = {}
 	self.yankTo = nil
 	self.active = true
@@ -955,7 +958,7 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		self.arrivalAt = os.clock()
 		return "knock knock"
 	elseif sub == "reach" then
-		-- He comes for you as if you'd tailed him (it can down you):
+		-- He comes for you as if you'd pestered him after a warning (it can down you):
 		-- `guest reach [studs]` puts him that far in front first.
 		if not root or not self.arrived then
 			return "no character, or he hasn't come in yet"
@@ -1333,13 +1336,15 @@ function StalkerService:_update(dt: number)
 
 	local mode = self.mode
 	local hunting = mode == Modes.Hunting or mode == Modes.Telegraph
-	-- Crowding him (the squad playtest, 2026-10-08): a scare, then a down.
-	-- While he turns on someone, nothing else moves him.
+	-- Pestering him (rule two: his head turns, a warning, then the reach).
+	-- While he warns someone, nothing else moves him.
 	if not hunting then
-		self:_crowding(now, dt)
+		self:_pester(now, dt)
+	else
+		self.noticing = nil
 	end
-	-- Coming for someone who tailed him (the owner, 2026-10-11): while he
-	-- does, nothing else moves him.
+	-- Coming for someone who pestered him again: while he does, nothing
+	-- else moves him.
 	if self.reach and not self.confront and self:_updateReach(now, watchers) then
 		body:Update(now, function(player: Player): Vector3?
 			return (self.stalk:Known(player))
@@ -1348,7 +1353,7 @@ function StalkerService:_update(dt: number)
 		return
 	end
 	-- Just revealed (the disguise fell away): he stands and stares a moment,
-	-- not stepping aside for anyone (crowding him still counts).
+	-- not stepping aside for anyone (pestering him still counts).
 	if self.revealHold and not self.confront then
 		if now < self.revealHold.untilT and self.revealHold.player.Parent then
 			body:Hold()
@@ -1423,6 +1428,8 @@ function StalkerService:_update(dt: number)
 		nearest = hunting and self:_minPlayerDistance(body.root.Position) or nil,
 	}, dt, Config.Stare)
 	self:_holdCues(held, frozen, hunting, watchers, pursuing)
+	-- Rule one's tell: a hunt's hold wearing thin, for clients to draw.
+	body:SetHoldLeft((held and hunting) and (1 - self.hold.held / StalkRules.holdCap(self.hold, Config.Stare)) or nil)
 	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
 		-- Something thrown hit him: a moment off balance (Stun). The hunt
 		-- waits for him.
@@ -1456,6 +1463,11 @@ function StalkerService:_update(dt: number)
 		self:_updateDeparting(now, watchers)
 	else
 		self.stalk:Update(now, dt, watchers, self.tier)
+		-- Someone is pestering him: his head turns to them, whatever his
+		-- move wanted (rule two's tell: back off).
+		if self.noticing and self.noticing.Parent then
+			body:SetGaze(self.noticing)
+		end
 	end
 	-- He turns towards and lunges at where he knows you are, not where you are.
 	body:Update(now, function(player: Player): Vector3?
@@ -1666,14 +1678,16 @@ end
 
 -- `chasing`: after someone he can see, at your sprint (Config.Stalker
 -- .ChaseSpeedRatio; Hard's multiplier is for his prowl).
--- Crowding him (Logic/StalkRules.crowding; the squad playtest, 2026-10-08:
--- "players can get in his personal space while he's backing away without
--- consequences"; the owner's choice: a scare, then a down). Every tick
--- outside hunts, for everyone he's visible to. Tailing him further off
--- (StalkRules.tailing; the owner, 2026-10-11) is measured here too.
+-- Pestering him (Logic/StalkRules.pestering; "a Guest you can read",
+-- 2026-10-11): rule two of three. Standing in his face, following him close
+-- as he backs away and tailing him further off fill one meter. From a share
+-- of it his head turns to you (back off); full, he warns you; full again soon
+-- after, he comes for you with his hands out (_reachBegin). Every tick
+-- outside hunts, for everyone he's visible to.
 local BACKING = { BackAway = true, Withdraw = true, SlowWithdraw = true, Duck = true, Yank = true, MakeWay = true }
 
-function StalkerService:_crowding(now: number, dt: number)
+function StalkerService:_pester(now: number, dt: number)
+	self.noticing = nil
 	if self.confront or self.reach or not self.arrived or self.parked or not self.bodyCtl then
 		return
 	end
@@ -1682,17 +1696,17 @@ function StalkerService:_crowding(now: number, dt: number)
 	local here = self.body.root.Position
 	-- Where he's going, for tailing (not while he's someone else, setting up
 	-- a scare of his own, or leaving after he was stared down: a reach then
-	-- would end before it began, and crowding still covers following close).
+	-- would end before it began, and the close part still covers following).
 	local hisVelocity = self.body.root.AssemblyLinearVelocity
 	local his = Vector3.new(hisVelocity.X, 0, hisVelocity.Z)
 	local tails = not (self.beat or self.disguise or self.revealHold)
 		and self.mode ~= Modes.Retreating
 		and self.mode ~= Modes.Departing
-	self.tail = self.tail or {}
 	local eye = self.bodyCtl:EyePosition()
 	local moveId = self.stalk and self.stalk.move and self.stalk.move.id
 	local backing = self.mode == Modes.Retreating or self.mode == Modes.Departing or BACKING[moveId or ""] == true
-	self.crowd = self.crowd or {}
+	self.pester = self.pester or {}
+	local fullest = 0
 	for _, player in ps:ActivePlayers() do
 		local root = ps:Root(player)
 		local head = ps:Head(player)
@@ -1700,15 +1714,9 @@ function StalkerService:_crowding(now: number, dt: number)
 			local offset = here - root.Position
 			local flatOffset = Vector3.new(offset.X, 0, offset.Z)
 			local distance = flatOffset.Magnitude
-			local state = self.crowd[player] or {}
-			self.crowd[player] = state
-			local tail = self.tail[player] or {}
-			self.tail[player] = tail
-			if
-				distance > math.max(G.FollowRadius, G.TailRadius) + 4
-				and (state.pressure or 0) <= 0
-				and (tail.boldness or 0) <= 0
-			then
+			local state = self.pester[player] or {}
+			self.pester[player] = state
+			if distance > math.max(G.FollowRadius, G.TailRadius) + 4 and StalkRules.pesterMeter(state) <= 0 then
 				continue -- far off: nothing to build or drain
 			end
 			local view = services.WitnessService:GetView(player)
@@ -1719,13 +1727,25 @@ function StalkerService:_crowding(now: number, dt: number)
 					)
 				or 0
 			local velocity = root.AssemblyLinearVelocity
-			local closing = distance > 0.1 and Vector3.new(velocity.X, 0, velocity.Z):Dot(flatOffset.Unit) or 0
-			local ctx = {
+			local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+			local closing = distance > 0.1 and flatVelocity:Dot(flatOffset.Unit) or 0
+			-- He goes away from you, and you go his way: each averaged over a
+			-- second or two, since shadowing him as he backs off slowly is a
+			-- walk, a stop and a walk again.
+			local away = distance > 0.1 and his:Dot(flatOffset.Unit) or 0
+			local along = his.Magnitude > 0.5 and flatVelocity:Dot(his.Unit) or 0
+			local k = 1 - math.exp(-dt / G.TailSmooth)
+			state.away = (state.away or 0) + (away - (state.away or 0)) * k
+			state.along = (state.along or 0) + (along - (state.along or 0)) * k
+			local result, why = StalkRules.pestering(state, {
 				now = now,
 				distance = distance,
 				facing = facing,
 				closing = closing,
 				backingAway = backing,
+				away = state.away,
+				along = state.along,
+				tailCounts = tails,
 				tier = self.tier,
 				hunting = false,
 				seated = self:_seatedAtTable(),
@@ -1737,70 +1757,64 @@ function StalkerService:_crowding(now: number, dt: number)
 				graced = ps:InReviveGrace(player),
 				safeRoom = self.perception:InSafeRoom(player),
 				verticalGap = math.abs(offset.Y),
-			}
-			local result = StalkRules.crowding(state, ctx, dt, G)
-			if result then
-				self:_confrontBegin(player, result, now)
-				return
+			}, dt, G)
+			if STUDIO then
+				player:SetAttribute(
+					"DebugPester",
+					string.format("%.2f %s", StalkRules.pesterMeter(state), result or why or "-")
+				)
 			end
-			if tails then
-				-- He goes away from you, and you go his way: each averaged over
-				-- a second or two, since shadowing him as he backs off slowly
-				-- is a walk, a stop and a walk again.
-				local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-				local away = distance > 0.1 and his:Dot(flatOffset.Unit) or 0
-				local along = his.Magnitude > 0.5 and flatVelocity:Dot(his.Unit) or 0
-				local k = 1 - math.exp(-dt / G.TailSmooth)
-				tail.away = (tail.away or 0) + (away - (tail.away or 0)) * k
-				tail.along = (tail.along or 0) + (along - (tail.along or 0)) * k
-				ctx.away, ctx.along = tail.away, tail.along
-				local reach, why = StalkRules.tailing(tail, ctx, dt, G)
-				if STUDIO then
-					player:SetAttribute("DebugTail", string.format("%.1f %s", tail.boldness or 0, why or "-"))
+			if result == "warn" then
+				self:_warnBegin(player, now)
+				return
+			elseif result == "reach" then
+				self:_reachBegin(player, now)
+				return
+			elseif result == "notice" then
+				-- The one bothering him most gets his head (applied after his
+				-- move has set its own gaze: _update).
+				local meter = StalkRules.pesterMeter(state)
+				if meter > fullest then
+					fullest = meter
+					self.noticing = player
 				end
-				if reach then
-					self:_reachBegin(player, now)
-					return
+				self.noticeTold = self.noticeTold or {}
+				local told = self.noticeTold[player] or 0
+				if told < Config.Stare.Cues and now - (state.toldAt or -math.huge) > 20 then
+					self.noticeTold[player] = told + 1
+					state.toldAt = now
+					Net.get("GuestEvent"):FireClient(player, { kind = "notice" })
 				end
 			end
 		end
 	end
 end
 
--- He turns on whoever crowds him. "scare": he leans in, the lights round you
--- die and your torch with them, and while you can't see he's gone (unless
--- someone else is watching: then he backs off). "grab": a rasp, he reaches,
--- and it's a down (a fair one: you were warned once already).
-function StalkerService:_confrontBegin(player: Player, kind: string, now: number)
+-- He warns whoever pesters him (the owner's choice, 2026-10-11: his head
+-- turns, one warning, then the reach): his knuckles crack, he squares up to
+-- you a moment, then backs off a step. A warning is never a down.
+function StalkerService:_warnBegin(player: Player, now: number)
 	local body = self.bodyCtl
 	body:CancelSpecial()
+	body:Hold()
 	body:FacePlayer(player)
 	body:SetGaze(player)
-	body:SetPose(Poses.Lunge)
-	self.confront = { player = player, kind = kind, at = now }
+	body:SetPose(Poses.Idle)
+	self.confront = { player = player, kind = "warn", at = now }
 	self.beat = nil
 	self.scaredAt = self.scaredAt or {}
 	self.scaredAt[player] = now
 	if self.stalk then
 		self.stalk.move = nil
 	end
-	Sfx.play("GuestRasp", self.body.root.Position, kind == "grab" and 1 or 0.85, kind == "grab" and 0.85 or 1)
-	self.services.Telemetry:Log("Crowded", { kind = kind, tier = self:TierNow() }, player)
-	if kind == "scare" then
-		-- Up close: a stride towards your face.
-		local pos = self.services.PlayerStateService:Position(player)
-		if pos then
-			local here = self.body.root.Position
-			local toward = Vector3.new(pos.X - here.X, 0, pos.Z - here.Z)
-			if toward.Magnitude > 1.6 then
-				body:Step(here + toward.Unit * (toward.Magnitude - 1.4), 9)
-			end
-		end
-		self.services.DivergenceService:Scare(
-			player,
-			{ kind = "blackout", radius = G.ConfrontRadius, duration = G.ConfrontSeconds }
-		)
-		self.services.PlayerStateService:CutTorch(player, G.ConfrontSeconds)
+	Sfx.play("GuestCrack", self.body.root.Position, 0.95, 0.8)
+	self.services.Telemetry:Log("Pestered", { kind = "warn", tier = self:TierNow() }, player)
+	self.services.RunLogService:GuestDid("warn")
+	self.warnTold = self.warnTold or {}
+	local told = self.warnTold[player] or 0
+	if told < Config.Stare.Cues then
+		self.warnTold[player] = told + 1
+		Net.get("GuestEvent"):FireClient(player, { kind = "warn", position = self.body.root.Position })
 	end
 end
 
@@ -1808,72 +1822,23 @@ function StalkerService:_updateConfront(now: number)
 	local confront = self.confront
 	local player = confront.player
 	local body = self.bodyCtl
-	local t = now - confront.at
-	if not player.Parent then
+	if not player.Parent or now - confront.at >= G.WarnSeconds then
 		self.confront = nil
-		return
-	end
-	if confront.kind == "grab" then
-		if t >= G.GrabWindup then
-			self.confront = nil
-			local ps = self.services.PlayerStateService
-			local pos = ps:Position(player)
-			local here = self.body.root.Position
-			if
-				pos
-				and (Vector3.new(pos.X - here.X, 0, pos.Z - here.Z)).Magnitude <= G.ContactRadius + 1
-				and ps:IsActive(player)
-				and not self.services.HidingService:IsHidden(player)
-			then
-				self:_catch(player, now, "crowd", true)
-			end
-			self.crowd[player] = {}
-			if self.stalk then
-				self.stalk:_begin("BackAway", self.stalk:_ctxCache())
-			end
+		if self.stalk and player.Parent then
+			self.stalk:_begin("BackAway", self.stalk:_ctxCache())
 		end
 		return
 	end
-	-- The scare: in the dark he goes, unless someone else is watching.
-	if not confront.gone and t >= G.ConfrontBlind then
-		confront.gone = true
-		local points = body:ExposedPoints()
-		local watched = false
-		for _, other in self.services.PlayerStateService:ActivePlayers() do
-			if
-				other ~= player and (self.sight:Sees(other, points[1], 130) or self.sight:Sees(other, points[2], 130))
-			then
-				watched = true
-			end
-		end
-		if watched then
-			self.confront = nil
-			self:_retreat("crowded")
-			return
-		end
-		local far = self.stalk and self.stalk:_farPoint()
-		if far then
-			body:Place(far)
-		end
-		body:SetPose(Poses.Idle)
-	end
-	if t >= G.ConfrontSeconds then
-		self.confront = nil
-		if not self.confrontTold then
-			self.confrontTold = true
-			self.services.DivergenceService:Scare(
-				player,
-				{ kind = "caption", text = "[it doesn't like you that close]" }
-			)
-		end
-	end
+	body:Hold()
+	body:FacePlayer(player)
+	body:SetGaze(player)
 end
 
--- He comes for whoever tails him (Logic/StalkRules.tailing; the owner,
--- 2026-10-11: "the guest can notice that the player is brave and then starts
--- walking toward them reaching a hand out and if they get too close its a
--- down"). He stops, his knuckles crack, his head comes round to you and a
--- hand comes up; then he walks at you, steady: a walk you can back away from
+-- He comes for whoever pesters him after his warning (StalkRules.pestering;
+-- the owner, 2026-10-11: "the guest can notice that the player is brave and
+-- then starts walking toward them reaching a hand out and if they get too
+-- close its a down"). He stops, his knuckles crack, his head comes round to
+-- you and his hands come up; then he walks at you, steady: a walk you can back away from
 -- (Config.Guest.ReachSpeed). His hand reaching you is a down (a fair one: he
 -- came at you in plain sight). He gives up once he hasn't seen you a while,
 -- you're far off, hidden or in a lantern's light, or after ReachSeconds; he
@@ -1892,12 +1857,16 @@ function StalkerService:_reachBegin(player: Player, now: number)
 	end
 	self:Noticed(player, now)
 	Sfx.play("GuestCrack", self.body.root.Position, 0.75, 0.82)
-	self.services.Telemetry:Log("Reached", { tier = self:TierNow() }, player)
+	self.services.Telemetry:Log("Pestered", { kind = "reach", tier = self:TierNow() }, player)
 	self.services.RunLogService:GuestDid("reach")
 	self.reachTold = self.reachTold or {}
 	if not self.reachTold[player] then
 		self.reachTold[player] = true
-		Net.get("Notify"):FireClient(player, "It noticed you following it.", "danger")
+		Net.get("Notify"):FireClient(
+			player,
+			"It warned you. Now it's coming: back away from its hands, hide, or get to a lit lantern.",
+			"danger"
+		)
 	end
 end
 
@@ -1957,7 +1926,13 @@ function StalkerService:_updateReach(now: number, watchers): boolean
 	if now - reach.seenAt > G.ReachLost or now - reach.at > G.ReachSeconds or distance > G.ReachGiveUp then
 		return giveUp()
 	end
-	if StalkRules.reachHits(distance, gap, seen, G) and not ps:InReviveGrace(player) then
+	-- (His hands come up first: from your face, a step back at once gets you
+	-- clear; Config.Guest.ReachWindup.)
+	if
+		now - reach.at >= G.ReachWindup
+		and StalkRules.reachHits(distance, gap, seen, G)
+		and not ps:InReviveGrace(player)
+	then
 		self.reach = nil
 		self:_catch(player, now, "reach", true)
 		if self.stalk then
