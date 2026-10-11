@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-11.158",
-	note = "tail him and he notices: he comes for you with his hands out, and their reaching you is a down",
+	id = "2026-10-11.159",
+	note = "once he's after someone, eyes on him don't stop him: no hold, no slowing in a chase, the reach or a lunge",
 }

@@ -1,6 +1,6 @@
 # Consensus
 
-A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in 1988 mansion with **The Guest**, who learns their habits. To get out they must open the house room by room (keys, notes, puzzles that want two people in two places) and lay the family's heirlooms at the dining table for him. When the last place is set, the dinner begins, every lock springs open, and they run for the front door while he hunts them. Each player still sees a slightly different house, but only as atmosphere; two people watching The Guest freeze him.
+A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in 1988 mansion with **The Guest**, who learns their habits. To get out they must open the house room by room (keys, notes, puzzles that want two people in two places) and lay the family's heirlooms at the dining table for him. When the last place is set, the dinner begins, every lock springs open, and they run for the front door while he hunts them. Each player still sees a slightly different house, but only as atmosphere; two people watching The Guest freeze him, until he comes for one of them.
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 

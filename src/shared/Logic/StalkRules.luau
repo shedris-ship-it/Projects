@@ -93,6 +93,30 @@ function StalkRules.huntHold(state, frozen: boolean, dt: number, cfg): boolean
 	return false
 end
 
+-- Whether eyes on him hold him this tick. Two watchers (alone, a steady
+-- beam) freeze him between hunts; in a hunt they hold him a few seconds at a
+-- time (huntHold), and not within HoldMinDistance of anyone. Once he's after
+-- someone, never (the owner, 2026-10-11: "I don't want people in groups to
+-- be able to just straight up disable him by just looking at him while hes
+-- pursuing someone, I want him to feel like an actual threat"): a hunt's
+-- chase, the reach, a lunge under way. Then the ways out are breaking his
+-- sight, a door, a throw, hiding and a lantern's light. A hunt's hold clock
+-- doesn't run while he pursues.
+-- ctx: watchers, hunting, pursuing, nearest (studs to the nearest player).
+-- state: the hunt's hold (huntHold), kept by the caller.
+function StalkRules.stareHolds(state, ctx, dt: number, cfg): boolean
+	if ctx.pursuing then
+		return false
+	end
+	local frozen = StalkRules.frozen(ctx.watchers)
+	if not ctx.hunting then
+		return frozen
+	end
+	local held = StalkRules.huntHold(state, frozen, dt, cfg)
+	-- Within arm's reach the stare is too late (its clock still runs).
+	return held and StalkRules.holdsAt(ctx.nearest or math.huge, cfg)
+end
+
 -- How long the next hold would last (for the overlay).
 function StalkRules.holdCap(state, cfg): number
 	return math.max(cfg.HoldMin or 0, cfg.HuntHoldSeconds * (cfg.HoldDecay or 1) ^ (state.holds or 0))

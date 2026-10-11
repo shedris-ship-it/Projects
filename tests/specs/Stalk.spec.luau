@@ -396,6 +396,47 @@ return function(test, check, Shared, require)
 		)
 	end)
 
+	test("once he's after someone, eyes on him never stop him (the owner, 2026-10-11)", function()
+		local cfg = Config.Stare
+		local function fresh()
+			return { held = 0, spent = false, unwatched = 0, holds = 0 }
+		end
+		local far = cfg.HoldMinDistance + 10
+		-- Not pursuing: two watchers freeze him between hunts and hold him in one.
+		check.truthy(StalkRules.stareHolds(fresh(), { watchers = 2, hunting = false }, 0.1, cfg), "between hunts")
+		check.truthy(
+			StalkRules.stareHolds(fresh(), { watchers = 2, hunting = true, nearest = far }, 0.1, cfg),
+			"a hunt, before he has seen anyone"
+		)
+		check.equal(
+			StalkRules.stareHolds(fresh(), { watchers = 1, hunting = false }, 0.1, cfg),
+			false,
+			"one pair of eyes isn't enough"
+		)
+		-- After someone: a chase, the reach, a lunge under way. Any number of
+		-- watchers, the whole time, and the hunt's hold isn't spent by it.
+		for _, hunting in { true, false } do
+			local state = fresh()
+			for _ = 1, 100 do
+				local held = StalkRules.stareHolds(
+					state,
+					{ watchers = 4, hunting = hunting, pursuing = true, nearest = far },
+					0.1,
+					cfg
+				)
+				check.equal(held, false, hunting and "chasing" or "reaching or lunging")
+			end
+			check.equal(state.held, 0, "the hold's clock doesn't run")
+			check.equal(state.holds, 0, "nor is a hold used up")
+		end
+		-- At arm's reach in a hunt it was already too late.
+		check.equal(
+			StalkRules.stareHolds(fresh(), { watchers = 2, hunting = true, nearest = 2 }, 0.1, cfg),
+			false,
+			"too close"
+		)
+	end)
+
 	test("doorway stand only while he can't attack", function()
 		check.truthy(StalkRules.mayBlockDoorway(2), "tier 2")
 		check.equal(StalkRules.mayBlockDoorway(3), false, "tier 3")

@@ -125,7 +125,7 @@ To be sure nothing else had the same problem, I audited every prompt in six hous
 - He walks at you at 7 studs a second. Your walk is 8, so backing away keeps you ahead, and a sprint loses him.
 - **His hands reaching you (3.6 studs) is a down.** It doesn't count as a cheap down: he came at you in plain sight.
 - He gives up when he hasn't seen you for 3 s, you're 40 studs off, hidden or in a lantern's light, or after 12 s. He stands a moment, lowers his hands and goes on.
-- Two people watching hold him where he is, hands still out. Something thrown that hits him ends it.
+- Something thrown that hits him ends it. (In `.158` two people watching held him where he was; since `.159`, below, they don't.)
 
 **Checked in Studio** (seed 61, tier 2):
 - The forced reach (F2 `guest reach 16`), standing still: he raised his hands, walked at me at 7 studs a second and caught me at 3.8 studs. The catch was logged as `reach`, and his moves list it with no cheap down.
@@ -137,3 +137,32 @@ To be sure nothing else had the same problem, I audited every prompt in six hous
 - 556 tests, including the new `Tailing.spec` (7).
 
 **To try:** F2 `guest reel reach` to watch it safely; F2 `guest reach [studs]` for the real thing (it can down you). TC-247 to TC-251.
+
+## Looking doesn't stop him once he's after someone (build `.159`)
+
+**The note:** "I don't want people in groups to be able to just straight up disable him by just looking at him while hes pursuing someone, I want him to feel like an actual threat".
+
+**Before:**
+- In a hunt, two people looking at him held him still for 4 s (then 2, 1, half a second). After that he came on at about a walk while they kept looking.
+- Between hunts, two watchers stopped a lunge already under way, and (in `.158`) the reach.
+- Alone, a steady torch beam counted as the second pair of eyes.
+
+**Now** (one rule decides every hold, `Logic/StalkRules.stareHolds`):
+- **Once he's after someone, looking at him does nothing.** That covers a hunt's chase (from when he spots someone), the reach, and a lunge already under way. He neither stops nor slows, and it doesn't use up the hunt's holds.
+- **The ways out of a chase:** break his sight round a corner for a moment, shut a door, hit him with something thrown, hide, or get into a lantern's light.
+- **Unchanged while he isn't after anyone:** between hunts, two of you (or your beam, alone) still freeze him, and holding his gaze together still drives him off. In a hunt, before he has spotted anyone, you can still hold him from a distance, so catching him unaware still pays.
+- **Telling players:** the first times watchers try it during a pursuit, they see "[it's after someone. Your eyes won't stop it now]" (twice a run at most). The how-to and the in-house tip now say the stare stops him "until it comes for one of you".
+- **Solo follows the same rule.** You said groups; I applied it to the solo beam too, since a beam holding him during a chase is the same disabling. Say if you'd rather keep the beam for solo players.
+
+**Also fixed:**
+- F2 `guest here` left him held into the next run, so he never came in. A new run now clears it. (It emptied a bot run of him while I tested.)
+- Following him while he backs off after being stared down started a reach that ended on its first tick, with "It noticed you following it." shown for nothing. Tailing now only counts while he's stalking, not while he's leaving. Following him close as he leaves is still crowding him.
+
+**Checked in Studio** (seed 61, solo, so a steady beam is the second pair of eyes):
+- **Between hunts:** the beam still froze him, and the solo co-stare still drove him off.
+- **The reach:** with the beam held on him, he kept walking at me at 7 studs a second, from 16 studs to 5.5, and the catch landed. Before, he'd have stood still.
+- **A hunt's chase:** with the beam on him, he ran at me at about 15 studs a second (no hold, no slowing). The new caption fired.
+- **The bot's night** went normally: out in 4:41, 0 failed, 0 downs, 6 scares. It waited for him 5 times (earlier runs: 0 or 1). Nothing here changes how he moves between hunts, so I take that as run-to-run variation, but watch for him loitering near you. (A run before it showed 25, because my test tools had left the camera stuck. The stare reads your camera, so the bot never looked at him.)
+- **Not checked:** two real players watching together. The rule is the same code path, but please try it with friends (TC-252).
+
+556 + 1 tests (`Stalk.spec` "once he's after someone, eyes on him never stop him"). TC-252, TC-253.

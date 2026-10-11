@@ -118,7 +118,7 @@ local TIPS = {
 	},
 	{
 		id = "guest",
-		text = "Something is watching you. Two of you looking at it in the light stop it. Alone, your beam does, while the battery lasts.",
+		text = "Something is watching you. Two of you looking at it in the light stop it, until it comes for one of you: then break its sight, shut a door or hide. Alone, your beam does, while the battery lasts.",
 		when = function(self)
 			return self.seenGuest
 		end,

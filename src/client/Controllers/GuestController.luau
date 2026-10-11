@@ -820,6 +820,9 @@ function GuestController:_event(event)
 		audio:Caption(event.beam and "[caught in your light, it stops]" or "[watched by two of you, it stops]")
 	elseif kind == "unheld" then
 		audio:Caption("[the light isn't enough any more. It comes on]")
+	elseif kind == "pursuing" then
+		-- He's after someone: eyes on him don't stop him (StalkRules.stareHolds).
+		audio:Caption("[it's after someone. Your eyes won't stop it now]")
 	elseif kind == "graced" then
 		-- Just pulled up with him right there (Config.Run.ReviveGraceSeconds).
 		audio:Caption("[it lets you get up. Run.]")

@@ -252,6 +252,10 @@ function StalkerService:Begin(ctx)
 	self.recentDowns = {}
 	self.notice = {} -- player -> when they last had a sign of him (a look, a tell, a step heard)
 	self.reach = nil -- coming for someone who tailed him (StalkerService:_reachBegin)
+	self.debugHold = false -- (F2 `guest here` from the last run: he'd never come in)
+	self.wasHeld = false
+	self.pursuitCues = {} -- player -> times told their eyes won't stop him now
+	self.pursuitCueAt = {}
 	self.tail = {} -- player -> StalkRules.tailing state
 	self.reachTold = {}
 	self.yankTo = nil
@@ -437,9 +441,10 @@ function StalkerService:MoodNow(): string?
 	return self.mood and self.mood.mood
 end
 
--- Two watchers hold him right now.
+-- Eyes on him hold him right now (StalkRules.stareHolds: not while he's
+-- after someone).
 function StalkerService:IsFrozen(): boolean
-	return self.active and self.watchers ~= nil and StalkRules.frozen(#self.watchers)
+	return self.active and self.wasHeld == true
 end
 
 function StalkerService:ForceHunt(reason: string?)
@@ -964,6 +969,11 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 			self.parked = false
 		end
 		self.confront = nil
+		if self.mode == Modes.Retreating then
+			-- (Stared down a moment ago: the reach would end at once.)
+			self.mode = Modes.Dormant
+			self:_publish()
+		end
 		self:_reachBegin(player, os.clock())
 		return "he comes for you, a hand out"
 	elseif sub == "reel" then
@@ -1401,15 +1411,16 @@ function StalkerService:_update(dt: number)
 	local frozen = StalkRules.frozen(#watchers)
 	-- In a hunt two watchers hold him a few seconds at a time, then he comes
 	-- on, slowed while they still watch, until they lose him for a moment.
-	local held = frozen
-	if hunting then
-		held = StalkRules.huntHold(self.hold, frozen, dt, Config.Stare)
-		-- Within arm's reach the stare is too late (its clock still runs).
-		if held and not StalkRules.holdsAt(self:_minPlayerDistance(body.root.Position), Config.Stare) then
-			held = false
-		end
-	end
-	self:_holdCues(held, frozen, hunting, watchers)
+	-- Once he's after someone (a hunt's chase, a lunge under way; the reach
+	-- is above), eyes on him don't stop him at all (StalkRules.stareHolds).
+	local pursuing = (hunting and self.data.chasing ~= nil) or body:Lunging()
+	local held = StalkRules.stareHolds(self.hold, {
+		watchers = #watchers,
+		hunting = hunting,
+		pursuing = pursuing,
+		nearest = hunting and self:_minPlayerDistance(body.root.Position) or nil,
+	}, dt, Config.Stare)
+	self:_holdCues(held, frozen, hunting, watchers, pursuing)
 	if now < self.stunnedUntil and mode ~= Modes.Retreating and mode ~= Modes.Departing then
 		-- Something thrown hit him: a moment off balance (Stun). The hunt
 		-- waits for him.
@@ -1667,11 +1678,14 @@ function StalkerService:_crowding(now: number, dt: number)
 	local services = self.services
 	local ps = services.PlayerStateService
 	local here = self.body.root.Position
-	-- Where he's going, for tailing (not while he's someone else, or setting
-	-- up a scare of his own).
+	-- Where he's going, for tailing (not while he's someone else, setting up
+	-- a scare of his own, or leaving after he was stared down: a reach then
+	-- would end before it began, and crowding still covers following close).
 	local hisVelocity = self.body.root.AssemblyLinearVelocity
 	local his = Vector3.new(hisVelocity.X, 0, hisVelocity.Z)
 	local tails = not (self.beat or self.disguise or self.revealHold)
+		and self.mode ~= Modes.Retreating
+		and self.mode ~= Modes.Departing
 	self.tail = self.tail or {}
 	local eye = self.bodyCtl:EyePosition()
 	local moveId = self.stalk and self.stalk.move and self.stalk.move.id
@@ -1861,8 +1875,8 @@ end
 -- (Config.Guest.ReachSpeed). His hand reaching you is a down (a fair one: he
 -- came at you in plain sight). He gives up once he hasn't seen you a while,
 -- you're far off, hidden or in a lantern's light, or after ReachSeconds; he
--- stands a moment, lowers it and goes on. Two watching hold him where he is,
--- hand still out; something thrown that hits him ends it.
+-- stands a moment, lowers it and goes on. Eyes on him don't stop him (he's
+-- after you: StalkRules.stareHolds); something thrown that hits him ends it.
 function StalkerService:_reachBegin(player: Player, now: number)
 	local body = self.bodyCtl
 	body:CancelSpecial()
@@ -1952,9 +1966,11 @@ function StalkerService:_updateReach(now: number, watchers): boolean
 	body:FacePlayer(player)
 	body:SetGaze(player)
 	body:SetPose(Poses.Reach)
-	if now < reach.walkAt or StalkRules.frozen(#watchers) then
-		-- The hand coming up; or two watching him: he stands, hand still out
-		-- (the stare holds him; his clock runs on).
+	if #watchers >= 2 then
+		self:_holdCues(false, true, false, watchers, true)
+	end
+	if now < reach.walkAt then
+		-- The hands coming up.
 		body:Hold()
 		reach.goal = nil
 	elseif seen and distance <= G.ReachGrab + 3 then
@@ -2357,8 +2373,9 @@ function StalkerService:_runSpeed(watchers, chasing: boolean?): number
 		speed *= 0.85
 	end
 	-- Two watchers still on him once the hold is spent: he comes on at about
-	-- a walk (Config.Stare), so the stare is a choice, not a wall.
-	if watchers and StalkRules.frozen(#watchers) then
+	-- a walk (Config.Stare), so the stare is a choice, not a wall. Not once
+	-- he's after someone (StalkRules.stareHolds): then he runs at his pace.
+	if watchers and StalkRules.frozen(#watchers) and not chasing and not self.data.chasing then
 		speed *= Config.Stare.HuntWatchedSpeedScale
 	end
 	return speed
@@ -2366,8 +2383,9 @@ end
 
 -- Tell the watchers what their eyes did, the first times it happens
 -- (Config.Stare.Cues): he stopped in the light; the hold is spent and he
--- comes on anyway. Captions on the client (Controllers/GuestController).
-function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boolean, watchers)
+-- comes on anyway; he's after someone and their eyes don't stop him.
+-- Captions on the client (Controllers/GuestController).
+function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boolean, watchers, pursuing: boolean?)
 	local beam = table.find(watchers, "beam") ~= nil
 	local function tell(kind: string)
 		for _, w in watchers do
@@ -2403,6 +2421,20 @@ function StalkerService:_holdCues(held: boolean, frozen: boolean, hunting: boole
 			beam = beam,
 			hunt = hunting,
 		})
+	elseif frozen and pursuing then
+		-- (Its own count: the cue that teaches the new rule.)
+		self.pursuitCues = self.pursuitCues or {}
+		for _, w in watchers do
+			if typeof(w) == "Instance" and (self.pursuitCues[w] or 0) < Config.Stare.Cues then
+				local last = self.pursuitCueAt and self.pursuitCueAt[w]
+				if not last or os.clock() - last > 20 then
+					self.pursuitCues[w] = (self.pursuitCues[w] or 0) + 1
+					self.pursuitCueAt = self.pursuitCueAt or {}
+					self.pursuitCueAt[w] = os.clock()
+					Net.get("GuestEvent"):FireClient(w, { kind = "pursuing", hunt = hunting })
+				end
+			end
+		end
 	elseif self.wasHeld and not held and frozen and hunting then
 		tell("unheld")
 	end

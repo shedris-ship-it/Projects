@@ -288,6 +288,12 @@ function Body:Busy(): boolean
 	return self.special ~= nil
 end
 
+-- A lunge under way (its wind-up or the dash): he's committed to it.
+function Body:Lunging(): boolean
+	local special = self.special
+	return special ~= nil and (special.kind == "windup" or special.kind == "dash")
+end
+
 -- Per body tick: follow the route, run zooms and lunges, turn to face.
 function Body:Update(now: number, playerPosition: (Player) -> Vector3?)
 	if self.root.Anchored then
