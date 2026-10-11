@@ -43,6 +43,24 @@ function Feel.targetSpeed(ctx, P, crawlSpeed: number, push): number
 	return P.WalkSpeed
 end
 
+-- Jumping (Config.Player.Jump*). Roblox launches a jump that would reach
+-- the Humanoid's JumpHeight under the world's gravity; while it rises and
+-- falls a lift on the body leaves the jump's own gravity. This is the
+-- JumpHeight that reaches P.JumpHeight under P.JumpRiseGravity.
+function Feel.jumpLaunch(P, worldGravity: number): number
+	return P.JumpHeight * P.JumpRiseGravity / worldGravity
+end
+
+-- The lift (studs/s/s, up) that turns the world's gravity into the jump's.
+function Feel.jumpLift(rising: boolean, P, worldGravity: number): number
+	return math.max(0, worldGravity - (rising and P.JumpRiseGravity or P.JumpFallGravity))
+end
+
+-- Whether you can jump now. ctx: crouched, exhausted, stamina, now, restUntil.
+function Feel.canJump(ctx, P): boolean
+	return not ctx.crouched and not ctx.exhausted and ctx.stamina >= P.JumpStamina and ctx.now >= ctx.restUntil
+end
+
 -- Studs per step: longer strides when you run.
 function Feel.stride(speed: number, P, F): number
 	return lerp(F.StrideWalk, F.StrideSprint, sprintShare(speed, P))

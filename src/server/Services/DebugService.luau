@@ -55,6 +55,7 @@ local HELP = table.concat({
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
+	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
 	"hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E)",
 	"guest here [studs] · walk · reel [beat|stop] (every way he moves, near you; or one, over and over) · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
@@ -827,6 +828,9 @@ function DebugService:Run(player: Player, text: string)
 		end
 	elseif command == "landmarks" then
 		reply(player, services.LandmarkService:Describe())
+	elseif command == "find" then
+		-- A drawer find in front of you (Data/Finds): `find PillBottle`.
+		reply(player, services.FindService:DebugMake(player, args[2]))
 	elseif command == "monitor" then
 		reply(player, services.MonitorService:Describe())
 	elseif command == "saferoom" then

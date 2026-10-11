@@ -72,10 +72,14 @@ function ToolService:Start()
 				end
 			end)
 			-- With the Lantern in hand it lights in LanternLightSeconds, not the
-			-- bare-handed hold (the Lightkeeper's one real power).
+			-- bare-handed hold (the Lightkeeper's one real power); so it does
+			-- with a match from a box found in a drawer (Services/FindService),
+			-- which is spent.
 			prompt.PromptButtonHoldBegan:Connect(function(player)
 				local inv = inventories[player]
-				if not inv or Inventory.toolId(inv) ~= "Lantern" then
+				local lantern = inv ~= nil and Inventory.toolId(inv) == "Lantern"
+				local matches = player:GetAttribute(PA.Matches) or 0
+				if not lantern and matches <= 0 then
 					return
 				end
 				local began = os.clock()
@@ -83,6 +87,18 @@ function ToolService:Start()
 				task.delay(Config.Tools.LanternLightSeconds, function()
 					if shrineHolds[player] == began and not shrine.lit and self.PlayerState:CanAct(player) then
 						shrineHolds[player] = nil
+						if not lantern then
+							local left = math.max(0, (player:GetAttribute(PA.Matches) or 1) - 1)
+							player:SetAttribute(PA.Matches, left)
+							notify(
+								player,
+								left == 1 and "A match struck. One left."
+									or (
+										left == 0 and "Your last match."
+										or string.format("A match struck. %d left.", left)
+									)
+							)
+						end
 						self:LightShrine(shrine, player)
 					end
 				end)

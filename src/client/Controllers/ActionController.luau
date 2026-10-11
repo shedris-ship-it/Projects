@@ -42,6 +42,9 @@ local cameraLight: SpotLight? = nil
 local lightPart: BasePart? = nil
 local flashlightAim: CFrame? = nil
 local peekYaw, peekPitch = 0, 0
+-- The jump (Config.Player.Jump*, Logic/Feel): in the air from a jump, the
+-- lift that slows it; landed, a rest before the next.
+local jump = { airborne = false, at = 0, restUntil = 0, lift = nil :: VectorForce?, allowed = nil :: boolean? }
 
 function ActionController:Init(controllers)
 	self.controllers = controllers
@@ -238,11 +241,15 @@ function ActionController:Start()
 	self.state.PlayerStateChanged:Connect(function()
 		self:_applyCamera()
 	end)
-	player.CharacterAdded:Connect(function()
+	player.CharacterAdded:Connect(function(character)
 		task.defer(function()
 			self:_applyCamera()
 		end)
+		self:_watchJump(character)
 	end)
+	if player.Character then
+		task.spawn(self._watchJump, self, player.Character)
+	end
 	self:_applyCamera()
 
 	RunService.RenderStepped:Connect(function(dt)
@@ -565,9 +572,95 @@ function ActionController:_updateMovement(dt: number)
 			pushSpeed = pushSpeed,
 		}, P, Config.Run.DownedCrawlSpeed, Config.Push)
 	end
+	self:_updateJump(humanoid, state)
 	self.stamina = stamina / P.StaminaMax
 	self.exhausted = exhausted
 	self.sprinting = sprinting
+end
+
+-- A new body: the lift that slows its jumps, and its jumps watched.
+function ActionController:_watchJump(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
+	local root = character:WaitForChild("HumanoidRootPart", 10) :: BasePart?
+	if not humanoid or not root then
+		return
+	end
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "JumpLiftAt"
+	attachment.Parent = root
+	local lift = Instance.new("VectorForce")
+	lift.Name = "JumpLift"
+	lift.Attachment0 = attachment
+	lift.RelativeTo = Enum.ActuatorRelativeTo.World
+	lift.ApplyAtCenterOfMass = true
+	lift.Force = Vector3.zero
+	lift.Enabled = false
+	lift.Parent = root
+	jump.lift = lift
+	jump.airborne = false
+	jump.allowed = nil
+	humanoid.StateChanged:Connect(function(_, new)
+		if new == Enum.HumanoidStateType.Jumping then
+			jump.airborne = true
+			jump.at = os.clock()
+			stamina = math.max(0, stamina - P.JumpStamina)
+			-- At once, not next frame: one step under the world's gravity
+			-- takes a third off the hop.
+			lift.Force = Vector3.new(0, root.AssemblyMass * Feel.jumpLift(true, P, Workspace.Gravity), 0)
+			lift.Enabled = true
+		end
+	end)
+end
+
+-- Down again: a body on its feet (or climbing, sitting) and not still going up.
+local GROUNDED = {
+	[Enum.HumanoidStateType.Landed] = true,
+	[Enum.HumanoidStateType.Running] = true,
+	[Enum.HumanoidStateType.Climbing] = true,
+	[Enum.HumanoidStateType.Seated] = true,
+	[Enum.HumanoidStateType.Swimming] = true,
+}
+
+-- While in the air from a jump, the lift (rising or falling); on the ground,
+-- whether a jump is allowed now (not crouched, winded, resting or down).
+-- The lift starts with the jump itself: the Humanoid still reads the floor
+-- under it for the first part of a low hop (its FloorMaterial isn't Air),
+-- and by the time it would, the world's gravity has already ended the hop.
+function ActionController:_updateJump(humanoid: Humanoid, state: string?)
+	local lift = jump.lift
+	local root = humanoid.RootPart
+	if jump.airborne and root then
+		local since = os.clock() - (jump.at or 0)
+		local down = GROUNDED[humanoid:GetState()] and root.AssemblyLinearVelocity.Y <= 0.5 and since > 0.12
+		if down or since > 3 then
+			jump.airborne = false
+			jump.restUntil = os.clock() + P.JumpCooldown
+		end
+	end
+	if lift and lift.Parent and root then
+		if jump.airborne then
+			local rising = root.AssemblyLinearVelocity.Y > 0
+			lift.Force = Vector3.new(0, root.AssemblyMass * Feel.jumpLift(rising, P, Workspace.Gravity), 0)
+		end
+		lift.Enabled = jump.airborne
+	end
+	local launch = Feel.jumpLaunch(P, Workspace.Gravity)
+	if math.abs(humanoid.JumpHeight - launch) > 1e-3 then
+		humanoid.JumpHeight = launch
+	end
+	local allowed = (state == PS.Active or state == PS.Lobby or state == PS.Lost)
+		and not self.state:IsHidden()
+		and Feel.canJump({
+			crouched = self.crouched == true,
+			exhausted = exhausted,
+			stamina = stamina,
+			now = os.clock(),
+			restUntil = jump.restUntil,
+		}, P)
+	if allowed ~= jump.allowed then
+		jump.allowed = allowed
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, allowed)
+	end
 end
 
 function ActionController:_knockback(velocity: Vector3, seconds: number)
@@ -608,10 +701,7 @@ function ActionController:_setCrouch(on: boolean)
 	end
 	self.crouched = on
 	Net.get("SetCrouch"):FireServer(on)
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.JumpHeight = on and 0 or P.JumpHeight
-	end
+	-- (No jumping while crouched: _updateJump.)
 end
 
 -- The torch stutters for a moment (his breath behind you: GuestController).

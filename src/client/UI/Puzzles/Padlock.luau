@@ -62,7 +62,7 @@ function Screen.build(host, open)
 	}, function()
 		host:Send("pull")
 	end)
-	Ui.button("Step back", {
+	Ui.button(host:BackText(), {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 200),
 		Size = UDim2.new(0.5, -6, 0, 40),

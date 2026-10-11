@@ -7,8 +7,8 @@
 -- out of one (it flies open).
 --
 -- What's kept inside stays on the server: the first time a drawer or door is
--- opened past half way, whatever belongs in that space is made there (an odd
--- small thing from World/Junk, or nothing; R2a's keys and items take over
+-- opened past half way, whatever belongs in that space is made there (a find
+-- from Services/FindService, or nothing; R2a's keys and items take over
 -- through `Filler`). Something lying in a drawer rides it in and out until
 -- someone takes it.
 --
@@ -37,8 +37,6 @@ local Physical = require(Shared.Data.Physical)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
 
-local Junk = require(script.Parent.Parent.World.Junk)
-
 local F = Config.Furniture
 local H = Config.Hands
 local Attr = Constants.Attributes
@@ -48,6 +46,7 @@ local FurnitureService = {}
 function FurnitureService:Init(services)
 	self.World = services.WorldService
 	self.Hands = services.HandsService
+	self.Finds = services.FindService
 	self.Hiding = services.HidingService
 	self.Noise = services.NoiseService
 	self.PlayerState = services.PlayerStateService
@@ -365,7 +364,8 @@ function FurnitureService:_fill(space)
 		if rng:NextNumber() >= F.JunkChance then
 			return
 		end
-		model = Junk.build(rng:Pick(Junk.Names), at, self.World.content)
+		-- Something worth the look (Services/FindService, Data/Finds).
+		model = self.Finds:Fill(at, rng)
 	end
 	if not model then
 		return

@@ -109,6 +109,7 @@ function Reader.new(ctx)
 			or input.UserInputType == Enum.UserInputType.MouseButton2
 		if click or key == Enum.KeyCode.E or key == Enum.KeyCode.Escape or key == Enum.KeyCode.ButtonB then
 			self:Close()
+			Ui.dismissed()
 		end
 	end)
 	-- A new house: last run's notes are gone.

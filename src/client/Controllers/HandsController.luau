@@ -92,6 +92,13 @@ local PA = Constants.PlayerAttributes
 
 local player = Players.LocalPlayer
 
+-- The key an E prompt gives up to on a keyboard: one no keyboard sends. Not
+-- Unknown: Roblox's prompts match Unknown to a mouse button (a click's
+-- KeyCode), so every prompt on screen fired on a click or a right click and
+-- took it (the owner, 2026-10-11: a right click anywhere in the hub changed
+-- the difficulty; the fuse box's Step back opened the fuse box again).
+local NO_KEY = Enum.KeyCode.World95
+
 local HandsController = {}
 
 function HandsController:Init(controllers)
@@ -185,7 +192,7 @@ function HandsController:Start()
 			end)
 		end
 		local keyboard = self:_keyboard()
-		prompt.KeyboardKeyCode = keyboard and Enum.KeyCode.Unknown or Enum.KeyCode.E
+		prompt.KeyboardKeyCode = keyboard and NO_KEY or Enum.KeyCode.E
 		prompt.Exclusivity = keyboard and Enum.ProximityPromptExclusivity.AlwaysShow
 			or Enum.ProximityPromptExclusivity.OnePerButton
 	end
@@ -329,6 +336,15 @@ end
 -- Playing on a keyboard and mouse (E is your hands' then).
 function HandsController:_keyboard(): boolean
 	local last = UserInputService:GetLastInputType()
+	-- Focus (the window clicked into: what every session starts with) and None
+	-- say nothing about the device: it stays what it was, else a keyboard if
+	-- there is one (it started as a gamepad's, and the prompts kept E).
+	if last == Enum.UserInputType.Focus or last == Enum.UserInputType.None then
+		if self.wasKeyboard ~= nil then
+			return self.wasKeyboard
+		end
+		return UserInputService.KeyboardEnabled
+	end
 	return last == Enum.UserInputType.Keyboard
 		or last == Enum.UserInputType.TextInput
 		or string.find(last.Name, "^Mouse") ~= nil
@@ -378,10 +394,30 @@ local function furnitureOf(anchor: Instance): Instance?
 	return nil
 end
 
+-- A downed friend's body (the owner, 2026-10-11: "revive is unintuitive"):
+-- the whole character is the thing you look at. Its revive prompt sits on
+-- the root inside the body, so neither looking at a limb nor the prompt's
+-- line of sight (through the body) found it.
+local function downedBodyOf(instance: Instance): Model?
+	local model = instance:FindFirstAncestorOfClass("Model")
+	while model do
+		if model:FindFirstChildOfClass("Humanoid") then
+			local root = model:FindFirstChild("HumanoidRootPart")
+			return (root and root:FindFirstChild("RevivePrompt")) and model or nil
+		end
+		model = model:FindFirstAncestorOfClass("Model")
+	end
+	return nil
+end
+
 -- What a part belongs to, and what kind of thing that is: a small thing you
 -- carry, a door or drawer your hands take, furniture, or something with a
 -- prompt (a switch, a note, a key). Outside a run, only prompts.
 function HandsController:_objectOf(instance: Instance, inRun: boolean): (Instance?, string?)
+	local body = inRun and downedBodyOf(instance)
+	if body then
+		return body, "prompt"
+	end
 	local furniture = furnitureOf(instance)
 	if furniture then
 		return furniture, "pushable"
@@ -429,7 +465,7 @@ function HandsController:_promptsOf(object: Instance, kind: string, near: Instan
 			if not prompt:GetAttribute("HandsOwned") then
 				table.insert(claimed, prompt)
 			end
-		elseif prompt.KeyboardKeyCode ~= Enum.KeyCode.Unknown then
+		elseif prompt.KeyboardKeyCode ~= Enum.KeyCode.Unknown and prompt.KeyboardKeyCode ~= NO_KEY then
 			table.insert(keyed, prompt)
 		end
 	end
@@ -596,6 +632,26 @@ function HandsController:_resolveFocus()
 			object, kind, near, distance = best[1], best[2], best[3], best[4]
 		end
 	end
+	-- In the hub the camera looks over your shoulder, not from your eyes:
+	-- the nearest prompt in reach (the contract on its table, the owner's
+	-- playtest of 2026-10-11: "should just be E").
+	if not object and not inRun then
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local bestDistance = math.huge
+		for prompt in self.shown do
+			local parent = prompt.Parent
+			local part = parent and (parent:IsA("Attachment") and parent.Parent or parent)
+			if root and prompt.Enabled and part and part:IsA("BasePart") then
+				local away = (part.Position - root.Position).Magnitude
+				if away <= prompt.MaxActivationDistance and away < bestDistance then
+					local other, otherKind = self:_objectOf(part, inRun)
+					if other then
+						object, kind, near, distance, bestDistance = other, otherKind, part, away, away
+					end
+				end
+			end
+		end
+	end
 	if not object or not kind then
 		return nil
 	end
@@ -737,6 +793,12 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 			self:_note("pass: a screen is open")
 			return pass
 		end
+		-- The E that just put a screen away (a note, the fuse box) is that
+		-- screen's, not a tap that opens it again.
+		if Ui.justDismissed() then
+			self:_note("pass: a screen was just put away")
+			return sink
+		end
 		if self.carry then
 			self:_drop(true) -- E puts down what you carry
 			self:_note("put down")
@@ -810,7 +872,7 @@ function HandsController:_click(inputState: Enum.UserInputState): Enum.ContextAc
 		-- A screen up (a note, a puzzle, the map): the click is its buttons'
 		-- (the squad playtest, 2026-10-10: a click on a note's "Put it down"
 		-- took the note up again).
-		if Ui.modalOpen() then
+		if Ui.modalOpen() or Ui.justDismissed() then
 			return Enum.ContextActionResult.Pass
 		end
 		if self.clickDown then

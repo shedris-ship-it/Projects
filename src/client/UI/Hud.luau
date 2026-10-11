@@ -98,7 +98,7 @@ function Hud.new(ctx)
 	local top = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 14),
-		Size = UDim2.fromOffset(520, 70),
+		Size = UDim2.fromOffset(600, 70),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -111,9 +111,14 @@ function Hud.new(ctx)
 		TextStrokeTransparency = 0.6,
 		Parent = top,
 	})
+	-- (As tall as it needs: a long line with the stuck-assist's sentence ran
+	-- off its second line, mid-word.)
 	self.objectiveLabel = Ui.label("", {
 		Position = UDim2.fromOffset(0, 24),
 		Size = UDim2.new(1, 0, 0, 34),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 14,
 		TextColor3 = Ui.Theme.ritual,

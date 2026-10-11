@@ -2,9 +2,11 @@
 -- server (Services/PuzzleService) opens one for you at its station and says
 -- what each click did; this hosts the screen for that kind (UI/Puzzles/*:
 -- build, refresh, and optionally update each frame) and sends what you
--- clicked. Escape, B or "Step back" leaves it (so does walking off, being
--- downed, or a hunt coming). With a gamepad, the screen's first button is
--- selected so it can be driven with the stick.
+-- clicked. E (as it opened), B or "Step back" leaves it, so does walking off,
+-- being downed, or a hunt coming. (Escape too, but Escape also opens Roblox's
+-- menu: the owner, 2026-10-11, found that "weird", so the screens say E.)
+-- With a gamepad, the screen's first button is selected so it can be driven
+-- with the stick.
 
 local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,7 +45,12 @@ function Puzzle.new(ctx)
 		end
 	end)
 	UserInputService.InputBegan:Connect(function(input)
-		if self.open and (input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB) then
+		local key = input.KeyCode
+		if
+			self.open
+			and (key == Enum.KeyCode.E or key == Enum.KeyCode.Escape or key == Enum.KeyCode.ButtonB)
+			and not UserInputService:GetFocusedTextBox()
+		then
 			self:Hide(true)
 		end
 	end)
@@ -58,6 +65,17 @@ function Puzzle:Send(action: string, word: string?, a: number?, b: number?)
 	if open then
 		Net.get("PuzzleInput"):FireServer(open.id, action, word, a, b)
 	end
+end
+
+-- What the Step back button says: with its key.
+function Puzzle:BackText(): string
+	local last = UserInputService:GetLastInputType()
+	if string.find(last.Name, "^Gamepad") then
+		return "Step back (B)"
+	elseif last == Enum.UserInputType.Touch then
+		return "Step back"
+	end
+	return "Step back (E)"
 end
 
 -- A short shake, for a wrong try.
@@ -86,6 +104,7 @@ function Puzzle:Hide(tell: boolean)
 	end
 	if open and tell then
 		Net.get("PuzzleLeave"):FireServer(open.id)
+		Ui.dismissed()
 	end
 end
 

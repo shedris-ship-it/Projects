@@ -89,6 +89,20 @@ function Overlays.new(ctx)
 		BackgroundColor3 = Ui.Theme.danger,
 		Parent = self.bleed,
 	}, { Ui.corner(3) })
+	-- Someone holding E on you: their bar fills under the bleed bar.
+	self.revive = Ui.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 14),
+		Size = UDim2.new(1, -40, 0, 6),
+		BackgroundColor3 = Color3.fromRGB(16, 30, 18),
+		Visible = false,
+		Parent = self.stateFrame,
+	}, { Ui.corner(3) })
+	self.reviveFill = Ui.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Ui.Theme.good,
+		Parent = self.revive,
+	}, { Ui.corner(3) })
 
 	return self
 end
@@ -100,15 +114,36 @@ function Overlays:Update()
 	local myState = state:PlayerState()
 	local show, title, text = false, "", ""
 	local bleeding = false
+	local reviving = false
 	if myState == PS.Downed then
 		local downedUntil = player:GetAttribute(PA.DownedUntil)
 		local left = downedUntil and math.max(0, downedUntil - Workspace:GetServerTimeNow()) or 0
 		local urgent = left <= Config.Run.BleedWarnSeconds
+		local others = 0
+		for _, other in Players:GetPlayers() do
+			local s = other:GetAttribute(PA.State)
+			if other ~= player and (s == PS.Active or s == PS.Downed) then
+				others += 1
+			end
+		end
+		local solo = others == 0
 		show, title, text =
 			true,
 			urgent and "YOU'RE FADING" or "YOU'RE BLEEDING OUT",
-			string.format("Call for help. A teammate must hold E on you. %d s", math.ceil(left))
+			string.format(
+				solo and "Crawl to a lit lantern or a hiding place. %d s"
+					or "Call for help: a teammate holds E on you. Or crawl to a lit lantern or a hiding place. %d s",
+				math.ceil(left)
+			)
 		bleeding = true
+		local rescuer = player:GetAttribute(PA.RevivedBy)
+		local since = player:GetAttribute(PA.ReviveSince)
+		if typeof(rescuer) == "string" and typeof(since) == "number" then
+			reviving = true
+			title = string.upper(rescuer) .. " IS PULLING YOU UP"
+			local share = (Workspace:GetServerTimeNow() - since) / Config.Run.ReviveHoldSeconds
+			self.reviveFill.Size = UDim2.fromScale(math.clamp(share, 0, 1), 1)
+		end
 		local total = player:GetAttribute(PA.DownedSeconds) or Config.Run.DownedSeconds
 		self.bleedFill.Size = UDim2.fromScale(math.clamp(left / total, 0, 1), 1)
 		-- The last seconds pulse.
@@ -120,6 +155,7 @@ function Overlays:Update()
 		show, title, text = true, "YOU GOT OUT", "Waiting for the rest of the squad."
 	end
 	self.bleed.Visible = bleeding
+	self.revive.Visible = reviving
 	if not bleeding then
 		self.stateTitle.TextColor3 = Ui.Theme.text
 	end

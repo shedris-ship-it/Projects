@@ -171,7 +171,7 @@ function Screen.build(host, open)
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
 	})
-	Ui.button("Step back", {
+	Ui.button(host:BackText(), {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.fromScale(1, 1),
 		Size = UDim2.fromOffset(130, 34),

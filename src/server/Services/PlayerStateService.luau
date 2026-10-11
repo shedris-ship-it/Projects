@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Bodies = require(Shared.Logic.Bodies)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Feel = require(Shared.Logic.Feel)
 local Signal = require(Shared.Lib.Signal)
 local Net = require(Shared.Net)
 local Sfx = require(Shared.Lib.Sfx)
@@ -83,6 +84,10 @@ function PlayerStateService:_record(player: Player)
 end
 
 function PlayerStateService:Start()
+	-- Working a puzzle, a door, a drawer, a tool: not idle (Net.onActivity).
+	Net.onActivity = function(player)
+		self:Touch(player)
+	end
 	Players.PlayerAdded:Connect(function(player)
 		self:_record(player)
 		player:SetAttribute(PA.State, States.Lobby)
@@ -216,7 +221,7 @@ function PlayerStateService:_onCharacter(player: Player, character: Model)
 	if humanoid then
 		humanoid.BreakJointsOnDeath = false
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
-		humanoid.JumpHeight = Config.Player.JumpHeight
+		humanoid.JumpHeight = Feel.jumpLaunch(Config.Player, workspace.Gravity) -- (the client lifts it: Logic/Feel)
 		if record.state == States.Lost then
 			task.defer(function()
 				self:_applyEcho(player)
@@ -473,14 +478,22 @@ function PlayerStateService:Down(player: Player)
 				self:Revive(player, rescuer)
 			end
 		end)
-		-- The rescuer kneels while they hold it (Controllers/PoseController).
+		-- The rescuer kneels while they hold it (Controllers/PoseController),
+		-- and the one they're pulling up sees who and how far along (UI/
+		-- Overlays, UI/DownedMarkers).
 		prompt.PromptButtonHoldBegan:Connect(function(rescuer)
 			if rescuer ~= player and self:CanAct(rescuer) then
 				rescuer:SetAttribute(PA.Reviving, true)
+				player:SetAttribute(PA.RevivedBy, rescuer.DisplayName)
+				player:SetAttribute(PA.ReviveSince, workspace:GetServerTimeNow())
 			end
 		end)
 		prompt.PromptButtonHoldEnded:Connect(function(rescuer)
 			rescuer:SetAttribute(PA.Reviving, nil)
+			if player:GetAttribute(PA.RevivedBy) == rescuer.DisplayName then
+				player:SetAttribute(PA.RevivedBy, nil)
+				player:SetAttribute(PA.ReviveSince, nil)
+			end
 		end)
 		prompt.Destroying:Connect(function()
 			for _, other in Players:GetPlayers() do
@@ -488,6 +501,8 @@ function PlayerStateService:Down(player: Player)
 					other:SetAttribute(PA.Reviving, nil)
 				end
 			end
+			player:SetAttribute(PA.RevivedBy, nil)
+			player:SetAttribute(PA.ReviveSince, nil)
 		end)
 		record.revivePrompt = prompt
 	end
@@ -499,7 +514,12 @@ function PlayerStateService:Down(player: Player)
 		if other ~= player then
 			notify(
 				other,
-				string.format("%s is bleeding out! %d seconds. Hold E on them.", player.DisplayName, seconds),
+				string.format(
+					"%s is down! %d seconds. Look at them and hold E for %d seconds.",
+					player.DisplayName,
+					seconds,
+					Config.Run.ReviveHoldSeconds
+				),
 				"danger"
 			)
 		end
@@ -736,6 +756,34 @@ function PlayerStateService:RefillBattery(player: Player): boolean
 	record.battery = full
 	player:SetAttribute(PA.Battery, 1)
 	return short
+end
+
+-- A share (0..1) of a full torch put back (a pair of batteries from a
+-- drawer, Services/FindService). False when it was full already.
+function PlayerStateService:AddBattery(player: Player, share: number): boolean
+	local record = records[player]
+	if not record then
+		return false
+	end
+	local full = Config.Player.FlashlightBatterySeconds
+	if record.battery >= full - 1 then
+		return false
+	end
+	record.battery = math.min(full, record.battery + share * full)
+	player:SetAttribute(PA.Battery, record.battery / full)
+	return true
+end
+
+-- One of your downs forgiven (painkillers, Services/FindService): the next
+-- down that would have been your last isn't. Returns the downs left, or nil
+-- with none to forgive.
+function PlayerStateService:ForgiveDown(player: Player): number?
+	local record = records[player]
+	if not record or not record.inRun or (record.downs or 0) <= 0 then
+		return nil
+	end
+	record.downs -= 1
+	return record.downs
 end
 
 function PlayerStateService:RefreshFlashlight(player: Player)

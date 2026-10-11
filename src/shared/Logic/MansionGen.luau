@@ -1955,9 +1955,18 @@ function MansionGen.attempt(rng, templates, config)
 	end
 	local adj = Graph.adjacency(ids, builder.edges)
 	local start, exit, deliberation = builder.hall.id, builder.exit.id, builder.dining.id
+	-- Never a room without a place for its shrine (the corridors): its shrine
+	-- went in the middle of the walking lane, or, on the ground floor, was
+	-- built facing nowhere and vanished (the audit of 2026-10-11: a third of
+	-- the lantern rooms, so a squad's safe room was often a corridor or none).
 	local lanterns = LevelGraph.pickLanterns(rng:Fork("lanterns"), house.rooms, adj, function(id)
 		local room = house.byId[id]
-		return id == start or id == exit or id == deliberation or room.kind == "stair"
+		local template = builder.p.byId[room.template]
+		return id == start
+			or id == exit
+			or id == deliberation
+			or room.kind == "stair"
+			or not (template and template.shrine)
 	end, config)
 	for _, room in house.rooms do
 		room.lantern = table.find(lanterns, room.id) ~= nil

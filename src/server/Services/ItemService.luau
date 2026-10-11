@@ -40,7 +40,6 @@ local Signal = require(Shared.Lib.Signal)
 
 local Dressing = require(script.Parent.Parent.World.Dressing)
 local Items = require(script.Parent.Parent.World.Items)
-local Junk = require(script.Parent.Parent.World.Junk)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local Notes = require(Shared.Data.Notes)
 local LeadProps = require(script.Parent.Parent.World.LeadProps)
@@ -519,7 +518,7 @@ function ItemService:_fill(space, at: CFrame)
 	if decoy then
 		self.decoys[space] = nil
 		if decoy == "letters" then
-			return Junk.build("Letters", at, self.World.content)
+			return self.services.FindService:Make("Letters", at) -- (they point somewhere: FindService)
 		elseif decoy == "salts" then
 			self.services.ToolService:PlaceTool("Salts", at)
 		end

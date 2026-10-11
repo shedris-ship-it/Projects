@@ -68,7 +68,8 @@ function Lobby.new(ctx)
 		end
 	)
 
-	Ui.label("Tools are found in the house: look on tables, desks and dressers.", {
+	-- What the difficulty means (it ran off the button, mid-word), else a tip.
+	self.note = Ui.label("Tools are found in the house: look on tables, desks and dressers.", {
 		Position = UDim2.fromOffset(0, 174),
 		Size = UDim2.new(1, 0, 0, 36),
 		TextSize = 13,
@@ -85,21 +86,22 @@ function Lobby.new(ctx)
 	)
 	self.countdown = Ui.label("", {
 		Position = UDim2.fromOffset(0, 266),
-		Size = UDim2.new(1, 0, 0, 20),
+		Size = UDim2.new(1, 0, 0, 36),
 		TextXAlignment = Enum.TextXAlignment.Center,
-		TextSize = 15,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextSize = 14,
 		TextColor3 = Ui.Theme.accent,
 		Parent = panel,
 	})
 	Ui.label("Squad", {
-		Position = UDim2.fromOffset(0, 298),
+		Position = UDim2.fromOffset(0, 306),
 		Size = UDim2.new(1, 0, 0, 18),
 		Font = Ui.Theme.fontBold,
 		TextSize = 14,
 		Parent = panel,
 	})
 	self.squad = Ui.label("", {
-		Position = UDim2.fromOffset(0, 318),
+		Position = UDim2.fromOffset(0, 326),
 		Size = UDim2.new(1, 0, 0, 80),
 		TextSize = 13,
 		TextYAlignment = Enum.TextYAlignment.Top,
@@ -149,9 +151,10 @@ function Lobby:Render()
 	local lobby = state.lobby
 	if lobby then
 		self.contract.Text = string.format("Contract: %s\n%s", lobby.location.name, lobby.location.blurb)
-		self.difficultyButton.Text = "Difficulty: "
-			.. lobby.difficulty
-			.. (lobby.difficulty == "Hard" and "  (uneasy, more wings, quicker hunts)" or "")
+		self.difficultyButton.Text = "Difficulty: " .. lobby.difficulty
+		self.note.Text = lobby.difficulty == "Hard"
+				and "Hard: uneasy from the start, more wings, quicker hunts, and two downs and you're out."
+			or "Tools are found in the house: look on tables, desks and dressers."
 		self.nightButton.Text = lobby.night == "short" and "Night: Short" or "Night: Full"
 		local lines = {}
 		for _, p in lobby.players do
@@ -197,7 +200,7 @@ function Lobby:Update()
 			self.countdown.Text =
 				string.format("Waiting for %s · going in without them in %d s", waiting, math.ceil(left))
 		else
-			self.countdown.Text = "Everyone in the hub must be ready (or half of you, for thirty seconds)."
+			self.countdown.Text = "Everyone ready, or half of you for thirty seconds."
 		end
 	end
 end

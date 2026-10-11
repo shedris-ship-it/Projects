@@ -92,6 +92,13 @@ Constants.PlayerAttributes = {
 	-- How long this down lasts (solo downs are longer): the bleed bar's scale.
 	DownedSeconds = "DownedSeconds",
 	Reviving = "Reviving", -- holding the revive prompt on a friend (they kneel)
+	-- On a downed player while someone holds E on them: who, and the server
+	-- time they began (the bar the downed player and the squad see).
+	RevivedBy = "RevivedBy",
+	ReviveSince = "ReviveSince",
+	-- Matches in your pocket (a box from a drawer, Services/FindService): a
+	-- lantern shrine lights at once with one.
+	Matches = "Matches",
 	HideEnter = "HideEnter", -- ducking into a hiding place (a moment's crouch)
 	Peeking = "Peeking", -- peeking out of a hiding place (Logic/HideRules)
 	Crouched = "Crouched", -- crouching (Controllers/ActionController asks, PlayerStateService decides)

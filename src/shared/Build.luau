@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-11.159",
-	note = "once he's after someone, eyes on him don't stop him: no hold, no slowing in a chase, the reach or a lunge",
+	id = "2026-10-11.160",
+	note = "playtest fixes: no prompt fires on a click, E steps back, revive you can see, 30 s down, a slow jump, toys fall, drawers worth opening",
 }

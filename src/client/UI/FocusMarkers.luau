@@ -347,6 +347,11 @@ function FocusMarkers:_focusRows(focus, hands)
 	if focus.hold then
 		table.insert(rows, { key = "Hold E", text = focus.hold.text })
 	end
+	-- A small thing whose E uses it (batteries, painkillers: Data/Finds):
+	-- the click still carries it off.
+	if focus.kind == "thing" and focus.tap and focus.tap.kind ~= "pick" and not focus.hold then
+		table.insert(rows, { key = "Click", text = "Pick up" })
+	end
 	for _, prompt in focus.keyed or {} do
 		local key = keyText(prompt.KeyboardKeyCode, prompt.GamepadKeyCode)
 		if key and prompt.HoldDuration >= 0.5 then

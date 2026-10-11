@@ -281,7 +281,7 @@ function MapService:State()
 		end
 	end
 	-- Stuck-assist (Services/FinaleService): the room the line points at.
-	state.hint = self.Finale.hintRoom
+	state.hint = self.Finale:MapHint()
 	state.plans = {}
 	for storey in self.planStoreys do
 		table.insert(state.plans, storey)

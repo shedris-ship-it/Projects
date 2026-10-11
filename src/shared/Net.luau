@@ -138,6 +138,11 @@ function Net.validate(schema: { string }, ...): boolean
 	return true
 end
 
+-- Server: called with the player on every call a handler accepts, so doing
+-- something counts as being there (PlayerStateService's idle rule: a player
+-- working the safe's dial for a minute, the camera still, was made Lost).
+Net.onActivity = nil :: ((Player) -> ())?
+
 -- Server helper: connect a handler with per-player rate limiting and
 -- argument validation (doc section 7: "validate the type, range and rate of
 -- every remote").
@@ -180,6 +185,9 @@ function Net.onServer(name: string, options: any, handler: (Player, ...any) -> (
 			return
 		end
 		last[player] = now
+		if Net.onActivity then
+			Net.onActivity(player)
+		end
 		local ok, err = pcall(handler, player, ...)
 		if not ok then
 			warn(string.format("[Consensus] remote %s from %s failed: %s", name, player.Name, tostring(err)))

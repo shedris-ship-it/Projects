@@ -68,6 +68,8 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 | Push furniture (heavy pieces need friends; walk backwards to pull) | hold **E** (or **left mouse**) on it and walk | hold RT and walk | none yet |
 | Throw what you carry (tap: a lob; hold: wind up) / put it down / nearer or further | **click** or **right mouse** / **E** / mouse wheel | LT | none yet |
 | Notes, keys at a lock, puzzles, fixtures, switches, hiding (tap); revive, a twin lever (hold) | **E** on it | X | Tap the prompt |
+| Revive a friend who's down (their marker says how far, and "hold E" once you're close) | look at them, hold **E** for 4 s | hold X | Hold the prompt |
+| Use what a drawer held: batteries into your torch, painkillers, letters, matches (the click picks it up instead) | **E** on it | X | Tap the prompt |
 | Set a place at the table | walk up to the table carrying the heirloom its card names | | |
 | Pry the boards off, cut a chain (the crowbar or the bolt cutters in your hands) | hold **left mouse** or **R** on it | hold RT or RB | Tool button |
 | Crouch (a silent creep) | hold **Ctrl** (a setting makes it a toggle) | B | Crouch button |
@@ -86,8 +88,8 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
 | Ping wheel (hold, aim, release) | **G** | D-pad left | Ping button |
 | Structured callout | **C** | D-pad right | Call button |
 | Say something aloud (he hears it) | **Enter** or **/** | | |
-| Hold breath / leave a hiding spot | **Space** / **E** | A / B | buttons |
-| Leave a puzzle screen or the note reader | **Esc** | B | |
+| Jump (a low, slow hop: not while crouched, winded or just landed; it costs breath) / hold breath when hidden / leave a hiding spot | **Space** / **Space** / **E** | A / A / B | buttons |
+| Leave a puzzle screen or the note reader | **E** (or the Step back button) | B | |
 | Settings and how to play | **F1** | | Lobby button |
 | Debug overlay and console | **F2** (Studio) | | |
 
@@ -109,12 +111,13 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
    - **Keys** go on your own ring and are used up at their door; drop one for a friend from the journal, which also says where each key's door is once someone has seen it. **Bolts** slide back only from their own side: shortcuts ("Bolted from the other side. There must be another way round.").
    - **Puzzles:** the home computer (a word-guessing terminal that prints a padlock's code), the breaker panel (power a door without tripping the main; its strips are numbered, and the names are on a brass plate by the door it powers, so one reads and one flips; alone, hold T on the panel to trace the wiring for 20 s), the wall safe (listen for the click), the music box and the piano (play its tune back).
    - **Two-person locks:** a crank door (one cranks, one goes through; alone, the slow and loud ratchet), the dumbwaiter (one cranks downstairs, one takes the heirloom out upstairs; alone, jam the crank) and twin levers (two players and up: a lever by the door and its twin in another room, both wearing the door's mark; hold both down at once and the door opens. With one player left, a lever let go stays down on a ticking catch long enough to walk to its twin).
+   - **Drawers and cupboards** hold something worth the look when the run keeps nothing there: batteries (E: a third of a torch back), painkillers (E: one of your downs forgiven; rare), old letters (E: someone's pencilled note points at what you need next, and the map rings that room), a box of matches (E: pocketed; a lantern shrine lights at once with one), or something to throw.
    - The house is physical: pick things up and throw them (a hit staggers him), push furniture (beds need two), barricade a doorway, shut yourself in a wardrobe, a locker or a walk-in closet and look out through its slats, flush a toilet or leave a tap running to send him the wrong way, switch lights off.
 3. **He wants his dinner.** Each step forward wakes a hunt a minute or two later. While you carry an heirloom he knows which room you're in. Leave one lying and he puts it back where you found it. Carry them all and he waits at the head of the table.
 4. **The dinner.** Set the last heirloom (each place's card names the one it wants; carry it up to the table and it's set): the lights die, he takes his seat, the way from the dining room to the hall seals, every other lock springs open and the front door opens. Run out the long way while he hunts you.
 5. **Debrief.** The Dossier says who opened what, who carried what, the closest call, and what he learned about you.
 
-Getting caught downs you: a teammate can revive you within 15 seconds (a 4-second hold), or you crawl into a lit Lantern room or to a hiding place's mouth and get up by yourself (alone you have 20 seconds). Smelling salts in a slot bring you round in 3 seconds. Just up, he leaves you alone for 8 seconds: run. A hunt that caught someone is never "survived". Three downs (two on Hard) and you're **Lost**: you play on as an **Echo** who can talk, ping one hint a minute (the ping knocks on the nearest shut door, and he hears it) and drift through doors (but not locked ones). Drift rises with time, noise and splitting up, faster when you stall; progress lowers it. At Drift 100 the house has had enough: **the Reckoning**, a hunt that never ends, in which no room protects anyone and the front door opens only for the dinner. The run ends when everyone is out, or everyone is Lost.
+Getting caught downs you: a teammate can revive you within 30 seconds (look at you and hold E for 4 seconds; you both see the bar fill), or you crawl into a lit Lantern room or to a hiding place's mouth and get up by yourself (alone too, 30 seconds). Smelling salts in a slot bring you round in 3 seconds. Just up, he leaves you alone for 8 seconds: run. A hunt that caught someone is never "survived". Three downs (two on Hard) and you're **Lost**: you play on as an **Echo** who can talk, ping one hint a minute (the ping knocks on the nearest shut door, and he hears it) and drift through doors (but not locked ones). Drift rises with time, noise and splitting up, faster when you stall; progress lowers it. At Drift 100 the house has had enough: **the Reckoning**, a hunt that never ends, in which no room protects anyone and the front door opens only for the dinner. The run ends when everyone is out, or everyone is Lost.
 
 ---
 
@@ -141,7 +144,7 @@ navtest [fast] · navtest room <id> [fast] · navtest retreat [n]   (navtest als
 beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him wearing a friend's look, for you; again ends it)
 botrun [fast] [flee|hide] (the bot plays the run with your character and reports the numbers; again stops it) · botrun plan
 inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
-down [name] · revive [name] · steps · clip
+down [name] · revive [name] · steps · clip · find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, Cassette, Candle, Spool)
 guest here [studs] · guest walk · guest reel [beat|stop] (every way he moves, near you, captioned; or one beat over and over) · guest pose <name> · guest form <0-2> · guest smile <0-1>
 guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest reach [studs] (he comes for you as if you'd tailed him; it can down you) · guest off
 guest mood [id|off] (his mood: Curious, Stalking, Host, Playful, Patient, Irritated) · guest temperament [id] (Patient, Restless, Playful, Hungry)

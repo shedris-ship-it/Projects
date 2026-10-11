@@ -1,7 +1,7 @@
 -- The fuse box (Logic/Puzzles/Breaker): a row of breakers in the family's
 -- handwriting, and the main. Flip one and real rooms go dark or light up;
 -- too many on and the main trips. UI/Puzzle hosts it. Keys too: 1 to 9
--- flip, M the main, Esc steps back.
+-- flip, M the main, E steps back.
 
 local UserInputService = game:GetService("UserInputService")
 
@@ -121,7 +121,7 @@ function Screen.build(host, open)
 	}, function()
 		host:Send("main")
 	end)
-	Ui.button("Step back", {
+	Ui.button(host:BackText(), {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 296),
 		Size = UDim2.new(0.5, -6, 0, 44),
@@ -129,7 +129,7 @@ function Screen.build(host, open)
 	}, function()
 		host:Hide(true)
 	end)
-	Ui.label(string.format("Keys: 1-%d flip  ·  M the main  ·  Esc step back", count), {
+	Ui.label(string.format("Keys: 1-%d flip  ·  M the main", count), {
 		Position = UDim2.fromOffset(0, 348),
 		Size = UDim2.new(1, 0, 0, 16),
 		Font = Enum.Font.Code,

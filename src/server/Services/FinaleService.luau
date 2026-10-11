@@ -73,6 +73,7 @@ function FinaleService:Start()
 		table.clear(self.tried)
 		table.clear(self.spans)
 		self.line = nil
+		self.hintRoom, self.leadRoom, self.leadUntil = nil, nil, nil
 		ReplicatedStorage.RunState:SetAttribute(RS.Objective, nil)
 	end)
 	self.Locks.Tried:Connect(function(seamId, lock)
@@ -212,6 +213,37 @@ function FinaleService:_assist()
 			services.DivergenceService:Scare(player, { kind = "flicker", roomId = hint.room, duration = 2.5 })
 		end
 	end
+end
+
+-- Old letters read (Services/FindService): the line in them that points at
+-- what the plan wants next, the room it's in, and the map rings that room
+-- for a while. Nil when nothing can be said.
+function FinaleService:Lead(): (string?, number?)
+	if self.served or not self.plan then
+		return nil, nil
+	end
+	local hint = Assist.next(self.plan, self:_assistState())
+	if not hint then
+		return nil, nil
+	end
+	local roomName = hint.room and self.Items:RoomPhrase(hint.room) or nil
+	local label = hint.token and string.lower(self.Items:Label(hint.token)) or nil
+	if hint.room then
+		self.leadRoom = hint.room
+		self.leadUntil = os.clock() + Config.Finds.LeadRingSeconds
+	end
+	return Assist.phrase(hint, roomName, label), hint.room
+end
+
+-- The room the map rings: stuck-assist's, else what letters pointed at lately.
+function FinaleService:MapHint(): number?
+	if self.hintRoom then
+		return self.hintRoom
+	end
+	if self.leadRoom and os.clock() < (self.leadUntil or 0) then
+		return self.leadRoom
+	end
+	return nil
 end
 
 -- What the squad has, as Logic/Assist reads it.

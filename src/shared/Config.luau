@@ -21,9 +21,11 @@ Config.Run = {
 	NoHuntBeforeSeconds = 180, -- (doc) hunts never start in the first 3 minutes
 	StalkerDormantSeconds = 90, -- (doc) nothing appears in the first 90 seconds
 	-- Downed players bleed out fast so the squad has to drop everything
-	-- (owner, 2026-10-03; the doc's first draft said 45 s).
-	DownedSeconds = 15,
-	BleedWarnSeconds = 6, -- the last seconds get louder and redder
+	-- (owner, 2026-10-03; the doc's first draft said 45 s). 30 s since the
+	-- owner's playtest of 2026-10-11 (was 15: too short to reach someone
+	-- across the house).
+	DownedSeconds = 30,
+	BleedWarnSeconds = 10, -- the last seconds get louder and redder
 	ReviveHoldSeconds = 4, -- (doc)
 	-- Downs matter (docs/progress/2026-10-07-loop/REPORT.md, WP2; the owner,
 	-- 2026-10-06): this many downs in a run and you're Lost (Hard: see
@@ -32,10 +34,11 @@ Config.Run = {
 	DownsBeforeLost = 3,
 	ReviveGraceSeconds = 8,
 	-- Alone there is nobody to pull you up (the Companion is gone, the
-	-- owner's choice of 2026-10-06): you bleed a little longer, and the light
-	-- (a lit Lantern room) or a hiding place's mouth, crawled to, pulls you
-	-- up; smelling salts (Data/Tools) bring you round where you fell.
-	SoloDownedSeconds = 20,
+	-- owner's choice of 2026-10-06): the light (a lit Lantern room) or a
+	-- hiding place's mouth, crawled to, pulls you up; smelling salts (Data/
+	-- Tools) bring you round where you fell. (It was a little longer than the
+	-- squad's 15 s; the squad's is 30 s now, the same.)
+	SoloDownedSeconds = 30,
 	CrawlReach = 3, -- studs from a hiding place's mouth
 	SaltsSeconds = 3,
 	-- A lit Lantern room protects you with this much company in it, by the
@@ -202,7 +205,16 @@ Config.Player = {
 	WalkSpeed = 8, -- slow, in true horror fashion (owner, 2026-10-03); sprint stays fast
 	LobbyWalkSpeed = 12, -- the hub stays brisk
 	WindedSpeed = 10, -- out of stamina: a stagger, a little above a walk
-	JumpHeight = 3, -- heavier jumps (was 4)
+	-- A horror game's jump (the owner, 2026-10-11: "make jumping slower and
+	-- more realistic"; it was a 3-stud hop over in a third of a second): a
+	-- low hop under a gentler gravity than the world's, a little quicker down
+	-- than up, about 0.6 s in the air; a moment's rest after landing, and it
+	-- costs breath. Logic/Feel works out the launch.
+	JumpHeight = 2.2, -- studs at the top of the hop
+	JumpRiseGravity = 45, -- studs/s/s going up (the world's is 196.2)
+	JumpFallGravity = 62, -- ... coming down
+	JumpCooldown = 0.6, -- seconds after landing before the next
+	JumpStamina = 10, -- stamina a jump costs; none left, no jump
 	SprintSpeed = 19,
 	-- Crouched (the squad playtest, 2026-10-08: "no sneak/crouch"): under
 	-- WalkSpeedThreshold, so a creep makes no footsteps and no noise. Hold
@@ -1592,12 +1604,26 @@ Config.Monitor = {
 }
 
 -- Wind-up toys (docs/plans/level-design.md section 4, L3.6; Services/ToyService).
+-- What drawers and cupboards hold (Data/Finds, Services/FindService; the
+-- owner's playtest, 2026-10-11: "Useless items kinda suck").
+Config.Finds = {
+	BatteryShare = 0.35, -- of a full torch (Config.Player.FlashlightBatterySeconds)
+	MatchesPerBox = 2, -- a lantern shrine lit at once with each
+	LeadRingSeconds = 90, -- the map rings what the letters point at this long
+	Reach = 7, -- studs: the use prompt's
+}
+
 Config.Toys = {
 	WindSeconds = 0.8, -- the hold to wind one
 	WalkSeconds = 15, -- how long it walks
 	Speed = 1.3, -- studs a second
 	NoiseEvery = 2, -- seconds between its ticking being heard
 	Lure = 16, -- studs its ticking carries
+	-- It falls (the owner, 2026-10-11: "no gravity and can float off the
+	-- stairs"): off a stair it drops to the next step and walks on; off
+	-- anything higher it lands on its side, clattering, and stops.
+	StepDrop = 1.6, -- studs: a drop up to this it walks on from
+	ClatterLure = 26, -- studs the clatter of a real fall carries
 }
 
 Config.Interact = {

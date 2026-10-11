@@ -702,7 +702,12 @@ function LevelBuilder.furnish(world, ctx)
 	if room.lantern and template.shrine then
 		local s = template.shrine
 		local pos = roomCF:PointToWorldSpace(Vector3.new(s.x, 0, s.z))
-		local cf = CFrame.lookAt(pos, Vector3.new(center.X, 0, center.Z)) * CFrame.Angles(0, math.pi, 0)
+		-- Its back to the middle of the room, level (a shrine in the middle
+		-- itself faces the room's front: lookAt a point it stands on is NaN,
+		-- and Roblox put the whole shrine a million studs down).
+		local toCenter = Vector3.new(center.X - pos.X, 0, center.Z - pos.Z)
+		local away = toCenter.Magnitude > 0.1 and -toCenter.Unit or roomCF.LookVector
+		local cf = CFrame.lookAt(pos, pos + away)
 		if inner then
 			-- A fitted room (the mansion): turned only by quarter turns, so it
 			-- keeps the square footprint RoomFit kept clear for it; at any

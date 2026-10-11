@@ -16,6 +16,7 @@ local Interactables = require(Shared.Data.Interactables)
 local Physical = require(Shared.Data.Physical)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
+local Sfx = require(Shared.Lib.Sfx)
 
 local T = Config.Toys
 
@@ -121,7 +122,7 @@ function ToyService:Begin(rng)
 			local model, body = robot(cf, self.World.content)
 			local info = Physical.Dressing.WindUpToy
 			local thing = hands and hands:AddThing(model, info)
-			local toy = { thing = thing, model = model, body = body, walking = false }
+			local toy = { thing = thing, model = model, body = body, walking = false, spawn = model:GetPivot() }
 			table.insert(self.toys, toy)
 			local prompt = Instance.new("ProximityPrompt")
 			prompt.Name = "WindPrompt"
@@ -141,6 +142,20 @@ function ToyService:Begin(rng)
 	end
 end
 
+-- How high its body's middle (its pivot) stands above its feet.
+local FOOT = 0.45
+
+-- The top of whatever solid is under `position` (a floor, a stair's ramp),
+-- or nil over nothing.
+local function groundBelow(position: Vector3, ignore): number?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+	params.RespectCanCollide = true
+	local hit = workspace:Raycast(position, Vector3.new(0, -200, 0), params)
+	return hit and hit.Position.Y or nil
+end
+
 -- Wound and let go: it walks the way it faces.
 function ToyService:Wind(toy, _player: Player?)
 	if toy.walking or not toy.model.Parent then
@@ -152,8 +167,19 @@ function ToyService:Wind(toy, _player: Player?)
 	toy.walking = true
 	toy.untilAt = os.clock() + T.WalkSeconds
 	toy.nextNoise = 0
-	local look = toy.model:GetPivot().LookVector
-	toy.heading = Vector3.new(look.X, 0, look.Z).Unit
+	toy.fall, toy.fallFrom = nil, nil
+	-- Stood back on its feet the way it faces (it may lie where it fell or
+	-- was thrown; one standing on its head walks the way its back faced).
+	local at = toy.model:GetPivot()
+	local look = Vector3.new(at.LookVector.X, 0, at.LookVector.Z)
+	if look.Magnitude < 0.2 then
+		look = Vector3.new(at.UpVector.X, 0, at.UpVector.Z)
+	end
+	toy.heading = look.Magnitude > 1e-3 and look.Unit or Vector3.zAxis
+	local ground = groundBelow(at.Position + Vector3.new(0, 0.5, 0), { toy.model })
+	local feet = ground or (at.Position.Y - FOOT)
+	local stand = Vector3.new(at.Position.X, feet + FOOT, at.Position.Z)
+	toy.model:PivotTo(CFrame.lookAt(stand, stand + toy.heading))
 	local body = toy.body
 	body:SetAttribute("LoopVolume", 0.6)
 	body:SetAttribute("LoopPitch", 1)
@@ -170,7 +196,8 @@ function ToyService:_stop(toy)
 	end
 end
 
--- A little further along the floor, ticking; it turns off what it walks into.
+-- A little further along the floor, ticking; it turns off what it walks into,
+-- and falls off what it walks off.
 function ToyService:_step(toy, dt: number)
 	local now = os.clock()
 	local thing = toy.thing
@@ -190,6 +217,11 @@ function ToyService:_step(toy, dt: number)
 			table.insert(ignore, player.Character)
 		end
 	end
+	local stalker = self.services.StalkerService
+	local guest = stalker and stalker.body and stalker.body.model
+	if guest then
+		table.insert(ignore, guest)
+	end
 	params.FilterDescendantsInstances = ignore
 	-- (The body's middle is 0.45 above the floor; the box runs 0.15 to 1.1.)
 	local probe = CFrame.lookAt(at.Position, at.Position + toy.heading) * CFrame.new(0, 0.18, -0.45)
@@ -207,6 +239,38 @@ function ToyService:_step(toy, dt: number)
 		ahead = Vector3.zero
 	end
 	local position = at.Position + ahead
+	-- Gravity: down to whatever is under it now, falling faster the longer it falls.
+	local ground = groundBelow(position, ignore)
+	local feet = position.Y - FOOT
+	if not ground or feet > ground + 0.02 then
+		toy.fallFrom = toy.fallFrom or feet
+		toy.fall = (toy.fall or 0) + workspace.Gravity * dt
+		feet = math.max(ground or -math.huge, feet - toy.fall * dt)
+		if not ground and toy.fallFrom - feet > 40 then
+			-- Over nothing at all (out through a gap in the house): back where it was kept.
+			toy.model:PivotTo(toy.spawn)
+			toy.fall, toy.fallFrom = nil, nil
+			self:_stop(toy)
+			return
+		end
+	end
+	if ground and feet <= ground + 0.02 then
+		local dropped = (toy.fallFrom or feet) - ground
+		toy.fall, toy.fallFrom = nil, nil
+		feet = ground
+		if dropped > T.StepDrop then
+			-- Off a landing or a table: on its side, clattering, done.
+			local lying = CFrame.new(position.X, ground + 0.25, position.Z)
+				* CFrame.lookAt(Vector3.zero, toy.heading).Rotation
+				* CFrame.Angles(0, 0, math.pi / 2)
+			toy.model:PivotTo(lying)
+			Sfx.play("Knock", lying.Position, 0.5, 1.6)
+			self.Noise:Emit(lying.Position, T.ClatterLure, nil, "lure")
+			self:_stop(toy)
+			return
+		end
+	end
+	position = Vector3.new(position.X, feet + FOOT, position.Z)
 	toy.model:PivotTo(CFrame.lookAt(position, position + toy.heading))
 	if now >= toy.nextNoise then
 		toy.nextNoise = now + T.NoiseEvery

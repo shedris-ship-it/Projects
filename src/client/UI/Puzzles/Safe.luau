@@ -151,7 +151,7 @@ function Screen.build(host, open)
 	}, function()
 		host:Send("set")
 	end)
-	Ui.button("Step back", {
+	Ui.button(host:BackText(), {
 		Position = UDim2.fromOffset(0, 398),
 		Size = UDim2.new(1, 0, 0, 36),
 		Parent = panel,

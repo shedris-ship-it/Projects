@@ -72,13 +72,14 @@ local Dressing = {
 	Books = { class = "medium", label = "Books" },
 	Vase = { class = "medium", label = "Vase" },
 	Telephone = { class = "medium", label = "Telephone" },
-	-- Kept in drawers and cupboards (World/Junk).
+	-- Kept in drawers and cupboards (World/Junk; what each is for: Data/Finds).
 	Cassette = { class = "light", label = "Cassette tape" },
 	Matchbox = { class = "light", label = "Matches" },
 	Letters = { class = "light", label = "Letters" },
 	Candle = { class = "light", label = "Candle" },
 	Spool = { class = "light", label = "Thread" },
-	PillBottle = { class = "light", label = "Pill bottle" },
+	PillBottle = { class = "light", label = "Painkillers" },
+	SpareBatteries = { class = "light", label = "Batteries" }, -- (not the safe room's box, "Batteries")
 	-- The escape's items (World/Items, Services/ItemService); each one's own
 	-- label rides on the model.
 	Key = { class = "light", label = "Key" },

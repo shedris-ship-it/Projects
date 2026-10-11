@@ -198,6 +198,18 @@ function Ui.modalOpen(): boolean
 	return false
 end
 
+-- A screen put away by a key or a click (a note by E, a puzzle by E): that
+-- same press must not reach your hands too and open it again, whichever of
+-- them hears it first (Controllers/HandsController asks).
+local dismissedAt = -math.huge
+function Ui.dismissed()
+	dismissedAt = os.clock()
+end
+
+function Ui.justDismissed(): boolean
+	return os.clock() - dismissedAt < 0.3
+end
+
 function Ui.color(t: { number }): Color3
 	return Color3.fromRGB(t[1], t[2], t[3])
 end

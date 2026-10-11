@@ -1,10 +1,9 @@
--- Odd small things kept in drawers and cupboards (docs/plans/gameplay-
--- rework.md section 4.5): what a family leaves in the backs of things in
--- 1988. Services/FurnitureService makes one the first time a drawer or door
--- is opened, never before, and Services/HandsService makes it something
--- your hands can carry and throw (Data/Physical lists each by model name).
--- Until R2a puts keys and items in some of these places, this is all they
--- hold.
+-- Small things kept in drawers and cupboards (docs/plans/gameplay-rework.md
+-- section 4.5): what a family leaves in the backs of things in 1988.
+-- Services/FindService picks one (Data/Finds) the first time a drawer or
+-- door is opened, never before, and gives it its use; Services/HandsService
+-- makes it something your hands can carry and throw (Data/Physical lists
+-- each by model name).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -156,9 +155,33 @@ function builders.PillBottle(model, at)
 	)
 end
 
+-- Two D-cells and a rubber band.
+function builders.SpareBatteries(model, at)
+	for _, x in { -0.13, 0.13 } do
+		part(
+			model,
+			"Cell",
+			Vector3.new(0.55, 0.24, 0.24),
+			at * CFrame.new(x, 0.12, 0) * CFrame.Angles(0, math.pi / 2, 0),
+			Color3.fromRGB(40, 40, 42),
+			plastic(),
+			{ collide = false, castShadow = false, shape = CYL }
+		)
+		part(
+			model,
+			"Band",
+			Vector3.new(0.18, 0.25, 0.25),
+			at * CFrame.new(x, 0.12, 0) * CFrame.Angles(0, math.pi / 2, 0),
+			Color3.fromRGB(200, 150, 40),
+			plastic(),
+			{ collide = false, castShadow = false, shape = CYL }
+		)
+	end
+end
+
 local Junk = {}
 
-Junk.Names = { "Cassette", "Matchbox", "Letters", "Candle", "Spool", "PillBottle" }
+Junk.Names = { "Cassette", "Matchbox", "Letters", "Candle", "Spool", "PillBottle", "SpareBatteries" }
 
 -- Make one, lying at `at`, as a model named for it.
 function Junk.build(name: string, at: CFrame, parent: Instance): Model

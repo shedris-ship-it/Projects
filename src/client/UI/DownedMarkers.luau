@@ -20,6 +20,7 @@ local PA = Constants.PlayerAttributes
 local player = Players.LocalPlayer
 
 local EDGE_MARGIN = 70
+local REVIVE_REACH = 9 -- the revive prompt's reach (PlayerStateService: 8) from the camera
 
 local DownedMarkers = {}
 DownedMarkers.__index = DownedMarkers
@@ -33,7 +34,7 @@ end
 function DownedMarkers:_build(other: Player)
 	local frame = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Size = UDim2.fromOffset(200, 64),
+		Size = UDim2.fromOffset(260, 64),
 		BackgroundTransparency = 1,
 		Parent = self.gui,
 	})
@@ -117,12 +118,20 @@ function DownedMarkers:Update()
 				marker.arrow.Visible = clamped
 				marker.diamond.Visible = not clamped
 				local distance = (position - camera.CFrame.Position).Magnitude
-				marker.label.Text = string.format(
-					"%s\n%d s · %d studs",
-					other.DisplayName,
-					math.ceil(left),
-					math.floor(distance + 0.5)
-				)
+				-- What to do once you're there (the owner, 2026-10-11: "revive is
+				-- unintuitive and has no indicator"), and who's at it already.
+				local rescuer = other:GetAttribute(PA.RevivedBy)
+				local since = other:GetAttribute(PA.ReviveSince)
+				local how
+				if typeof(rescuer) == "string" and typeof(since) == "number" then
+					local share = math.clamp((now - since) / Config.Run.ReviveHoldSeconds, 0, 1)
+					how = string.format("%s is pulling them up · %d%%", rescuer, math.floor(share * 100))
+				elseif distance <= REVIVE_REACH then
+					how = string.format("Look at them, hold E (%d s)", Config.Run.ReviveHoldSeconds)
+				else
+					how = string.format("%d studs", math.floor(distance + 0.5))
+				end
+				marker.label.Text = string.format("%s · %d s\n%s", other.DisplayName, math.ceil(left), how)
 				local urgent = left <= Config.Run.BleedWarnSeconds
 				local pulse = 0.5 + 0.5 * math.sin(os.clock() * (urgent and 12 or 5))
 				marker.diamond.BackgroundTransparency = 0.1 + 0.5 * pulse

@@ -172,4 +172,30 @@ return function(test, check, Shared, require)
 			check.truthy(j >= 1 - F.FootstepPitchSpread - 1e-9 and j <= 1 + F.FootstepPitchSpread + 1e-9, "inside")
 		end
 	end)
+
+	test("a jump is a slow, low hop that rests after landing", function()
+		local g = 196.2
+		-- Launched for the world's gravity, lifted to the jump's: the top of the hop is P.JumpHeight.
+		local launch = Feel.jumpLaunch(P, g)
+		local v0 = math.sqrt(2 * g * launch)
+		local rise = g - Feel.jumpLift(true, P, g)
+		check.near(v0 * v0 / (2 * rise), P.JumpHeight, 1e-6, "peak height")
+		-- Up and down takes about 0.6 s (a Roblox hop of 3 studs took 0.35 s).
+		local fall = g - Feel.jumpLift(false, P, g)
+		local airtime = v0 / rise + math.sqrt(2 * P.JumpHeight / fall)
+		check.truthy(airtime > 0.5 and airtime < 0.75, "airtime " .. airtime)
+		check.truthy(fall >= rise, "no floatier coming down than going up")
+		check.truthy(P.JumpHeight >= 2, "still clears a rug's edge or a low step")
+		local ready = { crouched = false, exhausted = false, stamina = P.StaminaMax, now = 10, restUntil = 0 }
+		check.truthy(Feel.canJump(ready, P), "standing, rested")
+		local function with(k, v)
+			local ctx = table.clone(ready)
+			ctx[k] = v
+			return Feel.canJump(ctx, P)
+		end
+		check.truthy(not with("crouched", true), "not crouched")
+		check.truthy(not with("exhausted", true), "not winded")
+		check.truthy(not with("stamina", P.JumpStamina - 1), "not without the breath for it")
+		check.truthy(not with("restUntil", 11), "not straight after landing")
+	end)
 end
