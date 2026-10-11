@@ -36,7 +36,13 @@ Data/Finds lists them (and how many a run); Logic/Finds picks (spec); Services/F
 
 **Working a puzzle made you idle (fixed).** With two or more players, a minute without moving or turning the camera makes you Lost ("idle too long"). Working the safe's dial or the computer with the mouse doesn't move the camera, so a careful player could be made Lost mid-puzzle. Now anything you do (every remote the server accepts: a puzzle click, a door, a drawer, a tool, a line said) counts as being there.
 
-**Text that ran off (fixed).** The hub panel's "Difficulty: Hard (uneasy, more wings, quicker hunts)" ran off its button; Hard's meaning is now a line under it. The ready line was cut off. In a run, a long objective line with the stuck-assist's sentence was cut mid-word; it now wraps.
+**E on a desk's drawer hid you (fixed).** Since desks became hiding places (`.157`), any part of a desk sent E to its Hide prompt, drawers included: a key kept in a desk could only be reached with the mouse. A drawer, door or lid now wins over the furniture it's in; E on the desk itself still hides you. Checked in Studio on the study's desk.
+
+**Text that ran off (fixed).** I scanned every visible label in the hub, a run, the map, the journal, the settings, the downed screen and the Dossier for text that doesn't fit (Roblox's `TextFits`). The hub panel's "Difficulty: Hard (uneasy, more wings, quicker hunts)" ran off its button; Hard's meaning is now a line under it. The ready line was cut off. In a run, a long objective line with the stuck-assist's sentence was cut mid-word; it now wraps. The map's legend ran off a small floor (the attic's); it wraps. The downed line for a squad needed two lines. Worst, **the Dossier stopped after about 23 lines with nothing to scroll to**: its text box didn't grow when the text was set with the screen hidden. It's now measured and sized, and scrolls to the end.
+
+**The Dossier's words.** Alone, it said "You split up. It noticed who was alone." (the squad's spread was never measured, and its default read as split up); it now says nothing about sticking together unless there was someone to stick with. A run that ended before he came in no longer describes his night.
+
+**Tips.** Two new ones: when a friend goes down ("Go to them, look at them and hold E for 4 seconds: they have 30."), and the first time you look at something useful from a drawer. The torch tip says drawers keep batteries.
 
 **The how-to** mentions jumping, E to leave a puzzle or note, and that a friend has 30 seconds to hold E on you.
 
@@ -51,4 +57,4 @@ One number to watch: the bot stopped to let him pass 20 and 16 times (the last r
 
 ## For the owner
 
-TC-254 to TC-263 in `docs/TESTING.md`. Reviving (TC-256) and the idle rule (TC-261) need two clients.
+TC-254 to TC-265 in `docs/TESTING.md`. Reviving (TC-256) and the idle rule (TC-261) need two clients.
