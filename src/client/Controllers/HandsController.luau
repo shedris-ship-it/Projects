@@ -428,12 +428,15 @@ function HandsController:_objectOf(instance: Instance, inRun: boolean): (Instanc
 			return thing, "thing"
 		end
 		local pushable = self:_pushableOf(instance)
-		if pushable and pushable:GetAttribute("HideSpot") and not pushable:GetAttribute("WalkIn") then
-			return pushable, "pushable" -- its doors are the hiding place: E hides you
-		end
+		-- A drawer is a drawer, even in a desk you hide under (the audit of
+		-- 2026-10-11: E on a desk's drawer hid you in its kneehole, so a key
+		-- in it could only be reached with the mouse).
 		local piece = self:_pieceOf(instance)
 		if piece then
 			return piece, "piece"
+		end
+		if pushable and pushable:GetAttribute("HideSpot") and not pushable:GetAttribute("WalkIn") then
+			return pushable, "pushable" -- you hide under or behind it: E hides you
 		end
 		if pushable then
 			return pushable, "pushable"
