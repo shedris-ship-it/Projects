@@ -165,11 +165,15 @@ Config.Pose = {
 
 -- Hiding, tucked in and peeking (the squad playtest, 2026-10-08: "hiding is
 -- kinda strange, could use a hiding animation, also be able to peek";
--- Logic/HideRules, UI/HideView, Controllers/ActionController).
+-- Logic/HideRules, Controllers/ActionController). Since 2026-10-11 no
+-- overlay: under a table or a bed you look out under its cloth's hem, behind
+-- a curtain through its gap (Data/Props `view`, World/PropFactory).
 Config.Hide = {
 	DuckSeconds = 0.35, -- ducking in: everyone sees you crouch in before you're gone
 	GlideSeconds = 0.35, -- your eye glides in to the gap, no snap
-	TuckFov = 58, -- tucked in: a narrow view through the slit...
+	HemLift = 0.9, -- peeking lifts the cloth in front of you this far...
+	GapPart = 0.25, -- ...or parts a curtain's gap this much each side
+	TuckFov = 58, -- tucked in: a narrow view through the gap...
 	TuckYaw = 0.3, -- ...looking about this far (radians) either way
 	TuckPitch = 0.18,
 	PeekFov = 70, -- peeking (hold right click, LT): your eye at the gap, more of the room

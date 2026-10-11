@@ -132,7 +132,7 @@ act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a 
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar) · items · leads [go <token> [note]]
-puzzle [kind] (stand at a station and open it) · solve [puzzle] · ui map|journal|close
+puzzle [kind] (stand at a station and open it) · hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E) · solve [puzzle] · ui map|journal|close
 switch [list] · crank [go|up] · barricade [here|squeeze|shove|burst] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]

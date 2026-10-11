@@ -440,8 +440,12 @@ function LevelBuilder.furnish(world, ctx)
 				local w, h, d = kind.size[1], kind.size[2], kind.size[3]
 				local eye, inside = hideGeometry(kind.hide, d)
 				local frontDir = cf.LookVector * -1 -- prop front is +Z
-				local peekPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 + 0.35))
-				local tuckPos = cf:PointToWorldSpace(Vector3.new(0, eye, d / 2 - 0.15))
+				-- Your own eye in there (Props `view`): under the cloth's hem or
+				-- behind the curtain's gap, with nothing drawn over it.
+				local view = kind.view or { eye = eye, tuck = -0.15, peek = 0.35 }
+				local across = view.x or 0
+				local peekPos = cf:PointToWorldSpace(Vector3.new(across, view.eye, d / 2 + view.peek))
+				local tuckPos = cf:PointToWorldSpace(Vector3.new(across, view.eye, d / 2 + view.tuck))
 				local anchor = PropFactory.part(
 					model,
 					"HideAnchor",

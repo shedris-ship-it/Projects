@@ -55,6 +55,7 @@ local HELP = table.concat({
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
+	"hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E)",
 	"guest here [studs] · walk · reel [beat|stop] (every way he moves, near you; or one, over and over) · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · move <name> · peeks · arrive · off",
 	"plan (house plan to Output) · house (why this house: its score, the adventure, every room's reason) · where · navtest [fast]",
 	"block <room> <room> (shut that doorway to everyone) · block off · door <room> <room> <angle 0-100|use> · doors [open] · plans [read] · saferoom · use [name] · bell [room] · monitor · landmarks · fling <room> <room> <speed>",
@@ -482,6 +483,31 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "puzzle" then
 		-- Stand at a puzzle's station (the first of `kind`, or any) and open it.
 		reply(player, services.PuzzleService:DebugVisit(player, args[2]))
+	elseif command == "hide" then
+		-- Into the nearest place you hide in by E (of a kind: bed, table,
+		-- desk, curtain, bathtub), as if you'd walked up and pressed E.
+		local world = services.WorldService.World
+		local root = services.PlayerStateService:Root(player)
+		local want = args[2] and string.lower(args[2]) or nil
+		local best, bestD = nil, math.huge
+		for _, spot in world and world.hidingSpots or {} do
+			local label = string.lower(tostring(spot.label))
+			if not spot.physical and (not want or label == want or spot.category == want) then
+				local d = root and (spot.frontPosition - root.Position).Magnitude or 0
+				if d < bestD then
+					best, bestD = spot, d
+				end
+			end
+		end
+		if not best or not root then
+			reply(player, "no hiding place like that here")
+			return
+		end
+		services.PlayerStateService:MarkTeleport(player)
+		root.CFrame = CFrame.new(best.frontPosition + Vector3.new(0, 3, 0))
+		task.wait(0.2)
+		services.HidingService:Enter(player, best)
+		reply(player, "hidden in the " .. tostring(best.label) .. " (" .. best.id .. ")")
 	elseif command == "items" then
 		local plan = services.LockService.plan
 		if not plan then

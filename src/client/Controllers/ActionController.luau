@@ -353,6 +353,23 @@ function ActionController:_onHidden(hidden: boolean)
 				return Enum.ContextActionResult.Sink
 			end, true, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
 			ContextActionService:SetTitle("ConsensusPeek", "Peek")
+			-- (A right click that comes in already marked taken never reaches
+			-- the binding: it peeks all the same, as the hands' clicks do,
+			-- Controllers/HandsController.)
+			self.peekConnections = {
+				UserInputService.InputBegan:Connect(function(input, processed)
+					if processed and input.UserInputType == Enum.UserInputType.MouseButton2 and not self.peeking then
+						self.peeking = true
+						Net.get("HidePeek"):FireServer(true)
+					end
+				end),
+				UserInputService.InputEnded:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton2 and self.peeking then
+						self.peeking = false
+						Net.get("HidePeek"):FireServer(false)
+					end
+				end),
+			}
 		end
 		ContextActionService:BindActionAtPriority("ConsensusBreath", function(_, inputState)
 			if inputState == Enum.UserInputState.Begin then
@@ -376,6 +393,10 @@ function ActionController:_onHidden(hidden: boolean)
 		ContextActionService:UnbindAction("ConsensusBreath")
 		ContextActionService:UnbindAction("ConsensusLeave")
 		ContextActionService:UnbindAction("ConsensusPeek")
+		for _, connection in self.peekConnections or {} do
+			connection:Disconnect()
+		end
+		self.peekConnections = nil
 		self.hideGlide, self.peeking = nil, false
 		camera.FieldOfView = self.state.settings.fov or Config.Camera.FieldOfView
 		camera.CameraType = Enum.CameraType.Custom
@@ -388,11 +409,66 @@ function ActionController:_onHidden(hidden: boolean)
 	self:_applyCamera()
 end
 
--- Hidden: tucked in, your eye at the slit with a narrow view; peeking, out
--- at the gap with more of the room (Config.Hide). It glides in on the way in
--- and eases between the two.
+-- What peeking moves on the furniture you hide in (World/PropFactory): a hem
+-- lifts (shorter from below, its top where it was), a gap's sides part.
+local LIFTS = { ClothFront = true, Skirt = true, SkirtFoot = true }
+local PARTS = { FoldGapL = -1, FoldGapR = 1, ShowerCurtainL = -1, ShowerCurtainR = 1 }
+
+-- The cloth of the furniture you're in, `blend` of the way to peeking; nil
+-- (or another piece) puts back whatever was moved. Only on this client.
+function ActionController:_moveCloth(propId: string?, blend: number)
+	local moved = self.cloth
+	if moved and moved.id ~= propId then
+		for part, rest in moved.parts do
+			if part.Parent then
+				part.Size, part.CFrame = rest.size, rest.cframe
+			end
+		end
+		self.cloth = nil
+		moved = nil
+	end
+	if not propId then
+		return
+	end
+	if not moved then
+		local model
+		for _, d in Workspace:GetDescendants() do
+			if d:IsA("Model") and d:GetAttribute(Constants.Attributes.CId) == propId then
+				model = d
+				break
+			end
+		end
+		moved = { id = propId, parts = {} }
+		for _, part in model and model:GetDescendants() or {} do
+			if part:IsA("BasePart") and (LIFTS[part.Name] or PARTS[part.Name]) then
+				moved.parts[part] = { size = part.Size, cframe = part.CFrame }
+			end
+		end
+		self.cloth = moved
+	end
+	local H = Config.Hide
+	for part, rest in moved.parts do
+		if part.Parent then
+			if LIFTS[part.Name] then
+				local lift = math.min(H.HemLift, rest.size.Y - 0.2) * blend
+				part.Size = rest.size - Vector3.new(0, lift, 0)
+				part.CFrame = rest.cframe * CFrame.new(0, lift / 2, 0)
+			else
+				part.CFrame = rest.cframe * CFrame.new(PARTS[part.Name] * H.GapPart * blend, 0, 0)
+			end
+		end
+	end
+end
+
+-- Hidden: tucked in, your eye well back from the hem or the gap with a
+-- narrow view; peeking, up at it with more of the room, the hem lifted or
+-- the gap parted (Config.Hide). It glides in on the way in and eases between
+-- the two.
 function ActionController:_updateHiddenCamera(dt: number)
 	if not self.state:IsHidden() then
+		if self.cloth then
+			self:_moveCloth(nil, 0)
+		end
 		return
 	end
 	local peek = player:GetAttribute("HidePeek")
@@ -409,6 +485,8 @@ function ActionController:_updateHiddenCamera(dt: number)
 	local maxPitch = H.TuckPitch + (H.PeekPitch - H.TuckPitch) * blend
 	peekYaw = math.clamp(peekYaw, -maxYaw, maxYaw)
 	peekPitch = math.clamp(peekPitch, -maxPitch, maxPitch)
+	local prop = player:GetAttribute("HideProp")
+	self:_moveCloth(typeof(prop) == "string" and prop or nil, blend)
 	local eye = tuck:Lerp(peek, blend) * CFrame.Angles(0, peekYaw, 0) * CFrame.Angles(peekPitch, 0, 0)
 	local camera = Workspace.CurrentCamera
 	local glide = self.hideGlide
@@ -424,7 +502,7 @@ function ActionController:_updateHiddenCamera(dt: number)
 	camera.FieldOfView = H.TuckFov + (H.PeekFov - H.TuckFov) * blend
 end
 
--- How far out you're peeking, 0 tucked in to 1 (UI/HideView fades with it).
+-- How far out you're peeking, 0 tucked in to 1 (the cloth lifts with it).
 function ActionController:PeekBlend(): number
 	return self.state:IsHidden() and (self.peekBlend or 0) or 0
 end

@@ -40,11 +40,29 @@ return function(test, check, Shared, require)
 		check.equal(why, "not closing in", "reason")
 	end)
 
-	test("every hiding kind has a slit", function()
-		for _, kind in { "wardrobe", "closet", "locker", "bed", "table", "curtain" } do
-			check.truthy(HideRules.Slits[kind] ~= nil, kind)
+	test("every place you hide in by E has your eye in it, behind its cloth", function()
+		local Props = require(Shared.Data.Props)
+		local count = 0
+		for name, kind in Props.Kinds do
+			if kind.hide and not kind.physical then
+				count += 1
+				local view = kind.view
+				check.truthy(view ~= nil, name .. " has a view")
+				if view then
+					-- Roblox draws nothing within half a stud of the eye: tucked in,
+					-- the cloth in front (a curtain's folds are up to 0.4 deep) must
+					-- stand further off than that, or you'd see straight through it.
+					local cloth = kind.hide == "curtain" and name == "Curtain" and 0.4 or 0.1
+					check.atMost(view.tuck, -(0.5 + cloth), name .. ": tucked in, the cloth is in sight")
+					check.atMost(view.peek, -(0.45 + cloth), name .. ": peeking, the cloth is still drawn")
+					check.atLeast(view.eye, 0.2, name .. ": the eye is above the floor")
+					if kind.hide ~= "curtain" then
+						-- Lying down, looking out under the hem.
+						check.atMost(view.eye, 0.5, name .. ": low enough to see under the hem")
+					end
+				end
+			end
 		end
-		check.equal(HideRules.slit("bed"), "skirt", "under a bed")
-		check.equal(HideRules.slit(nil), "louvre", "a default")
+		check.atLeast(count, 5, "the bed, the table, the desk, the curtain, the bathtub")
 	end)
 end

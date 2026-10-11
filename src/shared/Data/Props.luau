@@ -7,6 +7,13 @@
 -- physical: you hide by walking in and shutting its doors, not by a prompt
 --           (Services/HidingService); inside: { z, depth } of the room in
 --           there when it isn't the whole box bar its walls
+-- view:     hidden in it by E, where your own eye is (the owner, 2026-10-11:
+--           no overlay, the real thing): { eye height, tuck and peek (z from
+--           the front face, in is negative), x across }. Under a table or a
+--           bed you lie and look out under the cloth's hem; behind a curtain
+--           you stand and look through the gap in it (World/PropFactory).
+--           The eye stays over half a stud behind any cloth: Roblox draws
+--           nothing nearer than that.
 -- light:    the prop carries a light ("lamp", "tv")
 -- collide = false props are decor the stalker and players can pass through.
 -- top:      small things can stand on top (World/Dressing: photos, a telephone)
@@ -18,7 +25,15 @@
 --           reason to go in (Logic/RoomPurpose, docs/plans/level-design.md section 4)
 
 local Props = {
-	Bed = { size = { 7, 3, 10 }, hide = "bed", capacity = 1, noise = 6, color = { 108, 88, 118 }, material = "Fabric" },
+	Bed = {
+		size = { 7, 3, 10 },
+		hide = "bed",
+		view = { eye = 0.28, tuck = -1.4, peek = -0.6 },
+		capacity = 1,
+		noise = 6,
+		color = { 108, 88, 118 },
+		material = "Fabric",
+	},
 	-- A wardrobe and a locker you walk into (the owner, 2026-10-09: "I want
 	-- wardrobes and lockers that you can open or slide the door and
 	-- physically step into and close it"): open a door, step in, pull it
@@ -79,6 +94,7 @@ local Props = {
 		size = { 8, 3.4, 5 },
 		top = true,
 		hide = "table",
+		view = { eye = 0.28, tuck = -1.6, peek = -0.6 },
 		capacity = 2,
 		noise = 4,
 		color = { 104, 76, 52 },
@@ -88,6 +104,8 @@ local Props = {
 		size = { 7, 3.4, 3.5 },
 		top = true,
 		hide = "table",
+		-- (In the kneehole, between the side and the drawers.)
+		view = { eye = 0.28, tuck = -1.3, peek = -0.75, x = -0.975 },
 		capacity = 1,
 		noise = 4,
 		color = { 74, 54, 40 },
@@ -96,6 +114,7 @@ local Props = {
 	Curtain = {
 		size = { 6, 10, 1.5 },
 		hide = "curtain",
+		view = { eye = 5, tuck = -1.15, peek = -0.9 },
 		capacity = 1,
 		noise = 3,
 		color = { 120, 40, 44 },
@@ -104,6 +123,7 @@ local Props = {
 	Bathtub = {
 		size = { 8, 3, 4 },
 		hide = "curtain",
+		view = { eye = 5, tuck = -0.75, peek = -0.55 },
 		capacity = 1,
 		noise = 8,
 		color = { 214, 214, 206 },

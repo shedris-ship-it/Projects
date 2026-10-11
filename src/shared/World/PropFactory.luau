@@ -98,6 +98,16 @@ function PropFactory.part(
 end
 local part = PropFactory.part
 
+-- Hiding by E, for real (the owner, 2026-10-11: "overlays like that in place
+-- of real models and hiding places breaks immersion"): tables and desks wear
+-- a cloth, beds a skirt, down to HEM above the floor. You lie under it and
+-- look out under the hem (Data/Props `view`); peeking lifts the front
+-- (Controllers/ActionController). Curtains hang a stud off the wall with a
+-- gap in the middle to look through.
+local HEM = 0.45 -- (the strip under it, lying well back: feet going by)
+local LINEN = Color3.fromRGB(184, 172, 146)
+PropFactory.ClothHem = HEM
+
 local function surfaceText(target: BasePart, face: Enum.NormalId, name: string, text: string, opts)
 	local o = opts or {}
 	local gui = Instance.new("SurfaceGui")
@@ -466,6 +476,33 @@ function builders.Bed(model, cf, size, color, material)
 	)
 	part(model, "Headboard", Vector3.new(w, 4.5, head), cf * CFrame.new(0, 2.25, -d / 2 + head / 2), wood, woodMat)
 	part(model, "Footboard", Vector3.new(w, 1.55, foot), cf * CFrame.new(0, 1.775, footFace - foot / 2), wood, woodMat)
+	-- The skirt, from under the mattress to the hem, on both sides and the
+	-- foot (under the blanket's drape): you hide under the bed behind it.
+	local skirtTop = 1.85
+	local skirtFront = footFace + drape - 0.03
+	local skirtBack = -d / 2 + head
+	local skirtDrop, skirtY = skirtTop - HEM, (skirtTop + HEM) / 2
+	local skirtMaterial = PropFactory.material("SmoothPlastic") -- (the weave blotches a stud from your eye)
+	for _, sx in { -1, 1 } do
+		part(
+			model,
+			sx < 0 and "SkirtLeft" or "SkirtRight",
+			Vector3.new(0.06, skirtDrop, skirtFront - skirtBack),
+			cf * CFrame.new(sx * (w / 2 - 0.05), skirtY, (skirtFront + skirtBack) / 2),
+			shade(color, 0.9),
+			skirtMaterial,
+			{ collide = false }
+		)
+	end
+	part(
+		model,
+		"SkirtFoot",
+		Vector3.new(w - 0.04, skirtDrop, 0.06),
+		cf * CFrame.new(0, skirtY, skirtFront),
+		shade(color, 0.9),
+		skirtMaterial,
+		{ collide = false }
+	)
 	for _, sx in { -1, 1 } do
 		part(
 			model,
@@ -765,12 +802,41 @@ function builders.TallCupboard(model, cf, size, color, material)
 	})
 end
 
-function builders.Table(model, cf, size, color, material)
+function builders.DiningTable(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Top", Vector3.new(w, 0.3, d), cf * CFrame.new(0, h - 0.15, 0), color, material)
 	legs(model, cf, w, d, h - 0.3, shade(color, 0.85), material)
 end
-builders.DiningTable = builders.Table
+
+-- A table with its cloth hanging to the hem all round: you hide under it.
+function builders.Table(model, cf, size, color, material)
+	builders.DiningTable(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	-- (Plain: Roblox's fabric weave came out in blotches a stud from your eye.)
+	local cloth = PropFactory.material("SmoothPlastic")
+	local drop, y = h - HEM, (h + HEM) / 2
+	local flat = { collide = false }
+	part(
+		model,
+		"ClothFront",
+		Vector3.new(w + 0.12, drop, 0.06),
+		cf * CFrame.new(0, y, d / 2 + 0.03),
+		LINEN,
+		cloth,
+		flat
+	)
+	part(
+		model,
+		"ClothBack",
+		Vector3.new(w + 0.12, drop, 0.06),
+		cf * CFrame.new(0, y, -d / 2 - 0.03),
+		LINEN,
+		cloth,
+		flat
+	)
+	part(model, "ClothLeft", Vector3.new(0.06, drop, d), cf * CFrame.new(-w / 2 - 0.03, y, 0), LINEN, cloth, flat)
+	part(model, "ClothRight", Vector3.new(0.06, drop, d), cf * CFrame.new(w / 2 + 0.03, y, 0), LINEN, cloth, flat)
+end
 
 function builders.Desk(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
@@ -789,6 +855,29 @@ function builders.Desk(model, cf, size, color, material)
 		"Side",
 		Vector3.new(0.3, h - 0.3, d - 0.2),
 		cf * CFrame.new(-w / 2 + 0.2, (h - 0.3) / 2, 0),
+		shade(color, 0.9),
+		material
+	)
+	-- The kneehole, between the side and the pedestal: a skirt across its front
+	-- and a panel at its back, so you can hide in it.
+	local kneeLeft, kneeRight = -w / 2 + 0.35, x - 1.1
+	local knee = kneeRight - kneeLeft
+	local kneeX = (kneeLeft + kneeRight) / 2
+	local kneeDrop, kneeY = h - 0.3 - HEM, (h - 0.3 + HEM) / 2
+	part(
+		model,
+		"Skirt",
+		Vector3.new(knee, kneeDrop, 0.06),
+		cf * CFrame.new(kneeX, kneeY, d / 2 - 0.13),
+		LINEN,
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false }
+	)
+	part(
+		model,
+		"Modesty",
+		Vector3.new(knee, h - 0.3, 0.1),
+		cf * CFrame.new(kneeX, (h - 0.3) / 2, -d / 2 + 0.15),
 		shade(color, 0.9),
 		material
 	)
@@ -827,7 +916,7 @@ function builders.Curtain(model, cf, size, color, material)
 		model,
 		"Rod",
 		Vector3.new(w + 0.6, 0.2, 0.2),
-		cf * CFrame.new(0, h, 0),
+		cf * CFrame.new(0, h, d / 2 - 0.2),
 		Color3.fromRGB(120, 100, 70),
 		PropFactory.material("Metal")
 	)
@@ -836,25 +925,36 @@ function builders.Curtain(model, cf, size, color, material)
 			model,
 			"Finial",
 			Vector3.new(0.4, 0.4, 0.4),
-			cf * CFrame.new(sx * (w / 2 + 0.35), h, 0),
+			cf * CFrame.new(sx * (w / 2 + 0.35), h, d / 2 - 0.2),
 			Color3.fromRGB(150, 124, 84),
 			BALL
 		)
 	end
 	-- Alternating deep and shallow folds so it hangs in gathers, not slabs. The
 	-- shallow ones are a little shorter at both ends, so neighbours that overlap
-	-- don't share a top or bottom face and flicker.
+	-- don't share a top or bottom face and flicker. They hang at the front, a
+	-- stud off the wall, parted a little in the middle: behind them is room to
+	-- stand, and the gap is what you see through (Data/Props `view`).
 	local n = 6
+	local fw = w / n
 	for i = 0, n - 1 do
-		local fw = w / n
 		local shallow = i % 2 == 0
-		local deep = shallow and d - 0.3 or d - 0.05
+		local deep = shallow and 0.25 or 0.4
 		local tall = shallow and h - 0.36 or h - 0.3
+		local x = -w / 2 + fw * (i + 0.5)
+		local width = fw + 0.05
+		local name = "Fold"
+		-- The two either side of the middle stop short of it: the gap.
+		if i == n / 2 - 1 then
+			name, width, x = "FoldGapL", fw - 0.1, x - 0.05
+		elseif i == n / 2 then
+			name, width, x = "FoldGapR", fw - 0.1, x + 0.05
+		end
 		part(
 			model,
-			"Fold",
-			Vector3.new(fw + 0.05, tall, deep),
-			cf * CFrame.new(-w / 2 + fw * (i + 0.5), (h - 0.3) / 2 + 0.1, 0),
+			name,
+			Vector3.new(width, tall, deep),
+			cf * CFrame.new(x, (h - 0.3) / 2 + 0.1, d / 2 - deep / 2),
 			shade(color, 0.9 + (i % 2) * 0.16),
 			material
 		)
@@ -942,15 +1042,19 @@ function builders.Bathtub(model, cf, size, color, material)
 		Color3.fromRGB(170, 170, 170),
 		PropFactory.material("Metal")
 	)
-	part(
-		model,
-		"ShowerCurtain",
-		Vector3.new(w * 0.7, 5, 0.1),
-		cf * CFrame.new(-w * 0.15, 5.4, d / 2),
-		Color3.fromRGB(190, 200, 190),
-		PropFactory.material("Fabric"),
-		{ transparency = 0.15 }
-	)
+	-- The shower curtain drawn all along, parted a little in the middle: you
+	-- hide in the tub behind it and look through the gap.
+	for _, sx in { -1, 1 } do
+		part(
+			model,
+			sx < 0 and "ShowerCurtainL" or "ShowerCurtainR",
+			Vector3.new(w / 2 - 0.1, 5, 0.1),
+			cf * CFrame.new(sx * (w / 4 + 0.05), 5.4, d / 2),
+			Color3.fromRGB(190, 200, 190),
+			PropFactory.material("Fabric"),
+			{ transparency = 0.15 }
+		)
+	end
 end
 
 -- Sofa (three seats) and armchair (one): a base, rolled arms, a back and a
