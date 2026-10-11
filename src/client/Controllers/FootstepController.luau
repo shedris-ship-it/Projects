@@ -155,10 +155,13 @@ function FootstepController:_step(player: Player, character: Model, humanoid: Hu
 	if player ~= localPlayer and camera then
 		muffled = blocked(camera.CFrame.Position, position, { character, localPlayer.Character or character })
 	end
-	judge(audio:PlayAt(key, position, volume, pitch, muffled, F.FootstepRollOffMin), key)
+	-- On the foot that made it, moving with it (left where it landed, a
+	-- sprint's steps trailed behind you like someone running after you).
+	local offset = root.CFrame:PointToObjectSpace(position)
+	judge(audio:PlayOn(key, root, offset, volume, pitch, muffled, F.FootstepRollOffMin), key)
 	-- Running adds a low thump under each footfall, for weight.
 	if speed > P.SprintSpeedThreshold then
-		audio:PlayAt("Thud", position, 0.25 * volume, 0.55 * Feel.jitter(rng, 0.05), muffled, F.FootstepRollOffMin)
+		audio:PlayOn("Thud", root, offset, 0.25 * volume, 0.55 * Feel.jitter(rng, 0.05), muffled, F.FootstepRollOffMin)
 	end
 end
 
@@ -172,10 +175,10 @@ function FootstepController:Land(fallSpeed: number)
 	end
 	local audio = self.controllers.AudioController
 	local strength = math.clamp(fallSpeed / F.LandMaxSpeed, 0.2, 1)
-	local position = footPosition(humanoid, root, 1)
+	local offset = root.CFrame:PointToObjectSpace(footPosition(humanoid, root, 1))
 	local ids = goodIds(self:_surface(humanoid))
-	audio:PlayAt(ids[rng:NextInteger(1, #ids)], position, 0.6 + 0.4 * strength, 0.75, false)
-	audio:PlayAt("Thud", position, 0.3 + 0.6 * strength, 0.6, false)
+	audio:PlayOn(ids[rng:NextInteger(1, #ids)], root, offset, 0.6 + 0.4 * strength, 0.75, false)
+	audio:PlayOn("Thud", root, offset, 0.3 + 0.6 * strength, 0.6, false)
 end
 
 -- F2 console, "steps": plays every sample once and reports whether it loaded,

@@ -22,6 +22,8 @@ local player = Players.LocalPlayer
 
 local AudioController = {}
 
+local stateRef = nil -- the StateController (rooms and storeys, for storeysBetween)
+
 local groups = {}
 local layers = {}
 local music = {} -- state -> Sound (Assets.Music), crossfaded by _updateMusic
@@ -69,6 +71,7 @@ end
 function AudioController:Init(controllers)
 	self.controllers = controllers
 	self.state = controllers.StateController
+	stateRef = controllers.StateController
 end
 
 function AudioController:Start()
@@ -378,6 +381,46 @@ end
 -- One-shot positional sound. `muffled` low-passes it, for sounds heard
 -- through a wall. Returns the Sound (nil when the key has no asset) so a
 -- caller can check it loaded.
+-- How many storeys lie between your ears and `position` (Logic/Storeys): none
+-- inside one double-height room (the hall, a stairwell), whose storeys share
+-- their air.
+local function storeysBetween(position: Vector3): number
+	local camera = Workspace.CurrentCamera
+	if not camera or not stateRef then
+		return 0
+	end
+	local ears = camera.CFrame.Position
+	local here, there = stateRef:RoomAt(ears), stateRef:RoomAt(position)
+	if here and here == there and here.tall then
+		return 0
+	end
+	return math.abs(stateRef:StoreyAt(position.Y) - stateRef:StoreyAt(ears.Y))
+end
+
+-- Through `floors` storeys: quieter and dull (Config.Audio.ThroughFloor),
+-- on top of whatever else muffles it.
+local function throughFloors(sound: Sound, floors: number)
+	local through = Config.Audio.ThroughFloor
+	local eq = sound:FindFirstChild("ThroughFloor") :: EqualizerSoundEffect?
+	if floors <= 0 then
+		if eq then
+			eq.Enabled = false
+		end
+		return 1
+	end
+	if not eq then
+		eq = Instance.new("EqualizerSoundEffect")
+		eq.Name = "ThroughFloor"
+		eq.LowGain = 0
+		eq.Parent = sound
+	end
+	eq.MidGain = through.MidDb
+	eq.HighGain = through.HighDb
+	eq.Enabled = true
+	return through.Volume ^ floors
+end
+AudioController.storeysBetween = storeysBetween
+
 function AudioController:PlayAt(
 	key: string,
 	position: Vector3,
@@ -397,9 +440,46 @@ function AudioController:PlayAt(
 		eq.HighGain = -30
 		eq.Parent = sound
 	end
+	sound.Volume *= throughFloors(sound, storeysBetween(position))
 	local attachment = Instance.new("Attachment")
 	attachment.Parent = Workspace.Terrain
 	attachment.WorldPosition = position
+	sound.Parent = attachment
+	sound:Play()
+	task.delay(math.max(3, sound.TimeLength + 0.5), function()
+		attachment:Destroy()
+	end)
+	return sound
+end
+
+-- A sound carried on `part` (`offset` in its own frame): it moves with it.
+-- Footsteps go on the feet that make them (the owner, 2026-10-11: left where
+-- each foot landed, a sprint's steps trailed behind like someone running
+-- after you).
+function AudioController:PlayOn(
+	key: string,
+	part: BasePart,
+	offset: Vector3,
+	volume: number?,
+	pitch: number?,
+	muffled: boolean?,
+	rollOffMin: number?
+): Sound?
+	local sound = newSound(key, volume or 0.6, pitch or 1, "SFX", rollOffMin)
+	if not sound then
+		return nil
+	end
+	if muffled then
+		local eq = Instance.new("EqualizerSoundEffect")
+		eq.LowGain = 2
+		eq.MidGain = -12
+		eq.HighGain = -30
+		eq.Parent = sound
+	end
+	sound.Volume *= throughFloors(sound, storeysBetween(part.CFrame:PointToWorldSpace(offset)))
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = part
+	attachment.Position = offset
 	sound.Parent = attachment
 	sound:Play()
 	task.delay(math.max(3, sound.TimeLength + 0.5), function()
@@ -608,6 +688,22 @@ end
 -- the sound goes through this client's groups and reverb like any other.
 function AudioController:_loops()
 	local playing = {}
+	-- Heard through a floor while you're on another storey, every few frames
+	-- (you climb the stairs while the radio plays on).
+	local since = 0
+	RunService.Heartbeat:Connect(function(dt)
+		since += dt
+		if since < 0.25 then
+			return
+		end
+		since = 0
+		for part, sound in playing do
+			if sound.Parent then
+				local base = sound:GetAttribute("BaseVolume") or sound.Volume
+				sound.Volume = base * throughFloors(sound, storeysBetween(part.Position))
+			end
+		end
+	end)
 	local function watch(part: Instance)
 		if not part:IsA("BasePart") then
 			return
@@ -625,6 +721,8 @@ function AudioController:_loops()
 					newSound(key, part:GetAttribute("LoopVolume") or 0.5, part:GetAttribute("LoopPitch") or 1, "SFX")
 				if sound then
 					sound:SetAttribute("Key", key)
+					sound:SetAttribute("BaseVolume", sound.Volume)
+					sound.Volume *= throughFloors(sound, storeysBetween(part.Position))
 					sound.Looped = true
 					sound.RollOffMaxDistance = part:GetAttribute("LoopRange") or 60
 					sound.Parent = part

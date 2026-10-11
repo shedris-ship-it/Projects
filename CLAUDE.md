@@ -202,6 +202,7 @@ The agreed plan, in order:
      - **Screens**: the cursor is freed every frame while a screen is up (`ActionController` `ConsensusModalCursor`); the slot keys pass on while a screen is up (the piano's 1–3); the fuse box takes 1–9 and M; Roblox's emote wheel and backpack are off.
      - **Gate A re-baselined (standing OK): parts 2235, hash 564449589** (the plant's soil).
      - TC-235 to TC-240.
+     - Sound (`.156`): footsteps play on the body that makes them (`AudioController:PlayOn`): left where each foot landed, a sprint's steps trailed behind like an echo. Anything on another storey comes through the floor, quieter and dull (`Config.Audio.ThroughFloor`, `storeysBetween` via `StateController:RoomAt/StoreyAt`; not inside one double-height room); looping fixtures re-check as you move. TC-241, TC-242.
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)

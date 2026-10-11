@@ -1937,6 +1937,10 @@ Config.Audio = {
 	UiVolume = 0.8, -- the interface group, relative to the master volume
 	DriftMuffleDb = -18, -- how far the Ambient group's highs fall at full Drift
 	HuntFadeSeconds = 0.6,
+	-- A sound on another storey than you comes through the floor: this much
+	-- quieter per storey between, and dull (the owner, 2026-10-11: a radio
+	-- downstairs as loud as one in the room). Controllers/AudioController.
+	ThroughFloor = { Volume = 0.3, HighDb = -26, MidDb = -10 },
 }
 
 -- Music states (Controllers/AudioController; Assets.Music): which stem plays,
