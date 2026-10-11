@@ -444,9 +444,12 @@ end
 
 -- Curl the fingers (0 straight, ~1.4 gripping, below 0 splayed back). Each
 -- finger lags a little and twitches on its own; `random` is cosmetic.
--- `drum` (0..1): they drum one after another, impatient.
-function GuestFace.curlHand(hand, curl: number, dt: number, random: () -> number, drum: number?)
+-- `drum` (0..1): they drum one after another, impatient. `spread` (0..1):
+-- the four fingers fan apart across the hand, a claw about to grab.
+local SPREAD = math.rad(24) -- the outer fingers, fully spread
+function GuestFace.curlHand(hand, curl: number, dt: number, random: () -> number, drum: number?, spread: number?)
 	local alpha = 1 - math.exp(-10 * dt)
+	hand.spread = (hand.spread or 0) + ((spread or 0) - (hand.spread or 0)) * alpha
 	local clock = os.clock()
 	for i, finger in hand.fingers do
 		if random() < dt * 0.6 then
@@ -457,7 +460,10 @@ function GuestFace.curlHand(hand, curl: number, dt: number, random: () -> number
 		local goal = curl + finger.offset + (i - 2.5) * 0.04 + tap
 		finger.curl += (goal - finger.curl) * alpha
 		local bend = finger.curl * finger.inward
-		finger.knuckle.Transform = CFrame.Angles(0, (i - 2.5) * 0.05, bend * 0.55)
+		-- (Rows across the hand: the first finger at one edge, the fourth at
+		-- the other; the thumb keeps its own angle.)
+		local fan = i <= 4 and (2.5 - i) / 1.5 * hand.spread * SPREAD or 0
+		finger.knuckle.Transform = CFrame.Angles(fan, 0, 0) * CFrame.Angles(0, (i - 2.5) * 0.05, bend * 0.55)
 		finger.middle.Transform = CFrame.Angles(0, 0, bend * 0.75)
 	end
 end

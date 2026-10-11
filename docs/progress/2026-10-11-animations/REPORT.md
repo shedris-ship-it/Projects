@@ -102,3 +102,38 @@ The owner played the live game (`.152`) and found two things.
 **"I had to look beside the lantern shrine to get the focus marker."** The prompt sits on the shrine's glass, inside its cage. Looking straight at it, the focus checked for a clear line to the middle of the glass, and the cage was in the way. Now a part that encloses the point doesn't count as blocking it (`HandsController:_inSight`, `encloses`). Checked in Studio: looking straight at it gives "Hold E: Light the lantern".
 
 To be sure nothing else had the same problem, I audited every prompt in six houses (seeds 61, 1, 2, 21, 165547210 and 1800820264, for one to four players). That was 816 prompts of about 30 kinds, including lock picking, the safe, crank doors, twin levers and the puzzle stations. For each, I checked from eight sides whether its own prop hides it from the focus. Before the fix, only the lantern shrines were hidden; after it, none were. TC-233, TC-234.
+
+## The owner's next notes (builds `.155` to `.157`)
+
+- **`.155`, placement and screens.** The door chain winds round the knob and an eye on the casing. The fuse box, wall safe and levers always hang on a clear stretch of wall (`WorldService:WallSpot`); one floated in mid-air when its room had no free slot. Clocks and wall things sit under attic roofs. The plant's soil sits above the rim. On the fuse box, keys 1 to 9 flip the breakers, M is the main and Esc steps back. Screens free the cursor every frame. **Not checked by me:** clicking the screen buttons with a real mouse (the Studio tools can't press screen buttons in a running game). TC-235 to TC-240.
+- **`.156`, sound.** The echo when you ran was your own footsteps: each was left where the foot landed, so a sprint trailed a second set of steps behind you. They now play on your body. A radio on another floor comes through the floor, quieter and dull, instead of as if in your room. TC-241, TC-242.
+- **`.157`, hiding for real** (your choice: cloth you hide behind). The overlay is gone. Tables wear a cloth to just above the floor, desks a skirt over the kneehole and beds a skirt. Curtains hang off the wall with a gap. You look out from under the hem; peeking lifts it or parts the gap. TC-243 to TC-246.
+
+## Following him is punished (build `.158`)
+
+**The note:** "if the player is following the guest around but not in range for the lunge I want this to be punished and maybe the guest can notice that the player is brave and then starts walking toward them reaching a hand out and if they get too close its a down". While I was building it: "make his hands spread like hes trying to grab you".
+
+**When he notices** (`Logic/StalkRules.tailing`, numbers in `Config.Guest` Tail*):
+- Between hunts, a player keeps him in view (within 60°) and goes his way, 32 studs or closer, while he walks or backs away from them. Crowding him covers the close range.
+- Six seconds of that, all told, and he notices. Walk, stop and walk again still adds up: both speeds are averaged over about 1.5 s, and the count fades slowly when you stop.
+- Within 5 minutes of the last time, he notices after 3 s.
+- These never count: his coming towards you, his making way past you, walking past him, standing still while he leaves, another floor, a hunt, or anyone hidden, down or in a lantern's light.
+
+**What he does** (`StalkerService:_reachBegin`, `_updateReach`):
+- He stops and his knuckles crack. His head comes round to you and **both hands come up**, a little apart and aimed at your face, the long fingers fanned and hooked like a claw (the new `Reach` pose; `GuestFace.curlHand` can now spread the fingers).
+- The first time, you're told "It noticed you following it."
+- He walks at you at 7 studs a second. Your walk is 8, so backing away keeps you ahead, and a sprint loses him.
+- **His hands reaching you (3.6 studs) is a down.** It doesn't count as a cheap down: he came at you in plain sight.
+- He gives up when he hasn't seen you for 3 s, you're 40 studs off, hidden or in a lantern's light, or after 12 s. He stands a moment, lowers his hands and goes on.
+- Two people watching hold him where he is, hands still out. Something thrown that hits him ends it.
+
+**Checked in Studio** (seed 61, tier 2):
+- The forced reach (F2 `guest reach 16`), standing still: he raised his hands, walked at me at 7 studs a second and caught me at 3.8 studs. The catch was logged as `reach`, and his moves list it with no cheap down.
+- Then for real: I let him walk off and tailed him at 9 to 12 studs, start-stop. The first try found the fault: counting speeds moment to moment, my stops drained it, so 40 s of following never built up. That's why both speeds are now averaged.
+- After the fix, he noticed after 8 s (6 s of following) and came at me. Walking away along my trail, the gap opened from 11 to 24 studs. When the trail ran out and I stood still, he caught me.
+- How it looks: `reach-side.jpg` (from the side), `reach-from-8-studs.jpg` (your eyes as he comes), `reach-at-grab-range.jpg` (his fingers closing round your view just before the catch).
+- The console was clean, apart from the usual DataStore 403s.
+- The bot's night (F2 `botrun`, seed 61) went as before. It was out in 4:25 with 13 steps, 0 failed and 0 downs. It never tails him, so he never reached for it.
+- 556 tests, including the new `Tailing.spec` (7).
+
+**To try:** F2 `guest reel reach` to watch it safely; F2 `guest reach [studs]` for the real thing (it can down you). TC-247 to TC-251.

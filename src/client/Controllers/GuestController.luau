@@ -247,6 +247,13 @@ local FINGER_CURL = {
 	Listen = 0.1,
 	Stagger = 0.2,
 	Crawl = 1.0, -- clawing at the floor
+	Reach = 0.45, -- hooked, about to grab you (and spread: FINGER_SPREAD)
+}
+
+-- Fingers fanned apart (GuestFace.curlHand's spread), by pose.
+local FINGER_SPREAD = {
+	Reach = 1, -- clawing for you
+	Lunge = 0.7,
 }
 
 -- The doorways near him, for ducking (Logic/GuestPose.doorStoop): an open
@@ -525,7 +532,7 @@ function GuestController:_frame(dt: number)
 			or 0
 		for side, hand in guest.hands do
 			local grip = (pose == "Peek" or pose == "FingersPeek") and ((lean >= 0) == (side == "Right"))
-			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum)
+			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum, FINGER_SPREAD[pose])
 		end
 		-- The face.
 		local distance = (guest.head.Position - camera.CFrame.Position).Magnitude

@@ -25,6 +25,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local STUDIO = RunService:IsStudio()
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -250,6 +251,9 @@ function StalkerService:Begin(ctx)
 	self.squadLungeLast = nil
 	self.recentDowns = {}
 	self.notice = {} -- player -> when they last had a sign of him (a look, a tell, a step heard)
+	self.reach = nil -- coming for someone who tailed him (StalkerService:_reachBegin)
+	self.tail = {} -- player -> StalkRules.tailing state
+	self.reachTold = {}
 	self.yankTo = nil
 	self.active = true
 	self:_publish()
@@ -943,6 +947,25 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 	elseif sub == "arrive" then
 		self.arrivalAt = os.clock()
 		return "knock knock"
+	elseif sub == "reach" then
+		-- He comes for you as if you'd tailed him (it can down you):
+		-- `guest reach [studs]` puts him that far in front first.
+		if not root or not self.arrived then
+			return "no character, or he hasn't come in yet"
+		end
+		Reel.stop(self)
+		self.debugHold, self.debugPose = false, nil
+		local distance = tonumber(args[3])
+		if distance then
+			local view = services.WitnessService:GetView(player)
+			local look = flat(view and view.LookVector or root.CFrame.LookVector)
+			look = look.Magnitude > 0.1 and look.Unit or Vector3.new(0, 0, -1)
+			body:Place(root.Position + look * distance, root.Position)
+			self.parked = false
+		end
+		self.confront = nil
+		self:_reachBegin(player, os.clock())
+		return "he comes for you, a hand out"
 	elseif sub == "reel" then
 		-- Every way he moves, near you, captioned (Stalker/Reel); or one
 		-- beat over and over.
@@ -957,7 +980,7 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 		self:_setAttr("GuestSmile", nil)
 		return "guest back to normal"
 	end
-	return "guest here [studs] · walk · reel [beat|stop] · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · mood [id] · temperament [id] · peeks · window · scare · off"
+	return "guest here [studs] · walk · reel [beat|stop] · reach [studs] · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · mood [id] · temperament [id] · peeks · window · scare · off"
 end
 
 -- Visibility ---------------------------------------------------------------------
@@ -1303,6 +1326,15 @@ function StalkerService:_update(dt: number)
 	if not hunting then
 		self:_crowding(now, dt)
 	end
+	-- Coming for someone who tailed him (the owner, 2026-10-11): while he
+	-- does, nothing else moves him.
+	if self.reach and not self.confront and self:_updateReach(now, watchers) then
+		body:Update(now, function(player: Player): Vector3?
+			return (self.stalk:Known(player))
+		end)
+		self:_updateVisibility(now)
+		return
+	end
 	-- Just revealed (the disguise fell away): he stands and stares a moment,
 	-- not stepping aside for anyone (crowding him still counts).
 	if self.revealHold and not self.confront then
@@ -1624,16 +1656,23 @@ end
 -- Crowding him (Logic/StalkRules.crowding; the squad playtest, 2026-10-08:
 -- "players can get in his personal space while he's backing away without
 -- consequences"; the owner's choice: a scare, then a down). Every tick
--- outside hunts, for everyone he's visible to.
+-- outside hunts, for everyone he's visible to. Tailing him further off
+-- (StalkRules.tailing; the owner, 2026-10-11) is measured here too.
 local BACKING = { BackAway = true, Withdraw = true, SlowWithdraw = true, Duck = true, Yank = true, MakeWay = true }
 
 function StalkerService:_crowding(now: number, dt: number)
-	if self.confront or not self.arrived or self.parked or not self.bodyCtl then
+	if self.confront or self.reach or not self.arrived or self.parked or not self.bodyCtl then
 		return
 	end
 	local services = self.services
 	local ps = services.PlayerStateService
 	local here = self.body.root.Position
+	-- Where he's going, for tailing (not while he's someone else, or setting
+	-- up a scare of his own).
+	local hisVelocity = self.body.root.AssemblyLinearVelocity
+	local his = Vector3.new(hisVelocity.X, 0, hisVelocity.Z)
+	local tails = not (self.beat or self.disguise or self.revealHold)
+	self.tail = self.tail or {}
 	local eye = self.bodyCtl:EyePosition()
 	local moveId = self.stalk and self.stalk.move and self.stalk.move.id
 	local backing = self.mode == Modes.Retreating or self.mode == Modes.Departing or BACKING[moveId or ""] == true
@@ -1647,7 +1686,13 @@ function StalkerService:_crowding(now: number, dt: number)
 			local distance = flatOffset.Magnitude
 			local state = self.crowd[player] or {}
 			self.crowd[player] = state
-			if distance > G.FollowRadius + 4 and (state.pressure or 0) <= 0 then
+			local tail = self.tail[player] or {}
+			self.tail[player] = tail
+			if
+				distance > math.max(G.FollowRadius, G.TailRadius) + 4
+				and (state.pressure or 0) <= 0
+				and (tail.boldness or 0) <= 0
+			then
 				continue -- far off: nothing to build or drain
 			end
 			local view = services.WitnessService:GetView(player)
@@ -1659,7 +1704,7 @@ function StalkerService:_crowding(now: number, dt: number)
 				or 0
 			local velocity = root.AssemblyLinearVelocity
 			local closing = distance > 0.1 and Vector3.new(velocity.X, 0, velocity.Z):Dot(flatOffset.Unit) or 0
-			local result = StalkRules.crowding(state, {
+			local ctx = {
 				now = now,
 				distance = distance,
 				facing = facing,
@@ -1676,10 +1721,31 @@ function StalkerService:_crowding(now: number, dt: number)
 				graced = ps:InReviveGrace(player),
 				safeRoom = self.perception:InSafeRoom(player),
 				verticalGap = math.abs(offset.Y),
-			}, dt, G)
+			}
+			local result = StalkRules.crowding(state, ctx, dt, G)
 			if result then
 				self:_confrontBegin(player, result, now)
 				return
+			end
+			if tails then
+				-- He goes away from you, and you go his way: each averaged over
+				-- a second or two, since shadowing him as he backs off slowly
+				-- is a walk, a stop and a walk again.
+				local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+				local away = distance > 0.1 and his:Dot(flatOffset.Unit) or 0
+				local along = his.Magnitude > 0.5 and flatVelocity:Dot(his.Unit) or 0
+				local k = 1 - math.exp(-dt / G.TailSmooth)
+				tail.away = (tail.away or 0) + (away - (tail.away or 0)) * k
+				tail.along = (tail.along or 0) + (along - (tail.along or 0)) * k
+				ctx.away, ctx.along = tail.away, tail.along
+				local reach, why = StalkRules.tailing(tail, ctx, dt, G)
+				if STUDIO then
+					player:SetAttribute("DebugTail", string.format("%.1f %s", tail.boldness or 0, why or "-"))
+				end
+				if reach then
+					self:_reachBegin(player, now)
+					return
+				end
 			end
 		end
 	end
@@ -1785,6 +1851,121 @@ function StalkerService:_updateConfront(now: number)
 			)
 		end
 	end
+end
+
+-- He comes for whoever tails him (Logic/StalkRules.tailing; the owner,
+-- 2026-10-11: "the guest can notice that the player is brave and then starts
+-- walking toward them reaching a hand out and if they get too close its a
+-- down"). He stops, his knuckles crack, his head comes round to you and a
+-- hand comes up; then he walks at you, steady: a walk you can back away from
+-- (Config.Guest.ReachSpeed). His hand reaching you is a down (a fair one: he
+-- came at you in plain sight). He gives up once he hasn't seen you a while,
+-- you're far off, hidden or in a lantern's light, or after ReachSeconds; he
+-- stands a moment, lowers it and goes on. Two watching hold him where he is,
+-- hand still out; something thrown that hits him ends it.
+function StalkerService:_reachBegin(player: Player, now: number)
+	local body = self.bodyCtl
+	body:CancelSpecial()
+	body:Hold()
+	body:FacePlayer(player)
+	body:SetGaze(player)
+	body:SetPose(Poses.Reach)
+	self.reach = { player = player, at = now, seenAt = now, walkAt = now + 0.9 }
+	if self.stalk then
+		self.stalk.move = nil
+	end
+	self:Noticed(player, now)
+	Sfx.play("GuestCrack", self.body.root.Position, 0.75, 0.82)
+	self.services.Telemetry:Log("Reached", { tier = self:TierNow() }, player)
+	self.services.RunLogService:GuestDid("reach")
+	self.reachTold = self.reachTold or {}
+	if not self.reachTold[player] then
+		self.reachTold[player] = true
+		Net.get("Notify"):FireClient(player, "It noticed you following it.", "danger")
+	end
+end
+
+-- True while the reach has him this tick; false once it's over (the usual
+-- update takes him from here).
+function StalkerService:_updateReach(now: number, watchers): boolean
+	local reach = self.reach
+	local player = reach.player
+	local services = self.services
+	local ps = services.PlayerStateService
+	local body = self.bodyCtl
+	local mode = self.mode
+	if
+		not player.Parent
+		or mode == Modes.Hunting
+		or mode == Modes.Telegraph
+		or mode == Modes.Retreating
+		or mode == Modes.Departing
+		or now < self.stunnedUntil
+	then
+		self.reach = nil
+		return false
+	end
+	if reach.lowering then
+		if now >= reach.lowering then
+			self.reach = nil
+			return false
+		end
+		body:Hold()
+		return true
+	end
+	local function giveUp(): boolean
+		reach.lowering = now + G.ReachAfter
+		body:Hold()
+		body:SetPose(Poses.Idle)
+		return true
+	end
+	local pos = ps:Position(player)
+	local head = ps:Head(player)
+	if
+		not pos
+		or not head
+		or not ps:IsActive(player)
+		or services.HidingService:IsHidden(player)
+		or self.perception:InSafeRoom(player)
+	then
+		return giveUp()
+	end
+	local here = self.body.root.Position
+	local offset = pos - here
+	local distance = Vector3.new(offset.X, 0, offset.Z).Magnitude
+	local gap = math.abs(offset.Y)
+	local seen = gap <= 6 and services.WitnessService:ClearLine(head.Position, body:EyePosition(), { self.body.model })
+	if seen then
+		reach.seenAt = now
+	end
+	if now - reach.seenAt > G.ReachLost or now - reach.at > G.ReachSeconds or distance > G.ReachGiveUp then
+		return giveUp()
+	end
+	if StalkRules.reachHits(distance, gap, seen, G) and not ps:InReviveGrace(player) then
+		self.reach = nil
+		self:_catch(player, now, "reach", true)
+		if self.stalk then
+			self.stalk:_begin("BackAway", self.stalk:_ctxCache())
+		end
+		return true
+	end
+	body:FacePlayer(player)
+	body:SetGaze(player)
+	body:SetPose(Poses.Reach)
+	if now < reach.walkAt or StalkRules.frozen(#watchers) then
+		-- The hand coming up; or two watching him: he stands, hand still out
+		-- (the stare holds him; his clock runs on).
+		body:Hold()
+		reach.goal = nil
+	elseif seen and distance <= G.ReachGrab + 3 then
+		-- The last steps, straight at you.
+		body:Step(pos, G.ReachSpeed)
+		reach.goal = nil
+	elseif not reach.goal or (reach.goal - pos).Magnitude > 1.5 or now - reach.goalAt > 0.6 then
+		reach.goal, reach.goalAt = pos, now
+		body:Go(pos, G.ReachSpeed)
+	end
+	return true
 end
 
 -- Scares he sets up on purpose (Logic/ScareBeats; the Director's guestBeat

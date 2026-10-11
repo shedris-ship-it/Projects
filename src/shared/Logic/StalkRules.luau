@@ -282,6 +282,67 @@ function StalkRules.crowding(state, ctx, dt: number, cfg): (string?, string?)
 	return "scare", nil
 end
 
+-- Tailing him (the owner, 2026-10-11: "if the player is following the guest
+-- around but not in range for the lunge I want this to be punished ... the
+-- guest can notice that the player is brave and then starts walking toward
+-- them reaching a hand out and if they get too close its a down"). Further
+-- off than crowding: boldness builds while you keep him in view within
+-- TailRadius as he walks away from you and you go his way. It fades slowly
+-- otherwise (TailDrain), so stop-start shadowing still adds up. Full, he
+-- comes for you with a hand out (StalkerService:_reachBegin). Within
+-- TailMemory of the last time, he notices sooner (TailAgain). His own
+-- approach, his making way past you and you walking past him never count:
+-- he has to be going away and you after him.
+-- state (per player, kept by the caller): { boldness, lastReachAt }.
+-- ctx: now, distance (flat), facing (degrees between your look and him),
+-- away (his speed away from you, studs a second), along (your speed his
+-- way; both averaged over Config.Guest.TailSmooth by the caller), tier, hunting, seated, stunned, visibleToThem, lineOfSight, hidden,
+-- downed, graced, safeRoom, verticalGap. Returns "reach" or nil, and why not.
+function StalkRules.tailing(state, ctx, dt: number, cfg): (string?, string?)
+	local why = nil
+	if ctx.hunting then
+		why = "hunting"
+	elseif ctx.seated then
+		why = "at the table"
+	elseif ctx.tier < 1 then
+		why = "tier"
+	elseif ctx.stunned then
+		why = "stunned"
+	elseif not ctx.visibleToThem or not ctx.lineOfSight then
+		why = "not seen"
+	elseif ctx.hidden or ctx.downed or ctx.safeRoom then
+		why = "protected"
+	elseif ctx.graced then
+		why = "just back up"
+	elseif ctx.verticalGap > 4 then
+		why = "another floor"
+	elseif ctx.distance > cfg.TailRadius then
+		why = "far off"
+	elseif ctx.facing > cfg.TailFacing then
+		why = "not watching him"
+	elseif ctx.away < cfg.TailSpeed then
+		why = "he isn't going"
+	elseif ctx.along < cfg.TailSpeed then
+		why = "not following"
+	end
+	local again = state.lastReachAt ~= nil and ctx.now - state.lastReachAt < cfg.TailMemory
+	local need = again and cfg.TailAgain or cfg.TailSeconds
+	local rate = why and -cfg.TailDrain or 1
+	state.boldness = math.clamp((state.boldness or 0) + rate * dt, 0, need)
+	if state.boldness < need then
+		return nil, why or "building"
+	end
+	state.boldness = 0
+	state.lastReachAt = ctx.now
+	return "reach", nil
+end
+
+-- His hand reaches you while he comes for you (the reach): this close
+-- (flat), on your floor, in his sight.
+function StalkRules.reachHits(distance: number, verticalGap: number, seen: boolean, cfg): boolean
+	return seen and distance <= cfg.ReachGrab and verticalGap <= 4
+end
+
 -- "After you" (the Guest rework, 2026-10-07): between hunts he never parks
 -- in a player's way. He steps aside, bows and holds out a hand towards the
 -- way on, and while he does he never lunges at them (canLunge, contact).

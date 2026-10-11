@@ -90,6 +90,7 @@ GuestPose.Poses = {
 	Duck = "Duck", -- tier 1, seen: a sudden drop low, before he glides away
 	Listen = "Listen", -- hunting, standing still: head cocked far over, listening
 	Crawl = "Crawl", -- Breaking or the final hunt, prowling: on all fours, knees up, head twisted over
+	Reach = "Reach", -- coming for whoever tailed him: walking at them, both hands out to grab them
 }
 
 -- How quickly each pose is reached (1/s). Fast ones snap; the rest ease.
@@ -110,6 +111,7 @@ local RATE = {
 	Duck = 26,
 	Listen = 4,
 	Crawl = 9,
+	Reach = 3, -- the arm comes up slowly
 }
 
 -- Steps: studs travelled per step, swing amplitude, knee bend and lift.
@@ -123,11 +125,11 @@ local GAIT = {
 
 -- Breaking (docs/ART.md "The Guest", grows wrong): his knees bend the wrong
 -- way in these, like a bird's.
-local REVERSE_KNEES = { Walk = true, Run = true, Creep = true, BackAway = true }
+local REVERSE_KNEES = { Walk = true, Run = true, Creep = true, BackAway = true, Reach = true }
 
 -- And his neck draws out of his collar (studs): leaning round a frame,
 -- creeping, lunging, listening; held, the longer the further.
-local STRETCH = { Peek = 0.8, FingersPeek = 0.5, Creep = 0.6, Lunge = 1.0, Listen = 0.45 }
+local STRETCH = { Peek = 0.8, FingersPeek = 0.5, Creep = 0.6, Lunge = 1.0, Listen = 0.45, Reach = 0.7 }
 
 function GuestPose.neckStretch(pose: string, form: number?, heldFor: number?): number
 	if (form or 0) < 2 then
@@ -310,6 +312,27 @@ function GuestPose.target(ctx)
 		add(t, "Waist", d(5))
 		hang(t)
 		legs(t, ctx.phase, GAIT.BackAway)
+	elseif pose == P.Reach then
+		-- Coming for whoever tailed him (the owner, 2026-10-11): leaning in,
+		-- the head cocked, both arms out at your face, closing in a little
+		-- (the hands meet round your face, not either side of your head), the
+		-- palms facing, the fingers spread and hooked to grab you
+		-- (the owner: "make his hands spread like hes trying to grab you";
+		-- GuestController's FINGER_SPREAD). They dip with his look down at
+		-- you, about half as far (his shoulders are below his eyes), so from
+		-- close the claws come at your face, neither over your head nor at
+		-- your chest; they shake a little, each on its own.
+		local clock = ctx.t or 0
+		local down = math.clamp(ctx.gazePitch or 0, d(-45), 0)
+		add(t, "Waist", d(-9))
+		add(t, "Neck", d(8), 0, d(10))
+		add(t, "RightShoulder", d(84) + down * 0.55 + d(1.2) * sin(clock * 11), 0, d(-5))
+		add(t, "LeftShoulder", d(81) + down * 0.55 + d(1.2) * sin(clock * 9.1 + 1), 0, d(5))
+		add(t, "RightElbow", d(5) + d(1.5) * sin(clock * 7.3))
+		add(t, "LeftElbow", d(8) + d(1.5) * sin(clock * 6.1 + 2))
+		add(t, "RightWrist", d(-24))
+		add(t, "LeftWrist", d(-24))
+		legs(t, ctx.phase, GAIT.Walk)
 	elseif pose == P.Peek then
 		-- Leaning sideways out from behind a door frame; the near hand
 		-- grips the jamb at head height.
@@ -511,6 +534,7 @@ local WALKS = {
 	Run = GuestGait.Specs.Run,
 	Creep = GuestGait.Specs.Creep,
 	BackAway = GuestGait.Specs.BackAway,
+	Reach = GuestGait.Specs.Walk,
 }
 
 -- Standing feet, side to side (studs), by pose.
@@ -526,6 +550,7 @@ GuestPose.Stance = {
 	Run = { width = 0.7 },
 	Creep = { width = 1.0 },
 	BackAway = { width = 0.8 },
+	Reach = { width = 0.78 },
 }
 
 -- A leg reaches this far from hip to ankle before it's straight: just short,

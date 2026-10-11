@@ -1187,6 +1187,23 @@ Config.Guest = {
 	ConfrontBlind = 1.4, -- ...he goes this far in, while your lights are out
 	ConfrontRadius = 30, -- the lights that die round you
 	GrabWindup = 0.5, -- the grab's tell: a rasp, and he reaches
+	-- Tailing him (Logic/StalkRules.tailing; the owner, 2026-10-11): follow
+	-- him about between hunts, beyond crowding's reach, and he notices. He
+	-- turns, lifts a hand and walks at you; it reaching you is a down.
+	TailRadius = 32, -- following him this close (flat)...
+	TailFacing = 60, -- ...watching him, within this many degrees...
+	TailSpeed = 1.5, -- ...as he goes away from you and you go his way, each at least this fast (studs/s)...
+	TailSmooth = 1.5, -- ...on average over about this long (walk, stop, walk is still following)
+	TailSeconds = 6, -- this long, all told, and he notices you
+	TailDrain = 0.25, -- (it fades this fast when you stop: stop-start following still adds up)
+	TailAgain = 3, -- noticed again sooner...
+	TailMemory = 300, -- ...within this long of the last time
+	ReachSpeed = 7, -- he walks at you, a hand out (your walk is 8: back away and you keep ahead)
+	ReachGrab = 3.6, -- his hand reaches you (flat, roots): a down
+	ReachSeconds = 12, -- he comes at most this long...
+	ReachLost = 3, -- ...gives up when he hasn't seen you this long...
+	ReachGiveUp = 40, -- ...or you're this far off (flat)
+	ReachAfter = 1.2, -- given up, he stands and lowers his hand this long before he goes on
 	-- Scares he sets up on purpose (Logic/ScareBeats; the Director's
 	-- guestBeat card): for the player he has frightened least lately.
 	BeatGap = 210, -- at least this long since that player's last scare (was 150)
