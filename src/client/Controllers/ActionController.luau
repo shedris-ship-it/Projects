@@ -112,15 +112,16 @@ function ActionController:Start()
 	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three } do
 		self:_bind("ConsensusSlot" .. slot, function(inputState)
 			-- Not while a screen is up: the piano's keys are 1 to 8 too, and
-			-- a slot change put down the music box you'd carried to it.
-			if
-				inputState == Enum.UserInputState.Begin
-				and self.state:IsActive()
-				and not self.state:IsTucked()
-				and not Ui.modalOpen()
-			then
+			-- a slot change put down the music box you'd carried to it. The
+			-- key goes on to the screen (sunk here, the piano's and the fuse
+			-- box's 1 to 3 never reached them).
+			if Ui.modalOpen() then
+				return Enum.ContextActionResult.Pass
+			end
+			if inputState == Enum.UserInputState.Begin and self.state:IsActive() and not self.state:IsTucked() then
 				Net.get("SelectSlot"):FireServer(slot)
 			end
+			return nil
 		end, false, nil, key)
 	end
 	self:_bind("ConsensusCycleSlot", function(inputState)
@@ -185,6 +186,13 @@ function ActionController:Start()
 	pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 	end)
+	-- Nor emotes or Roblox's backpack (the hotbar is ours, UI/Hotbar): the
+	-- emote wheel's frame lies over the screen's lower right, where the fuse
+	-- box's Step back is (the owner, 2026-10-11: Step back did nothing).
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.EmotesMenu, false)
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+	end)
 	self:_bind("ConsensusMap", function(inputState)
 		if inputState == Enum.UserInputState.Begin then
 			ui:ToggleMap()
@@ -241,6 +249,16 @@ function ActionController:Start()
 		self:_updateMovement(dt)
 		self:_updateFlashlight(dt)
 		self:_updateHiddenCamera(dt)
+	end)
+	-- A screen up (a puzzle, the map, a note): the cursor is free, every
+	-- frame, after the camera has locked it for first person. The modal button
+	-- alone (Ui.modal) left it reported locked, and clicks on a screen's
+	-- buttons went astray (the owner, 2026-10-11: half the fuse box's
+	-- breakers and its Step back did nothing).
+	RunService:BindToRenderStep("ConsensusModalCursor", Enum.RenderPriority.Camera.Value + 1, function()
+		if Ui.modalOpen() then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		end
 	end)
 	-- The wheel flips between slots, but only while the mouse is captured for
 	-- looking (a menu that frees the mouse keeps its own scrolling), and not

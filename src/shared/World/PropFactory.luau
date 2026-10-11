@@ -1668,11 +1668,13 @@ function builders.Plant(model, cf, _size, color, _material)
 		slate,
 		{ shape = CYL, collide = false, castShadow = false }
 	)
+	-- The soil stands a hair above the rim's top: level with it, the two
+	-- flickered through each other (the owner, 2026-10-11).
 	part(
 		model,
 		"Soil",
 		Vector3.new(0.1, 1.4, 1.4),
-		cf * CFrame.new(0, 1.6, 0) * UPRIGHT,
+		cf * CFrame.new(0, 1.63, 0) * UPRIGHT,
 		Color3.fromRGB(46, 36, 28),
 		slate,
 		{ shape = CYL, collide = false, castShadow = false }

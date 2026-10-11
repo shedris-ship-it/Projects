@@ -85,7 +85,8 @@ end
 -- `cf`: on the wall face, +Z into the room.
 function Kind.build(service, session, roomId: number, rng)
 	local world = service.World
-	local slot = world:TakeWallSlot(roomId, rng)
+	-- (The safe, and the painting over it swung aside.)
+	local slot = world:WallSpot(roomId, rng, Vector3.new(2.6, 2.6, 1.8), 1.4)
 	local cf
 	if slot then
 		cf = slot.cframe * CFrame.new(0, -1.4, 0) * CFrame.Angles(0, math.pi, 0)

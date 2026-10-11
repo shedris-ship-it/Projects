@@ -626,10 +626,48 @@ function LevelBuilder.furnish(world, ctx)
 		end
 		return false
 	end
+	-- Under an attic's roof (World/MansionBuilder) the roof comes down to
+	-- Rafters.knee on the long walls: a clock hung at the usual height went
+	-- through it (the owner, 2026-10-11). A slot hangs low enough to clear
+	-- the roof across its width, or it's left out.
+	local roofs = {}
+	for _, child in model:GetChildren() do
+		if child.Name == "Roof" and child:IsA("BasePart") then
+			table.insert(roofs, child)
+		end
+	end
+	local function roofOver(point: Vector3): number?
+		local lowest
+		for _, roof in roofs do
+			local up = roof.CFrame.UpVector
+			if math.abs(up.Y) > 1e-3 then
+				local under = roof.Position - up * roof.Size.Y / 2
+				local y = point.Y + (under - point):Dot(up) / up.Y
+				local on = roof.CFrame:PointToObjectSpace(Vector3.new(point.X, y, point.Z))
+				if math.abs(on.X) <= roof.Size.X / 2 + 0.5 and math.abs(on.Z) <= roof.Size.Z / 2 + 0.5 then
+					lowest = math.min(lowest or math.huge, y)
+				end
+			end
+		end
+		return lowest
+	end
+	local SLOT_TOP, SLOT_LOWEST = 1.4, 4.2 -- the tallest thing above a slot's middle; the lowest a slot goes
 	for _, slot in template.wallSlots do
 		if not wallInFilledArm(slot) then
-			local cf = slotCFrame(roomCF, slot, slot.y or 6.5, inner)
-			if not overHung(cf) then
+			local y = slot.y or 6.5
+			local cf = slotCFrame(roomCF, slot, y, inner)
+			if #roofs > 0 then
+				local room = math.huge
+				for _, across in { -1.2, 0, 1.2 } do
+					local roofY = roofOver(cf.Position + cf.RightVector * across)
+					if roofY then
+						room = math.min(room, roofY - roomCF.Position.Y)
+					end
+				end
+				y = math.min(y, room - SLOT_TOP)
+				cf = slotCFrame(roomCF, slot, y, inner)
+			end
+			if y >= SLOT_LOWEST and not overHung(cf) then
 				table.insert(record.wallSlots, {
 					cframe = cf,
 					outside = facesOutside(slot),

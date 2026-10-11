@@ -632,6 +632,111 @@ function WorldService:TakeWallSlot(roomId: number, rng, outside: boolean?)
 	return slot
 end
 
+-- A clear place on a wall of the room for something `size` (width, height,
+-- depth out from the wall) whose middle hangs `drop` below a wall slot's
+-- height: a free wall slot if there is one, else the first clear stretch of
+-- wall going round the room, nearest each wall's middle first. Puzzles'
+-- stations used to fall back on the middle of the room, in mid-air (the
+-- owner, 2026-10-11: a fuse box floating in the middle of a room). Returns a
+-- slot-like { cframe } (on the wall's face at slot height, looking into the
+-- room), or nil if no wall has room.
+local SLOT_Y = 6.5
+local WALL_DIRS = {
+	N = Vector3.new(0, 0, -1),
+	E = Vector3.new(1, 0, 0),
+	S = Vector3.new(0, 0, 1),
+	W = Vector3.new(-1, 0, 0),
+}
+function WorldService:WallSpot(roomId: number, rng, size: Vector3, drop: number)
+	local slot = self:TakeWallSlot(roomId, rng)
+	if slot then
+		return slot
+	end
+	local room = self:Room(roomId)
+	if not room or not room.model then
+		return nil
+	end
+	local walls = room.walls
+	local floor = self:FloorBase(room.center.Y)
+	local middle = walls and walls.center or Vector3.new(room.center.X, floor, room.center.Z)
+	local innerHalf = CELL / 2 - Config.Level.WallThickness
+	-- What's already in the room (furniture, things on the walls), by box:
+	-- many of them aren't seen by spatial queries.
+	local taken = {}
+	local function addBoxes(root: Instance)
+		for _, d in root:GetDescendants() do
+			if d:IsA("BasePart") and d.Parent ~= room.model and d.Transparency < 1 then
+				local cf, half = d.CFrame, d.Size / 2
+				local ext = Vector3.new(
+					math.abs(cf.RightVector.X) * half.X
+						+ math.abs(cf.UpVector.X) * half.Y
+						+ math.abs(cf.LookVector.X) * half.Z,
+					math.abs(cf.RightVector.Y) * half.X
+						+ math.abs(cf.UpVector.Y) * half.Y
+						+ math.abs(cf.LookVector.Y) * half.Z,
+					math.abs(cf.RightVector.Z) * half.X
+						+ math.abs(cf.UpVector.Z) * half.Y
+						+ math.abs(cf.LookVector.Z) * half.Z
+				)
+				table.insert(taken, { cf.Position - ext, cf.Position + ext })
+			end
+		end
+	end
+	addBoxes(room.model)
+	if self.content then
+		addBoxes(self.content)
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { room.model }
+	local sides = { "N", "E", "S", "W" }
+	rng:Shuffle(sides)
+	for _, side in sides do
+		local out = WALL_DIRS[side]
+		local along = (side == "N" or side == "S") and Vector3.new(1, 0, 0) or Vector3.new(0, 0, 1)
+		local inner = walls and walls.inner[side] or innerHalf
+		local half = (walls and walls.half[side] or innerHalf) - size.X / 2 - 0.6
+		local offsets = { 0 }
+		for k = 1, math.floor(math.max(0, half)) do
+			table.insert(offsets, k)
+			table.insert(offsets, -k)
+		end
+		for _, offset in offsets do
+			local pos = middle + out * inner + along * offset + Vector3.new(0, SLOT_Y, 0)
+			local face = CFrame.lookAt(pos, pos - out)
+			-- A wall right behind it (not a doorway)...
+			local hit = Workspace:Raycast(pos - out * 0.4 - Vector3.new(0, drop, 0), out * 0.9, params)
+			local body = face * CFrame.new(0, -drop, -(size.Z / 2 + 0.05))
+			-- ...and nothing where it would be.
+			local corner = (body.RightVector * size.X / 2):Abs()
+				+ Vector3.new(0, size.Y / 2, 0)
+				+ (body.LookVector * size.Z / 2):Abs()
+			local lo, hi = body.Position - corner, body.Position + corner
+			local clear = hit ~= nil
+			if clear then
+				for _, box in taken do
+					if
+						lo.X < box[2].X
+						and hi.X > box[1].X
+						and lo.Y < box[2].Y
+						and hi.Y > box[1].Y
+						and lo.Z < box[2].Z
+						and hi.Z > box[1].Z
+					then
+						clear = false
+						break
+					end
+				end
+			end
+			if clear then
+				return { cframe = face, used = true }
+			end
+		end
+	end
+	-- Nowhere clear: over something already on a wall, rather than in the air.
+	return room.wallSlots and room.wallSlots[1] or nil
+end
+
 function WorldService:TakeFloorSlot(roomId: number, rng)
 	local room = self:Room(roomId)
 	if not room then

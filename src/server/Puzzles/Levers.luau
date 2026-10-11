@@ -69,7 +69,7 @@ end
 -- A spot on a wall of `room`, facing into it (a picture's slot, lower).
 local function onWall(service, room: number, rng): CFrame
 	local world = service.World
-	local slot = world:TakeWallSlot(room, rng)
+	local slot = world:WallSpot(room, rng, Vector3.new(1.4, 2.4, 1.2), 0.8)
 	if slot then
 		-- Wall slots sit on the wall's face, looking out into the room.
 		return slot.cframe * CFrame.new(0, -0.8, 0)

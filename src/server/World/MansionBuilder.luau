@@ -678,7 +678,13 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			local ridge = Vector3.new(center.X, ceilingY, center.Z)
 			local wood = roofColor:Lerp(Color3.new(), 0.3)
 			for _, side in { -1, 1 } do
-				local low = Vector3.new(center.X, floorY + R.knee, center.Z) + across * side * half
+				-- A long wall with a doorway in it starts its slope over the door
+				-- (at the knee, the door's top went through the roof).
+				local wallSide = alongX and (side < 0 and "N" or "S") or (side < 0 and "W" or "E")
+				local knee = #openingsOf(room, room.floor, wallSide) > 0
+						and math.max(R.knee, Config.Level.DoorHeight + 0.7)
+					or R.knee
+				local low = Vector3.new(center.X, floorY + knee, center.Z) + across * side * half
 				local slope = ridge - low
 				local mid = (low + ridge) / 2
 				local look = CFrame.lookAt(mid, mid + slope.Unit, UP)

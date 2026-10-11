@@ -1,8 +1,23 @@
 -- The fuse box (Logic/Puzzles/Breaker): a row of breakers in the family's
 -- handwriting, and the main. Flip one and real rooms go dark or light up;
--- too many on and the main trips. UI/Puzzle hosts it.
+-- too many on and the main trips. UI/Puzzle hosts it. Keys too: 1 to 9
+-- flip, M the main, Esc steps back.
+
+local UserInputService = game:GetService("UserInputService")
 
 local Ui = require(script.Parent.Parent.Parent.Lib.Ui)
+
+local NUMBER_KEYS = {
+	[Enum.KeyCode.One] = 1,
+	[Enum.KeyCode.Two] = 2,
+	[Enum.KeyCode.Three] = 3,
+	[Enum.KeyCode.Four] = 4,
+	[Enum.KeyCode.Five] = 5,
+	[Enum.KeyCode.Six] = 6,
+	[Enum.KeyCode.Seven] = 7,
+	[Enum.KeyCode.Eight] = 8,
+	[Enum.KeyCode.Nine] = 9,
+}
 
 local STEEL = Color3.fromRGB(70, 74, 72)
 local DARK = Color3.fromRGB(28, 30, 30)
@@ -114,6 +129,27 @@ function Screen.build(host, open)
 	}, function()
 		host:Hide(true)
 	end)
+	Ui.label(string.format("Keys: 1-%d flip  ·  M the main  ·  Esc step back", count), {
+		Position = UDim2.fromOffset(0, 348),
+		Size = UDim2.new(1, 0, 0, 16),
+		Font = Enum.Font.Code,
+		TextSize = 13,
+		TextColor3 = Color3.fromRGB(170, 166, 150),
+		Parent = panel,
+	})
+	open.connections = {
+		UserInputService.InputBegan:Connect(function(input, processed)
+			if processed then
+				return
+			end
+			local i = NUMBER_KEYS[input.KeyCode]
+			if i and i <= count then
+				host:Send("flip", nil, i)
+			elseif input.KeyCode == Enum.KeyCode.M then
+				host:Send("main")
+			end
+		end),
+	}
 end
 
 function Screen.refresh(host, open, events)

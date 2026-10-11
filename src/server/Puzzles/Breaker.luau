@@ -160,7 +160,8 @@ end
 -- A grey steel box on a wall of its room, its door open on the breakers.
 function Kind.build(service, session, roomId: number, rng)
 	local world = service.World
-	local slot = world:TakeWallSlot(roomId, rng)
+	-- (The box, and its door swung open beside it.)
+	local slot = world:WallSpot(roomId, rng, Vector3.new(2.8, 2.6, 2), 1.2)
 	local cf
 	if slot then
 		-- Wall slots face out of the wall; a little lower than a picture.

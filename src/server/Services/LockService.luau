@@ -360,50 +360,114 @@ local function boards(door, steps: number, parent: Instance): Model
 	return model
 end
 
--- A chain through the handles on both faces, crossed, with a padlock.
+local STEEL = Color3.fromRGB(96, 96, 100)
+
+local function metal(model: Instance, name: string, size: Vector3, cf: CFrame, color: Color3?, shape: Enum.PartType?)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanTouch = false
+	p.CanQuery = false
+	p.Material = Enum.Material.Metal
+	p.Color = color or STEEL
+	p.Size = size
+	if shape then
+		p.Shape = shape
+	end
+	p.CFrame = cf
+	p.Parent = model
+	return p
+end
+
+-- A length of chain hanging from `a` to `b`, `sag` studs low in the middle:
+-- links along the curve, each turned a quarter round it from the last, the
+-- flat ones lying against the face whose outward direction is `normal`.
+local function hang(model: Model, a: Vector3, b: Vector3, sag: number, normal: Vector3)
+	local c = (a + b) / 2 - Vector3.new(0, 2 * sag, 0)
+	local count = math.max(2, math.ceil(((b - a).Magnitude + sag) / 0.22))
+	for k = 0, count do
+		local t = k / count
+		local p = a * (1 - t) ^ 2 + c * 2 * t * (1 - t) + b * t * t
+		local tangent = ((c - a) * 2 * (1 - t) + (b - c) * 2 * t).Unit
+		local across = normal:Cross(tangent).Unit
+		local cf = CFrame.fromMatrix(p, tangent, across)
+		if k % 2 == 1 then
+			cf *= CFrame.Angles(math.pi / 2, 0, 0)
+		end
+		metal(model, "Link", Vector3.new(0.3, 0.14, 0.05), cf)
+	end
+	return c
+end
+
+-- A chain wound three times round the door's knob and an eye bolted into the
+-- frame beside it, on both faces, its padlock hanging from the turns. (The
+-- owner, 2026-10-11: the old chains, crossed over the middle of the door,
+-- stood off it in the air, tied to nothing.)
 local function chain(door, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = "Chain"
 	local slab = door.slab
 	local closed = door.closedCFrame
-	local floorY = slab.Position.Y - slab.Size.Y / 2
-	local centre = Vector3.new(closed.Position.X, floorY + 3.6, closed.Position.Z)
-	local steel = Color3.fromRGB(96, 96, 100)
+	local w = slab.Size.X
+	-- The knob's place on the slab (World/LevelBuilder: near one edge, a
+	-- little below the middle).
+	local knobX, knobY = -(w / 2 - 0.6), -0.5
+	local knob = slab.Parent and slab.Parent:FindFirstChild("Knob")
+	if knob and knob:IsA("BasePart") then
+		local p = slab.CFrame:PointToObjectSpace(knob.Position)
+		knobX, knobY = p.X, p.Y
+	end
+	-- The eye on the casing past that edge (World/Trim: the casing stands
+	-- CasingDepth proud of a wall a stud thick).
+	local edge = knobX < 0 and -1 or 1
+	local eyeX = edge * (w / 2 + 0.1 + Config.Trim.CasingWidth / 2)
+	local casing = 0.5 + Config.Trim.CasingDepth
 	for _, side in { -1, 1 } do
-		for _, slope in { -1, 1 } do
-			-- Overlapping links along the diagonal, each turned a quarter
-			-- round the chain from the last (flat, edge-on, flat...).
-			local angle = slope * math.atan(0.7)
-			for k = -6, 6 do
-				local link = Instance.new("Part")
-				link.Name = "Link"
-				link.Anchored = true
-				link.CanCollide = false
-				link.CanTouch = false
-				link.CanQuery = false
-				link.Material = Enum.Material.Metal
-				link.Color = steel
-				link.Size = Vector3.new(0.5, 0.2, 0.07)
-				local along = k * 0.36
-				link.CFrame = (closed.Rotation + centre)
-					* CFrame.new(0, 0, side * 0.7)
-					* CFrame.Angles(0, 0, angle)
-					* CFrame.new(along, 0, 0)
-					* CFrame.Angles((k % 2) * math.rad(90), 0, 0)
-				link.Parent = model
+		local normal = closed:VectorToWorldSpace(Vector3.new(0, 0, side))
+		local function at(x: number, y: number, z: number): Vector3
+			return closed:PointToWorldSpace(Vector3.new(x, y, z))
+		end
+		local face = closed.Rotation * CFrame.Angles(0, side > 0 and 0 or math.pi, 0)
+		metal(model, "EyePlate", Vector3.new(0.3, 0.42, 0.05), face + at(eyeX, knobY, side * (casing + 0.025)))
+		metal(
+			model,
+			"Eye",
+			Vector3.new(0.07, 0.26, 0.26),
+			face * CFrame.Angles(0, math.pi / 2, 0) + at(eyeX, knobY, side * (casing + 0.12)),
+			nil,
+			Enum.PartType.Cylinder
+		)
+		-- Three turns between the knob's neck and the eye, each a little
+		-- lower and slacker than the last.
+		local lowest
+		for i, turn in { { 0.06, 0.08, 0.14 }, { -0.02, 0, 0.26 }, { -0.1, -0.08, 0.38 } } do
+			local from = at(knobX + edge * 0.04, knobY + turn[1], side * 0.3)
+			local to = at(eyeX - edge * 0.06, knobY + turn[2], side * (casing + 0.12))
+			local middle = hang(model, from, to, turn[3], normal)
+			if i == 3 then
+				lowest = middle
 			end
 		end
-		local lock = Instance.new("Part")
-		lock.Name = "Padlock"
-		lock.Anchored = true
-		lock.CanCollide = false
-		lock.CanTouch = false
-		lock.CanQuery = false
-		lock.Material = Enum.Material.Metal
-		lock.Color = Color3.fromRGB(70, 70, 74)
-		lock.Size = Vector3.new(0.5, 0.6, 0.25)
-		lock.CFrame = (closed.Rotation + centre) * CFrame.new(0, -0.15, side * 0.82)
-		lock.Parent = model
+		-- The padlock through the last turn, hanging from its middle.
+		local lowPoint = (lowest + at(knobX, knobY - 0.1, side * 0.3) + at(eyeX, knobY - 0.08, side * (casing + 0.12)))
+			/ 3
+		local hangAt = face + lowPoint
+		metal(
+			model,
+			"Shackle",
+			Vector3.new(0.05, 0.26, 0.26),
+			hangAt * CFrame.new(0, -0.1, 0) * CFrame.Angles(0, math.pi / 2, 0),
+			Color3.fromRGB(150, 150, 156),
+			Enum.PartType.Cylinder
+		)
+		metal(
+			model,
+			"Padlock",
+			Vector3.new(0.36, 0.42, 0.16),
+			hangAt * CFrame.new(0, -0.38, 0),
+			Color3.fromRGB(70, 70, 74)
+		)
 	end
 	model:SetAttribute("RunContent", true)
 	model.Parent = parent
