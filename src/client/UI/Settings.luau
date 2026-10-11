@@ -13,8 +13,8 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local CONTROLS = table.concat({
 	"E  open, pick up, use  ·  hold E  drag a door or drawer, push furniture  ·  carrying: click throws, E puts down",
 	"hold click  drag or carry too  ·  right click  throw  ·  F  torch  ·  R  use the tool in hand  ·  X  put down",
-	"1 2 3  slots  ·  wheel  next slot  ·  Ctrl  crouch  ·  Shift  run  ·  Space  hold your breath  ·  V  bolt  ·  Q  squeeze past",
-	"Tab  map and journal  ·  G  ping  ·  C  callouts  ·  Enter  say a line  ·  F1  settings  ·  F2  debug",
+	"1 2 3  slots  ·  wheel  next slot  ·  Ctrl  crouch  ·  Shift  run  ·  Space  jump (hidden: hold your breath)  ·  V  bolt  ·  Q  squeeze past",
+	"Tab  map and journal  ·  G  ping  ·  C  callouts  ·  Enter  say a line  ·  E  leave a puzzle or a note  ·  F1  settings  ·  F2  debug",
 }, "\n")
 
 local Settings = {}
@@ -27,7 +27,7 @@ local HOW_TO = table.concat({
 	"",
 	"• Find the family's heirlooms and set each at its place at the table. Then get out by the front door.",
 	"• The house is locked wing by wing. Keys and doors share a mark; notes and puzzles point the way. E opens and picks up; hold E (or the mouse) on anything to drag, pull or carry it.",
-	"• Something lives here. Two of you watching it in the light stops it, until it comes for one of you; alone, your beam does, while the battery lasts. Hide (step into a wardrobe and shut it, or E under a bed), hold your breath (Space), and talk: Tab is the map, G pings.",
+	"• Something lives here. Two of you watching it in the light stops it, until it comes for one of you; alone, your beam does, while the battery lasts. Hide (step into a wardrobe and shut it, or E under a bed), hold your breath (Space), and talk: Tab is the map, G pings. Caught, you're down: a friend has 30 seconds to hold E on you.",
 }, "\n")
 
 function Settings.new(ctx)

@@ -61,11 +61,13 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (557 as of 2026-10-11; about 90-150 s, 2-4 minutes while Studio runs)
+lune run tests/run        # unit tests (562 as of 2026-10-11; about 90-150 s, 2-4 minutes while Studio runs)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
 ```
+
+After a change to generation or the lock planner, also run `lune run tools/completable` (every squad, difficulty and night; all houses must finish; about 2-3 minutes).
 
 To run one spec while iterating, pass part of its file name: `lune run tests/run LockPlanner` runs every `tests/specs/*.spec.luau` whose name contains `LockPlanner`. Run the full suite before committing.
 
@@ -107,6 +109,7 @@ All must pass. When MCP is available, also start a play session and check the co
 - **Pure logic is tested:**
   - Engine-free rules go in `src/shared/Logic` with a spec in `tests/specs/*.spec.luau`.
   - A spec returns `function(test, check, Shared, require)`.
+- **Prompts on a keyboard:** `HandsController` claims every E prompt: it sets the key to `NO_KEY` (World95) and fires the one you look at itself. Never give a prompt `KeyCode.Unknown`: Roblox matches it to mouse buttons, so every shown prompt fires on any click. A screen or note put away by a key or a click calls `Ui.dismissed()` so the same press doesn't reach the hands.
 - **PropFactory names:** clients and services find prop parts by child name (`Dial/Face/Time`, `Paper/Writing/Text`, `EyeL`/`EyeR` on portraits, `Lid`, `DoorL`/`DoorR`, `Glass`, …). Keep those names when restyling props.
 - **Style:** match the surrounding code. Write short comments that explain *why* and cite doc sections. Prefix private methods with an underscore (`_roomPath`, `_setup`). Use `Ui.modal` on menus so the mouse unlocks in first person.
 
@@ -206,6 +209,15 @@ The agreed plan, in order:
      - **Tailing him is punished** (`.158`, the owner: following him about "but not in range for the lunge" should be; "make his hands spread like hes trying to grab you"). `StalkRules.tailing`: keep him in view within 32 studs as he goes away from you and you go his way (both speeds averaged over 1.5 s: start-stop following counts) for 6 s all told (3 s again within 5 min), and he comes for you (`StalkerService:_reachBegin`, `_updateReach`): the `Reach` pose, both hands out at your face with the fingers fanned and hooked (`GuestFace.curlHand` spread, `GuestController` FINGER_SPREAD), walking at 7 (your walk is 8); within 3.6 studs it's a down (catch `reach`, not cheap). He gives up when unseen 3 s, 40 studs off, you're hidden or in a lantern's light, or after 12 s; a hit ends it (watchers don't, since `.159`).
      - **Eyes don't stop him once he's after someone** (`.159`, the owner: "I don't want people in groups to be able to just straight up disable him by just looking at him while hes pursuing someone, I want him to feel like an actual threat"). `StalkRules.stareHolds` decides every hold: two watchers (alone, the beam) still freeze him between hunts and hold him in a hunt before he has seen anyone, but in a hunt's chase (`data.chasing`), the reach and a lunge under way (`Body:Lunging`) he neither stops nor slows, and the hunt's hold isn't spent. Solo's beam follows the same rule. Caption "[it's after someone. Your eyes won't stop it now]" (`pursuing`, twice a run). `IsFrozen` now means really held. Tailing no longer counts while he retreats or departs (a reach then ended on its first tick). TC-252, TC-253. `Config.Guest` Tail*/Reach*; F2 `guest reach [studs]`, `guest reel reach`; the player attribute `DebugTail` in Studio. TC-247 to TC-251.
      - Sound (`.156`): footsteps play on the body that makes them (`AudioController:PlayOn`): left where each foot landed, a sprint's steps trailed behind like an echo. Anything on another storey comes through the floor, quieter and dull (`Config.Audio.ThroughFloor`, `storeysBetween` via `StateController:RoomAt/StoreyAt`; not inside one double-height room); looping fixtures re-check as you move. TC-241, TC-242.
+   - **The owner's playtest of 2026-10-11 and the audit before the next phase (builds `2026-10-11.160` on; `docs/progress/2026-10-11-playtest/REPORT.md`).** The seven notes, all fixed:
+     - **Clicks fired prompts.** Claimed E prompts gave their key up to `KeyCode.Unknown`, which Roblox matches to mouse buttons: a right click anywhere changed the difficulty, and the fuse box's Step back re-opened the fuse box. They now give it to `NO_KEY` (World95) in `HandsController`. The session's first input type (Focus) no longer reads as a gamepad. In the hub E takes the nearest prompt in reach.
+     - E steps back from every puzzle screen ("Step back (E)"); `Ui.dismissed()` keeps the press that put a screen or note away from reaching the hands.
+     - Reviving: any part of a downed friend is the focus ("Hold E Revive"), their marker says "Look at them, hold E (4 s)", and the downed player and the squad see who is pulling them up and how far (`RevivedBy`, `ReviveSince`). Downed for 30 s, alone too.
+     - The jump: a low, slow hop (`Config.Player.Jump*`, `Logic/Feel` jumpLaunch/jumpLift, a VectorForce from the jump's first step): about 0.6 s in the air, a rest after landing, a stamina cost.
+     - Wind-up toys fall (`ToyService`): off a stair they walk on, off anything higher they land on their side with a clatter.
+     - Drawers hold finds worth the look (`Data/Finds`, `Logic/Finds`, `Services/FindService`, F2 `find`): batteries, painkillers (a down forgiven, rare), letters (a pencilled pointer at the next step; the map rings it), matches (a shrine lit at once), and throwables.
+     - Found on the way: a third of the mansion's lantern rooms were corridors with no shrine spot (upstairs the shrine stood in the lane; on the ground floor its CFrame was NaN and it vanished): lantern rooms are now rooms with a shrine spot (`MansionGen`), and `LevelBuilder` never builds a shrine facing nowhere (Gate A unchanged: parts 2269, hash 1553234744; `tools/completable`: 1152 houses, all finish). A squad player working a puzzle for a minute was made Lost as idle: every accepted remote now counts as activity (`Net.onActivity`). Overflowing hub and objective text.
+     - 562 tests. Waiting on the owner: TC-254 to TC-263 (reviving and idling need two clients).
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)
