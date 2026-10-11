@@ -49,6 +49,7 @@ local Body = require(StalkerFolder.Body)
 local Walker = require(StalkerFolder.Walker)
 local NavTest = require(StalkerFolder.NavTest)
 local Retreat = require(StalkerFolder.Retreat)
+local Reel = require(StalkerFolder.Reel)
 local Perception = require(StalkerFolder.Perception)
 local Sight = require(StalkerFolder.Sight)
 local Stalk = require(StalkerFolder.Stalk)
@@ -942,12 +943,21 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 	elseif sub == "arrive" then
 		self.arrivalAt = os.clock()
 		return "knock knock"
+	elseif sub == "reel" then
+		-- Every way he moves, near you, captioned (Stalker/Reel); or one
+		-- beat over and over.
+		if args[3] == "stop" then
+			Reel.stop(self)
+			return "guest reel stopped"
+		end
+		return Reel.run(self, player, args[3])
 	elseif sub == "off" then
+		Reel.stop(self)
 		self.debugHold, self.debugPose, self.debugForm = false, nil, nil
 		self:_setAttr("GuestSmile", nil)
 		return "guest back to normal"
 	end
-	return "guest here [studs] · walk · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · mood [id] · temperament [id] · peeks · window · scare · off"
+	return "guest here [studs] · walk · reel [beat|stop] · pose <name> · form <0-2> · smile <0-1> · lean <-1..1> · arrive · move <name> · mood [id] · temperament [id] · peeks · window · scare · off"
 end
 
 -- Visibility ---------------------------------------------------------------------

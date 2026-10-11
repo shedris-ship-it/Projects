@@ -487,6 +487,22 @@ The owner ran the first squad playtest on build `.130` and sent 17 notes (physic
 - **Cabinets** are plain furniture again. The dining room gets drapes, the den a desk, and the pantry, the cellars and the old foyer a walk-in `TallCupboard`.
 - **His sight stops at the doors:** a pane solid to his eyes behind each louvre band. He finds you by seeing you get in, a light left on in there, hearing you, or opening it.
 
+## 18. The Guest's animations (2026-10-11; build `2026-10-11.153`)
+
+The second squad playtest asked for smoother movement, ducking under doorways and a hand on the frame when he peeks; the owner chose to do it as a pass to be looked over and then shown. The full record, with the Studio numbers and screenshots, is `docs/progress/2026-10-11-animations/REPORT.md`.
+
+**The owner's choices:** the torch stutter **rarer and deliberate** (a burst when your light first lands on him, re-armed after 2 s off him; at Breaking, a burst every 4–8 s); his walk **heavy and lurching** (slow, weighty, uneven, too tall for his own legs); the coat no longer swings up as he ducks.
+
+**What changed:**
+- **Feet that stay planted** (`Logic/GuestGait`): stance feet fixed in the world, swings to where he'll be, any direction; settle steps standing; the right side drags.
+- **The body** (`Logic/GuestPose`, `Logic/Kinematics`): springs instead of easing, IK legs, the hips dropping, swaying and rolling with the stride, the upper body riding it, his head kept on you.
+- **Doorways:** a stoop worked out from each opening's own box, under every frame (his head 6.96–7.27 under an 8-stud frame in Studio), and an unfold after.
+- **Peeks:** the hand grips the frame's edge on your side (`Stalk:_gripFor`, `GuestGrip`), the elbow down along the frame; only his fingers for FingersPeek.
+- **His drawn body follows a smoothed root on each client** (`GuestController:_drawnRoot`). It's steadier, and planted feet stay still even at a run. Decisions still use the server's root.
+- **F2 `guest reel`** (`Stalker/Reel`): every way he moves, near you, captioned; or one beat over and over.
+
+**Waiting on the owner:** TC-223 to TC-232.
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.

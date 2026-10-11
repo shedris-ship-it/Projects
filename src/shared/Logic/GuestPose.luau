@@ -14,6 +14,9 @@
 --   rz > 0 tips the top towards his left (+X end of a hanging limb inward
 --          for the left arm)
 
+local GuestGait = require(script.Parent.GuestGait)
+local Kinematics = require(script.Parent.Kinematics)
+
 local GuestPose = {}
 
 local rad = math.rad
@@ -215,6 +218,23 @@ local function legs(t, phase: number, spec)
 	add(t, "RightKnee", -knee * math.max(0, -c))
 end
 
+-- Ducking under a door frame (stoop 0..1): his hips sink (the knees bend
+-- onto his feet), the pelvis tips, he folds forward at the waist, the
+-- shoulders hunch round and the head bows under it, his face still lifted
+-- to you (the gaze adds that).
+local function stoopInto(t, stoop: number)
+	if stoop <= 0 then
+		return
+	end
+	add(t, "Root", -d(6) * stoop, 0, 0, 0, -0.42 * stoop, 0)
+	add(t, "Waist", -d(17) * stoop)
+	add(t, "Neck", -d(12) * stoop)
+	add(t, "LeftShoulder", d(8) * stoop, 0, d(-4) * stoop)
+	add(t, "RightShoulder", d(8) * stoop, 0, d(4) * stoop)
+	add(t, "LeftKnee", -d(14) * stoop)
+	add(t, "RightKnee", -d(14) * stoop)
+end
+
 -- The target pose before smoothing. ctx: { pose, phase, tilt, lean, stoop,
 -- breath, gazeYaw, gazePitch, neckYawMax }
 function GuestPose.target(ctx)
@@ -307,6 +327,11 @@ function GuestPose.target(ctx)
 			add(t, "LeftElbow", d(70))
 			add(t, "LeftWrist", d(20))
 		end
+		-- The free arm dangles to the floor, not along his tilted body (it
+		-- stuck out into the doorway like a stick).
+		local free = lean >= 0 and "Left" or "Right"
+		add(t, free .. "Shoulder", d(6), 0, lean * d(38))
+		add(t, free .. "Elbow", d(22))
 	elseif pose == P.Zoom then
 		-- Yanked away like a puppet: rigid, gliding, arms trailing towards you.
 		add(t, "LeftShoulder", d(42), 0, d(-10))
@@ -424,14 +449,7 @@ function GuestPose.target(ctx)
 	end
 
 	-- Ducking under door frames: he is taller than every doorway.
-	local stoop = ctx.stoop or 0
-	if stoop > 0 then
-		add(t, "Waist", -d(16) * stoop)
-		add(t, "Neck", -d(12) * stoop)
-		add(t, "Root", 0, 0, 0, 0, -0.35 * stoop, 0)
-		add(t, "LeftKnee", -d(14) * stoop)
-		add(t, "RightKnee", -d(14) * stoop)
-	end
+	stoopInto(t, ctx.stoop or 0)
 	if (ctx.form or 0) >= 2 and REVERSE_KNEES[pose] then
 		if pose == P.Creep then
 			-- Crouched the other way: thighs back, shins forward.
@@ -471,19 +489,108 @@ end
 GuestPose.Gait = GAIT
 GuestPose.Rate = RATE
 
+-- Smoothing (the animation pass, 2026-10-11: "make the movement more
+-- smooth"): every joint follows a critically damped spring, so a change of
+-- pose eases in and out with no pop. Stiffness (1/s) by pose; about 4/k
+-- seconds to settle. The fast ones (a lunge, a duck) are still a blink.
+local SPRING = {}
+for name, rate in RATE do
+	SPRING[name] = rate * 1.35
+end
+GuestPose.Spring = SPRING
+
+-- Poses whose legs the pose draws itself; every other pose stands on the
+-- feet Logic/GuestGait plants.
+local KEYED_LEGS = { Zoom = true, Lunge = true, Stagger = true, Duck = true, Crawl = true }
+GuestPose.KeyedLegs = KEYED_LEGS
+
+-- The gait each moving pose walks with; a standing pose that has to move
+-- (he's pushed, he shuffles round) walks.
+local WALKS = {
+	Walk = GuestGait.Specs.Walk,
+	Run = GuestGait.Specs.Run,
+	Creep = GuestGait.Specs.Creep,
+	BackAway = GuestGait.Specs.BackAway,
+}
+
+-- Standing feet, side to side (studs), by pose.
+GuestPose.Stance = {
+	Idle = { width = 0.74 },
+	Hold = { width = 0.74 },
+	Bow = { width = 0.6 },
+	Usher = { width = 0.86 },
+	Peek = { width = 1.2 },
+	FingersPeek = { width = 0.82 },
+	Listen = { width = 1.0 },
+	Walk = { width = 0.78 },
+	Run = { width = 0.7 },
+	Creep = { width = 1.0 },
+	BackAway = { width = 0.8 },
+}
+
+-- A leg reaches this far from hip to ankle before it's straight: just short,
+-- so a planted leg is never locked.
+local LEG_REACH = (Rig.upperLeg + Rig.lowerLeg) * 0.985
+-- The most his hips drop to reach a planted foot (studs).
+GuestPose.MaxDrop = 1.2
+
+-- Joint offsets in the rest pose, each from its parent joint.
+local ROOT_JOINT = { 0, Rig.lowerTorsoY - Rig.rootY, 0 }
+local WAIST_JOINT = { 0, Rig.waistY - Rig.lowerTorsoY, 0 }
+local HIP = {
+	Left = { -Rig.hipX, Rig.hipY - Rig.lowerTorsoY, 0 },
+	Right = { Rig.hipX, Rig.hipY - Rig.lowerTorsoY, 0 },
+}
+local SHOULDER = {
+	Left = { -Rig.shoulderX, Rig.shoulderY - Rig.waistY, 0 },
+	Right = { Rig.shoulderX, Rig.shoulderY - Rig.waistY, 0 },
+}
+local KNEE = { 0, -Rig.upperLeg, 0 }
+local ANKLE = { 0, -Rig.lowerLeg, 0 }
+GuestPose.HipOffset = HIP
+GuestPose.ShoulderOffset = SHOULDER
+
+local LEG_JOINTS = {
+	"LeftHip",
+	"LeftKnee",
+	"LeftAnkle",
+	"RightHip",
+	"RightKnee",
+	"RightAnkle",
+}
+local ARM_JOINTS = {
+	Left = { "LeftShoulder", "LeftElbow", "LeftWrist" },
+	Right = { "RightShoulder", "RightElbow", "RightWrist" },
+}
+
 function GuestPose.new()
 	return {
-		values = blank(),
+		values = blank(), -- the springs' positions
+		vel = blank(), -- and their velocities
+		out = blank(), -- what's drawn: the springs, legs on the feet, a hand on the frame
 		phase = 0,
 		breath = 0,
 		t = 0,
-		twitch = nil, -- { joint, values, untilT }
+		twitch = nil, -- { joint, values, at }
 		nextTwitch = 2,
+		gait = nil, -- Logic/GuestGait, from the first frame with a root
+		legWeight = 1, -- 1: legs on the planted feet; 0: the pose's own
+		legVel = 0,
+		drop = 0, -- how far his hips are down to reach his feet (studs)
+		dropVel = 0,
+		sway = { 0, 0 },
+		roll = { 0, 0 },
+		turn = { 0, 0 },
+		lurch = { 0, 0 },
+		grip = 0, -- 1: his hand is on the door frame
+		gripVel = 0,
+		sim = nil, -- a stand-in root for callers that give none (lune specs)
 	}
 end
 
--- Advance the gait. forward is the signed speed along his facing (studs/s);
--- walking backwards runs the cycle backwards. Returns the feet that landed.
+-- Advance the phase the pose's own legs swing by (the crawl, and the
+-- server's view of a walking pose). forward is the signed speed along his
+-- facing; walking backwards runs it backwards. Returns the feet that landed.
 function GuestPose.advance(state, pose: string, forward: number, dt: number): { string }
 	local spec = GAIT[pose]
 	local planted = {}
@@ -492,8 +599,6 @@ function GuestPose.advance(state, pose: string, forward: number, dt: number): { 
 	end
 	local before = state.phase
 	local after = before + forward * dt / (2 * spec.stride)
-	-- A foot lands when its hip reaches the front of the swing (or the back,
-	-- walking backwards): left at a quarter cycle, right at three quarters.
 	for _, mark in { { 0.25, "Left" }, { 0.75, "Right" } } do
 		local lo, hi = math.min(before, after), math.max(before, after)
 		local k = math.ceil(lo - mark[1])
@@ -508,23 +613,174 @@ function GuestPose.advance(state, pose: string, forward: number, dt: number): { 
 	return planted
 end
 
--- One frame. input: { pose, forward, tilt, lean, stoop, gazeYaw, gazePitch,
--- neckYawMax, mood (Logic/GuestMood), heldFor (seconds held, for "frozen
--- but alive"), snapNeck (the head snaps to a light this frame), random =
--- function() -> 0..1 (cosmetic) }.
--- Returns the smoothed joint values and the feet that landed this frame.
+-- His pelvis (the Root joint's frame) in root space.
+local function pelvisFrame(rootValue)
+	return Kinematics.child(Kinematics.frame(), ROOT_JOINT, rootValue)
+end
+GuestPose.pelvisFrame = pelvisFrame
+
+-- A world point in his root's space (x right, y up, z back).
+local function toRoot(root, x: number, y: number, z: number)
+	local dx, dy, dz = x - root.x, y - root.y, z - root.z
+	local rx, rz = -root.fz, root.fx
+	return { dx * rx + dz * rz, dy, -(dx * root.fx + dz * root.fz) }
+end
+GuestPose.toRoot = toRoot
+
+-- And back.
+local function toWorld(root, p)
+	local rx, rz = -root.fz, root.fx
+	return root.x + rx * p[1] - root.fx * p[3], root.y + p[2], root.z + rz * p[1] - root.fz * p[3]
+end
+GuestPose.toWorld = toWorld
+
+-- Bend a leg so its ankle is at `ankle` (root space), the foot turned `yaw`
+-- from his facing and pitched `pitch` (toe down < 0). The knee points the
+-- way the foot does, or backwards at Breaking (`reverse`). Writes the hip,
+-- knee and ankle into `out`.
+local function bendLeg(out, side: string, pelvis, ankle, yaw: number, pitch: number, reverse: boolean)
+	local hip = Kinematics.compose(pelvis, Kinematics.frame(nil, HIP[side]))
+	local target = Kinematics.toLocal(hip, ankle)
+	local ahead = { -math.sin(yaw), 0, -math.cos(yaw) }
+	local pole = Kinematics.apply(Kinematics.transpose(hip.r), reverse and Kinematics.scale(ahead, -1) or ahead)
+	local rx, ry, rz, fold, r = Kinematics.twoBone(target, Rig.upperLeg, Rig.lowerLeg, reverse and 1 or -1, pole)
+	local h, k, a = out[side .. "Hip"], out[side .. "Knee"], out[side .. "Ankle"]
+	h[1], h[2], h[3], h[4], h[5], h[6] = rx, ry, rz, 0, 0, 0
+	k[1], k[2], k[3], k[4], k[5], k[6] = fold, 0, 0, 0, 0, 0
+	local leg = Kinematics.mul(Kinematics.mul(hip.r, r), Kinematics.rot(fold, 0, 0))
+	local want = Kinematics.mul(Kinematics.rot(0, yaw, 0), Kinematics.rot(pitch, 0, 0))
+	local ax, ay, az = Kinematics.euler(Kinematics.mul(Kinematics.transpose(leg), want))
+	a[1], a[2], a[3], a[4], a[5], a[6] = ax, ay, az, 0, 0, 0
+end
+GuestPose.bendLeg = bendLeg
+
+-- The top of his head and the middle of his face for a set of joint values
+-- (root space): what has to pass under a door frame.
+function GuestPose.head(values)
+	local pelvis = pelvisFrame(values.Root)
+	local chest = Kinematics.child(pelvis, WAIST_JOINT, values.Waist)
+	local neck = Kinematics.child(chest, { 0, Rig.neckY - Rig.waistY, 0 }, values.Neck)
+	local top = Kinematics.point(neck, { 0, Rig.neckLength + Rig.headSize[2], 0 })
+	local middle = Kinematics.point(neck, { 0, Rig.neckLength + Rig.headSize[2] / 2, 0 })
+	return top, middle
+end
+
+-- Where a wrist is for a set of joint values (root space).
+function GuestPose.wrist(values, side: string)
+	local pelvis = pelvisFrame(values.Root)
+	local chest = Kinematics.child(pelvis, WAIST_JOINT, values.Waist)
+	local shoulder = Kinematics.child(chest, SHOULDER[side], values[side .. "Shoulder"])
+	local elbow = Kinematics.child(shoulder, { 0, -Rig.upperArm, 0 }, values[side .. "Elbow"])
+	return Kinematics.point(elbow, { 0, -Rig.lowerArm, 0 })
+end
+
+-- Where each ankle is for a set of joint values (root space).
+function GuestPose.ankles(values)
+	local pelvis = pelvisFrame(values.Root)
+	local result = {}
+	for _, side in { "Left", "Right" } do
+		local hip = Kinematics.child(pelvis, HIP[side], values[side .. "Hip"])
+		local knee = Kinematics.child(hip, KNEE, values[side .. "Knee"])
+		result[side] = Kinematics.point(knee, ANKLE)
+	end
+	return result
+end
+
+-- Where his hand on the door frame goes and how it's turned: `grip` is the
+-- frame's edge on the far side of the wall, yours (root space), `sign` the
+-- way the doorway is from him (+1 his right). His hand comes through the
+-- doorway against the frame, the fingers out past your side of the wall and
+-- curled round onto it, the palm to the frame. Writes the shoulder, elbow
+-- and wrist into `out`.
+GuestPose.GripWrist = { 0.22, -0.05, 0.55 } -- the wrist from the edge: into the doorway, down, back towards him
+local function reachFrame(out, side: string, pelvis, grip, sign: number, hidden: boolean?)
+	local chest = Kinematics.child(pelvis, WAIST_JOINT, out.Waist)
+	local shoulder = Kinematics.compose(chest, Kinematics.frame(nil, SHOULDER[side]))
+	local at = GuestPose.GripWrist
+	local wrist = { grip[1] + sign * at[1], grip[2] + at[2], grip[3] + at[3] }
+	local target = Kinematics.toLocal(shoulder, wrist)
+	-- Leaning out, the elbow hangs down by the frame, the forearm up along
+	-- it (out to the side, it stuck into the doorway like a stick). Only
+	-- his fingers round it, the elbow goes into the wall beside the frame,
+	-- out of your sight (back or down, it showed in the doorway).
+	local bend = if hidden then { -sign, 0.3, 0.3 } else { sign * 0.25, -1, 0 }
+	local pole = Kinematics.apply(Kinematics.transpose(shoulder.r), bend)
+	local rx, ry, rz, fold, r = Kinematics.twoBone(target, Rig.upperArm, Rig.lowerArm, 1, pole)
+	local inward = side == "Left" and 1 or -1
+	-- The fingers curl the way the hand's X axis (times `inward`) points:
+	-- towards the frame. The hand's -Y (the fingers) points on, past the wall.
+	local palm = { -sign * inward, 0, 0 }
+	local fingers = { 0, 0, 1 }
+	local want = Kinematics.basis(palm, fingers)
+	local arm = Kinematics.mul(Kinematics.mul(shoulder.r, r), Kinematics.rot(fold, 0, 0))
+	local wx, wy, wz = Kinematics.euler(Kinematics.mul(Kinematics.transpose(arm), want))
+	return { rx, ry, rz }, fold, { wx, wy, wz }
+end
+GuestPose.reachFrame = reachFrame
+
+local function lerp(a: number, b: number, t: number): number
+	return a + (b - a) * t
+end
+
+local function springPair(pair, goal: number, k: number, dt: number): number
+	pair[1], pair[2] = Kinematics.spring(pair[1], pair[2], goal, k, dt)
+	return pair[1]
+end
+
+-- One frame. input:
+--   pose, tilt, lean, stoop, gazeYaw, gazePitch, neckYawMax, mood
+--   (Logic/GuestMood), heldFor (seconds held: "frozen but alive"),
+--   snapNeck (the head snaps to a light this frame), unfold, form,
+--   random = function() -> 0..1 (cosmetic)
+--   root      { x, y, z, fx, fz }: his root in the world and the flat way
+--             he faces (if absent, a stand-in walks straight on `forward`)
+--   vx, vz    his velocity on the floor plane; forward for the stand-in
+--   floor     function(x, z) -> the floor's height there (optional)
+--   grip      the door frame's edge he holds, in root space (Peek and
+--             FingersPeek; Stalk publishes it)
+-- Returns the joint values to draw and the feet that landed this frame.
 function GuestPose.step(state, input, dt: number)
 	local pose = GuestPose.Poses[input.pose] and input.pose or "Idle"
+	dt = math.clamp(dt, 0, 0.1)
 	state.t += dt
 	state.breath = (state.breath + dt * 0.22) % 1
-	local planted = GuestPose.advance(state, pose, input.forward or 0, dt)
+
+	-- Where he is. Without a root (the specs), a stand-in walks on `forward`.
+	local root, vx, vz = input.root, input.vx or 0, input.vz or 0
+	if not root then
+		local sim = state.sim or { x = 0, y = Rig.rootY, z = 0, fx = 0, fz = -1 }
+		state.sim = sim
+		local forward = input.forward or 0
+		sim.z -= forward * dt
+		vx, vz = 0, -forward
+		root = sim
+	end
+	local floor = input.floor
+	local floorY = root.y - Rig.rootY
+	if not floor then
+		floor = function()
+			return floorY
+		end
+	end
+	local forward = vx * root.fx + vz * root.fz
+	local planted = GuestPose.advance(state, pose, forward, dt)
+
+	-- The duck has a spring of its own: quick down, slow up.
+	local wantStoop = math.clamp(input.stoop or 0, 0, 1)
+	state.stoop, state.stoopVel = Kinematics.spring(
+		state.stoop or 0,
+		state.stoopVel or 0,
+		wantStoop,
+		wantStoop > (state.stoop or 0) and 18 or 4,
+		dt
+	)
 	local target = GuestPose.target({
 		pose = pose,
 		phase = state.phase,
 		breath = state.breath,
 		tilt = input.tilt,
 		lean = input.lean,
-		stoop = input.stoop,
+		stoop = 0,
 		gazeYaw = input.gazeYaw,
 		gazePitch = input.gazePitch,
 		neckYawMax = input.neckYawMax,
@@ -536,7 +792,7 @@ function GuestPose.step(state, input, dt: number)
 	})
 
 	-- Twitches while still: a sudden jerk of the head or a shoulder that
-	-- snaps in and eases out. Cosmetic, so math.random is fine here.
+	-- snaps in and eases away. Cosmetic, so math.random is fine here.
 	local random = input.random
 	local still = pose == "Idle" or pose == "Hold" or pose == "BackAway" or pose == "Peek"
 	if random and still and state.t >= state.nextTwitch and not state.twitch then
@@ -545,42 +801,197 @@ function GuestPose.step(state, input, dt: number)
 		state.twitch = {
 			joint = joint,
 			values = { d((random() - 0.5) * size), d((random() - 0.5) * size), d((random() - 0.5) * size * 1.4) },
-			untilT = state.t + 0.12 + random() * 0.15,
+			at = state.t,
+			hold = 0.12 + random() * 0.15,
 		}
 		-- An irritated Guest twitches far more often (Logic/GuestMood).
 		local gap = input.mood == "Irritated" and (0.8 + random() * 1.6) or (2.5 + random() * 6)
 		state.nextTwitch = state.t + gap
 	end
+
+	-- The springs.
+	local k = SPRING[pose] or 8
+	for joint, goal in target do
+		local v, w = state.values[joint], state.vel[joint]
+		for i = 1, 6 do
+			v[i], w[i] = Kinematics.spring(v[i], w[i], goal[i], k, dt)
+		end
+	end
+	if input.snapNeck then
+		-- The head snaps to the light that found him.
+		local v, w = state.values.Neck, state.vel.Neck
+		for i = 1, 6 do
+			v[i], w[i] = target.Neck[i], 0
+		end
+	end
+	local out = state.out
+	for joint, v in state.values do
+		local o = out[joint]
+		for i = 1, 6 do
+			o[i] = v[i]
+		end
+	end
+	stoopInto(out, math.clamp(state.stoop, 0, 1))
+	-- A twitch jerks in at once and eases out.
 	local twitch = state.twitch
 	if twitch then
-		if state.t > twitch.untilT then
+		local age = state.t - twitch.at
+		local fade = age <= twitch.hold and 1 or math.max(0, 1 - (age - twitch.hold) / 0.25)
+		if fade <= 0 then
 			state.twitch = nil
 		else
-			local v = target[twitch.joint]
-			v[1] += twitch.values[1]
-			v[2] += twitch.values[2]
-			v[3] += twitch.values[3]
+			local o = out[twitch.joint]
+			for i = 1, 3 do
+				o[i] += twitch.values[i] * fade
+			end
 		end
 	end
 
-	local rate = RATE[pose] or 6
-	local alpha = 1 - math.exp(-rate * dt)
-	local snap = 1 - math.exp(-40 * dt)
-	for joint, goal in target do
-		local v = state.values[joint]
-		-- Twitches and the legs' stepping snap; everything else eases.
-		local a = (twitch and joint == twitch.joint) and snap or alpha
-		if input.snapNeck and joint == "Neck" then
-			a = 1
+	-- His legs: on the feet the gait plants, or (a lunge, a stagger, the
+	-- crawl) the pose's own, blended between.
+	local keyed = KEYED_LEGS[pose] == true
+	state.legWeight, state.legVel = Kinematics.spring(state.legWeight, state.legVel, keyed and 0 or 1, 12, dt)
+	state.legWeight = math.clamp(state.legWeight, 0, 1)
+	local gait = state.gait
+	-- Put somewhere outright (his arrival, the debug console): his feet go
+	-- under him, not a stride across the house.
+	local last = state.lastRoot
+	if gait and last and ((root.x - last[1]) ^ 2 + (root.z - last[2]) ^ 2 > 25 or math.abs(root.y - last[3]) > 6) then
+		gait = nil
+	end
+	state.lastRoot = { root.x, root.z, root.y }
+	if not gait then
+		gait = GuestGait.new({ x = root.x, y = root.y, z = root.z, fx = root.fx, fz = root.fz, floor = floorY }, floor)
+		state.gait = gait
+	end
+	local reverse = (input.form or 0) >= 2 and REVERSE_KNEES[pose] == true
+	local spec = WALKS[pose]
+	if keyed then
+		-- Wherever the pose has put them, the feet are planted there for
+		-- when the gait takes over again.
+		local ankles = GuestPose.ankles(out)
+		local now = {}
+		for side, a in ankles do
+			local x, y, z = toWorld(root, a)
+			now[side] = { x = x, y = y - Rig.ankleY, z = z }
 		end
-		if GAIT[pose] and (string.find(joint, "Hip") or string.find(joint, "Knee") or string.find(joint, "Ankle")) then
-			a = math.max(a, 1 - math.exp(-18 * dt))
-		end
-		for i = 1, 6 do
-			v[i] += (goal[i] - v[i]) * a
+		GuestGait.plant(gait, now)
+	else
+		local moving = spec or ((vx * vx + vz * vz) > GuestGait.MoveSpeed ^ 2 and GuestGait.Specs.Walk or nil)
+		local events = GuestGait.step(gait, {
+			root = root,
+			vx = vx,
+			vz = vz,
+			spec = moving,
+			stance = GuestPose.Stance[pose],
+			floor = floor,
+		}, dt)
+		planted = events
+		for _ = 1, #events do
+			-- A heavy step: the hips sink a little more as the foot takes him.
+			state.dropVel += 1.1
 		end
 	end
-	return state.values, planted
+
+	-- The hips over the feet: sway, the hip's drop on the swinging side, the
+	-- turn with the stride (Logic/GuestGait.pelvis), sprung.
+	local sway, roll, turn = GuestGait.pelvis(gait, root, spec)
+	local w = state.legWeight
+	sway = springPair(state.sway, sway * w, 8, dt)
+	roll = springPair(state.roll, roll * w, 8, dt)
+	turn = springPair(state.turn, turn * w, 9, dt)
+	local rootValue = out.Root
+	rootValue[4] += sway
+	rootValue[3] += roll
+	rootValue[2] += turn
+
+	-- Down as far as the legs carrying him need to reach their feet: the bob,
+	-- and the lurch onto each step. It falls at once, and rises slowly.
+	local feetRoot = {}
+	local need = 0
+	if w > 0 then
+		local pelvis = pelvisFrame(rootValue)
+		for _, side in { "Left", "Right" } do
+			local f = gait.feet[side]
+			local ankle = toRoot(root, f.x, f.y + Rig.ankleY, f.z)
+			feetRoot[side] = ankle
+			if f.stance then
+				local hip = Kinematics.point(pelvis, HIP[side])
+				local dx, dz = hip[1] - ankle[1], hip[3] - ankle[3]
+				local across = math.min(math.sqrt(dx * dx + dz * dz), LEG_REACH - 0.05)
+				local high = math.sqrt(LEG_REACH * LEG_REACH - across * across)
+				need = math.max(need, (hip[2] - ankle[2]) - high)
+			end
+		end
+	end
+	-- (Never more than a deep knee bend: a foot somehow left far off
+	-- straightens his leg towards it rather than sinking him to the floor.)
+	need = math.min(need, GuestPose.MaxDrop) * w
+	state.drop, state.dropVel = Kinematics.spring(state.drop, state.dropVel, need, 6, dt)
+	if state.drop < need then
+		state.drop = need
+		state.dropVel = math.max(state.dropVel, 0)
+	end
+	rootValue[5] -= state.drop
+
+	-- The upper body rides it: a lurch forward as the hips fall, the
+	-- shoulders and head rolling back against the hips (he keeps his face on
+	-- you).
+	local lurch = springPair(state.lurch, math.clamp(-state.dropVel * 0.07, -0.22, 0.06) * w, 10, dt)
+	out.Waist[1] += lurch
+	out.Waist[3] -= roll * 0.6
+	out.Neck[3] -= roll * 0.35
+	out.Neck[1] -= lurch * 0.6
+
+	-- The legs onto the feet.
+	if w > 0 then
+		local pelvis = pelvisFrame(rootValue)
+		local yaw = GuestGait._yawOf(root.fx, root.fz)
+		local keyedLegs = {}
+		if w < 1 then
+			for _, joint in LEG_JOINTS do
+				keyedLegs[joint] = table.clone(out[joint])
+			end
+		end
+		for _, side in { "Left", "Right" } do
+			local f = gait.feet[side]
+			local rel = (f.yaw - yaw + math.pi) % (2 * math.pi) - math.pi
+			bendLeg(out, side, pelvis, feetRoot[side], rel, f.pitch or 0, reverse)
+		end
+		if w < 1 then
+			for _, joint in LEG_JOINTS do
+				local o, kv = out[joint], keyedLegs[joint]
+				for i = 1, 6 do
+					o[i] = lerp(kv[i], o[i], w)
+				end
+			end
+		end
+	end
+
+	-- A hand on the door frame as he peeks round it.
+	local grip = input.grip
+	local gripping = grip ~= nil and (pose == "Peek" or pose == "FingersPeek")
+	state.grip, state.gripVel = Kinematics.spring(state.grip, state.gripVel, gripping and 1 or 0, 7, dt)
+	state.grip = math.clamp(state.grip, 0, 1)
+	if grip and state.grip > 0.001 then
+		state.lastGrip = grip
+	end
+	local held = state.lastGrip
+	if held and state.grip > 0.001 then
+		local sign = held[1] >= 0 and 1 or -1
+		local side = sign > 0 and "Right" or "Left"
+		local hidden = pose == "FingersPeek"
+		local shoulder, elbow, wrist = reachFrame(out, side, pelvisFrame(rootValue), held, sign, hidden)
+		local names = ARM_JOINTS[side]
+		local g = state.grip
+		for i, angles in { shoulder, { elbow, 0, 0 }, wrist } do
+			local o = out[names[i]]
+			for axis = 1, 3 do
+				o[axis] = lerp(o[axis], angles[axis], g)
+			end
+		end
+	end
+	return out, planted
 end
 
 -- Spine kinematics ----------------------------------------------------------------
@@ -662,24 +1073,45 @@ function GuestPose.gazeAngles(x: number, y: number, z: number): (number, number)
 	return yaw, pitch
 end
 
--- How far to duck at a position, from its distance to the nearest doorway
--- line (rooms are cells of `cell` studs with doorways in the middle of each
--- side). x and z are relative to the grid origin.
-function GuestPose.stoop(x: number, z: number, cell: number, doorHalfWidth: number): number
-	local half = cell / 2
-	local function along(v: number): number
-		return math.abs(((v + half) % cell) - half)
-	end
-	-- Distance to the nearest wall line on each axis, and how central the
-	-- doorway is on that wall.
-	local dx = half - along(x) -- distance to a wall line crossing x
-	local dz = half - along(z)
+-- Ducking for a doorway (the animation pass, 2026-10-11: he's 8.4 studs
+-- tall and the openings are 8, and "ducking under doorways" was the owner's
+-- note). He sees the frame coming: down before his head gets there (it
+-- reaches 2.3 studs ahead of his middle, ducked), and up again once his
+-- shoulders are through. openings: { x, z, top (the frame's underside),
+-- floor, along ("x" if the opening runs along x, else "z"), half (half its
+-- width), depth (half the wall's thickness) }; root: { x, y, z }; vx, vz his
+-- velocity. Returns how far to duck, 0..1.
+GuestPose.DuckReach = 2.3
+GuestPose.DuckBehind = 1.0
+function GuestPose.doorStoop(openings, root, vx: number, vz: number): number
+	local speed = math.sqrt(vx * vx + vz * vz)
+	local feet = root.y - Rig.rootY
 	local best = 0
-	if along(z) <= doorHalfWidth + 1 then
-		best = math.max(best, math.clamp(1 - dx / 3, 0, 1))
-	end
-	if along(x) <= doorHalfWidth + 1 then
-		best = math.max(best, math.clamp(1 - dz / 3, 0, 1))
+	for _, o in openings do
+		if math.abs(feet - o.floor) < 2 and o.top - o.floor < Rig.height + 0.3 then
+			local lateral, s, vn
+			if o.along == "x" then
+				lateral, s, vn = math.abs(root.x - o.x), root.z - o.z, vz
+			else
+				lateral, s, vn = math.abs(root.z - o.z), root.x - o.x, vx
+			end
+			local beside = math.clamp((o.half + 1.3 - lateral) / 0.9, 0, 1)
+			if beside > 0 then
+				local d = math.abs(s) - o.depth
+				local want
+				if speed < 0.3 then
+					want = math.clamp((2.8 - d) / 1.0, 0, 1)
+				elseif s * vn < 0 then
+					-- Coming towards it: down before his head reaches it.
+					local ahead = 1.2 + speed * 0.35
+					want = math.clamp((GuestPose.DuckReach + ahead - d) / ahead, 0, 1)
+				else
+					-- Going away: up once his shoulders are clear.
+					want = math.clamp((GuestPose.DuckBehind + 0.8 - d) / 0.8, 0, 1)
+				end
+				best = math.max(best, want * beside)
+			end
+		end
 	end
 	return best
 end

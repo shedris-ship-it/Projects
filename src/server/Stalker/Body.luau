@@ -88,11 +88,16 @@ function Body:_attr(name: string, value: any)
 	end
 end
 
-function Body:SetPose(pose: string, lean: number?)
+-- `grip`: peeking round a door frame, the frame's edge his hand holds (in
+-- the world); clients reach his hand to it (Logic/GuestPose.reachFrame).
+function Body:SetPose(pose: string, lean: number?, grip: Vector3?)
 	self.pose = pose
 	self.lean = lean or 0
+	local peeking = pose == Poses.Peek or pose == Poses.FingersPeek
+	self.grip = peeking and grip or nil
 	self:_attr("GuestPose", pose)
 	self:_attr("GuestLean", pose == Poses.Peek and self.lean or nil)
+	self:_attr("GuestGrip", self.grip)
 end
 
 -- Who he's looking at: his head stays on them whatever his body does.
@@ -120,9 +125,14 @@ function Body:ExposedPoints(): { Vector3 }
 		cf:PointToWorldSpace(Vector3.new(chest[1], chest[2], chest[3])),
 	}
 	if self.pose == Poses.FingersPeek then
-		-- Only his hand on the frame shows (the head and chest are behind it).
-		local hand = GuestPose.fingers(self.lean)
-		table.insert(points, cf:PointToWorldSpace(Vector3.new(hand[1], hand[2], hand[3])))
+		-- Only his hand on the frame shows (the head and chest are behind it):
+		-- where it holds the frame, else where it would.
+		if self.grip then
+			table.insert(points, self.grip)
+		else
+			local hand = GuestPose.fingers(self.lean)
+			table.insert(points, cf:PointToWorldSpace(Vector3.new(hand[1], hand[2], hand[3])))
+		end
 	end
 	return points
 end

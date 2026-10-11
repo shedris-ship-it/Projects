@@ -346,6 +346,40 @@ function Stalk:_peekSpots()
 	return spots
 end
 
+-- The door frame's edge his hand holds as he peeks from a spot: the jamb on
+-- his side of the opening, on the far side of the wall, the side you're on,
+-- at hand height. His hand comes through the doorway and his fingers curl
+-- round the frame onto your side of it. The wall is as thick as the
+-- doorway's panels say (a wall of each room, back to back).
+function Stalk:_gripFor(spot, high: boolean?): Vector3?
+	local seam = self.services.WorldService.World.seams[spot.seam]
+	if not seam then
+		return nil
+	end
+	local n = flat(seam.normal)
+	if n.Magnitude < 0.1 then
+		return nil
+	end
+	n = n.Unit
+	local c = seam.floorPosition
+	local along = Vector3.new(-n.Z, 0, n.X)
+	local offset = spot.position - c
+	local towards = offset:Dot(along) >= 0 and 1 or -1
+	local far = offset:Dot(n) >= 0 and -n or n
+	local depth, half = Config.Level.WallThickness / 2, Config.Level.DoorWidth / 2
+	for _, panel in seam.panels or {} do
+		if panel and panel.Parent then
+			local size = panel.Size
+			local thick = math.abs(n.X) * size.X + math.abs(n.Z) * size.Z
+			depth = math.max(depth, (panel.Position - c):Dot(far) + thick / 2)
+			half = math.abs(along.X) * size.X / 2 + math.abs(along.Z) * size.Z / 2
+		end
+	end
+	-- (Round the casing too, which stands proud of the wall: World/Trim.)
+	depth += Config.Trim.CasingDepth
+	return c + along * towards * half + far * depth + Vector3.new(0, high and G.FingersGripHeight or G.GripHeight, 0)
+end
+
 -- Where his head is when he leans out from a peek spot (Logic/GuestPose).
 function Stalk:_peekHead(spot): Vector3
 	local head = GuestPose.exposed(Poses.Peek, spot.lean, nil, self.body.model:GetAttribute("GuestForm"))
@@ -683,7 +717,7 @@ MOVES.Peek = {
 				move.peeking = now
 				self.body:Hold()
 				self.body:FacePoint(spot.position + spot.face * 10)
-				self.body:SetPose(Poses.Peek, spot.lean)
+				self.body:SetPose(Poses.Peek, spot.lean, self:_gripFor(spot))
 				self.body:SetGaze(self.target)
 				self.service.yankTo = spot.hide
 			end
@@ -1325,7 +1359,7 @@ MOVES.FingersPeek = {
 				move.peeking = now
 				self.body:Hold()
 				self.body:FacePoint(spot.position + spot.face * 10)
-				self.body:SetPose(Poses.FingersPeek, move.side)
+				self.body:SetPose(Poses.FingersPeek, move.side, self:_gripFor(spot, true))
 				self.body:SetGaze(self.target)
 				self.service.yankTo = spot.hide
 			end
@@ -1337,7 +1371,7 @@ MOVES.FingersPeek = {
 			-- His face follows his fingers out, slowly, while you look.
 			move.reveal = math.min(1, move.reveal + ctx.dt / G.FingersRevealSeconds)
 			if move.reveal >= 0.35 then
-				self.body:SetPose(Poses.Peek, spot.lean * move.reveal)
+				self.body:SetPose(Poses.Peek, spot.lean * move.reveal, self:_gripFor(spot))
 			end
 			return false
 		end

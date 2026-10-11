@@ -73,15 +73,6 @@ return function(test, check, Shared, require)
 		check.near(up, math.pi / 4, 1e-9, "up is positive pitch")
 	end)
 
-	test("stoops under door frames, not in the middle of a room", function()
-		check.equal(GuestPose.stoop(0, 0, 40, 3), 0, "room centre")
-		check.equal(GuestPose.stoop(10, 10, 40, 3), 0, "open floor")
-		check.near(GuestPose.stoop(20, 0, 40, 3), 1, 1e-9, "right under an east doorway")
-		check.near(GuestPose.stoop(0, -20, 40, 3), 1, 1e-9, "under a north doorway")
-		check.equal(GuestPose.stoop(19, 12, 40, 3), 0, "by a wall but away from its doorway")
-		check.truthy(GuestPose.stoop(18.5, 1, 40, 3) > 0.3, "ducks on the approach")
-	end)
-
 	test("joints stay within limits in every pose", function()
 		local random = seeded()
 		for pose in GuestPose.Poses do

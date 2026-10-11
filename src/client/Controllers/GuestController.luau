@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
+local Kinematics = require(Shared.Logic.Kinematics)
 local PlayerPose = require(Shared.Logic.PlayerPose)
 local Net = require(Shared.Net)
 
@@ -190,7 +191,8 @@ function GuestController:Start()
 	end)
 
 	-- Joints are written before the physics step, where the engine applies
-	-- Motor6D transforms.
+	-- Motor6D transforms (his body hangs from a root only this moves:
+	-- _drawnRoot).
 	RunService.Stepped:Connect(function(_, dt)
 		if guest and guest.model.Parent then
 			local ok, err = pcall(self._frame, self, dt)
@@ -247,40 +249,107 @@ local FINGER_CURL = {
 	Crawl = 1.0, -- clawing at the floor
 }
 
--- How far he ducks for a doorway in the mansion, whose doorways aren't on a
--- 40-stud grid: from the seam panels nearby (every seam, doorway or not, so
--- ducking never gives a tell away), like GuestPose.stoop does on the grid.
-local seamPanels, seamPanelsAt = {}, -math.huge
-local function mansionStoop(position: Vector3): number
+-- The doorways near him, for ducking (Logic/GuestPose.doorStoop): an open
+-- seam's panel is the opening itself (World/LevelBuilder, MansionBuilder).
+local openings, openingsAt = {}, -math.huge
+local function openingsNear(position: Vector3)
 	local now = os.clock()
-	if now - seamPanelsAt > 2 then
-		seamPanels = CollectionService:GetTagged(Constants.Tags.Seam)
-		seamPanelsAt = now
-	end
-	local best = 0
-	for _, panel in seamPanels do
-		if panel:IsA("BasePart") and panel.Parent then
-			local p, size = panel.Position, panel.Size
-			if math.abs(position.Y - p.Y) < 8 then
-				local lateral, depth
-				if size.X > size.Z then
-					lateral, depth = math.abs(position.X - p.X), math.abs(position.Z - p.Z)
-				else
-					lateral, depth = math.abs(position.Z - p.Z), math.abs(position.X - p.X)
-				end
-				if lateral <= Config.Level.DoorWidth / 2 + 1 then
-					best = math.max(best, math.clamp(1 - depth / 3, 0, 1))
-				end
+	if now - openingsAt > 2 then
+		openings = {}
+		for _, panel in CollectionService:GetTagged(Constants.Tags.Seam) do
+			if panel:IsA("BasePart") and panel.Parent and panel:GetAttribute(Constants.Attributes.Connected) then
+				local p, size = panel.Position, panel.Size
+				local alongX = size.X > size.Z
+				table.insert(openings, {
+					x = p.X,
+					z = p.Z,
+					top = p.Y + size.Y / 2,
+					floor = p.Y - size.Y / 2,
+					along = alongX and "x" or "z",
+					half = (alongX and size.X or size.Z) / 2,
+					depth = (alongX and size.Z or size.X) / 2,
+				})
 			end
 		end
+		openingsAt = now
 	end
-	return best
+	local near = {}
+	for _, o in openings do
+		if math.abs(o.x - position.X) < 12 and math.abs(o.z - position.Z) < 12 then
+			table.insert(near, o)
+		end
+	end
+	return near
+end
+
+-- The floor under a point (his feet land on stairs, not on his root's level).
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Exclude
+floorParams.RespectCanCollide = true
+local function floorAt(model: Model, x: number, z: number, from: number, fallback: number): number
+	local ignore = { model }
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(ignore, other.Character)
+		end
+	end
+	floorParams.FilterDescendantsInstances = ignore
+	local hit = Workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -9, 0), floorParams)
+	if hit and math.abs(hit.Position.Y - fallback) < 3 then
+		return hit.Position.Y
+	end
+	return fallback
+end
+
+-- His replicated root arrives unevenly (walking, 0.03 to 0.15 studs a
+-- frame; running, 0.04 to 0.4), so drawn from it he shuddered along and
+-- his planted feet shivered (the animation pass, 2026-10-11). His body
+-- hangs from an anchored part of this client's own instead, which follows
+-- the root on a smoothed path: carried on by his steadied velocity, pulled
+-- onto the root, and braking hard as he slows, so a stop isn't overshot.
+-- Nothing else moves it, so the joints written for it are drawn as meant.
+-- Returns where it is.
+function GuestController:_drawnRoot(dt: number): Vector3
+	local root = guest.root
+	local anchor = guest.anchor
+	local at = root.Position
+	local velocity = root.AssemblyLinearVelocity
+	if not anchor then
+		anchor = Instance.new("Part")
+		anchor.Name = "DrawnRoot"
+		anchor.Anchored = true
+		anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = false, false, false
+		anchor.Transparency = 1
+		anchor.Size = root.Size
+		anchor.CFrame = root.CFrame
+		anchor.Parent = guest.model
+		guest.anchor = anchor
+		guest.drawnAt, guest.drawnVel = at, velocity
+		local joint = guest.motors.Root
+		if joint then
+			joint.Part0 = anchor
+		end
+	end
+	local p, v = guest.drawnAt, guest.drawnVel
+	if (p - at).Magnitude > G.DrawnSnap then
+		-- Put somewhere (or yanked): there at once.
+		p, v = at, velocity
+	else
+		local follow = G.DrawnFollow
+		local k = velocity.Magnitude < v.Magnitude and G.DrawnBrake or follow[1]
+		v = v:Lerp(velocity, math.min(1, dt * k))
+		p = (p + v * dt):Lerp(at, math.min(1, dt * follow[2]))
+	end
+	guest.drawnAt, guest.drawnVel = p, v
+	anchor.CFrame = root.CFrame.Rotation + p
+	return p
 end
 
 function GuestController:_frame(dt: number)
 	local model, root = guest.model, guest.root
-	local position = root.Position
-	guest.parked = position.Y > 200
+	local position = self:_drawnRoot(dt)
+	local drawn = guest.anchor.CFrame
+	guest.parked = root.Position.Y > 200
 	if guest.parked then
 		-- Not in the house: only a face at the glass can show (it doesn't
 		-- need his body).
@@ -300,25 +369,32 @@ function GuestController:_frame(dt: number)
 	end
 
 	local pose = model:GetAttribute("GuestPose") or "Idle"
-	local forward = root.AssemblyLinearVelocity:Dot(root.CFrame.LookVector)
+	-- How he's moving on the floor (the replicated velocity, steadied).
+	local velocity = root.AssemblyLinearVelocity
+	local v = guest.velocity or Vector3.zero
+	v = v:Lerp(Vector3.new(velocity.X, 0, velocity.Z), math.clamp(dt * 12, 0, 1))
+	guest.velocity = v
 	local gazeYaw, gazePitch = nil, nil
 	local target = gazeTarget(model:GetAttribute("GuestGaze"))
 	if target then
-		local neck = root.CFrame * CFrame.new(0, Rig.neckY - Rig.rootY + 0.4, 0)
+		local neck = drawn * CFrame.new(0, Rig.neckY - Rig.rootY + 0.4, 0)
 		local rel = neck:PointToObjectSpace(target)
 		gazeYaw, gazePitch = GuestPose.gazeAngles(rel.X, rel.Y, rel.Z)
 	end
-	local origin = Config.Level.Origin
-	local layout = self.state and self.state.layout
-	local stoop = if layout and layout.mode == "Mansion"
-		then mansionStoop(position)
-		else GuestPose.stoop(
-			position.X - origin.x,
-			position.Z - origin.z,
-			Config.Level.CellSize,
-			Config.Level.DoorWidth / 2
-		)
+	local look = drawn.LookVector
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	flatLook = flatLook.Magnitude > 0.01 and flatLook.Unit or Vector3.new(0, 0, -1)
+	local rootIn = { x = position.X, y = position.Y, z = position.Z, fx = flatLook.X, fz = flatLook.Z }
+	-- Ducking for a doorway he's coming to, under or through.
+	local stoop = GuestPose.doorStoop(openingsNear(position), rootIn, v.X, v.Z)
 	local lean = model:GetAttribute("GuestLean") or 0
+	-- His hand on the door frame as he peeks (Stalk publishes where).
+	local gripAt = model:GetAttribute("GuestGrip")
+	local grip = nil
+	if typeof(gripAt) == "Vector3" then
+		local g = drawn:PointToObjectSpace(gripAt)
+		grip = { g.X, g.Y, g.Z }
+	end
 	local camera = Workspace.CurrentCamera
 	local now = os.clock()
 	local mood = model:GetAttribute("GuestMood")
@@ -352,9 +428,16 @@ function GuestController:_frame(dt: number)
 	end
 	guest.lastStoop = stoop
 	local unfold = math.clamp(((guest.unfoldUntil or 0) - now) / G.UnfoldSeconds, 0, 1)
+	local floorY = position.Y - Rig.rootY
 	local values, planted = GuestPose.step(guest.pose, {
 		pose = pose,
-		forward = forward,
+		root = rootIn,
+		vx = v.X,
+		vz = v.Z,
+		floor = function(x, z)
+			return floorAt(model, x, z, position.Y, floorY)
+		end,
+		grip = grip,
 		tilt = (model:GetAttribute("HeadTilt") or 14),
 		lean = lean,
 		stoop = stoop,
@@ -369,14 +452,49 @@ function GuestController:_frame(dt: number)
 		random = math.random,
 	}, dt)
 
+	-- His coat's skirt hangs with its weight (the owner, 2026-10-11: "some
+	-- strange movement with the bottom of his coat when he ducks"): it
+	-- follows each thigh only a little and only so far, hangs level however
+	-- his hips tip, and lags like heavy cloth.
+	guest.coat = guest.coat or { Left = { 0, 0, 0, 0 }, Right = { 0, 0, 0, 0 } }
+	local hips = values.Root
+	for side, c in guest.coat do
+		local hip = values[side .. "Hip"]
+		if hip then
+			local swing = math.clamp(hip[1] * G.CoatSwing, -G.CoatMax[1], G.CoatMax[2]) - hips[1]
+			local flare = math.clamp(hip[3] * G.CoatSwing, -0.12, 0.12) - hips[3]
+			c[1], c[2] = Kinematics.spring(c[1], c[2], swing, 9, dt)
+			c[3], c[4] = Kinematics.spring(c[3], c[4], flare, 9, dt)
+		end
+	end
+
 	local shown = visible or fade ~= nil
 	if shown then
-		-- In your light he moves like a stop-motion puppet: his joints only
-		-- take their new places every so often. In the dark, smooth.
+		-- Smooth, but when your light first finds him he jerks like a
+		-- stop-motion puppet for a moment: his joints only take their new
+		-- places every so often (the owner, 2026-10-11: "rarer and
+		-- deliberate"). Your light has to leave him a while before it can
+		-- do it again. Broken (Breaking), a burst now and then in the dark too.
 		local write = true
 		local form = model:GetAttribute("GuestForm") or 0
-		-- Broken (Breaking), he moves in stutters even in the dark.
-		if beam or form >= 2 then
+		if beam then
+			guest.beamOffSince = nil
+			if not guest.burstSpent then
+				guest.burstSpent = true
+				guest.burstUntil = now + G.StutterBurst
+			end
+		else
+			guest.beamOffSince = guest.beamOffSince or now
+			if guest.burstSpent and now - guest.beamOffSince >= G.StutterRearm then
+				guest.burstSpent = false
+			end
+		end
+		if form >= 2 and now >= (guest.nextBreakingBurst or 0) then
+			local every = G.BreakingBurstEvery
+			guest.nextBreakingBurst = now + every[1] + math.random() * (every[2] - every[1])
+			guest.burstUntil = math.max(guest.burstUntil or 0, now + G.StutterBurst)
+		end
+		if now < (guest.burstUntil or 0) then
 			if now < (guest.nextStutter or 0) then
 				write = false
 			else
@@ -392,11 +510,10 @@ function GuestController:_frame(dt: number)
 					m.Transform = CFrame.new(value[4], value[5], value[6]) * CFrame.Angles(value[1], value[2], value[3])
 				end
 			end
-			-- His coat's skirt follows each thigh part of the way.
-			for _, side in { "Left", "Right" } do
-				local m, hip = guest.motors[side .. "Coat"], values[side .. "Hip"]
-				if m and hip then
-					m.Transform = CFrame.Angles(hip[1] * G.CoatSwing, 0, hip[3] * G.CoatSwing)
+			for side, c in guest.coat do
+				local m = guest.motors[side .. "Coat"]
+				if m then
+					m.Transform = CFrame.Angles(c[1], 0, c[3])
 				end
 			end
 		end
@@ -556,10 +673,12 @@ function GuestController:_disguise(friendId: number?)
 			d.LocalTransparencyModifier = visible and 0 or 1
 		end
 	end
-	-- Feet on his floor: his root rides higher than a person's.
-	root.CFrame = guest.root.CFrame * CFrame.new(0, -(GuestPose.Rig.rootY - PlayerPose.Rig.rootY), 0)
+	-- Feet on his floor: his root rides higher than a person's. (On the
+	-- root his body is drawn from: see _drawnRoot.)
+	local base = guest.anchor or guest.root
+	root.CFrame = base.CFrame * CFrame.new(0, -(GuestPose.Rig.rootY - PlayerPose.Rig.rootY), 0)
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = guest.root
+	weld.Part0 = base
 	weld.Part1 = root
 	weld.Parent = root
 	clone.Parent = Workspace

@@ -1068,14 +1068,29 @@ Config.Guest = {
 	EyeShineCone = Config.Torch.Angle / 2 - 6, -- ...and inside its bright middle, degrees off centre
 	FootstepVolume = { Walk = 0.45, Run = 0.9, Creep = 0.16, BackAway = 0.28, Crawl = 0.5 },
 	-- The look (Controllers/GuestController, the mask over the dark).
-	StutterSeconds = { 0.07, 0.14 }, -- in your beam his joints jump on this often (stop-motion)
+	StutterSeconds = { 0.07, 0.14 }, -- in a stutter his joints jump on this often (stop-motion)
+	-- Rarer and deliberate (the owner, 2026-10-11): smooth, but when your beam
+	-- first lands on him a burst this long; your light must be off him this
+	-- long before it can happen again; at Breaking a burst every so often.
+	StutterBurst = 0.45,
+	StutterRearm = 2,
+	BreakingBurstEvery = { 4, 8 },
 	LightSnapSeconds = 0.12, -- his head snaps to your light this fast when it lands
 	ExhaleAfter = 2, -- held longer than this, he breathes out when let go
 	UnfoldSeconds = 0.5, -- straightening up past a door frame
+	-- Each client draws his body on a smoothed path after his replicated
+	-- root (GuestController:_drawnRoot): his velocity steadied at [1]/s and
+	-- the path pulled onto the root at [2]/s; slowing, the velocity drops at
+	-- DrawnBrake/s (no overshoot at a stop); further off than DrawnSnap
+	-- studs, it jumps there (put somewhere).
+	DrawnFollow = { 10, 8 },
+	DrawnBrake = 28,
+	DrawnSnap = 5,
 	EyeGlow = { 0.45, 0.6, 0.8 }, -- his eyes glow this much in the dark when he faces you, by form (1 in your torch)
 	EyeGlowRange = 30,
 	GapeRange = 7, -- from Fraying, closer than this his mouth hangs open
-	CoatSwing = 0.6, -- his coat's skirt follows each thigh this much of the way (a flare, not trouser legs)
+	CoatSwing = 0.3, -- his coat's skirt follows each thigh this much of the way (a flare, not trouser legs)
+	CoatMax = { 0.16, 0.3 }, -- and no further back or forward than this (radians): heavy wool hangs
 	-- Wrong between looks (GuestController._maskBetweenLooks): look away and
 	-- back, and his mask may have slid round his head; it turns back as you watch.
 	MaskTurnChance = { 0.3, 0.5, 0.75 }, -- per look back, by form
@@ -1129,6 +1144,8 @@ Config.Guest = {
 	PeekLateral = 4.6,
 	PeekWallClearance = 1.2,
 	PeekHideLateral = 8.2,
+	GripHeight = 6.2, -- peeking, his hand holds the door frame this high, his face out above it (Stalk:_gripFor)
+	FingersGripHeight = 7.3, -- only his fingers round the frame: high on it, where his face would be
 	PeekMinDistance = { [1] = 25, [2] = 12, [3] = 8 }, -- (doc) never closer than 25 at tier 1
 	-- Being seen.
 	ViewConeDegrees = 110, -- a Witness's field of view, wide

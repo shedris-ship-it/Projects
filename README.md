@@ -142,7 +142,7 @@ beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (hi
 botrun [fast] [flee|hide] (the bot plays the run with your character and reports the numbers; again stops it) · botrun plan
 inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
 down [name] · revive [name] · steps · clip
-guest here [studs] · guest walk · guest pose <name> · guest form <0-2> · guest smile <0-1>
+guest here [studs] · guest walk · guest reel [beat|stop] (every way he moves, near you, captioned; or one beat over and over) · guest pose <name> · guest form <0-2> · guest smile <0-1>
 guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest off
 guest mood [id|off] (his mood: Curious, Stalking, Host, Playful, Patient, Irritated) · guest temperament [id] (Patient, Restless, Playful, Hungry)
 guest move MakeWay|FingersPeek|HallwayStand|BehindTheDoor|HostAction|MimicVoice|SlowWithdraw|Duck (his new ways)
