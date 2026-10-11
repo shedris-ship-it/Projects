@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-11.160",
-	note = "playtest fixes: no prompt fires on a click, E steps back, revive you can see, 30 s down, a slow jump, toys fall, drawers worth opening",
+	id = "2026-10-11.161",
+	note = "the audit: desk drawers open with E, the Dossier scrolls to its end, text that fits, tips for a friend down and for finds",
 }

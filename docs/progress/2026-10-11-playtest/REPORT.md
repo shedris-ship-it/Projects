@@ -1,6 +1,6 @@
 # The owner's playtest of 2026-10-11, and an audit before the next phase
 
-Builds `2026-10-11.160` onwards, branch `claude/overnight-foundation`. The owner's seven notes, all fixed, then a pass through the game for anything else in the way of moving on.
+Builds `2026-10-11.160` (the notes) and `.161` (the audit), branch `claude/overnight-foundation`. The owner's seven notes, all fixed, then a pass through the game for anything else in the way of moving on.
 
 ## The seven notes
 
