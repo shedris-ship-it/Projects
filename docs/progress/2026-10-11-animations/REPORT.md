@@ -92,3 +92,13 @@ New specs: `Kinematics.spec` (7), `GuestGait.spec` (8) and `GuestMotion.spec` (5
 - **Watch the reel**: TC-223 to TC-232 in `docs/TESTING.md`. In Studio, F2 `guest reel`; then `guest reel <beat>` for any one you want to watch closely.
 - Anything that looks wrong in motion: say which beat and what.
 - Not done in this pass: new art for his body (generated meshes for the coat and hands stay plan B, and would go on your account: ask first).
+
+## After the report: the owner's notes (build `.154`)
+
+The owner played the live game (`.152`) and found two things.
+
+**"The tool button is R instead of the hold click as said on the focus marker."** Reproduced in Studio. With the cursor locked to the middle of the screen in first person, a click came in already marked as handled ("processed"). The hands' binding never heard it, while R went through. Nothing on the screen was under the cursor: hiding the focus markers changed nothing, and no prompt takes clicks. In first person the cursor is hidden and locked, so no click can be meant for the screen. The hands now take such a click too (`HandsController:_click`; `_rightClick` for the throw's wind-up), and whichever hears a press first has it, so nothing fires twice. This sits below any tool logic, so it covers everything the click does: the crowbar and bolt cutters on doors, chests and fridges, dragging, carrying, throwing. Checked in Studio in first person: holding the click on the boarded door in the Upper Hall pried it open.
+
+**"I had to look beside the lantern shrine to get the focus marker."** The prompt sits on the shrine's glass, inside its cage. Looking straight at it, the focus checked for a clear line to the middle of the glass, and the cage was in the way. Now a part that encloses the point doesn't count as blocking it (`HandsController:_inSight`, `encloses`). Checked in Studio: looking straight at it gives "Hold E: Light the lantern".
+
+To be sure nothing else had the same problem, I audited every prompt in six houses (seeds 61, 1, 2, 21, 165547210 and 1800820264, for one to four players). That was 816 prompts of about 30 kinds, including lock picking, the safe, crank doors, twin levers and the puzzle stations. For each, I checked from eight sides whether its own prop hides it from the focus. Before the fix, only the lantern shrines were hidden; after it, none were. TC-233, TC-234.

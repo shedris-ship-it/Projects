@@ -188,6 +188,11 @@ The agreed plan, in order:
      - his head top is 6.96–7.27 under an 8-stud frame.
 
      549 tests. Waiting on the owner: TC-223 to TC-232 (watch `guest reel`).
+
+     Then the owner's notes from the live game (build `.154`):
+     - **In first person a click can arrive already marked "processed"** and never reach a ContextActionService binding (R did reach its binding). The hands now also take a click that arrives marked processed while the mouse is locked (`HandsController:_click`, `_rightClick`).
+     - The lantern shrine's focus fixed: `_inSight` ignores a part that encloses the point.
+     - Audit of 816 prompts in six houses: none is hidden by its own prop now. TC-233, TC-234.
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)

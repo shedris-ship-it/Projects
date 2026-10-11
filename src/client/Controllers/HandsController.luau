@@ -104,6 +104,8 @@ function HandsController:Init(controllers)
 	self.aimedThing = nil -- the small thing you're looking at within reach
 	self.focus = nil -- the one thing E is for now (_resolveFocus)
 	self.working = nil -- the tool lock you're working at (ToolWork)
+	self.clickDown = false -- a press of the click is being handled (_click)
+	self.rightDown = false -- ...and of the right button (_rightClick)
 	self.mouseDelta = Vector2.zero
 	self.stick = Vector2.zero
 	self.sentAt = 0
@@ -111,60 +113,36 @@ end
 
 function HandsController:Start()
 	ContextActionService:BindActionAtPriority("ConsensusGrab", function(_, inputState)
-		-- A screen up (a note, a puzzle, the map): the click is its buttons'
-		-- (the squad playtest, 2026-10-10: a click on a note's "Put it down"
-		-- took the note up again).
-		if inputState == Enum.UserInputState.Begin and Ui.modalOpen() then
-			return Enum.ContextActionResult.Pass
-		end
-		local carry = self.carry
-		if carry and carry.viaE then
-			-- Picked up with E: the click throws (held, it winds up).
-			if inputState == Enum.UserInputState.Begin and carry.owned then
-				carry.windingSince = os.clock()
-			elseif
-				(inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel)
-				and carry.windingSince
-			then
-				self:_throw(os.clock() - carry.windingSince)
-			end
-			return Enum.ContextActionResult.Sink
-		end
-		if inputState == Enum.UserInputState.Begin then
-			if self:ToolWork(true) or self:_begin() then
-				return Enum.ContextActionResult.Sink
-			end
-		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-			if self:ToolWork(false) then
-				return Enum.ContextActionResult.Sink
-			elseif self.drag then
-				self:_finish()
-				return Enum.ContextActionResult.Sink
-			elseif self.carry then
-				self:_drop(true)
-				return Enum.ContextActionResult.Sink
-			elseif self.push then
-				self.push = nil
-				return Enum.ContextActionResult.Sink
-			end
-		end
-		return Enum.ContextActionResult.Pass
+		return self:_click(inputState)
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+	-- With the cursor locked to the middle of the screen (first person), a
+	-- click can come in already marked as taken, and the binding above never
+	-- hears it: the owner held the click on boarded-up door with the crowbar
+	-- and nothing happened, while R worked (2026-10-11; Studio showed it: the
+	-- click arrived "processed" with nothing on the screen under it). With the
+	-- cursor hidden and locked nothing on the screen can be meant, so such a
+	-- click is the hands' too. Whichever hears a press first has it (_click).
+	-- (The right button too: the throw's wind-up.)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed or UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self:_click(Enum.UserInputState.Begin)
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+			self:_rightClick(Enum.UserInputState.Begin)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and self.clickDown then
+			self:_click(Enum.UserInputState.End)
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 and self.rightDown then
+			self:_rightClick(Enum.UserInputState.End)
+		end
+	end)
 	-- Hold to wind up, let go to throw (a tap still throws, softly).
 	ContextActionService:BindActionAtPriority("ConsensusThrow", function(_, inputState)
-		local carry = self.carry
-		if inputState == Enum.UserInputState.Begin and carry and carry.owned and not Ui.modalOpen() then
-			carry.windingSince = os.clock()
-			return Enum.ContextActionResult.Sink
-		elseif
-			(inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel)
-			and carry
-			and carry.windingSince
-		then
-			self:_throw(os.clock() - carry.windingSince)
-			return Enum.ContextActionResult.Sink
-		end
-		return Enum.ContextActionResult.Pass
+		return self:_rightClick(inputState)
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
 	-- E (keyboard): the one thing you're looking at (_resolveFocus), tapped
 	-- or held. Ahead of everything else on E.
@@ -479,8 +457,19 @@ function HandsController:_promptsOf(object: Instance, kind: string, near: Instan
 	return claimed, keyed
 end
 
+-- Whether `point` is well inside `part` (not on its skin: a switch on the
+-- far side of a wall stays behind the wall).
+local function encloses(part: BasePart, point: Vector3): boolean
+	local p = part.CFrame:PointToObjectSpace(point)
+	local half = part.Size / 2 - Vector3.new(0.05, 0.05, 0.05)
+	return math.abs(p.X) <= half.X and math.abs(p.Y) <= half.Y and math.abs(p.Z) <= half.Z
+end
+
 -- Nothing solid between your eye and `point` (on `part`) but what's part of
--- `object`.
+-- `object`, or a shell round it: the lantern shrine's cage round its glass
+-- (the owner, 2026-10-11: you had to look beside the shrine for E to find
+-- it, because looking at it the line ran to the glass's middle through the
+-- cage).
 function HandsController:_inSight(eye: Vector3, point: Vector3, part: BasePart, object: Instance): boolean
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -490,7 +479,13 @@ function HandsController:_inSight(eye: Vector3, point: Vector3, part: BasePart, 
 	local distance = toward.Magnitude
 	for _ = 1, 4 do
 		local hit = Workspace:Raycast(eye, toward, params)
-		if not hit or hit.Instance == part or hit.Instance:IsDescendantOf(object) or hit.Instance == object then
+		if
+			not hit
+			or hit.Instance == part
+			or hit.Instance:IsDescendantOf(object)
+			or hit.Instance == object
+			or encloses(hit.Instance, point)
+		then
 			return true
 		end
 		if hit.Distance >= distance - 0.4 then
@@ -804,6 +799,87 @@ function HandsController:_onE(inputState: Enum.UserInputState)
 		return sink
 	end
 	return pass
+end
+
+-- The click (or RT), pressed or let go: throw what you picked up with E,
+-- work a tool lock, drag or carry what you look at. Heard from the binding
+-- or, in first person, from a click marked taken (Start); a press is had by
+-- whichever hears it first, and its letting go by the same.
+function HandsController:_click(inputState: Enum.UserInputState): Enum.ContextActionResult
+	if inputState == Enum.UserInputState.Begin then
+		-- A screen up (a note, a puzzle, the map): the click is its buttons'
+		-- (the squad playtest, 2026-10-10: a click on a note's "Put it down"
+		-- took the note up again).
+		if Ui.modalOpen() then
+			return Enum.ContextActionResult.Pass
+		end
+		if self.clickDown then
+			return Enum.ContextActionResult.Sink
+		end
+		self.clickDown = true
+	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		if not self.clickDown then
+			return Enum.ContextActionResult.Pass
+		end
+		self.clickDown = false
+	else
+		return Enum.ContextActionResult.Pass
+	end
+	local carry = self.carry
+	if carry and carry.viaE then
+		-- Picked up with E: the click throws (held, it winds up).
+		if inputState == Enum.UserInputState.Begin and carry.owned then
+			carry.windingSince = os.clock()
+		elseif
+			(inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel)
+			and carry.windingSince
+		then
+			self:_throw(os.clock() - carry.windingSince)
+		end
+		return Enum.ContextActionResult.Sink
+	end
+	if inputState == Enum.UserInputState.Begin then
+		if self:ToolWork(true) or self:_begin() then
+			return Enum.ContextActionResult.Sink
+		end
+	elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		if self:ToolWork(false) then
+			return Enum.ContextActionResult.Sink
+		elseif self.drag then
+			self:_finish()
+			return Enum.ContextActionResult.Sink
+		elseif self.carry then
+			self:_drop(true)
+			return Enum.ContextActionResult.Sink
+		elseif self.push then
+			self.push = nil
+			return Enum.ContextActionResult.Sink
+		end
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+-- The right button (or LT): hold to wind up what you carry, let go to throw
+-- it (a tap still throws, softly). Heard like the click (_click).
+function HandsController:_rightClick(inputState: Enum.UserInputState): Enum.ContextActionResult
+	local carry = self.carry
+	if inputState == Enum.UserInputState.Begin then
+		if self.rightDown then
+			return Enum.ContextActionResult.Sink
+		end
+		if carry and carry.owned and not Ui.modalOpen() then
+			self.rightDown = true
+			carry.windingSince = os.clock()
+			return Enum.ContextActionResult.Sink
+		end
+	elseif (inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel) and self.rightDown then
+		self.rightDown = false
+		if carry and carry.windingSince then
+			self:_throw(os.clock() - carry.windingSince)
+		end
+		return Enum.ContextActionResult.Sink
+	end
+	return Enum.ContextActionResult.Pass
 end
 
 -- Tools in hand (the owner's solo playtest, 2026-10-08): the crowbar or the

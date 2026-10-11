@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-11.153",
-	note = "his animations: feet that stay planted, a heavy lurching walk, ducking under every frame, a hand on the frame as he peeks",
+	id = "2026-10-11.154",
+	note = "the click works tools in first person; the lantern shrine takes E when you look at it",
 }
