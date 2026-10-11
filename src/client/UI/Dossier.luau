@@ -2,6 +2,7 @@
 -- and what the stalker learned about you.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
 
@@ -149,6 +150,23 @@ function Dossier:Show(data)
 	table.insert(lines, string.format("Hides %d  ·  Pings %d", d.totals.hides, d.totals.pings))
 	self.body.Text = table.concat(lines, "\n")
 	self.gui.Enabled = true
+	task.defer(function()
+		self:_fit()
+	end)
+end
+
+-- As tall as its text. AutomaticSize didn't grow it when the text was set
+-- with the screen off: the debrief stopped after about 23 lines, with nothing
+-- to scroll to (the audit of 2026-10-11).
+function Dossier:_fit()
+	local body = self.body
+	local width = body.AbsoluteSize.X
+	if width <= 0 then
+		return
+	end
+	local bounds = TextService:GetTextSize(body.Text, body.TextSize, body.Font, Vector2.new(width, math.huge))
+	body.AutomaticSize = Enum.AutomaticSize.None
+	body.Size = UDim2.new(1, -10, 0, bounds.Y + 8)
 end
 
 return Dossier

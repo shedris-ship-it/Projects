@@ -47,7 +47,7 @@ Data/Finds lists them (and how many a run); Logic/Finds picks (spec); Services/F
 - seed 1800820264, alone: out at 5:47, 12 steps, none failed; caught once in a hunt while carrying the last heirloom, crawled 12 studs to a lit lantern and got up.
 - seed 4242, a house for four: out at 4:52, 20 steps, none failed, no downs, 5 scares in the first ten minutes.
 
-One number to watch: the bot stopped to let him pass 20 and 16 times (the last report's run: 5). He was seen 2.7 times a minute between hunts. Nothing in this pass touches how he moves, and the bot runs at double speed and so meets him more, but after "rarer and deadlier" that's worth a look in your next playtest: does he get in your way too often?
+One number to watch: the bot stopped to let him pass 20 and 16 times (the last report's run: 5; at build `.150`, 33 to 45). He was seen 2.7 times a minute between hunts. Nothing in this pass touches how he moves, and these are other houses, so it's within what the bot has measured before; but after "rarer and deadlier", it's worth a look in your next playtest: does he get in your way too often?
 
 ## For the owner
 

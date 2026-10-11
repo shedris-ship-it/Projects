@@ -524,7 +524,10 @@ function Map:_renderMap()
 		"Diamonds: doorways; a ring: seen, not done yet.  A tick: nothing left there.  note: read here.  At the table: places set.",
 		{
 			Position = UDim2.fromOffset(0, rowPixels * rows + 4),
-			Size = UDim2.fromOffset(width * scale, 18),
+			-- (A small floor, the attic's, is narrower than the line: it wraps.)
+			Size = UDim2.fromOffset(math.max(width * scale, 360), 18),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
 			TextSize = 12,
 			TextColor3 = Ui.Theme.textDim,
 			Parent = canvas,

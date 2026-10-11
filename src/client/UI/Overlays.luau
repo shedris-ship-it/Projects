@@ -53,7 +53,7 @@ function Overlays.new(ctx)
 	self.stateFrame = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.62, 0),
-		Size = UDim2.fromOffset(520, 70),
+		Size = UDim2.fromOffset(560, 86),
 		BackgroundColor3 = Ui.Theme.ink,
 		BackgroundTransparency = 0.3,
 		Visible = false,
@@ -68,7 +68,9 @@ function Overlays.new(ctx)
 	})
 	self.stateText = Ui.label("", {
 		Position = UDim2.fromOffset(0, 28),
-		Size = UDim2.new(1, 0, 0, 22),
+		Size = UDim2.new(1, 0, 0, 38),
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 14,
 		TextColor3 = Ui.Theme.textDim,
