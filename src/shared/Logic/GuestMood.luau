@@ -191,7 +191,12 @@ end
 
 local function set(state, id: string, now: number, rng, cfg, reason: string): boolean
 	local seconds = cfg and cfg.MoodSeconds or { 60, 180 }
-	state.untilT = now + rng:NextNumber(seconds[1], seconds[2])
+	-- The night's own mood (its temperament's `dominant`) lasts longer, so
+	-- it's most of the night: a new mood is never the one he's in, so by
+	-- draws alone it could never be more than half.
+	local t = state.temperament
+	local hold = (t and t.dominant == id and cfg and cfg.DominantMoodHold) or 1
+	state.untilT = now + rng:NextNumber(seconds[1], seconds[2]) * hold
 	state.reason = reason
 	if state.mood == id then
 		return false

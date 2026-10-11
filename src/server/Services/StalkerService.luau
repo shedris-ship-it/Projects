@@ -220,7 +220,7 @@ function StalkerService:Begin(ctx)
 	end
 	self.services.RunLogService:Temperament(self.temperament.id)
 	self.tactician = Tactician.new(self.services, self.perception, archetype, self.rng:Fork("tactics"))
-	self.director = Director.new(self.services, self.rng:Fork("director"), ctx.difficulty)
+	self.director = Director.new(self.services, self.rng:Fork("director"), ctx.difficulty, self.temperament)
 	self.stalk = Stalk.new(self)
 	self.retreat = Retreat.new(self)
 	self.mode = Modes.Dormant
@@ -580,7 +580,16 @@ function StalkerService:ErrandLines(): { string }
 	-- (Not before he ever came in: a run ended in the first minute and a
 	-- half has nothing to say about his night.)
 	if self.temperament and self.arrived then
-		table.insert(lines, self.temperament.line)
+		-- Who he was tonight, how you could have told, and how to play him
+		-- next time (Data/Temperaments; "a Guest you can read").
+		local t = self.temperament
+		table.insert(lines, t.line)
+		if t.sign then
+			table.insert(lines, "The sign: " .. t.sign .. ".")
+		end
+		if t.counter then
+			table.insert(lines, "Next time: " .. t.counter .. ".")
+		end
 	end
 	for _, line in self.stalk and self.stalk:ErrandLines() or {} do
 		table.insert(lines, line)
@@ -606,20 +615,47 @@ function StalkerService:_heirlooms(now: number)
 	end
 	self.haunts = haunts
 	local worldService = self.services.WorldService
-	-- The scent: the carrier's room, every few seconds.
+	-- The scent: the carrier's room, every few seconds (more often for a
+	-- hungry Guest: Data/Temperaments `scent`).
 	if now >= self.nextScent then
-		self.nextScent = now + Config.Scent.Interval
-		for _, sensed in Scent.targets(heirlooms, now, Config.Scent) do
-			local player = sensed.player
-			local at = sensed.position or self.services.PlayerStateService:Position(player)
+		self.nextScent = now + Config.Scent.Interval * GuestMood.number(self.mood, "scent")
+		local sensed = Scent.targets(heirlooms, now, Config.Scent)
+		for _, s in sensed do
+			local player = s.player
+			local at = s.position or self.services.PlayerStateService:Position(player)
 			local room = at and worldService:RoomAt(at)
 			local record = room and worldService:Room(room)
 			if record and player.Parent then
 				self.perception:_remember(player, record.center, Config.Scent.Confidence, false)
 			end
 		end
+		-- A hungry Guest sniffs as he smells it (his sign).
+		if #sensed > 0 and self.temperament and self.temperament.sniffs then
+			self:Sniff(now)
+		end
 	end
 	self:_errands(now, heirlooms)
+end
+
+-- A long, slow sniff, heard by everyone within Config.Guest.SniffRange
+-- walking studs of him (a sign of him: Noticed). In a hunt when he has lost
+-- you (`force`); between hunts a hungry Guest's sign (Data/Temperaments
+-- `sniffs`), at most once every SniffGap.
+function StalkerService:Sniff(now: number, force: boolean?)
+	if not self.bodyCtl or self.parked or (not force and now < (self.nextSniff or 0)) then
+		return
+	end
+	self.nextSniff = now + G.SniffGap
+	local here = self.body.root.Position
+	local head = self.bodyCtl:ExposedPoints()[1]
+	local ps = self.services.PlayerStateService
+	for _, player in ps:RunPlayers() do
+		local pos = ps:Position(player)
+		if pos and self.services.WorldService:Separation(pos, here) <= G.SniffRange then
+			Net.get("GuestEvent"):FireClient(player, { kind = "sniff", position = head })
+			self:Noticed(player, now)
+		end
+	end
 end
 
 -- Stalk couldn't reach an errand's spot: not again for a while.
@@ -944,6 +980,9 @@ function StalkerService:DebugGuest(player: Player, args: { string }): string
 				self.debugTemperament = t.id
 				self.temperament = t
 				self.mood.temperament = t
+				if self.director then
+					self.director:Lean(t)
+				end
 				self.services.RunLogService:Temperament(t.id)
 				return "temperament " .. t.id .. ": " .. t.line
 			end
@@ -2693,14 +2732,7 @@ function StalkerService:_lostStep(now: number, dt: number, speed: number)
 		end
 		lost.stage = "listen"
 		lost.untilT = now + self.rng:NextNumber(G.LostSeconds[1], G.LostSeconds[2])
-		local head = body:ExposedPoints()[1]
-		for _, player in self.services.PlayerStateService:RunPlayers() do
-			local pos = self.services.PlayerStateService:Position(player)
-			if pos and self.services.WorldService:Separation(pos, here) <= 30 then
-				Net.get("GuestEvent"):FireClient(player, { kind = "sniff", position = head })
-				self:Noticed(player, now)
-			end
-		end
+		self:Sniff(now, true)
 	end
 	if lost.stage == "listen" then
 		body:Hold()

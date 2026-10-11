@@ -1291,7 +1291,8 @@ function Stalk:_trackPresence(dt: number, here: Vector3): Player?
 		self.nearFor[player] = near and (self.nearFor[player] or 0) + dt or 0
 		local budget = self.presence[player] or {}
 		self.presence[player] = budget
-		if StalkRules.parkBudget(budget, near, dt, G) and near then
+		-- (A restless Guest's budget is smaller: Data/Temperaments `park`.)
+		if StalkRules.parkBudget(budget, near, dt, G, self:_number("park")) and near then
 			overstayed = player
 		end
 	end
@@ -2029,10 +2030,16 @@ end
 function Stalk:_choose(ctx)
 	local feasibility = {}
 	local intro = self:_intro()
+	-- The night's first minutes show his temperament (Data/Temperaments
+	-- `intro`), among the far, brief glimpses the intro allows.
+	local temperament = self.service.temperament
+	local introLean = intro and temperament and temperament.intro or nil
 	for _, move in StalkMoves.List do
 		feasibility[move.id] = table.find(move.tiers, ctx.tier) and 1 or 0
 		if intro and not G.Intro.Moves[move.id] then
 			feasibility[move.id] = 0
+		elseif introLean and introLean[move.id] then
+			feasibility[move.id] *= introLean[move.id]
 		end
 	end
 	-- Moves that need a target he can place are off while he's lost them;
@@ -2110,9 +2117,14 @@ function Stalk:_choose(ctx)
 			feasibility.HallwayStand = 0
 		end
 	end
-	-- A friend's voice: squads, and on Hard only (the owner, 2026-10-07).
-	local difficulty = self.service.difficulty
-	if #self.services.PlayerStateService:ActivePlayers() < 2 or not (difficulty and difficulty.MimicVoice) then
+	-- A friend's voice: squads, on Hard, or from a playful Guest (StalkRules.voiceAllowed).
+	if
+		not StalkRules.voiceAllowed(
+			#self.services.PlayerStateService:ActivePlayers(),
+			self.service.difficulty,
+			self.service.temperament
+		)
+	then
 		feasibility.MimicVoice = 0
 	end
 	if feasibility.CreepBehind > 0 then
@@ -2149,6 +2161,11 @@ function Stalk:_begin(id: string, ctx, scored)
 	self.move = move
 	self.lastUsed[id] = ctx.now
 	self.counts[id] = (self.counts[id] or 0) + 1
+	-- A hungry Guest sniffs the air as he sets off to search (his sign).
+	local temperament = self.service.temperament
+	if id == "Search" and temperament and temperament.sniffs then
+		self.service:Sniff(ctx.now)
+	end
 	if LULLED[id] and ctx.tier >= 1 then
 		local range = G.Lull[math.clamp(ctx.tier, 1, 3)]
 		self.lullUntil = math.max(self.lullUntil, ctx.now + self:_introRange(range, "Lull"))

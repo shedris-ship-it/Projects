@@ -374,16 +374,31 @@ end
 -- The presence budget: between hunts he may stand within ParkRadius of one
 -- player for at most ParkBudget seconds in any ParkWindow (a leaky bucket).
 -- Spent, he must move off, and stays off until it has drained by half.
--- state = { used, spent } per player, kept by the caller. Returns spent.
-function StalkRules.parkBudget(state, near: boolean, dt: number, cfg): boolean
-	local drain = cfg.ParkBudget / cfg.ParkWindow
+-- `scale` shrinks or grows the budget (the night's temperament: a restless
+-- Guest never stays long). state = { used, spent } per player, kept by the
+-- caller. Returns spent.
+function StalkRules.parkBudget(state, near: boolean, dt: number, cfg, scale: number?): boolean
+	local budget = cfg.ParkBudget * (scale or 1)
+	local drain = budget / cfg.ParkWindow
 	state.used = math.max(0, (state.used or 0) + (near and dt or 0) - dt * drain)
-	if state.used >= cfg.ParkBudget then
+	if state.used >= budget then
 		state.spent = true
-	elseif state.spent and state.used <= cfg.ParkBudget / 2 then
+	elseif state.spent and state.used <= budget / 2 then
 		state.spent = false
 	end
 	return state.spent == true
+end
+
+-- His friend's-voice trick (Stalk MimicVoice): only for a squad (it speaks
+-- with a friend's voice), and then on Hard (the owner, 2026-10-07) or on any
+-- difficulty from a playful Guest (the owner, 2026-10-11; Data/Temperaments
+-- `voice`). `difficulty`: a Config.Difficulty entry; `temperament`: the
+-- night's.
+function StalkRules.voiceAllowed(activePlayers: number, difficulty, temperament): boolean
+	if activePlayers < 2 then
+		return false
+	end
+	return (difficulty ~= nil and difficulty.MimicVoice == true) or (temperament ~= nil and temperament.voice == true)
 end
 
 -- Did the lunge connect? Only if you're still within reach when it lands.

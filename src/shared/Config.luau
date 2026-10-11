@@ -1296,11 +1296,16 @@ Config.Guest = {
 	StepsHeardRange = 24, -- walking studs: his steps count as a sign of him this close
 	-- His moods (Logic/GuestMood) and temperament (Data/Temperaments).
 	MoodSeconds = { 60, 180 }, -- how long a mood lasts before he takes on another
+	DominantMoodHold = 2, -- the night's own mood (Data/Temperaments `dominant`) lasts this many times as long
 	LonelySeconds = 90, -- seeing nobody this long makes him curious or playful
 	-- A mood is "seen" (and taught: GuestMood.lesson, UI/Tips) once he has
 	-- stood in your view this long in it, this close, his head on screen.
 	MoodSeenSeconds = 1.5,
 	MoodSeenRange = 45,
+	-- His sniff (StalkerService:Sniff): heard this far, by walking studs; a
+	-- hungry Guest's (his sign between hunts) at most this often.
+	SniffRange = 30,
+	SniffGap = 25,
 	-- "After you" (StalkRules.makesWay): between hunts he never parks in your way.
 	ParkSeconds = 6, -- standing within ParkRadius of a player this long, he makes way
 	MakeWayRange = 10, -- a player walking his way this close: he makes way
@@ -1963,8 +1968,9 @@ Config.Difficulty = {
 		TelegraphScale = 0.7,
 		IntroScale = 0.6, -- a shorter intro (Config.Pacing.IntroSeconds)
 		DownsBeforeLost = 2,
-		-- A friend's voice from behind a door (Stalk MimicVoice): Hard only
-		-- (the owner, 2026-10-07).
+		-- A friend's voice from behind a door (Stalk MimicVoice): Hard, for
+		-- every temperament (the owner, 2026-10-07); on Normal only a playful
+		-- Guest does it (the owner, 2026-10-11; Data/Temperaments `voice`).
 		MimicVoice = true,
 	},
 }

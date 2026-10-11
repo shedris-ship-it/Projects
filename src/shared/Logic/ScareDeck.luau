@@ -5,6 +5,25 @@
 local ScareDeck = {}
 ScareDeck.__index = ScareDeck
 
+-- The cards with their weights leaned by `multipliers` (id -> factor: the
+-- night's temperament, Data/Temperaments `cards`), rounded to whole copies.
+-- A card leaned to nothing stays at one copy unless its factor is 0: a
+-- temperament makes a scare rarer, never gone by accident.
+function ScareDeck.weighted(cards, multipliers)
+	local out = {}
+	for _, card in cards do
+		local factor = multipliers and multipliers[card.id]
+		if factor == nil then
+			table.insert(out, card)
+		elseif factor > 0 then
+			local copy = table.clone(card)
+			copy.weight = math.max(1, math.floor((card.weight or 1) * factor + 0.5))
+			table.insert(out, copy)
+		end
+	end
+	return out
+end
+
 -- cards: { { id, weight = n (copies in the deck), big = bool, cooldown = s,
 --   minDrift = n (a Dread threshold since 2026-10-06), minAct = n, once = bool } }
 function ScareDeck.new(cards, rng, bigGap: number)
