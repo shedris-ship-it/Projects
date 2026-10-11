@@ -257,9 +257,12 @@ function SquadProfileService:Dossier(extra)
 	end
 	local signals = self.profile:Signals(now)
 	local habits = {}
-	if signals.cohesion > 0.6 then
+	-- (Only when there was someone to stick with: alone, the spread was never
+	-- measured, and its default read as "You split up".)
+	local measured = self.profile.averages.spread ~= nil
+	if measured and signals.cohesion > 0.6 then
 		table.insert(habits, "You stuck together. It waited for someone to stray.")
-	elseif signals.cohesion < 0.3 then
+	elseif measured and signals.cohesion < 0.3 then
 		table.insert(habits, "You split up. It noticed who was alone.")
 	end
 	if signals.flashlightHabit > 0.6 then

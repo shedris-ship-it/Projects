@@ -574,7 +574,9 @@ end
 -- he did for himself.
 function StalkerService:ErrandLines(): { string }
 	local lines = {}
-	if self.temperament then
+	-- (Not before he ever came in: a run ended in the first minute and a
+	-- half has nothing to say about his night.)
+	if self.temperament and self.arrived then
 		table.insert(lines, self.temperament.line)
 	end
 	for _, line in self.stalk and self.stalk:ErrandLines() or {} do

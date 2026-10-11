@@ -163,9 +163,33 @@ local TIPS = {
 			return type(line) == "string" and string.find(line, "piano", 1, true) ~= nil
 		end,
 	},
+	-- The owner's playtest (2026-10-11): "revive is unintuitive".
+	{
+		id = "revive",
+		text = "A friend is down. Go to them, look at them and hold E for 4 seconds: they have 30.",
+		when = function()
+			for _, other in Players:GetPlayers() do
+				if other ~= player and other:GetAttribute(PA.State) == Constants.PlayerStates.Downed then
+					return true
+				end
+			end
+			return false
+		end,
+		urgent = true,
+	},
+	-- ...and "useless items kinda suck" (Data/Finds).
+	{
+		id = "finds",
+		text = "Drawers keep useful things: E puts batteries in your torch, takes painkillers, reads letters, pockets matches. The click picks anything up to throw.",
+		when = function(self)
+			local hands = self.ctx.controllers.HandsController
+			local focus = hands and hands:Focus()
+			return focus ~= nil and focus.object:GetAttribute("FindId") ~= nil
+		end,
+	},
 	{
 		id = "battery",
-		text = "Your torch is going. Clip it (any slot but 1) to spare it; a lit Lantern room recharges it; the safe room keeps batteries.",
+		text = "Your torch is going. Clip it (any slot but 1) to spare it; a lit Lantern room recharges it; drawers and the safe room keep batteries.",
 		when = function()
 			local battery = player:GetAttribute(PA.Battery)
 			return type(battery) == "number" and battery < 0.6
