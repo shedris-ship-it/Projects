@@ -71,7 +71,8 @@ The owner, after seeing the night through the new windows: "the outside of the w
 | | |
 | --- | --- |
 | `9_woods_before.jpg` | Before: bare trunks, an open black lawn |
-| `10_woods_dense_first_pass.jpg` | After, the first pass: a wall of crowns against the sky, undergrowth below (it's raining by then). Their round undersides lined up like mushrooms, so the second pass added crowns at different heights, young trees and conifers; not yet seen in Studio (it stopped drawing while minimized) |
+| `10_woods_dense_first_pass.jpg` | After, the first pass: a wall of crowns against the sky, undergrowth below (it's raining by then). Their round undersides lined up like mushrooms, so the second pass added crowns at different heights, young trees and conifers |
+| `11_woods_second_pass.jpg` | The second pass, the same spot: a ragged skyline, conifer spires, the sky only in gaps |
 
 ## Next in V2
 
