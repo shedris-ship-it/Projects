@@ -39,6 +39,7 @@ local sprintHeld = false
 local stamina = P.StaminaMax
 local exhausted = false
 local cameraLight: SpotLight? = nil
+local coreLight: SpotLight? = nil -- the beam's hot core (Config.Torch.Core)
 local lightPart: BasePart? = nil
 local flashlightAim: CFrame? = nil
 local peekYaw, peekPitch = 0, 0
@@ -778,6 +779,14 @@ function ActionController:_updateFlashlight(dt: number)
 		cameraLight.Shadows = true
 		cameraLight.Face = Enum.NormalId.Front
 		cameraLight.Parent = lightPart
+		coreLight = Instance.new("SpotLight")
+		coreLight.Name = "Core"
+		coreLight.Angle = Config.Torch.Core.Angle
+		coreLight.Range = Config.Torch.Core.Range
+		coreLight.Brightness = Config.Torch.Core.Brightness
+		coreLight.Color = Color3.fromRGB(255, 240, 212)
+		coreLight.Face = Enum.NormalId.Front
+		coreLight.Parent = lightPart
 	end
 	if lightPart.Parent ~= Workspace.CurrentCamera then
 		lightPart.Parent = Workspace.CurrentCamera
@@ -808,20 +817,30 @@ function ActionController:_updateFlashlight(dt: number)
 	else
 		cameraLight.Range = Config.Torch.Range
 		cameraLight.Angle = Config.Torch.Angle
-		cameraLight.Brightness = Config.Torch.Brightness
+		cameraLight.Brightness = Config.Torch.Spill
 	end
+	local core = Config.Torch.Core.Brightness
 	-- He's breathing right behind you: the torch stutters (GuestController,
 	-- a tell). With reduced flicker it only dips.
 	if os.clock() < (self.torchStutterUntil or 0) then
 		if self.state.settings.reduceFlicker then
 			cameraLight.Brightness *= 0.45
+			core *= 0.45
 		elseif math.random() < 0.55 then
-			cameraLight.Brightness *= math.random() * 0.2
+			local k = math.random() * 0.2
+			cameraLight.Brightness *= k
+			core *= k
 		end
 	end
 	cameraLight.Enabled = on
 	local _, graphics = self.state:Graphics()
 	cameraLight.Shadows = graphics.torchShadows
+	if coreLight then
+		-- The hot core: only from the lens in your hand (not clipped).
+		coreLight.Enabled = on and not clipped
+		coreLight.Brightness = core
+		coreLight.Shadows = graphics.torchShadows
+	end
 	local head = character and character:FindFirstChild("Head")
 	local headLight = head and head:FindFirstChild("Flashlight")
 	if headLight then

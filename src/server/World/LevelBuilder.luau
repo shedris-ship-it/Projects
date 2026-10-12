@@ -1140,6 +1140,11 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 	doorModel.Parent = roomA.model
 	setId(slab, doorId, "Door")
 	tag(slab, Tags.Door)
+	if hidden then
+		-- (Clients leave it out of anything that would give it away, such as
+		-- light under the door: Controllers/DoorLightController.)
+		slab:SetAttribute("HiddenDoor", true)
+	end
 	local door = {
 		id = doorId,
 		seamId = seam.id,

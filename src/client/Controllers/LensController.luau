@@ -296,9 +296,9 @@ function LensController:_update(dt: number)
 		-- Your own torch: your eyes adjust to its pool, so the dark round the
 		-- beam stays dark (ActionController's light, under the camera).
 		local torchPart = camera:FindFirstChild("ConsensusFlashlight")
-		local torch = torchPart and torchPart:FindFirstChildWhichIsA("SpotLight")
+		local torch = torchPart and torchPart:FindFirstChild("SpotLight") -- the spill, not the Core
 		if torch and torch.Enabled then
-			total += L.Exposure.Torch * math.clamp(torch.Brightness / Config.Torch.Brightness, 0, 1.5)
+			total += L.Exposure.Torch * math.clamp(torch.Brightness / Config.Torch.Spill, 0, 1.5)
 		end
 		self.light = total
 	end

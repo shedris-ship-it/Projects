@@ -110,9 +110,15 @@ Config.Witness = {
 -- squad playtest (2026-10-08): "widen the light but shorten the distance"
 -- (was a 48-50 degree cone to 42 studs).
 Config.Torch = {
-	Angle = 72, -- the SpotLight's full cone, degrees
+	Angle = 72, -- the SpotLight's full cone, degrees (the server's stare reads this cone)
 	Range = 30,
 	Brightness = 2.6, -- your own (from the torch's lens)
+	-- A real torch has a hot core inside a softer spill (the visual rework V2):
+	-- your own copy adds a narrow core on top of the full cone, and dims the
+	-- full cone to Spill, so the middle burns and the edge falls away. Looks
+	-- only: the cone the rules use is unchanged.
+	Spill = 1.9,
+	Core = { Angle = 30, Brightness = 1.6, Range = 36 },
 	OthersBrightness = 2.4, -- the one on your head that the squad sees
 	-- Clipped to your shirt while both hands work a tool lock (section 20).
 	-- `Ahead` keeps your own copy in front of your chest, not inside it.
@@ -887,6 +893,25 @@ Config.PostFX = {
 	-- Flashlight drag: the beam's aim trails the camera slightly on quick turns.
 	-- Higher follows faster. The camera itself never moves (doc section 4).
 	FlashlightFollow = 12,
+}
+
+-- Light under a shut door (the visual rework V2; Controllers/DoorLightController):
+-- a line in the gap and a little spill on the dark side, when the room
+-- behind is lit and yours is dark. Decoration only.
+Config.DoorLight = {
+	Radius = 45, -- studs from the camera
+	Max = 8, -- doors lit this way at once (the nearest)
+	ShutAngle = 1.5, -- degrees from shut (the slab's Value)
+	LitAt = 0.35, -- the lit side burns at least this share of its lights
+	DarkAt = 0.15, -- the dark side at most this
+	LineHeight = 0.05, -- studs: the gap under the slab
+	LineDepth = 0.12,
+	Gap = 0.0, -- the line's top sits this far below the slab
+	LineTransparency = 0.25,
+	Range = 5, -- a fan on the floor, not a pool (Range 7 lit half the runner)
+	Angle = 150,
+	Brightness = 0.7,
+	Every = 0.1, -- seconds between updates
 }
 
 -- Graphics presets (the visual rework V0, 2026-10-12; the owner: PC-first,
