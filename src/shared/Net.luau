@@ -62,6 +62,7 @@ local DEFINITIONS = {
 	MapState = "RemoteEvent", -- S->C (state?): the house as the squad knows it (Services/MapService, UI/Map)
 	Scare = "RemoteEvent",
 	HuntState = "RemoteEvent",
+	Lightning = "RemoteEvent", -- S->C (strike): a lightning strike for everyone (Services/WeatherService, Logic/Storm)
 	Layout = "RemoteEvent",
 	Dossier = "RemoteEvent",
 	LobbyState = "RemoteEvent",

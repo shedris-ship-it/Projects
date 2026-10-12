@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-12.173",
-	note = "moonlight through the windows that face the moon, with the frames' shadows",
+	id = "2026-10-12.174",
+	note = "the storm that builds: rain, then thunder and lightning (F2 storm 0|1|2|auto|strike)",
 }

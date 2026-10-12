@@ -56,6 +56,17 @@ Assets.Sounds = {
 	GuestKeys = "rbxassetid://9113849492", -- PSE "Coins Or Keys Jingle 6": his key ring at a locked door
 	GuestCrack = "rbxassetid://9113542363", -- PSE "Bone Cracks 10" (dry): his knuckles, his neck tipping too far
 	GuestExhale = "rbxassetid://9113586144", -- PSE "Breath Exhale 17", pitched down: let go after a long stare
+	-- The storm (the visual rework V2, Controllers/WeatherController): licensed
+	-- Pro Sound Effects library audio, chosen by description, not yet heard by
+	-- the owner: swap by ear here.
+	RainBed = "rbxassetid://9112853287", -- PSE "Rain Heavy 1": interior, heavy, dripping, loop
+	RainGlass = "rbxassetid://9112857056", -- PSE "Rain On Window 2": medium heavy on glass, loop
+	ThunderNear1 = "rbxassetid://9120020295", -- PSE "Thunder Lightning 4": huge crack, rumble tail
+	ThunderNear2 = "rbxassetid://9120020308", -- PSE "Thunder Lightning 5"
+	ThunderNear3 = "rbxassetid://9120016256", -- PSE "Thunder Cracks Big Rumbling Blasts Booming 3"
+	ThunderFar1 = "rbxassetid://9120021540", -- PSE "Thunder Sharp Booming Strikes Rumbling 1"
+	ThunderFar2 = "rbxassetid://9120021794", -- PSE "... Rumbling 4"
+	ThunderFar3 = "rbxassetid://9120021237", -- PSE "Thunder Rumbling 1": crashing, long decays
 	-- Your own breath, looped: it follows stamina (Controllers/AudioController).
 	PlayerBreath = "rbxassetid://124832136911190", -- Creator Store "Breathing and Tired" (Maz_Rx1)
 	-- Loops for the Drift layers and room tone. Fill these with real assets.

@@ -1060,6 +1060,27 @@ function DebugService:Run(player: Player, text: string)
 			task.wait(0.3)
 			reply(player, services.ChuteService:Use(player))
 		end
+	elseif command == "storm" then
+		-- The storm (Services/WeatherService, Logic/Storm): `storm 0|1|2` holds a
+		-- stage, `storm auto` gives it back to Dread, `storm strike` strikes now.
+		local weather = services.WeatherService
+		local arg = args[2]
+		if arg == "strike" then
+			reply(player, weather:StrikeNow() and "lightning" or "no run")
+		elseif arg == "auto" then
+			weather.forced = nil
+			reply(player, "the storm follows Dread again")
+		elseif tonumber(arg) and tonumber(arg) >= 0 and tonumber(arg) <= 2 then
+			weather.forced = tonumber(arg)
+			reply(player, "storm held at " .. arg .. " (0 still, 1 rain, 2 thunder)")
+		else
+			reply(
+				player,
+				"storm: "
+					.. tostring(ReplicatedStorage.RunState:GetAttribute(Constants.RunState.Storm))
+					.. " (storm 0|1|2|auto|strike)"
+			)
+		end
 	elseif command == "kit" and args[2] == "probe" then
 		-- The visual rework's V0 question: can a game script build a kit
 		-- piece from asset ids alone (a mesh, then a SurfaceAppearance's

@@ -169,6 +169,13 @@ function LensController:_applyPreset()
 	self.dof.Enabled = preset.dof
 end
 
+-- A lightning flash (Controllers/WeatherController): the exposure jumps
+-- this many stops for a moment, on top of everything else.
+function LensController:Flash(stops: number, seconds: number)
+	self.flashStops = math.max(self.flashStops or 0, stops)
+	self.flashUntil = os.clock() + seconds
+end
+
 -- Letterbox bars in or out (the cutscenes, V8): 2.39:1 on any screen.
 function LensController:Letterbox(on: boolean, seconds: number?)
 	local view = Workspace.CurrentCamera.ViewportSize
@@ -320,7 +327,15 @@ function LensController:_update(dt: number)
 	else
 		self.adapted = Lens.ease(self.adapted, 0, 2, dt)
 	end
-	Lighting.ExposureCompensation = self.exposureBase + self.adapted + (skip.exposure and 0 or self.flicker)
+	local flash = 0
+	if self.flashUntil then
+		if now < self.flashUntil then
+			flash = self.flashStops or 0
+		else
+			self.flashUntil, self.flashStops = nil, nil
+		end
+	end
+	Lighting.ExposureCompensation = self.exposureBase + self.adapted + (skip.exposure and 0 or self.flicker) + flash
 
 	-- Grain: a new frame and shift 24 times a second. Its light specks fade
 	-- with the light (the frame's tint): over black they read as TV snow, so

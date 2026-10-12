@@ -41,6 +41,7 @@ Constants.Attributes = {
 -- Attributes on the ReplicatedStorage.RunState folder.
 Constants.RunState = {
 	Reckoning = "Reckoning", -- true from Drift 100 (the Reckoning) to the run's end
+	Storm = "Storm", -- the storm's stage, 0 still, 1 rain, 2 thunder (Logic/Storm, Services/WeatherService)
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",

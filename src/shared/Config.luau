@@ -955,6 +955,32 @@ Config.Exterior = {
 	Sodium = { 255, 168, 88 }, -- a sodium streetlamp's orange
 }
 
+-- The storm that builds (the visual rework V2; Logic/Storm, Services/
+-- WeatherService, Controllers/WeatherController): still and foggy, then
+-- rain, then thunder and lightning. Shared by everyone. Looks and sound only.
+Config.Storm = {
+	RainAt = 30, -- Dread: rain from here
+	ThunderAt = 62, -- Dread: the storm from here (and always in the dinner's run out)
+	Every = { 22, 60 }, -- seconds between strikes in the storm
+	RainEvery = { 70, 150 }, -- in the rain: now and then a far one
+	RainNear = 0.25, -- how near a strike in the rain can be (0-1)
+	NearBias = 1.6, -- above 1: more far strikes than near ones
+	CrackAt = 0.55, -- this near or nearer: a crack, not a rumble
+	ThunderDelay = { 0.15, 5.5 }, -- seconds after the flash: overhead, far
+	ThunderVolume = { 0.35, 1.1 },
+	-- What the flash does on your screen (Controllers/WeatherController).
+	FlashMoon = 7, -- the moon beams through the windows burn this many times brighter
+	FlashSky = 3.5, -- the sky ring's brightness at a full flash
+	FlashExposure = 0.6, -- stops added at a full flash (Controllers/LensController:Flash)
+	FlashOutdoor = { 150, 170, 210 }, -- the outdoor ambient at a full flash
+	-- The rain's sound: bed and glass volumes in the rain and in the storm.
+	RainVolume = { bed = { 0.18, 0.4 }, glass = { 0.25, 0.5 } },
+	GlassReach = 40, -- the rain on the glass is heard from the nearest window within this
+	-- Rain outside the windows (particles in a box just beyond each near one).
+	RainNearWindows = 6, -- the nearest windows that get rain outside them
+	RainRate = { 120, 320 }, -- streaks a second per window, rain and storm
+}
+
 -- Light under a shut door (the visual rework V2; Controllers/DoorLightController):
 -- a line in the gap and a little spill on the dark side, when the room
 -- behind is lit and yours is dark. Decoration only.
