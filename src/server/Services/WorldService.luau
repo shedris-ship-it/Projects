@@ -152,6 +152,7 @@ function WorldService:Build(layout, rng)
 end
 
 function WorldService:Clear()
+	Exterior.clear() -- (the lawn's terrain grass lives outside the folder)
 	if self.folder then
 		self.folder:Destroy()
 		self.folder = nil

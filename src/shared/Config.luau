@@ -919,14 +919,41 @@ Config.PostFX = {
 Config.Exterior = {
 	GroundDrop = 0.6, -- the lawn's top sits this far under the ground floor
 	Reach = 70, -- studs of grounds and trees beyond the house on every side
-	LawnClear = 16, -- no trees this close to the house
-	ThickAfter = 25, -- trees reach full density this far past LawnClear
-	Density = 0.6, -- chance of a tree in a grid cell at full density
-	TreeSpacing = 11,
-	TreeHeight = { 18, 30 },
-	-- Part-built pines read as snowmen (2026-10-12): none until the kit's
-	-- Blender trees replace these stand-ins (the visual rework V4d).
-	PineShare = 0,
+	-- The woods (Logic/Grounds; the owner, 2026-10-12: "more dense foliage").
+	LawnClear = 12, -- no trees this close to the house
+	ThickAfter = 18, -- trees reach full density this far past LawnClear
+	Density = 0.85, -- chance of a tree in a grid cell at full density
+	TreeSpacing = 8.5,
+	TreeHeight = { 16, 34 },
+	ConiferShare = 0.14, -- dark spires breaking the skyline
+	YoungShare = 0.22, -- young trees under the old
+	YoungHeight = { 8, 14 },
+	LeafShare = 0.7, -- the old trees still in leaf (late October); the rest bare
+	FarFrom = 34, -- studs from the house: past here plants are fog silhouettes, built plainer
+	Canopy = { Blobs = { 4, 7 }, Radius = { 0.2, 0.28 } }, -- masses of leaves; radius as a share of the height
+	Leaves = { { 22, 30, 20 }, { 28, 34, 22 }, { 34, 36, 22 }, { 26, 32, 28 }, { 46, 34, 20 } }, -- the last: turning
+	Undergrowth = {
+		Spacing = 7.5,
+		From = 5, -- studs from the house
+		Ramp = 16, -- to full density this far past From
+		Density = 0.62,
+		Lawn = 0.12, -- the share of full density out on the lawn
+		Size = { 3, 5.5 }, -- a bush's masses, studs across at scale 1
+	},
+	Garden = {
+		Step = 4.6, -- studs between plants along an outside wall
+		Gap = 2.4, -- from the wall
+		Share = 0.8,
+		High = 3.4, -- a shrub's top above the ground: under the ground floor's sills
+		ColumnShare = 0.3, -- tall narrow evergreens, only between windows
+		ColumnHeight = { 7, 11 },
+		WindowClear = 3.6,
+		DoorClear = 7,
+	},
+	-- The lawn as terrain grass (Roblox draws its blades), never under the
+	-- house: its blades would show through the ground floor.
+	Terrain = { Colour = { 60, 66, 40 }, Depth = 4, Margin = 2 },
+	PartBudget = 5500, -- the grounds' plants, at most (Grounds.spec; the house itself is about 3,000)
 	-- The sky ring (Roblox's night sky is black): a gradient from a moonlit
 	-- horizon up into the real sky, on panels just past the trees.
 	Sky = {
@@ -950,7 +977,7 @@ Config.Exterior = {
 	Grass = { 30, 34, 24 },
 	Gravel = { 74, 70, 64 },
 	Bark = { 30, 26, 22 },
-	Needles = { 20, 28, 22 },
+	Needles = { 20, 28, 22 }, -- the garden's evergreens too
 	Iron = { 34, 34, 36 },
 	Sodium = { 255, 168, 88 }, -- a sodium streetlamp's orange
 	-- The house's outside: weathered painted clapboard over every outer wall

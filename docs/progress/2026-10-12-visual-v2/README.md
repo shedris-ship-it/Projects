@@ -52,6 +52,27 @@ The owner's screenshot of seed 111612098: the dining room's window showed pink w
 | `7_window_covered_by_wall_skin.jpg` | Before: the dining room's window on seed 111612098, papered over |
 | `8_window_onto_the_courtyard.jpg` | After: the courtyard, the other wing's clapboard and its window |
 
+## Fixed later (build `.178`): denser foliage
+
+The owner, after seeing the night through the new windows: "the outside of the windows definitely looks better, I would just want more dense foliage out there".
+
+- **Placement:** a new pure module, `Logic/Grounds`, decides where every plant stands. `Grounds.spec` checks it over 24 houses: nothing in the house, on the drive or before the front door; tall evergreens never in front of a window; at least 200 trees and 150 bushes; within the part budget; the same seed gives the same grounds.
+- **The woods**, about 440 trees instead of 162, starting 12 studs from the house instead of 16:
+  - old trees, mostly still in leaf (`LeafShare` 0.7), with lumpy crowns of 4 to 7 masses of leaves at different heights;
+  - young trees under them (8 to 14 studs tall);
+  - dark conifers, built as tall narrow tiers so they read as spires;
+  - the rest bare.
+- **Under the trees:** undergrowth thick in the woods, and a few bushes out on the lawn.
+- **The garden** along every outside wall, courtyards included: low shrubs whose tops stay under the ground floor's sills, and tall narrow evergreens (arborvitae, as 1988's gardens had) only between windows. Each plant knows its distance to the house and never reaches it, so no leaves poke through a wall.
+- **The lawn is terrain grass**, which Roblox draws with blades. It's cut away under the house (where the blades would show through the ground floor) and under the drive, and `WorldService:Clear` takes it away between runs (`Exterior.clear`).
+- **Cost:** about 3,800 parts on seed 1800820264 (the house itself is about 3,100). Plants out in the fog are built with fewer, bigger masses (`FarFrom`), and `Config.Exterior.PartBudget` is 5,500.
+- **Still stand-ins** built from parts: the Blender trees replace them in V4d.
+
+| | |
+| --- | --- |
+| `9_woods_before.jpg` | Before: bare trunks, an open black lawn |
+| `10_woods_dense_first_pass.jpg` | After, the first pass: a wall of crowns against the sky, undergrowth below (it's raining by then). Their round undersides lined up like mushrooms, so the second pass added crowns at different heights, young trees and conifers; not yet seen in Studio (it stopped drawing while minimized) |
+
 ## Next in V2
 
 Moonlight through the windows with real shadows (the moon direction set to the run's moon), the storm (rain on the glass, lightning, a Guest beat), fireplaces, retuning the room lights for PBR.

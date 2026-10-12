@@ -7,15 +7,20 @@
 -- bar), the Guest never comes out, and nothing in the run reads it. Built
 -- from the run's seed (its own fork), so a house always has the same night.
 --
--- The trees are stand-ins built from parts until their Blender batch lands
--- (the visual rework V4d): bare autumn trees and a few pines, silhouettes in
--- the fog.
+-- The plants are stand-ins built from parts until their Blender batch lands
+-- (the visual rework V4d): dense woods mostly still in leaf, undergrowth, and
+-- a garden of shrubs and tall evergreens along the walls (Logic/Grounds; the
+-- owner, 2026-10-12: "more dense foliage"). The lawn is terrain grass, whose
+-- blades Roblox draws.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Grounds = require(Shared.Logic.Grounds)
+local MansionHouse = require(Shared.Logic.MansionHouse)
 local PropFactory = require(Shared.World.PropFactory)
 local WindowView = require(Shared.Logic.WindowView)
 
@@ -38,11 +43,26 @@ local function scenery(model, name: string, size: Vector3, cf: CFrame, color: Co
 	return PropFactory.part(model, name, size, cf, color, PropFactory.material(material), opts)
 end
 
--- A bare autumn tree: a trunk and a handful of branches reaching up and out.
-local function bareTree(model, at: Vector3, rng)
-	local height = rng:NextNumber(E.TreeHeight[1], E.TreeHeight[2])
-	local girth = rng:NextNumber(0.7, 1.4)
-	local bark = PropFactory.rgb(E.Bark)
+-- A mass of leaves: an ellipsoid (a block drawn as a sphere mesh, so it can
+-- be wider than tall), leafy, never casting a shadow (cheap, and the moon's
+-- shadows are for the house).
+local function blob(model, name: string, size: Vector3, cf: CFrame, color: Color3)
+	local p = scenery(model, name, size, cf, color, "LeafyGrass", { castShadow = false })
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = p
+	return p
+end
+
+-- A leaf colour from the palette, a little varied.
+local function leafColour(rng, base: { number }?): Color3
+	local c = base or E.Leaves[rng:NextInteger(1, #E.Leaves)]
+	local k = rng:NextNumber(0.85, 1.12)
+	return Color3.fromRGB(math.min(c[1] * k, 255), math.min(c[2] * k, 255), math.min(c[3] * k, 255))
+end
+
+-- A trunk, leaning a little: its base CFrame and girth.
+local function trunk(model, at: Vector3, height: number, rng, girth: number): CFrame
 	local lean = CFrame.Angles(math.rad(rng:NextNumber(-4, 4)), 0, math.rad(rng:NextNumber(-4, 4)))
 	local base = CFrame.new(at) * lean
 	scenery(
@@ -50,58 +70,175 @@ local function bareTree(model, at: Vector3, rng)
 		"Trunk",
 		Vector3.new(height, girth, girth),
 		base * CFrame.new(0, height / 2, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		bark,
-		"Wood",
-		{ shape = Enum.PartType.Cylinder }
-	)
-	for _ = 1, rng:NextInteger(4, 7) do
-		local from = height * rng:NextNumber(0.45, 0.9)
-		local length = height * rng:NextNumber(0.25, 0.45)
-		local yaw = rng:NextNumber(0, math.pi * 2)
-		local tilt = math.rad(rng:NextNumber(25, 55))
-		local thick = girth * rng:NextNumber(0.25, 0.45)
-		local dir = CFrame.Angles(0, yaw, 0) * CFrame.Angles(tilt, 0, 0)
-		local start = base * CFrame.new(0, from, 0)
-		local mid = start * dir * CFrame.new(0, length / 2, 0)
-		scenery(
-			model,
-			"Branch",
-			Vector3.new(length, thick, thick),
-			mid * CFrame.Angles(0, 0, math.rad(90)),
-			bark,
-			"Wood",
-			{ shape = Enum.PartType.Cylinder, castShadow = false }
-		)
-	end
-end
-
--- A pine: a trunk and tiers of dark needles narrowing to the top.
-local function pine(model, at: Vector3, rng)
-	local height = rng:NextNumber(E.TreeHeight[1] * 1.1, E.TreeHeight[2] * 1.2)
-	local needles = PropFactory.rgb(E.Needles)
-	scenery(
-		model,
-		"Trunk",
-		Vector3.new(height * 0.5, 0.9, 0.9),
-		CFrame.new(at + Vector3.new(0, height * 0.25, 0)) * CFrame.Angles(0, 0, math.rad(90)),
 		PropFactory.rgb(E.Bark),
 		"Wood",
 		{ shape = Enum.PartType.Cylinder }
 	)
-	local tiers = 4
-	for i = 1, tiers do
-		local t = (i - 1) / (tiers - 1)
-		local width = (1 - t) * height * 0.38 + 1.2
-		local y = height * (0.25 + 0.68 * t)
-		scenery(
+	return base
+end
+
+local function branch(model, base: CFrame, height: number, girth: number, rng, from: { number }, len: { number })
+	local start = base * CFrame.new(0, height * rng:NextNumber(from[1], from[2]), 0)
+	local length = height * rng:NextNumber(len[1], len[2])
+	local dir = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		* CFrame.Angles(math.rad(rng:NextNumber(25, 55)), 0, 0)
+	local thick = girth * rng:NextNumber(0.25, 0.45)
+	scenery(
+		model,
+		"Branch",
+		Vector3.new(length, thick, thick),
+		start * dir * CFrame.new(0, length / 2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		PropFactory.rgb(E.Bark),
+		"Wood",
+		{ shape = Enum.PartType.Cylinder, castShadow = false }
+	)
+end
+
+-- A bare autumn tree: a trunk and a handful of branches reaching up and out.
+local function bareTree(model, at: Vector3, height: number, far: boolean, rng)
+	local girth = rng:NextNumber(0.7, 1.4)
+	local base = trunk(model, at, height, rng, girth)
+	for _ = 1, far and rng:NextInteger(3, 4) or rng:NextInteger(4, 7) do
+		branch(model, base, height, girth, rng, { 0.45, 0.9 }, { 0.25, 0.45 })
+	end
+end
+
+-- A tree still in leaf: a trunk, a limb or two, and a crown of overlapping
+-- masses of leaves round its upper part: lumpy, never a lollipop.
+local function leafyTree(model, at: Vector3, height: number, far: boolean, clear: number, rng)
+	local girth = rng:NextNumber(0.8, 1.5)
+	local base = trunk(model, at, height * 0.8, rng, girth)
+	for _ = 1, far and 1 or 2 do
+		branch(model, base, height, girth, rng, { 0.4, 0.6 }, { 0.2, 0.32 })
+	end
+	local C = E.Canopy
+	-- (The crown reaches about 1.6 radii from its middle, which the trunk's
+	-- lean moves: never as far as the house.)
+	local radius = math.min(height * rng:NextNumber(C.Radius[1], C.Radius[2]), (clear - 0.5 - 0.05 * height) / 1.65)
+	-- (Crowns sit at different heights and stand taller or squatter, so
+	-- their undersides never line up into one row of mushrooms: seen
+	-- 2026-10-12.)
+	local centre = (base * CFrame.new(0, height * rng:NextNumber(0.56, 0.74), 0)).Position
+	local palette = E.Leaves[rng:NextInteger(1, #E.Leaves)]
+	local count = far and rng:NextInteger(3, 4) or rng:NextInteger(C.Blobs[1], C.Blobs[2])
+	for i = 1, count do
+		-- The first mass is the crown's heart; the rest bulge out round it.
+		local spread = i == 1 and 0 or radius * rng:NextNumber(0.45, 0.8)
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local up = i == 1 and 0 or radius * rng:NextNumber(-0.35, 0.5)
+		local wide = radius * (i == 1 and 1.5 or rng:NextNumber(0.9, 1.3)) * (far and 1.25 or 1)
+		local tall = wide * rng:NextNumber(0.7, 1.2)
+		blob(
+			model,
+			"Leaves",
+			Vector3.new(wide, tall, wide * rng:NextNumber(0.85, 1.1)),
+			CFrame.new(centre + Vector3.new(math.cos(angle) * spread, up, math.sin(angle) * spread))
+				* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+			leafColour(rng, palette)
+		)
+	end
+end
+
+-- A dark conifer: a short trunk and tiers of needles, each tall and narrow
+-- and deep in the one below, so the outline is a spire (round tiers apart
+-- read as snowmen, 2026-10-12).
+local TIERS = {
+	{ y = 0.32, tall = 0.56, wide = 1 },
+	{ y = 0.55, tall = 0.44, wide = 0.7 },
+	{ y = 0.76, tall = 0.34, wide = 0.42 },
+}
+local FAR_TIERS = { TIERS[1], { y = 0.62, tall = 0.62, wide = 0.55 } }
+
+local function conifer(model, at: Vector3, height: number, far: boolean, clear: number, rng)
+	local base = trunk(model, at, height * 0.35, rng, rng:NextNumber(0.6, 1))
+	local wide = math.min(height * rng:NextNumber(0.24, 0.32), (clear - 0.5) * 2)
+	for _, tier in far and FAR_TIERS or TIERS do
+		blob(
 			model,
 			"Needles",
-			Vector3.new(width, height * 0.22, width),
-			CFrame.new(at + Vector3.new(0, y, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
-			needles,
-			"Grass",
-			{ shape = Enum.PartType.Ball }
+			Vector3.new(wide * tier.wide, height * tier.tall, wide * tier.wide * rng:NextNumber(0.9, 1.1)),
+			base * CFrame.new(0, height * tier.y, 0) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+			leafColour(rng, E.Needles)
 		)
+	end
+end
+
+-- A bush: two to three low masses run together, half sunk in the grass;
+-- nothing of it as far as `clear` (the house), its top under `high`.
+local function bush(model, at: Vector3, scale: number, far: boolean, clear: number, rng, high: number?)
+	local U = E.Undergrowth
+	local palette = E.Leaves[rng:NextInteger(1, #E.Leaves - 1)] -- (no turning colour this low)
+	local limit = clear - 0.3
+	for i = 1, far and 2 or rng:NextInteger(2, 3) do
+		local wide = math.min(rng:NextNumber(U.Size[1], U.Size[2]) * scale, limit * 1.8)
+		local tall = wide * rng:NextNumber(0.55, 0.8)
+		if high then
+			tall = math.min(tall, high / 0.8) -- (its top: 0.8 of its height above the ground)
+		end
+		local off = i == 1 and Vector3.zero
+			or Vector3.new(rng:NextNumber(-0.5, 0.5) * wide, 0, rng:NextNumber(-0.5, 0.5) * wide)
+		local room = math.max(limit - wide / 2, 0)
+		if off.Magnitude > room then
+			off = off.Unit * room
+		end
+		blob(
+			model,
+			"Bush",
+			Vector3.new(wide, tall, wide * rng:NextNumber(0.75, 1)),
+			CFrame.new(at + off + Vector3.new(0, tall * 0.3, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+			leafColour(rng, palette)
+		)
+	end
+end
+
+-- A tall narrow evergreen by the house (an arborvitae, as 1988's gardens
+-- had): one tall mass and a smaller one at its foot.
+local function column(model, at: Vector3, height: number, clear: number, rng)
+	local needles = E.Needles
+	local wide = math.min(rng:NextNumber(2.4, 3.2), (clear - 0.75) * 2 / 1.15) -- (its foot is the wider)
+	blob(
+		model,
+		"Evergreen",
+		Vector3.new(wide, height, wide),
+		CFrame.new(at + Vector3.new(0, height * 0.48, 0)),
+		leafColour(rng, needles)
+	)
+	blob(
+		model,
+		"Evergreen",
+		Vector3.new(wide * 1.15, height * 0.4, wide * 1.1),
+		CFrame.new(at + Vector3.new(rng:NextNumber(-0.3, 0.3), height * 0.18, rng:NextNumber(-0.3, 0.3))),
+		leafColour(rng, needles)
+	)
+end
+
+-- The lawn as terrain grass, with the house and the drive cut out (the
+-- grass's blades would show through the ground floor). Remembered, so the
+-- next run's Exterior.clear() takes it away again.
+local filled: { cf: CFrame, size: Vector3 }? = nil
+
+local function lawnOfGrass(centre: Vector3, size: Vector3, groundY: number, holes)
+	local T = E.Terrain
+	local terrain = Workspace.Terrain
+	terrain:SetMaterialColor(Enum.Material.Grass, PropFactory.rgb(T.Colour))
+	local cf = CFrame.new(centre.X, groundY - T.Depth / 2, centre.Z)
+	local block = Vector3.new(size.X, T.Depth, size.Z)
+	terrain:FillBlock(cf, block, Enum.Material.Grass)
+	filled = { cf = cf, size = block }
+	for _, hole in holes do
+		terrain:FillBlock(
+			CFrame.new(hole.x, groundY - T.Depth / 2, hole.z),
+			Vector3.new(hole.w, T.Depth + 8, hole.d),
+			Enum.Material.Air
+		)
+	end
+end
+
+-- Takes the last run's grass away (WorldService:Clear).
+function Exterior.clear()
+	if filled then
+		Workspace.Terrain:FillBlock(filled.cf, filled.size + Vector3.new(8, 8, 8), Enum.Material.Air)
+		filled = nil
 	end
 end
 
@@ -308,42 +445,63 @@ function Exterior.build(layout, folder: Instance, origin: Vector3, rng, moon)
 		streetlamp(model, door + driveDir * (length + 4) + side * (E.DriveWidth / 2 + 2), -side)
 	end
 
-	-- The trees: a jittered grid, nothing on the lawn close to the house or on
-	-- the drive, denser further out, thinning into the fog.
-	local function distanceToHouse(p: Vector3): number
-		local dx = math.max(x0 - p.X, 0, p.X - x1)
-		local dz = math.max(z0 - p.Z, 0, p.Z - z1)
-		return math.sqrt(dx * dx + dz * dz)
-	end
-	local step = E.TreeSpacing
-	local count = 0
-	for gx = x0 - E.Reach, x1 + E.Reach, step do
-		for gz = z0 - E.Reach, z1 + E.Reach, step do
-			local p = Vector3.new(
-				gx + rng:NextNumber(-step * 0.45, step * 0.45),
-				groundY,
-				gz + rng:NextNumber(-step * 0.45, step * 0.45)
-			)
-			local away = distanceToHouse(p)
-			local onDrive = false
-			if driveDir then
-				local rel = p - driveFrom
-				local ahead = rel:Dot(driveDir)
-				local across = math.abs(rel:Dot(Vector3.new(-driveDir.Z, 0, driveDir.X)))
-				onDrive = ahead > -4 and ahead < E.DriveLength + 12 and across < E.DriveWidth / 2 + 5
-			end
-			local chance = math.clamp((away - E.LawnClear) / E.ThickAfter, 0, 1)
-			if away >= E.LawnClear and away <= E.Reach and not onDrive and rng:NextNumber() < chance * E.Density then
-				if rng:NextNumber() < E.PineShare then
-					pine(model, p, rng)
-				else
-					bareTree(model, p, rng)
-				end
-				count += 1
-			end
+	-- The plants (Logic/Grounds): the woods, the undergrowth and the garden.
+	-- The windows' spots keep the tall evergreens from standing in front of
+	-- one.
+	local windows = {}
+	for _, d in folder:GetDescendants() do
+		if d.Name == "Glass" and d.Parent and d.Parent.Name == "Window" and d:IsA("BasePart") then
+			table.insert(windows, { x = d.Position.X - origin.X, z = d.Position.Z - origin.Z })
 		end
 	end
-	model:SetAttribute("Trees", count)
+	local house = { rooms = MansionHouse.withPassages(layout), frontDoor = layout.frontDoor }
+	local plants, rects = Grounds.plan(house, windows, E, rng:Fork("grounds"))
+	local trees = 0
+	for _, plant in plants do
+		local at = Vector3.new(plant.x + origin.X, groundY, plant.z + origin.Z)
+		if plant.kind == "leafy" then
+			leafyTree(model, at, plant.size, plant.far, plant.clear, rng)
+			trees += 1
+		elseif plant.kind == "bare" then
+			bareTree(model, at, plant.size, plant.far, rng)
+			trees += 1
+		elseif plant.kind == "conifer" then
+			conifer(model, at, plant.size, plant.far, plant.clear, rng)
+			trees += 1
+		elseif plant.kind == "bush" then
+			bush(model, at, plant.size, plant.far, plant.clear, rng)
+		elseif plant.kind == "shrub" then
+			bush(model, at, plant.size * 0.8, false, plant.clear, rng, E.Garden.High)
+		elseif plant.kind == "column" then
+			column(model, at, plant.size, plant.clear, rng)
+		end
+	end
+	model:SetAttribute("Trees", trees)
+	model:SetAttribute("Plants", #plants)
+
+	-- The lawn as terrain grass, but never under the house or the drive.
+	local holes = {}
+	local margin = E.Terrain.Margin
+	for _, r in rects do
+		table.insert(holes, {
+			x = (r[1] + r[3]) / 2 + origin.X,
+			z = (r[2] + r[4]) / 2 + origin.Z,
+			w = r[3] - r[1] + margin * 2,
+			d = r[4] - r[2] + margin * 2,
+		})
+	end
+	if driveDir then
+		local reach = E.DriveLength + 8
+		local mid = driveFrom + driveDir * (reach / 2 - 1)
+		local alongX = driveDir.X ~= 0
+		table.insert(holes, {
+			x = mid.X,
+			z = mid.Z,
+			w = alongX and reach or E.DriveWidth + 1,
+			d = alongX and E.DriveWidth + 1 or reach,
+		})
+	end
+	lawnOfGrass(middle, Vector3.new(E.Reach * 2 + (x1 - x0), 0, E.Reach * 2 + (z1 - z0)), groundY, holes)
 
 	-- The sky ring just past the last trees, and the moon on it.
 	local halfDiagonal = math.sqrt((x1 - x0) ^ 2 + (z1 - z0) ^ 2) / 2
