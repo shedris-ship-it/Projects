@@ -1,14 +1,14 @@
--- The three slots you carry (owner, 2026-10-04; docs/plans/gameplay-rework.md
--- section 4.1): slot 1 is the flashlight, 2 and 3 hold tools found around the
--- house, and one thing is in your hands at a time (an empty slot is a free
--- hand; the bare-hands slot went with the squad playtest of 2026-10-08).
--- Bottom centre. Press 1 to 3, spin the wheel, or tap a slot; X puts the tool
--- in your hands down. Everything shown is read from the player's replicated
--- attributes the server sets (Services/ToolService), so the bar can't disagree
--- with what you're holding.
+-- What you carry (owner, 2026-10-04; docs/plans/gameplay-rework.md section 4.1,
+-- reworked in section 20): the torch on its own at the left, F to raise it or
+-- put it away, with its battery under it; then the two slots for tools found
+-- around the house, 1 and 2, one in your right hand at a time (its key again
+-- puts it away). Bottom centre. Press the keys, spin the wheel, or tap; X puts
+-- the tool in your hand down. Everything shown is read from the player's
+-- replicated attributes the server sets (Services/ToolService,
+-- Services/PlayerStateService), so the bar can't disagree with what you hold.
 --
--- Each tool's icon is the real tool model in a small ViewportFrame
--- (World/ToolModel), so what you see on the bar is what you find on the table.
+-- Each icon is the real model in a small ViewportFrame (World/ToolModel), so
+-- what you see on the bar is what you find on the table.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29,6 +29,7 @@ local player = Players.LocalPlayer
 
 local SLOT = 64
 local GAP = 8
+local TORCH_GAP = 18 -- the torch sits apart: it isn't one of the slots
 
 local Hotbar = {}
 Hotbar.__index = Hotbar
@@ -59,6 +60,66 @@ local function icon(parent: Instance, id: string)
 	return view
 end
 
+-- One square: its key in the corner, a word in the other, a meter along the bottom.
+local function cell(parent: Instance, x: number, key: string, onTap: () -> ())
+	local button = Ui.new("TextButton", {
+		Position = UDim2.fromOffset(x, 0),
+		Size = UDim2.fromOffset(SLOT, SLOT),
+		AutoButtonColor = false,
+		Text = "",
+		BackgroundColor3 = Ui.Theme.ink,
+		BackgroundTransparency = 0.35,
+		Parent = parent,
+	}, { Ui.corner(8) })
+	local stroke = Ui.stroke(Ui.Theme.accent, 1, 0.75)
+	stroke.Parent = button
+	Ui.label(key, {
+		Position = UDim2.fromOffset(6, 3),
+		Size = UDim2.fromOffset(14, 14),
+		Font = Ui.Theme.fontBold,
+		TextSize = 12,
+		TextColor3 = Ui.Theme.textDim,
+		ZIndex = 3,
+		Parent = button,
+	})
+	local extra = Ui.label("", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -5, 0, 3),
+		Size = UDim2.fromOffset(34, 14),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Font = Ui.Theme.fontBold,
+		TextSize = 12,
+		TextColor3 = Ui.Theme.accent,
+		ZIndex = 3,
+		Parent = button,
+	})
+	local meter = Ui.new("Frame", {
+		Position = UDim2.new(0, 6, 1, -8),
+		Size = UDim2.new(1, -12, 0, 3),
+		BackgroundColor3 = Ui.Theme.panelLight,
+		Visible = false,
+		ZIndex = 3,
+		Parent = button,
+	}, { Ui.corner(2) })
+	local meterFill = Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 230, 160),
+		ZIndex = 3,
+		Parent = meter,
+	}, { Ui.corner(2) })
+	button.Activated:Connect(onTap)
+	return { button = button, stroke = stroke, extra = extra, meter = meter, meterFill = meterFill, icon = nil }
+end
+
+local function lightUp(entry, on: boolean)
+	entry.button.BackgroundTransparency = on and 0.1 or 0.45
+	entry.stroke.Transparency = on and 0 or 0.8
+	entry.stroke.Thickness = on and 2 or 1
+	if entry.icon and entry.icon:IsA("ViewportFrame") then
+		entry.icon.ImageTransparency = on and 0 or 0.35
+	end
+end
+
 function Hotbar.new(ctx)
 	local self = setmetatable({ ctx = ctx, slots = {}, shown = {} }, Hotbar)
 	for slot = 1, Inventory.SLOTS do
@@ -66,7 +127,8 @@ function Hotbar.new(ctx)
 	end
 	local gui = Ui.screen("ConsensusHotbar", 6, ctx.playerGui)
 	self.gui = gui
-	local width = SLOT * Inventory.SLOTS + GAP * (Inventory.SLOTS - 1)
+	local slotsWidth = SLOT * Inventory.SLOTS + GAP * (Inventory.SLOTS - 1)
+	local width = SLOT + TORCH_GAP + slotsWidth
 	self.root = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -22),
@@ -75,69 +137,25 @@ function Hotbar.new(ctx)
 		Visible = false,
 		Parent = gui,
 	})
+	self.torch = cell(self.root, 0, "F", function()
+		local actions = ctx.controllers and ctx.controllers.ActionController
+		if actions then
+			actions:ToggleTorch()
+		end
+	end)
+	self.torch.icon = icon(self.torch.button, Inventory.TORCH)
+	self.torch.meter.Visible = true
 	for slot = 1, Inventory.SLOTS do
-		local button = Ui.new("TextButton", {
-			Name = "Slot" .. slot,
-			Position = UDim2.fromOffset((slot - 1) * (SLOT + GAP), 0),
-			Size = UDim2.fromOffset(SLOT, SLOT),
-			AutoButtonColor = false,
-			Text = "",
-			BackgroundColor3 = Ui.Theme.ink,
-			BackgroundTransparency = 0.35,
-			Parent = self.root,
-		}, { Ui.corner(8) })
-		local stroke = Ui.stroke(Ui.Theme.accent, 1, 0.75)
-		stroke.Parent = button
-		Ui.label(tostring(slot), {
-			Position = UDim2.fromOffset(6, 3),
-			Size = UDim2.fromOffset(14, 14),
-			Font = Ui.Theme.fontBold,
-			TextSize = 12,
-			TextColor3 = Ui.Theme.textDim,
-			ZIndex = 3,
-			Parent = button,
-		})
-		local extra = Ui.label("", {
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -5, 0, 3),
-			Size = UDim2.fromOffset(34, 14),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			Font = Ui.Theme.fontBold,
-			TextSize = 12,
-			TextColor3 = Ui.Theme.accent,
-			ZIndex = 3,
-			Parent = button,
-		})
-		local meter = Ui.new("Frame", {
-			Position = UDim2.new(0, 6, 1, -8),
-			Size = UDim2.new(1, -12, 0, 3),
-			BackgroundColor3 = Ui.Theme.panelLight,
-			Visible = false,
-			ZIndex = 3,
-			Parent = button,
-		}, { Ui.corner(2) })
-		local meterFill = Ui.new("Frame", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundColor3 = Color3.fromRGB(255, 230, 160),
-			ZIndex = 3,
-			Parent = meter,
-		}, { Ui.corner(2) })
-		button.Activated:Connect(function()
+		local x = SLOT + TORCH_GAP + (slot - 1) * (SLOT + GAP)
+		self.slots[slot] = cell(self.root, x, tostring(slot), function()
 			Net.get("SelectSlot"):FireServer(slot)
 		end)
-		self.slots[slot] = {
-			button = button,
-			stroke = stroke,
-			extra = extra,
-			meter = meter,
-			meterFill = meterFill,
-			icon = nil,
-		}
+		self.slots[slot].button.Name = "Slot" .. slot
 	end
 	self.name = Ui.label("", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, SLOT + 2),
-		Size = UDim2.fromOffset(width + 80, 14),
+		Position = UDim2.new(0, SLOT + TORCH_GAP + slotsWidth / 2, 0, SLOT + 2),
+		Size = UDim2.fromOffset(slotsWidth + 80, 14),
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextSize = 12,
 		TextColor3 = Ui.Theme.textDim,
@@ -157,9 +175,6 @@ function Hotbar:_ids(): { string }
 end
 
 local function nameOf(id: string): string
-	if id == Inventory.TORCH then
-		return "Flashlight"
-	end
 	local info = Tools.ById[id]
 	return info and info.name or id
 end
@@ -172,8 +187,23 @@ function Hotbar:Update()
 	if not visible then
 		return
 	end
+
+	-- The torch: up or not, its battery, and lit, clipped (at a tool lock) or dead.
+	local actions = self.ctx.controllers and self.ctx.controllers.ActionController
+	local up = actions ~= nil and actions:TorchWanted()
+	local battery = player:GetAttribute(PA.Battery) or 1
+	lightUp(self.torch, up)
+	self.torch.meterFill.Size = UDim2.fromScale(battery, 1)
+	if battery <= 0 then
+		self.torch.extra.Text = "dead"
+	elseif up and player:GetAttribute(PA.Flashlight) then
+		self.torch.extra.Text = player:GetAttribute(PA.TorchClipped) and "clip" or "on"
+	else
+		self.torch.extra.Text = ""
+	end
+
 	local ids = self:_ids()
-	local active = player:GetAttribute(PA.ActiveSlot) or 1
+	local active = player:GetAttribute(PA.ActiveSlot) or Inventory.FREE
 	for slot, entry in self.slots do
 		local id = ids[slot]
 		if self.shown[slot] ~= id then
@@ -186,30 +216,11 @@ function Hotbar:Update()
 				entry.icon = icon(entry.button, id)
 			end
 		end
-		local isActive = slot == active
-		entry.button.BackgroundTransparency = isActive and 0.1 or 0.45
-		entry.stroke.Transparency = isActive and 0 or 0.8
-		entry.stroke.Thickness = isActive and 2 or 1
-		if entry.icon and entry.icon:IsA("ViewportFrame") then
-			entry.icon.ImageTransparency = isActive and 0 or 0.35
-		elseif entry.icon then
-			entry.icon.TextTransparency = isActive and 0 or 0.35
-		end
-		-- Small facts under each icon: a lit Lantern, the torch's charge.
-		entry.extra.Text = ""
-		entry.meter.Visible = false
-		if id == "Lantern" and isActive and player:GetAttribute("LanternOn") then
-			entry.extra.Text = "lit"
-		elseif id == Inventory.TORCH then
-			entry.meter.Visible = true
-			entry.meterFill.Size = UDim2.fromScale(player:GetAttribute(PA.Battery) or 1, 1)
-			if player:GetAttribute(PA.Flashlight) then
-				-- Lit in your hand, or clipped to your shirt while you hold something else.
-				entry.extra.Text = player:GetAttribute(PA.TorchClipped) and "clip" or "on"
-			end
-		end
+		lightUp(entry, slot == active)
+		-- A small fact in the corner: a lit Lantern.
+		entry.extra.Text = (id == "Lantern" and slot == active and player:GetAttribute("LanternOn")) and "lit" or ""
 	end
-	self.name.Text = ids[active] ~= "" and nameOf(ids[active]) or "Nothing"
+	self.name.Text = (ids[active] and ids[active] ~= "") and nameOf(ids[active]) or ""
 end
 
 return Hotbar

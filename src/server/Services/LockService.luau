@@ -967,6 +967,8 @@ function LockService:_workBegin(player: Player, id: string)
 	player:SetAttribute("Working", target.lock.kind)
 	player:SetAttribute("WorkSeconds", target.work.seconds)
 	player:SetAttribute("WorkSince", Workspace:GetServerTimeNow())
+	-- Both hands on the tool: a raised torch clips to your shirt until you stop.
+	self.PlayerState:RefreshFlashlight(player)
 	-- The tool bites: a scrape under the strain.
 	Sfx.play(target.lock.kind == "boards" and "CreakAlt" or "DoorLatch", at, 0.45, 0.7)
 	if door then
@@ -983,6 +985,7 @@ function LockService:_workEnd(player: Player)
 		player:SetAttribute("Working", nil)
 		player:SetAttribute("WorkSeconds", nil)
 		player:SetAttribute("WorkSince", nil)
+		self.PlayerState:RefreshFlashlight(player)
 	end
 end
 

@@ -20,7 +20,7 @@ Read these before starting real work:
 - They're on **Windows, using PowerShell**, and newer to command-line tools. Give exact commands to copy and say which folder to run them in. Explain errors in plain words.
 - They test in Roblox Studio. The game builds and runs there. No squad playtest has happened yet.
 - **Their C: drive filled up on 2026-10-05** and Studio crashed (SQLite "disk full" errors in `%LOCALAPPDATA%\Roblox\logs`). If Studio vanishes mid-session, check free space on C: first; don't delete the owner's files to make room, tell them.
-- The place is published (place id 81335718246692) and opened in Studio as a Team Create session. Studio's API access isn't on, so DataStore calls fail with 403 in play tests and the first-launch settings dialog appears each run (close it with Done at GUI ~961,588).
+- The place is published (place id 81335718246692) and opened in Studio as a Team Create session. Studio's API access isn't on, so DataStore calls fail with 403 in play tests and the first-launch settings dialog appears each run (close it with Done at GUI ~961,636 since build .168, or set `PlayerGui.ConsensusSettings.Enabled = false` from the Client datamodel).
 - Ask before decisions that are theirs: design changes, spending money, publishing, anything on their Roblox account.
 
 ## Source of truth: the repo files, synced by Rojo
@@ -65,7 +65,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (576 as of 2026-10-11; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
+lune run tests/run        # unit tests (585 as of 2026-10-12; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -243,6 +243,13 @@ The agreed plan, in order:
      - **A fuller short night is the default** (`Config.Mansion.Profiles.short`, `Config.Run.Night`).
      - 576 tests; `tools/completable` 1152 houses, all finish; Gate A unchanged. Waiting on the owner: TC-266 to TC-274 (TC-268, TC-271, TC-273 need two clients). Watch: the bot still stops for him 15-24 times a run.
      - Test races: a spec loads its modules when the runner reaches it, so editing `src` or `tests` during a full run mixes old and new code (three false failures this pass). Don't edit while a full run is going; edit docs, or wait.
+   - **The torch on F, your own arms, your own legs (2026-10-12; build `2026-10-12.168`; `docs/plans/gameplay-rework.md` section 20, `docs/progress/2026-10-12-torch-body/`).** The owner's asks after playing IT WANTS IN, the quality reference (`docs/reference/it-wants-in/NOTES.md`), all built:
+     - **The torch has its own key and hand.** F raises it into your left hand (a spring swing; it lights as it gets there, `Config.Torch.RaiseSeconds`), and F again clicks it off and drops it. On the server, `PlayerStateService:SetFlashlight(player, up)`, `PA.TorchUp` and `_relight`; on the client, `ActionController:TorchWanted` moves your hand ahead of the server. It clips to your shirt only while both hands work a tool lock (LockService's `Working`).
+     - **Two slots for found tools** (`Logic/Inventory`): 1 and 2 in your right hand, a slot's key again puts it away (`active` 0), the wheel `exact`. A tool out no longer costs the beam.
+     - **Your arms are copies of your character's own** (`Lib/ViewModel.armFrom`, `Logic/ArmReach`, `Config.ViewModel.Arm`), and they follow its look.
+     - **Your legs and feet show in first person** (`Controllers/BodyController`, `Config.Body`; the hips stay hidden because these meshes draw the hips' top in the torso's colour). Your body casts its shadow. Settings: "Hide your own body".
+     - **The neck:** Roblox's first-person eye sits half a stud *behind* your middle, so looking down it leans forward over your body, held off walls (`Logic/Feel.neckLean`, `FeelController:_neckRoom`).
+     - 585 tests. Waiting on the owner: TC-275 to TC-283. The arm and body look (plain R15 blocks) is for the visual rework plan.
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** **The quality bar (owner, 2026-10-11): beat IT WANTS IN [HORROR]**, the closest competitor, visually and in the loop; `docs/reference/it-wants-in/NOTES.md` has the owner's notes and what its screenshots show (the images are git-ignored). The owner wants a full visual rework plan once the gameplay loop is confirmed solid. Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)

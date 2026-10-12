@@ -1,8 +1,8 @@
 -- Input, movement, camera and tools. Keyboard, gamepad and touch all go
 -- through ContextActionService so every action gets a mobile button.
 --
---   R  use tool               F  flashlight
---   1 2 3 or wheel  choose a slot (1 torch)   X  put the tool down
+--   R  use tool               F  torch up / away (its own hand: section 20)
+--   1 2 or wheel  a tool in your hand (its key again: away)   X  put the tool down
 --   Shift  sprint             G  hold for pings    C  callouts   Ctrl  crouch
 --   Tab  map                  E  open, pick up, hold to drag (HandsController); prompts
 --   Enter or /  say something (spoken aloud, and he hears it; /w whispers)
@@ -101,18 +101,18 @@ function ActionController:Start()
 		end
 	end, true, "Tool", Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
 
+	-- F: the torch up into your left hand, or away (section 20). Your hand
+	-- moves at once (TorchWanted); the server lights it as it gets there.
 	self:_bind("ConsensusFlashlight", function(inputState)
-		if inputState == Enum.UserInputState.Begin and self.state:IsActive() then
-			local turningOn = not player:GetAttribute(PA.Flashlight)
-			self.controllers.AudioController:PlayUi("FlashlightClick", 0.5, turningOn and 1 or 0.88)
-			Net.get("SetFlashlight"):FireServer(turningOn)
+		if inputState == Enum.UserInputState.Begin then
+			self:ToggleTorch()
 		end
 	end, true, "Light", Enum.KeyCode.F, Enum.KeyCode.DPadUp)
 
-	-- Slots (owner, 2026-10-04): 1 is the torch, 2 and 3 hold found tools (the
-	-- fourth, bare hands, went with the squad playtest, 2026-10-08). The
-	-- server decides; these only ask.
-	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three } do
+	-- Slots (owner, 2026-10-04; the torch left them 2026-10-12): 1 and 2 hold
+	-- found tools, and a slot's key again puts its tool away. The server
+	-- decides; these only ask.
+	for slot, key in { Enum.KeyCode.One, Enum.KeyCode.Two } do
 		self:_bind("ConsensusSlot" .. slot, function(inputState)
 			-- Not while a screen is up: the piano's keys are 1 to 8 too, and
 			-- a slot change put down the music box you'd carried to it. The
@@ -291,11 +291,39 @@ function ActionController:Start()
 	end)
 end
 
--- The next slot with something in it, from the slots the server last told us.
+-- F (or the hotbar's torch, or the Light button): the torch up or away.
+function ActionController:ToggleTorch()
+	if not self.state:IsActive() then
+		return
+	end
+	local up = not self:TorchWanted()
+	local audio = self.controllers.AudioController
+	if up and (player:GetAttribute(PA.Battery) or 1) <= 0 then
+		-- Dead: the switch clicks and nothing comes.
+		audio:PlayUi("FlashlightClick", 0.35, 0.7)
+		return
+	end
+	audio:PlayUi("Cloth", 0.18, up and 1.25 or 1.1)
+	self.torchWant, self.torchWantUntil = up, os.clock() + 1
+	Net.get("SetFlashlight"):FireServer(up)
+end
+
+-- Where the torch is going: up or away, as you last pressed F for (until the
+-- server agrees, or for a second if it won't), else the server's word.
+function ActionController:TorchWanted(): boolean
+	local server = player:GetAttribute(PA.TorchUp) == true
+	if self.torchWant ~= nil and self.torchWant ~= server and os.clock() < (self.torchWantUntil or 0) then
+		return self.torchWant
+	end
+	self.torchWant = nil
+	return server
+end
+
+-- The next thing for your hand, from the slots the server last told us.
 -- The attribute lags a round trip, so a second flick of the wheel would read the
 -- same slot as the first; the slot just asked for is remembered for a moment.
 function ActionController:_cycleSlot(direction: number)
-	local current = player:GetAttribute(PA.ActiveSlot) or 1
+	local current = player:GetAttribute(PA.ActiveSlot) or Inventory.FREE
 	if self.pendingSlot and os.clock() < (self.pendingUntil or 0) then
 		current = self.pendingSlot
 	end
@@ -306,7 +334,7 @@ function ActionController:_cycleSlot(direction: number)
 	end
 	if Inventory.cycle(mirror, direction) then
 		self.pendingSlot, self.pendingUntil = mirror.active, os.clock() + 0.35
-		Net.get("SelectSlot"):FireServer(mirror.active)
+		Net.get("SelectSlot"):FireServer(mirror.active, true)
 	end
 end
 
@@ -714,13 +742,23 @@ end
 -- trails the camera slightly on quick turns, like a handheld torch; the camera
 -- itself never moves (doc section 4, comfort-safe). In first person the light
 -- leaves the torch's lens (`beamCFrame`, from ViewModelController); the
--- camera-side spot below is the fallback for the hub and third person. With
--- anything else in your hands the torch is clipped to your shirt
--- (docs/plans/gameplay-rework.md section 4.1): a weak, short light from your
+-- camera-side spot below is the fallback for the hub and third person. While
+-- both hands work a tool lock the torch is clipped to your shirt
+-- (docs/plans/gameplay-rework.md section 20): a weak, short light from your
 -- chest, pointing where your body faces.
 function ActionController:_updateFlashlight(dt: number)
-	local on = player:GetAttribute(PA.Flashlight) == true
+	-- Lit, and not on its way away (F to put it away clicks it off at once).
+	local on = player:GetAttribute(PA.Flashlight) == true and self:TorchWanted()
 	local clipped = player:GetAttribute(PA.TorchClipped) == true
+	if on ~= (self.lastLit == true) then
+		-- The switch under your thumb, as the light comes or goes.
+		self.lastLit = on
+		self.controllers.AudioController:PlayUi("FlashlightClick", 0.5, on and 1 or 0.88)
+		local viewModel = self.controllers.ViewModelController
+		if viewModel then
+			viewModel:Click()
+		end
+	end
 	if not lightPart then
 		lightPart = Instance.new("Part")
 		lightPart.Name = "ConsensusFlashlight"
@@ -757,7 +795,11 @@ function ActionController:_updateFlashlight(dt: number)
 	if clipped and root then
 		local look = root.CFrame.LookVector
 		local yaw = math.atan2(-look.X, -look.Z)
-		lightPart.CFrame = CFrame.new(root.Position + Vector3.new(0, clip.Height, 0))
+		-- In front of your chest, not inside it: your body casts shadows now
+		-- (Controllers/BodyController), and a light inside it would light nothing.
+		local flat = Vector3.new(look.X, 0, look.Z)
+		local ahead = flat.Magnitude > 0.01 and flat.Unit * clip.Ahead or Vector3.zero
+		lightPart.CFrame = CFrame.new(root.Position + Vector3.new(0, clip.Height, 0) + ahead)
 			* CFrame.Angles(0, yaw, 0)
 			* CFrame.Angles(math.rad(-10), 0, 0)
 		cameraLight.Range = clip.Range

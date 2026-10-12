@@ -1,13 +1,21 @@
--- What you hold (owner, 2026-10-03; reworked 2026-10-04): ONE thing in your
--- hands at a time, the flashlight or the found tool in the slot you chose
--- (Logic/Inventory, UI/Hotbar), with sleeved arms reaching up to it. All parts
--- are built in code (World/ToolModel, Lib/ViewModel), local to this client,
--- attached to the camera. Roblox's own first-person arms are hidden so these
--- replace them. Pulled back and down against a wall so nothing clips through.
+-- What you hold (owner, 2026-10-03; reworked 2026-10-04 and 2026-10-12): the
+-- torch in your left hand while it's up (F), and the found tool from the slot
+-- you chose in your right (Logic/Inventory, UI/Hotbar), each with a sleeved arm
+-- reaching up to it. All parts are built in code (World/ToolModel,
+-- Lib/ViewModel), local to this client, attached to the camera. Your own body
+-- below the waist is Controllers/BodyController's. Pulled back and down against
+-- a wall so nothing clips through.
 --
--- Where each item sits, and how its hands reach it, is Config.ViewModel.Poses
+-- The torch swings (docs/plans/gameplay-rework.md section 20, the owner: "you
+-- press F and you flip it up, press F again and its gone ... I want it to have
+-- a clean animation"): up from your hip on a spring that overshoots a touch and
+-- settles, the switch clicked under your thumb as it lights at the top; away,
+-- the click first, then it drops. Working a tool lock with both hands, it goes
+-- to your shirt (the clip light) until you stop.
+--
+-- Where each item sits, and how its hand reaches it, is Config.ViewModel.Poses
 -- (in camera-frame studs; Logic/ViewFrame and its spec keep every hand on
--- screen). Every item hangs on the same lagged aim and counter-sway, so a hard
+-- screen). Everything hangs on the same lagged aim and counter-sway, so a hard
 -- turn drags the torch and the camera alike.
 --
 -- Aim is untouched: the torch's light is still ActionController's, but it
@@ -23,6 +31,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local ArmReach = require(Shared.Logic.ArmReach)
 local Inventory = require(Shared.Logic.Inventory)
 local ViewModel = require(script.Parent.Parent:WaitForChild("Lib"):WaitForChild("ViewModel"))
 
@@ -34,45 +43,58 @@ local ViewModelController = {}
 
 local SCALE = VM.Scale
 local REACH = 2.1 -- how far in front of you a wall must be before the models tuck back
+local SHOWN = 0.02 -- a torch swung further out than this from its pocket is drawn
 
-local function turnOf(pose): CFrame
-	local t = pose.turn
+local function angles(t): CFrame
 	return CFrame.Angles(math.rad(t[1]), 0, 0)
 		* CFrame.Angles(0, math.rad(t[2]), 0)
 		* CFrame.Angles(0, 0, math.rad(t[3]))
 end
 
--- A forearm: swung out to one side, rising towards the hand.
-local function armTurn(yaw: number, tilt: number): CFrame
-	return CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(tilt), 0, 0)
+-- Just enough light on your own hands to see them in a dark room. Small on
+-- purpose: it must not light the room (off while the torch is lit).
+local function addFill(model: Model)
+	local fill = Instance.new("PointLight")
+	fill.Name = "HandFill"
+	fill.Range = 3.2
+	fill.Brightness = 0.55
+	fill.Color = Color3.fromRGB(255, 226, 180)
+	fill.Shadows = false
+	fill.Parent = model.PrimaryPart
+end
+
+local function setFill(model: Model?, on: boolean)
+	local fill = model and model.PrimaryPart and model.PrimaryPart:FindFirstChild("HandFill") :: PointLight?
+	if fill then
+		fill.Enabled = on
+	end
 end
 
 function ViewModelController:Init(controllers)
 	self.controllers = controllers
 	self.state = controllers.StateController
-	self.rightArm, self.leftArm = nil, nil
-	self.item, self.itemId = nil, nil
-	self.lower = 0 -- 0 raised, 1 lowered (while you switch what you hold)
+	self.arms = {} -- "Left"/"Right" -> { model, bones, look }: your own arms
+	self.item, self.itemId = nil, nil -- the right hand's
+	self.lower = 0 -- 0 raised, 1 lowered (while the right hand switches what it holds)
+	self.torch = nil -- the left hand's
+	self.swing, self.swingSpeed = 0, 0 -- the torch: 0 put away, 1 up (a spring)
+	self.kick = 0 -- the switch under your thumb
 	self.tuck = 0
 	self.rayParams = nil
-	self.shadowParts = nil
 end
 
 function ViewModelController:_build()
 	local camera = Workspace.CurrentCamera
 	local character = player.Character
-	local torso = character and character:FindFirstChild("UpperTorso")
-	local head = character and character:FindFirstChild("Head")
-	local shirt = torso and torso.Color or Color3.fromRGB(150, 130, 100)
-	local skin = head and head.Color or Color3.fromRGB(220, 180, 150)
-	ViewModel.destroy(self.rightArm)
-	ViewModel.destroy(self.leftArm)
-	self.rightArm = ViewModel.arm(shirt, skin)
-	self.leftArm = ViewModel.arm(shirt, skin)
-	for _, model in { self.rightArm, self.leftArm } do
-		model:ScaleTo(SCALE)
-		model.Parent = camera
+	for side, arm in self.arms do
+		ViewModel.destroy(arm.model)
+		self.arms[side] = nil
 	end
+	ViewModel.destroy(self.torch)
+	self.torch = ViewModel.torch()
+	self.torch:ScaleTo(SCALE)
+	addFill(self.torch)
+	self.swing, self.swingSpeed = 0, 0
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character, camera }
@@ -80,48 +102,92 @@ function ViewModelController:_build()
 	self.builtFor = character
 end
 
-function ViewModelController:_hideAll()
-	for _, model in { self.rightArm, self.leftArm, self.item } do
-		if model and model.Parent then
-			model.Parent = nil
-		end
+-- Your arm on `side`, copied from your character (Lib/ViewModel.armFrom), and
+-- copied again whenever it changes (the outfit painted after you spawned).
+function ViewModelController:_arm(side: string)
+	local character = player.Character
+	if not character then
+		return nil
 	end
-	self:_shadowless(player.Character, false)
+	local look = ViewModel.armLook(character, side)
+	local arm = self.arms[side]
+	if arm and arm.look == look then
+		return arm
+	end
+	if arm then
+		ViewModel.destroy(arm.model)
+	end
+	local A = VM.Arm
+	local model, bones = ViewModel.armFrom(character, side, A.Scale, A.Thickness)
+	arm = model and { model = model, bones = bones, look = look } or nil
+	self.arms[side] = arm
+	return arm
+end
+
+local function hide(model: Instance?)
+	if model and model.Parent then
+		model.Parent = nil
+	end
+end
+
+-- A bone part between two joints: its +Y from `from` towards `to` (a Roblox
+-- limb's top is the joint nearer the body), turned so its front faces `facing`.
+local function bone(from: Vector3, to: Vector3, facing: Vector3): CFrame
+	local y = (to - from).Unit
+	local x = facing:Cross(y)
+	x = x.Magnitude > 1e-4 and x.Unit or Vector3.xAxis
+	return CFrame.fromMatrix((from + to) / 2, x, y, x:Cross(y))
+end
+
+-- Bend your arm on `side` (1 right, -1 left) from its shoulder (held to your
+-- eye) to `wrist`, the hand beyond it along the forearm, the way the hand holds
+-- the thing.
+function ViewModelController:_poseArm(sideName: string, side: number, eye: CFrame, wrist: Vector3, camera: Camera)
+	local arm = self:_arm(sideName)
+	if not arm then
+		return
+	end
+	local A = VM.Arm
+	local bones = arm.bones
+	local s = A.Shoulder
+	local shoulder = (eye * CFrame.new(s[1] * side, s[2], s[3])).Position
+	local pole = eye:VectorToWorldSpace(Vector3.new(A.Pole[1] * side, A.Pole[2], A.Pole[3]))
+	-- The bones overlap a little at the elbow, as a Roblox arm's do.
+	local upper, lower = bones.upper.Size.Y * 0.94, bones.lower.Size.Y * 0.94
+	local e, sh = ArmReach.solve(
+		{ shoulder.X, shoulder.Y, shoulder.Z },
+		{ wrist.X, wrist.Y, wrist.Z },
+		upper,
+		lower,
+		{ pole.X, pole.Y, pole.Z }
+	)
+	local elbow, top = Vector3.new(e[1], e[2], e[3]), Vector3.new(sh[1], sh[2], sh[3])
+	local facing = -camera.CFrame.LookVector
+	bones.upper.CFrame = bone(elbow, top, facing)
+	bones.lower.CFrame = bone(wrist, elbow, facing)
+	local along = (wrist - elbow).Unit
+	local tip = wrist + along * bones.hand.Size.Y * 0.9
+	bones.hand.CFrame = bone(tip, wrist, facing)
+	arm.model.Parent = camera
+end
+
+function ViewModelController:_hideArm(side: string)
+	local arm = self.arms[side]
+	if arm then
+		hide(arm.model)
+	end
+end
+
+function ViewModelController:_hideAll()
+	for _, model in { self.item, self.torch } do
+		hide(model)
+	end
+	self:_hideArm("Left")
+	self:_hideArm("Right")
 	-- Not holding a torch: ActionController puts the light back at the camera.
 	local actions = self.controllers.ActionController
 	if actions then
 		actions.beamCFrame = nil
-	end
-end
-
--- Roblox shows the avatar's own arms in first person; ours replace them.
-local function hideStockBody(character: Model)
-	for _, d in character:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.LocalTransparencyModifier = 1
-		end
-	end
-end
-
--- While you look out of your own head, the hidden body stops casting shadows on
--- this client, or it would throw one across the torch beam that starts just
--- beside it. Put back exactly as it was when you leave first person.
-function ViewModelController:_shadowless(character: Model?, on: boolean)
-	if on and character and not self.shadowParts then
-		self.shadowParts = {}
-		for _, d in character:GetDescendants() do
-			if d:IsA("BasePart") and d.CastShadow then
-				d.CastShadow = false
-				table.insert(self.shadowParts, d)
-			end
-		end
-	elseif not on and self.shadowParts then
-		for _, d in self.shadowParts do
-			if d.Parent then
-				d.CastShadow = true
-			end
-		end
-		self.shadowParts = nil
 	end
 end
 
@@ -146,17 +212,13 @@ function ViewModelController:_tuckAmount(camera: Camera, dt: number): number
 	return self.tuck
 end
 
--- What is in your hands: the torch, a found tool, or nothing. An empty slot
--- draws nothing, as in Amnesia: a clean view until you grab something
--- (tried 2026-10-04: two open primitive hands at the bottom of the screen
--- read as bricks).
+-- The found tool in your right hand, or nothing. A free hand draws nothing,
+-- as in Amnesia: a clean view until you grab something (tried 2026-10-04: two
+-- open primitive hands at the bottom of the screen read as bricks).
 function ViewModelController:_heldId(): string?
 	local tool = player:GetAttribute(PA.Tool)
 	if type(tool) == "string" and tool ~= "" then
 		return tool
-	end
-	if (player:GetAttribute(PA.ActiveSlot) or Inventory.TORCH_SLOT) == Inventory.TORCH_SLOT then
-		return Inventory.TORCH
 	end
 	return nil
 end
@@ -168,25 +230,16 @@ function ViewModelController:_swapItem(id: string?)
 	if not id then
 		return
 	end
-	local model = id == Inventory.TORCH and ViewModel.torch() or ViewModel.tool(id)
+	local model = ViewModel.tool(id)
 	if not model then
 		return
 	end
 	model:ScaleTo(SCALE)
-	model.Parent = Workspace.CurrentCamera
-	-- Just enough light on your own hands to see them in a dark room. Small
-	-- on purpose: it must not light the room (see _update, off while the torch is on).
-	local fill = Instance.new("PointLight")
-	fill.Name = "HandFill"
-	fill.Range = 3.2
-	fill.Brightness = 0.55
-	fill.Color = Color3.fromRGB(255, 226, 180)
-	fill.Shadows = false
-	fill.Parent = model.PrimaryPart
+	addFill(model)
 	self.item = model
 end
 
--- Lower what you hold, swap it, raise the new one.
+-- Lower what the right hand holds, swap it, raise the new one.
 function ViewModelController:_updateItem(dt: number)
 	local wanted = self:_heldId()
 	if wanted ~= self.itemId then
@@ -197,6 +250,51 @@ function ViewModelController:_updateItem(dt: number)
 	else
 		self.lower = math.max(0, self.lower - dt * 6)
 	end
+end
+
+-- The torch's swing: a spring towards up (1) or away (0), stepped in small
+-- steps so a slow frame can't throw it.
+function ViewModelController:_updateSwing(dt: number, up: boolean)
+	local spring = up and VM.TorchRaise or VM.TorchLower
+	local omega, zeta = spring[1], spring[2]
+	local target = up and 1 or 0
+	local steps = math.max(1, math.ceil(dt / (1 / 120)))
+	local h = dt / steps
+	for _ = 1, steps do
+		local accel = omega * omega * (target - self.swing) - 2 * zeta * omega * self.swingSpeed
+		self.swingSpeed += accel * h
+		self.swing += self.swingSpeed * h
+	end
+	-- Put away is put away: no bounce below the hip.
+	if not up and self.swing < 0 then
+		self.swing, self.swingSpeed = 0, 0
+	end
+	self.kick *= math.exp(-dt * 16)
+end
+
+-- The switch under your thumb (ActionController, as the light comes on or goes off).
+function ViewModelController:Click()
+	self.kick = 1
+end
+
+-- What the right hand does at a tool lock (Services/LockService): the crowbar
+-- levers at the boards, the cutters bite at the chain, stroke after stroke.
+function ViewModelController:_workMotion(dt: number): CFrame
+	local working = player:GetAttribute("Working")
+	if not working then
+		self.workPhase = 0
+		return CFrame.identity
+	end
+	self.workPhase = (self.workPhase or 0) + dt
+	local t = self.workPhase
+	if working == "boards" then
+		local heave = math.sin(t * 7)
+		return CFrame.new(0, math.abs(heave) * 0.08 - 0.04, -0.14 * math.max(0, heave))
+			* CFrame.Angles(heave * 0.24, 0, 0)
+	end
+	local bite = math.max(0, math.sin(t * 9))
+	return CFrame.new(math.sin(t * 23) * 0.015, math.sin(t * 19) * 0.015, -0.12 * bite)
+		* CFrame.Angles(0, 0, math.sin(t * 9) * 0.06)
 end
 
 function ViewModelController:_update(dt: number)
@@ -211,27 +309,19 @@ function ViewModelController:_update(dt: number)
 		and not self.state:IsTucked()
 	if not active then
 		self:_hideAll()
+		self.swing, self.swingSpeed = 0, 0
 		return
 	end
-	hideStockBody(character)
-	if self.builtFor ~= character or not self.rightArm then
-		self.shadowParts = nil -- a new body: the old parts are gone
+	if self.builtFor ~= character or not self.torch then
 		self:_build()
 	end
-	self:_shadowless(character, true)
 	self:_updateItem(dt)
 
 	local actions = self.controllers.ActionController
-	local pose = self.itemId and VM.Poses[self.itemId]
-	if not (self.item and pose) then
-		self:_hideAll()
-		return
-	end
-	for _, model in { self.item, self.rightArm } do
-		if not model.Parent then
-			model.Parent = camera
-		end
-	end
+	-- Up while you want it up (F, ahead of the server's word), and not while
+	-- both hands work a tool lock (it rides on your shirt then).
+	local wantUp = actions ~= nil and actions:TorchWanted() and player:GetAttribute("Working") == nil
+	self:_updateSwing(dt, wantUp)
 
 	local feel = self.controllers.FeelController
 	local aim = (actions and actions.flashlightRotation) or camera.CFrame.Rotation
@@ -239,56 +329,52 @@ function ViewModelController:_update(dt: number)
 	local tuck = self:_tuckAmount(camera, dt)
 	-- Counter-sway: the camera already bobs, so the hands lag a little behind it.
 	local counter = Vector3.new(-sway.X * 1.4, -sway.Y * 1.4, 0)
-	local at = pose.at
-	local offset = Vector3.new(at[1], at[2], -at[3])
-		+ counter
-		+ Vector3.new(0, -self.lower * 0.9 - tuck * 0.28, tuck * 1.1)
-	local base = CFrame.new(camera.CFrame.Position) * aim * CFrame.new(offset)
-	-- At work on a tool lock (Services/LockService): the crowbar levers at the
-	-- boards, the cutters bite at the chain, stroke after stroke.
-	local working = player:GetAttribute("Working")
-	if working then
-		self.workPhase = (self.workPhase or 0) + dt
-		local t = self.workPhase
-		if working == "boards" then
-			local heave = math.sin(t * 7)
-			base *= CFrame.new(0, math.abs(heave) * 0.08 - 0.04, -0.14 * math.max(0, heave)) * CFrame.Angles(
-				heave * 0.24,
-				0,
-				0
-			)
-		else
-			local bite = math.max(0, math.sin(t * 9))
-			base *= CFrame.new(math.sin(t * 23) * 0.015, math.sin(t * 19) * 0.015, -0.12 * bite) * CFrame.Angles(
-				0,
-				0,
-				math.sin(t * 9) * 0.06
-			)
-		end
+	local eye = CFrame.new(camera.CFrame.Position) * aim
+	local pulled = counter + Vector3.new(0, -tuck * 0.28, tuck * 1.1)
+
+	-- The right hand: the tool.
+	local pose = self.itemId and VM.Poses[self.itemId]
+	if self.item and pose then
+		local at = pose.at
+		local offset = Vector3.new(at[1], at[2], -at[3]) + pulled + Vector3.new(0, -self.lower * 0.9, 0)
+		local base = eye * CFrame.new(offset) * self:_workMotion(dt)
+		self.item:PivotTo(base * angles(pose.turn))
+		local wrist = pose.wrist
+		self:_poseArm("Right", 1, eye, (base * CFrame.new(wrist[1], wrist[2], wrist[3])).Position, camera)
+		self.item.Parent = camera
 	else
-		self.workPhase = 0
+		hide(self.item)
+		self:_hideArm("Right")
 	end
 
-	self.item:PivotTo(base * turnOf(pose))
-	local wrist = pose.wrist
-	self.rightArm:PivotTo(base * CFrame.new(wrist[1], wrist[2], wrist[3]) * armTurn(pose.yaw, pose.tilt))
-	if pose.left then
-		local left = pose.left
-		self.leftArm:PivotTo(base * CFrame.new(left[1], left[2], left[3]) * armTurn(-pose.yaw, pose.tilt))
-		self.leftArm.Parent = camera
-	else
-		self.leftArm.Parent = nil
-	end
-
-	local fill = self.item.PrimaryPart:FindFirstChild("HandFill") :: PointLight?
-	if self.itemId == Inventory.TORCH then
-		local torchOn = player:GetAttribute(PA.Flashlight) == true
-		ViewModel.setTorchOn(self.item, torchOn)
-		if fill then
-			fill.Enabled = not torchOn -- with the torch on, its own light shows your hands
-		end
-		local muzzle = self.item:FindFirstChild("Muzzle") :: BasePart?
-		if muzzle and actions then
+	-- The left hand: the torch, somewhere on its swing between your hip and its pose.
+	local torchOn = player:GetAttribute(PA.Flashlight) == true and wantUp
+	local torchPose = VM.Poses[Inventory.TORCH]
+	if self.swing > SHOWN and torchPose then
+		local s = self.swing
+		local away = VM.TorchAway
+		local at = torchPose.at
+		local rest = Vector3.new(at[1], at[2], -at[3])
+		local hip = rest + Vector3.new(away.at[1], away.at[2], -away.at[3])
+		-- Past 1 (the spring's overshoot) it carries on a little past its pose: the flick.
+		local offset = hip:Lerp(rest, s) + pulled + Vector3.new(0, 0, self.kick * 0.03)
+		local turn = {
+			away.turn[1] * (1 - s) + torchPose.turn[1] - self.kick * VM.TorchClickKick,
+			away.turn[2] * (1 - s) + torchPose.turn[2],
+			away.turn[3] * (1 - s) + torchPose.turn[3],
+		}
+		local base = eye * CFrame.new(offset)
+		self.torch:PivotTo(base * angles(turn))
+		-- The hand keeps hold of it all the way: the wrist turns with the torch.
+		local wrist = torchPose.wrist
+		local carried = angles(turn) * angles(torchPose.turn):Inverse()
+		self:_poseArm("Left", -1, eye, (base * carried * CFrame.new(wrist[1], wrist[2], wrist[3])).Position, camera)
+		self.torch.Parent = camera
+		ViewModel.setTorchOn(self.torch, torchOn)
+		setFill(self.torch, not torchOn)
+		local muzzle = self.torch:FindFirstChild("Muzzle") :: BasePart?
+		-- (On its way to your shirt for a tool lock, the light is the clip's already.)
+		if muzzle and actions and player:GetAttribute(PA.TorchClipped) ~= true then
 			local beam = self:_beamOrigin(camera, muzzle.CFrame)
 			actions.beamCFrame = beam
 			if actions.lightPart then
@@ -296,12 +382,16 @@ function ViewModelController:_update(dt: number)
 			end
 		end
 	else
+		hide(self.torch)
+		self:_hideArm("Left")
 		if actions then
 			actions.beamCFrame = nil
 		end
-		if fill then
-			fill.Enabled = true
-		end
+	end
+
+	-- The tool in the other hand: lit by the torch when it's on.
+	if self.item then
+		setFill(self.item, not torchOn)
 		local core = self.item:FindFirstChild("Core") :: BasePart?
 		if core then
 			core.Transparency = player:GetAttribute("LanternOn") == true and 0 or 0.8

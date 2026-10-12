@@ -62,7 +62,8 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
-| Choose a slot (1 the flashlight, 2 and 3 found tools; the torch clips to your shirt in 2 and 3, an empty one is a free hand) | **1 2 3** or mouse wheel | D-pad down (next) | Tap a slot |
+| Torch up into your left hand (it lights at the top), or put away | **F** | D-pad up | Light button, or tap the torch on the bar |
+| A found tool into your right hand (two slots; its key again puts it away, a free hand) | **1 2** or mouse wheel | D-pad down (next) | Tap a slot |
 | Use what you're looking at (one marker says what E does: open, pick up, play the piano, hide, a switch) | tap **E** | X; hold RT to drag | Tap the prompt |
 | Drag a door, drawer, cupboard door, lid or closet door | hold **E** (or **left mouse**) and move the mouse | hold RT (right stick moves your hand) | none yet |
 | Push furniture (heavy pieces need friends; walk backwards to pull) | hold **E** (or **left mouse**) on it and walk | hold RT and walk | none yet |
@@ -71,7 +72,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 | Revive a friend who's down (their marker says how far, and "hold E" once you're close) | look at them, hold **E** for 4 s | hold X | Hold the prompt |
 | Use what a drawer held: batteries into your torch, painkillers, letters, matches (the click picks it up instead) | **E** on it | X | Tap the prompt |
 | Set a place at the table | walk up to the table carrying the heirloom its card names | | |
-| Pry the boards off, cut a chain (the crowbar or the bolt cutters in your hands) | hold **left mouse** or **R** on it | hold RT or RB | Tool button |
+| Pry the boards off, cut a chain (the crowbar or the bolt cutters in your hands; your torch rides on your shirt while both hands work) | hold **left mouse** or **R** on it | hold RT or RB | Tool button |
 | Crouch (a silent creep) | hold **Ctrl** (a setting makes it a toggle) | B | Crouch button |
 | Hide in a wardrobe, a locker or a closet: open it, step in, pull the door shut (E on it); E on the door again to get out | **E** on the door | X | Tap the prompt |
 | Peek out from under a bed, a table or a curtain (he may notice) | hold **right mouse** | hold LT | Peek button |
@@ -82,7 +83,6 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 | Trace the fuse box's wiring (alone; hold 6 s) | **T** (prompt) | Y | Tap the prompt |
 | Use the tool in your hands | **R** | RB | Tool button |
 | Put the tool in your hands down | **X** | none | none |
-| Flashlight | **F** | D-pad up | Light button |
 | Sprint (walking is slow on purpose) | **Shift** | L3 | Run button |
 | Map and journal | **Tab** | Y | Map button |
 | Ping wheel (hold, aim, release) | **G** | D-pad left | Ping button |

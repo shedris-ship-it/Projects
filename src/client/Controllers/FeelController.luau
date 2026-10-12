@@ -156,6 +156,34 @@ function FeelController:_standoff(root: BasePart, camera: Camera): number
 	return node and reach - hit.Distance or 0
 end
 
+-- How far your eye may lean forward before it comes within Config.Body.WallGap
+-- of whatever is ahead of you (a wall, a door, a wardrobe's slats), at head
+-- height. Roblox's eye starts half a stud behind your middle, less as you look
+-- down (it hangs half a stud back along your view from your head).
+function FeelController:_neckRoom(root: BasePart, camera: Camera, down: number): number?
+	local look = camera.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 0.01 then
+		flat = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	end
+	if flat.Magnitude < 0.01 then
+		return nil
+	end
+	if not self.neckParams then
+		self.neckParams = RaycastParams.new()
+		self.neckParams.FilterType = Enum.RaycastFilterType.Exclude
+	end
+	self.neckParams.FilterDescendantsInstances = { root.Parent :: Instance, camera }
+	local B = Config.Body
+	local origin = Vector3.new(root.Position.X, camera.CFrame.Position.Y, root.Position.Z)
+	local hit = Workspace:Raycast(origin, flat.Unit * (B.NeckReach + B.WallGap + 0.5), self.neckParams)
+	if not hit then
+		return nil
+	end
+	local behind = 0.5 * math.cos(math.rad(down))
+	return hit.Distance - B.WallGap + behind
+end
+
 function FeelController:_update(dt: number)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -233,7 +261,20 @@ function FeelController:_update(dt: number)
 	local bob = active and Vector3.new(x, y + idle - self.dip, 0) or Vector3.zero
 	local back = self.state:InRun() and self:_standoff(root, camera) or 0
 	self.back = (self.back or 0) + (back - (self.back or 0)) * math.clamp(dt * 12, 0, 1)
-	humanoid.CameraOffset = bob + (self.state:InRun() and self.posture or Vector3.zero) + Vector3.new(0, 0, self.back)
+	-- Your neck: looking down with your body shown, your eye leans out over it
+	-- (Config.Body, Logic/Feel.neckLean; Controllers/BodyController).
+	local neck = Vector3.zero
+	local body = self.controllers.BodyController
+	if active and body and body:LegsShown() then
+		local down = -math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1)))
+		local forward, drop = Feel.neckLean(down, Config.Body, self:_neckRoom(root, camera, down))
+		neck = Vector3.new(0, -drop, -forward)
+	end
+	self.neck = (self.neck or Vector3.zero):Lerp(neck, math.clamp(dt * 18, 0, 1))
+	humanoid.CameraOffset = bob
+		+ (self.state:InRun() and self.posture or Vector3.zero)
+		+ Vector3.new(0, 0, self.back)
+		+ self.neck
 	-- How far the camera has moved with the bob: the hands lag behind it.
 	self.sway = active and Vector2.new(x, y + idle - self.dip) or Vector2.zero
 

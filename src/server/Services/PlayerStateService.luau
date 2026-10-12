@@ -72,7 +72,8 @@ function PlayerStateService:_record(player: Player)
 			player = player,
 			state = States.Lobby,
 			inRun = false,
-			flashlight = false,
+			torchUp = false, -- raised in your left hand (F)
+			flashlight = false, -- lit
 			battery = Config.Player.FlashlightBatterySeconds,
 			lastActive = os.clock(),
 			lastSprintNoise = 0,
@@ -119,9 +120,9 @@ function PlayerStateService:Start()
 	Net.onServer("SetCrouch", { interval = 0.1, types = { "boolean" } }, function(player, on)
 		self:SetCrouch(player, on == true)
 	end)
-	Net.onServer("SetFlashlight", { interval = 0.15, types = { "boolean" } }, function(player, on)
-		-- Through ToolService, which knows where the torch is (hand or shirt).
-		self.services.ToolService:OnFlashlightRequest(player, on == true)
+	-- F: the torch up into your left hand, or away (section 20).
+	Net.onServer("SetFlashlight", { interval = 0.15, burst = 4, types = { "boolean" } }, function(player, up)
+		self:SetFlashlight(player, up == true)
 	end)
 
 	local accumulator = 0
@@ -215,7 +216,9 @@ function PlayerStateService:_onCharacter(player: Player, character: Model)
 		light.Parent = torso
 	end
 	local record = self:_record(player)
+	record.torchUp, record.raise, record.raisedAt = false, nil, nil
 	record.flashlight = false
+	player:SetAttribute(PA.TorchUp, false)
 	player:SetAttribute(PA.Flashlight, false)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if humanoid then
@@ -698,18 +701,53 @@ end
 
 -- Flashlight ----------------------------------------------------------------
 
-function PlayerStateService:SetFlashlight(player: Player, on: boolean)
+-- The torch up into your left hand (`up`), or put away. F does this
+-- (section 20: the owner, 2026-10-12, "you press F and you flip it up, press F
+-- again and its gone"), and so does everything that takes it from you: going
+-- down, shutting yourself in to hide, the battery dying, leaving the run. A
+-- raised torch lights when your hand gets there (Config.Torch.RaiseSeconds),
+-- so the Guest and the squad see it come on when you do; put away, it clicks
+-- off at once.
+function PlayerStateService:SetFlashlight(player: Player, up: boolean)
 	local record = records[player]
 	if not record then
 		return
 	end
-	if on and (record.state ~= States.Active or record.battery <= 0) then
-		on = false
+	if up and (record.state ~= States.Active or record.battery <= 0) then
+		up = false
 	end
-	-- Cut (he leaned in: CutTorch): it won't come on until it comes back.
-	if on and record.torchCutUntil and os.clock() < record.torchCutUntil then
-		on = false
+	if record.torchUp ~= up then
+		record.torchUp = up
+		player:SetAttribute(PA.TorchUp, up)
+		record.raisedAt = nil
+		if up then
+			local raise = {}
+			record.raise = raise
+			task.delay(Config.Torch.RaiseSeconds, function()
+				if records[player] == record and record.raise == raise then
+					record.raisedAt = os.clock()
+					self:_relight(player)
+				end
+			end)
+		else
+			record.raise = nil
+		end
 	end
+	self:_relight(player)
+end
+
+-- Lit: raised all the way, charged, and not cut (he leaned in: CutTorch).
+function PlayerStateService:_relight(player: Player)
+	local record = records[player]
+	if not record then
+		return
+	end
+	local cut = record.torchCutUntil ~= nil and os.clock() < record.torchCutUntil
+	local on = record.torchUp == true
+		and record.raisedAt ~= nil
+		and record.state == States.Active
+		and record.battery > 0
+		and not cut
 	if record.flashlight ~= on then
 		local root = self:Root(player)
 		if root and not player:GetAttribute(PA.Hidden) then
@@ -722,28 +760,21 @@ function PlayerStateService:SetFlashlight(player: Player, on: boolean)
 end
 
 -- The torch dies in your hand for `seconds` (StalkerService:_confront), and
--- comes back on by itself if it was on.
+-- comes back on by itself if it's still up.
 function PlayerStateService:CutTorch(player: Player, seconds: number)
 	local record = records[player]
 	if not record then
 		return
 	end
-	local wasOn = record.flashlight == true
-	self:SetFlashlight(player, false)
-	record.torchCutUntil = os.clock() + seconds
+	record.torchCutUntil = math.max(record.torchCutUntil or 0, os.clock() + seconds)
+	self:_relight(player)
 	task.delay(seconds, function()
 		if records[player] == record then
-			record.torchCutUntil = nil
-			if wasOn and record.state == States.Active then
-				self:SetFlashlight(player, true)
-			end
+			self:_relight(player)
 		end
 	end)
 end
 
--- Which light everyone else sees: the beam from your head while the torch is
--- in your hand, the weak clip light on your chest while you hold anything
--- else (ToolService:TorchClipped). Your own client draws its own copy.
 -- A fresh set of batteries (the safe room's, docs/plans/level-design.md
 -- section 11.12): the torch full again. Returns whether it was short.
 function PlayerStateService:RefillBattery(player: Player): boolean
@@ -786,10 +817,14 @@ function PlayerStateService:ForgiveDown(player: Player): number?
 	return record.downs
 end
 
+-- Which light everyone else sees: the beam from your head while the torch is
+-- up, the weak clip light on your chest while both your hands work a tool
+-- lock (ToolService:TorchClipped). Your own client draws its own copy.
 function PlayerStateService:RefreshFlashlight(player: Player)
 	local record = records[player]
 	local on = record ~= nil and record.flashlight
-	local clipped = self.services.ToolService:TorchClipped(player)
+	local clipped = record ~= nil and record.torchUp == true and self.services.ToolService:TorchClipped(player)
+	player:SetAttribute(PA.TorchClipped, clipped)
 	local character = player.Character
 	local head = character and character:FindFirstChild("Head")
 	local beam = head and head:FindFirstChild("Flashlight")
@@ -954,7 +989,7 @@ function PlayerStateService:_tick(dt: number)
 		-- Flashlight battery (WP3: light is the stare's cost, not a walking
 		-- cost). Holding him frozen in your beam alone costs more
 		-- (Config.Stare.BeamDrainScale; Stalker/Perception sets BeamHold);
-		-- clipped to your shirt it costs a tenth (Config.Player.ClipDrainScale);
+		-- clipped to your shirt at a tool lock it costs a tenth (Config.Player.ClipDrainScale);
 		-- a lit Lantern room charges it whether it's on or off.
 		if record.flashlight then
 			local scale = 1

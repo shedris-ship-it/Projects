@@ -1,6 +1,6 @@
--- What you hold: the tool builders now live in shared World/ToolModel (so the
--- tool on the table and the one in your hand are the same model); this adds the
--- sleeved arms and tidy-up. Each model is anchored, non-colliding and local to
+-- What you hold: the tool builders live in shared World/ToolModel (so the
+-- tool on the table and the one in your hand are the same model); this adds
+-- your arms and tidy-up. Each model is anchored, non-colliding and local to
 -- this client, and Controllers/ViewModelController moves it with the camera.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,61 +13,81 @@ ViewModel.torch = ToolModel.torch
 ViewModel.setTorchOn = ToolModel.setTorchOn
 ViewModel.tool = ToolModel.tool
 
-local function part(model: Model, root: BasePart, name: string, size: Vector3, offset: CFrame, props)
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.CastShadow = false
-	p.Massless = true
-	p.Size = size
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	for key, value in props or {} do
-		(p :: any)[key] = value
+-- Your own arm (the owner, 2026-10-12: "make sure ... your arm is actually your
+-- arm and matches your avatar instead of just being a default hand"): copies
+-- of your character's upper arm, forearm and hand on `side` ("Left" or
+-- "Right"), with whatever they wear (their colours, meshes and look, and the
+-- shirt's clothing through a Humanoid of their own), sized by `scale` and
+-- slimmed by `thickness` across. The parts keep their names (a shirt maps onto
+-- them by name). Returns the model and its { upper, lower, hand }. Controllers/ViewModelController
+-- bends them from an off-screen shoulder to what the hand holds. Nil if the
+-- character has no such arm.
+function ViewModel.armFrom(character: Model, side: string, scale: number, thickness: number)
+	local sources = {
+		upper = character:FindFirstChild(side .. "UpperArm"),
+		lower = character:FindFirstChild(side .. "LowerArm"),
+		hand = character:FindFirstChild(side .. "Hand"),
+	}
+	for _, source in sources do
+		if not (source and source:IsA("BasePart")) then
+			return nil, nil
+		end
 	end
-	p.CFrame = root.CFrame * offset
-	p.Parent = model
-	return p
-end
-
-local function newModel(name: string)
 	local model = Instance.new("Model")
-	model.Name = name
-	local root = Instance.new("Part")
-	root.Name = "Pivot"
-	root.Size = Vector3.new(0.2, 0.2, 0.2)
-	root.Transparency = 1
-	root.Anchored = true
-	root.CanCollide = false
-	root.CanQuery = false
-	root.CanTouch = false
-	root.CastShadow = false
-	root.CFrame = CFrame.new(0, 500, 0)
-	root.Parent = model
-	model.PrimaryPart = root
-	return model, root
+	model.Name = side .. "Arm"
+	local bones = {}
+	for key, source in sources do
+		local copy = (source :: BasePart):Clone()
+		for _, child in copy:GetChildren() do
+			-- Only what it looks like: no joints, attachments, welds or scripts.
+			if not (child:IsA("SurfaceAppearance") or child:IsA("DataModelMesh") or child:IsA("Decal")) then
+				child:Destroy()
+			end
+		end
+		bones[key] = copy
+		copy.Anchored = true
+		copy.CanCollide = false
+		copy.CanQuery = false
+		copy.CanTouch = false
+		copy.CastShadow = false
+		copy.Massless = true
+		copy.LocalTransparencyModifier = 0
+		local size = (source :: BasePart).Size
+		copy.Size = Vector3.new(size.X * scale * thickness, size.Y * scale, size.Z * scale * thickness)
+		copy.Parent = model
+	end
+	-- A shirt or a skin tone the character wears as clothing draws on its
+	-- arm only inside a Humanoid's model.
+	local clothes = {}
+	for _, child in character:GetChildren() do
+		if child:IsA("Shirt") or child:IsA("BodyColors") then
+			table.insert(clothes, child:Clone())
+		end
+	end
+	if #clothes > 0 then
+		local humanoid = Instance.new("Humanoid")
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		humanoid.Parent = model
+		for _, item in clothes do
+			item.Parent = model
+		end
+	end
+	model.PrimaryPart = bones.hand
+	return model, bones
 end
 
--- A sleeved forearm and a hand, as if reaching from below the screen. The
--- pivot is the wrist; the arm trails back towards +Z and down.
-function ViewModel.arm(shirt: Color3, skin: Color3): Model
-	local model, root = newModel("Arm")
-	part(model, root, "Sleeve", Vector3.new(0.36, 0.36, 1.6), CFrame.new(0, -0.02, 0.9), {
-		Color = shirt,
-		Material = Enum.Material.Fabric,
-	})
-	part(model, root, "Cuff", Vector3.new(0.4, 0.4, 0.14), CFrame.new(0, -0.02, 0.1), {
-		Color = shirt:Lerp(Color3.new(0, 0, 0), 0.25),
-		Material = Enum.Material.Fabric,
-	})
-	part(model, root, "Hand", Vector3.new(0.32, 0.26, 0.4), CFrame.new(0, 0, -0.18), {
-		Color = skin,
-		Material = Enum.Material.SmoothPlastic,
-	})
-	return model
+-- What the copied arm was made from, to tell when it needs making again (the
+-- outfit painted after the copy, a new character).
+function ViewModel.armLook(character: Model, side: string): string
+	local parts = {}
+	for _, name in { "UpperArm", "LowerArm", "Hand" } do
+		local p = character:FindFirstChild(side .. name)
+		if p and p:IsA("BasePart") then
+			table.insert(parts, p.Color:ToHex() .. tostring(p.Size))
+		end
+	end
+	return table.concat(parts, "|")
 end
 
 function ViewModel.destroy(model: Instance?)

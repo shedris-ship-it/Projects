@@ -1,14 +1,15 @@
--- A player's three slots (owner, 2026-10-04; docs/plans/gameplay-rework.md
--- section 4.1): slot 1 is the flashlight, always; slots 2 and 3 hold tools and
--- bulky things found around the house. Only one slot is in your hands at a
--- time. Anything but the torch clips it to your shirt (a weak light where your
--- body faces), so the light can stay on whatever you hold; an empty slot is a
--- free hand.
+-- A player's two slots for found tools and bulky things (owner, 2026-10-04;
+-- docs/plans/gameplay-rework.md section 4.1, reworked in section 20). The
+-- torch is not in them: since 2026-10-12 it has its own hand and its own key
+-- (the owner, after playing IT WANTS IN: "you press F and you flip it up, press
+-- F again and its gone, and the inventory was separate from the flashlight").
+-- F raises it into your left hand and puts it away (Services/PlayerStateService);
+-- the slots fill your right hand.
 --
--- There was a fourth slot, your bare hands, that grabbing anything switched
--- to: the squad playtest (2026-10-08) found that losing the torch's beam to
--- open a door "doesn't feel good". Your hands now work from any slot
--- (Controllers/HandsController), and the torch stays where it is.
+-- `active` is the slot in your right hand, or 0 for a free hand. Pressing a
+-- slot's key again puts its tool away. There was a fourth slot, your bare
+-- hands, that went with the squad playtest (2026-10-08): your hands work with
+-- or without a tool out (Controllers/HandsController).
 --
 -- Pure, so the rules are tests (tests/specs/Inventory.spec.luau). An item is
 -- { id = "Radio", uid = "tool:3" }: `uid` names the one object in the world.
@@ -19,9 +20,11 @@
 
 local Inventory = {}
 
-Inventory.SLOTS = 3
-Inventory.TORCH_SLOT = 1
-Inventory.TOOL_SLOTS = { 2, 3 }
+Inventory.SLOTS = 2
+Inventory.TOOL_SLOTS = { 1, 2 }
+Inventory.FREE = 0 -- `active` with nothing in your right hand
+-- The torch's id for the models that draw it (Lib/ViewModel, UI/Hotbar's
+-- torch panel). It is never in a slot.
 Inventory.TORCH = "Flashlight"
 
 local function isToolSlot(slot: number): boolean
@@ -30,56 +33,62 @@ end
 Inventory.isToolSlot = isToolSlot
 
 function Inventory.new()
-	return { slots = { { id = Inventory.TORCH }, false, false }, active = 1 }
+	return { slots = { false, false }, active = Inventory.FREE }
 end
 
 function Inventory.held(inv)
 	return inv.slots[inv.active] or nil
 end
 
--- The id in your hands: the torch, a tool, or nil for an empty slot (a free hand).
+-- The id in your right hand, or nil for a free hand.
 function Inventory.heldId(inv): string?
 	local item = inv.slots[inv.active]
 	return item and item.id or nil
 end
 
--- The tool in your hands, or nil with the torch or an empty slot.
-function Inventory.toolId(inv): string?
-	return isToolSlot(inv.active) and Inventory.heldId(inv) or nil
-end
+-- The tool in your hands (the same as heldId: the slots hold only tools).
+Inventory.toolId = Inventory.heldId
 
--- Is the torch the thing in your hands (its full beam)?
-function Inventory.torchHeld(inv): boolean
-	return inv.active == Inventory.TORCH_SLOT
-end
-
--- Anything else in your hands clips the torch to your shirt.
-function Inventory.torchClipped(inv): boolean
-	return inv.active ~= Inventory.TORCH_SLOT
-end
-
--- Put `slot` in your hands. Empty tool slots can be chosen too (nothing in
--- that hand), but only 1 to 3 are valid. Returns whether anything changed.
-function Inventory.select(inv, slot: number): boolean
-	if slot ~= math.floor(slot) or slot < 1 or slot > Inventory.SLOTS or slot == inv.active then
+-- Put `slot` in your hand, or 0 to put away what's there. Its own key again
+-- puts it away, unless `exact` (the wheel says where it wants to be, not what
+-- was pressed); an empty slot leaves the hand free. Returns whether anything
+-- changed.
+function Inventory.select(inv, slot: number, exact: boolean?): boolean
+	if slot ~= math.floor(slot) or slot < 0 or slot > Inventory.SLOTS then
 		return false
 	end
-	inv.active = slot
+	local wanted = slot
+	if (slot == inv.active and not exact) or (slot ~= Inventory.FREE and not inv.slots[slot]) then
+		wanted = Inventory.FREE
+	end
+	if wanted == inv.active then
+		return false
+	end
+	inv.active = wanted
 	return true
 end
 
--- The next slot, `direction` +1 or -1, wrapping. A tool slot counts whether
--- it holds something or not: an empty one is a free hand (the torch on your
--- shirt), as the old fourth slot was, so the wheel always has somewhere to go.
+-- The next thing for your hand, `direction` +1 or -1, wrapping through a free
+-- hand and every slot with something in it (an empty slot has nothing to hold).
 function Inventory.cycle(inv, direction: number): boolean
-	inv.active = (inv.active - 1 + direction) % Inventory.SLOTS + 1
+	local order = { Inventory.FREE }
+	for _, slot in Inventory.TOOL_SLOTS do
+		if inv.slots[slot] then
+			table.insert(order, slot)
+		end
+	end
+	if #order == 1 then
+		return Inventory.select(inv, Inventory.FREE)
+	end
+	local at = table.find(order, inv.active) or 1
+	inv.active = order[(at - 1 + direction) % #order + 1]
 	return true
 end
 
--- Take `item` into the first empty tool slot. With both full, it swaps with the
--- tool in your hands (which is returned so the caller can drop it); with the
--- torch in your hands and both full, it is refused. Returns ok,
--- the slot it went to, and the item that was swapped out.
+-- Take `item` into the first empty slot. With both full, it swaps with the tool
+-- in your hand (which is returned so the caller can drop it); with a free hand
+-- and both full, it is refused. Returns ok, the slot it went to, and the item
+-- that was swapped out.
 function Inventory.pickup(inv, item)
 	for _, slot in Inventory.TOOL_SLOTS do
 		if not inv.slots[slot] then
@@ -95,8 +104,8 @@ function Inventory.pickup(inv, item)
 	return false, nil, nil
 end
 
--- Empty a tool slot and return what was in it. The torch can't be dropped. If
--- it was in your hands, you go back to the torch.
+-- Empty a slot and return what was in it. If it was in your hand, the hand is
+-- free.
 function Inventory.drop(inv, slot: number)
 	if not isToolSlot(slot) then
 		return nil
@@ -107,12 +116,12 @@ function Inventory.drop(inv, slot: number)
 	end
 	inv.slots[slot] = false
 	if inv.active == slot then
-		inv.active = Inventory.TORCH_SLOT
+		inv.active = Inventory.FREE
 	end
 	return item
 end
 
--- Every tool, for a player who goes down. Back to the torch.
+-- Every tool, for a player who goes down. A free hand.
 function Inventory.dropAll(inv)
 	local items = {}
 	for _, slot in Inventory.TOOL_SLOTS do
@@ -121,7 +130,7 @@ function Inventory.dropAll(inv)
 			table.insert(items, item)
 		end
 	end
-	inv.active = Inventory.TORCH_SLOT
+	inv.active = Inventory.FREE
 	return items
 end
 

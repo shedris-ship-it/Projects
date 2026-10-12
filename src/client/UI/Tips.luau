@@ -211,7 +211,7 @@ local TIPS = {
 	},
 	{
 		id = "battery",
-		text = "Your torch is going. Clip it (any slot but 1) to spare it; a lit Lantern room recharges it; drawers and the safe room keep batteries.",
+		text = "Your torch is going. Put it away (F) where you can see without it; a lit Lantern room recharges it; drawers and the safe room keep batteries.",
 		when = function()
 			local battery = player:GetAttribute(PA.Battery)
 			return type(battery) == "number" and battery < 0.6

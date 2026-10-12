@@ -114,8 +114,17 @@ Config.Torch = {
 	Range = 30,
 	Brightness = 2.6, -- your own (from the torch's lens)
 	OthersBrightness = 2.4, -- the one on your head that the squad sees
-	-- Clipped to your shirt while your hands hold a tool (section 4.1).
-	Clip = { Range = 16, Angle = 80, Brightness = 0.8, Height = 1.2 },
+	-- Clipped to your shirt while both hands work a tool lock (section 20).
+	-- `Ahead` keeps your own copy in front of your chest, not inside it.
+	Clip = { Range = 16, Angle = 80, Brightness = 0.8, Height = 1.2, Ahead = 0.7 },
+	-- F raises the torch into your left hand and lights it at the top, or
+	-- clicks it off and puts it away (the owner, 2026-10-12, after IT WANTS IN:
+	-- "you press F and you flip it up, press F again and its gone"). The
+	-- server lights it RaiseSeconds after the press, as your hand gets there
+	-- (Services/PlayerStateService); your client draws the swing
+	-- (Controllers/ViewModelController).
+	RaiseSeconds = 0.24,
+	LowerSeconds = 0.24,
 }
 
 Config.Stare = {
@@ -1898,12 +1907,12 @@ Config.Push = {
 -- pushed furniture otherwise keeps clear of): Logic/Barricade.
 Config.Barricade.NodeClear = Config.Push.KeepClear
 
--- Your hands (docs/plans/gameplay-rework.md section 4; from any slot since the
--- squad playtest, 2026-10-08), and the torch clipped to your shirt while you
--- hold anything but it.
+-- Your hands (docs/plans/gameplay-rework.md section 4; with or without a tool
+-- out since the squad playtest, 2026-10-08), and the torch clipped to your
+-- shirt while both hands work a tool lock (section 20).
 Config.Hands = {
 	-- Weak and short: enough to see what you're doing, not to search a room
-	-- (slot 1 gives the full beam). Points where your body faces, not your eyes.
+	-- (the raised torch gives the full beam). Points where your body faces, not your eyes.
 	ClipLight = Config.Torch.Clip,
 	TapSeconds = 0.22, -- E held longer than this takes hold (drag, push); shorter is a tap (open, shut)
 	-- Dragging doors with the mouse (section 4.5): hold the button on a door
@@ -2090,16 +2099,20 @@ Config.ViewModel = {
 	-- these in Studio; tests/specs/ViewFrame.spec checks the hands stay on screen
 	-- at every field of view and aspect ratio.
 	--   turn   = degrees: pitch (positive lifts the front), yaw, roll
-	--   wrist  = where the right hand's wrist is; left = a second hand, if two-handed
+	--   wrist  = where the holding hand's wrist is; left = a second hand, if two-handed
 	--   yaw    = how far the forearm swings out to the right (left hand: to the left)
 	--   tilt   = how steeply the forearm rises towards the hand
+	--   hand   = "left" for something held in the left hand (the torch); else the right
 	Poses = {
+		-- The torch has the left hand to itself (section 20), so a tool in the
+		-- right can be out with it.
 		Flashlight = {
-			at = { 0.5, -0.32, 1.3 },
-			turn = { 3, -4, 0 },
-			wrist = { 0.03, -0.22, 0.3 },
+			at = { -0.5, -0.33, 1.3 },
+			turn = { 3, 4, 0 },
+			wrist = { -0.03, -0.22, 0.3 },
 			yaw = 14,
 			tilt = 24,
+			hand = "left",
 		},
 		Lantern = {
 			at = { 0.42, -0.45, 1.25 },
@@ -2139,6 +2152,59 @@ Config.ViewModel = {
 		},
 	},
 	ArmHandForward = 0.18, -- the hand's middle sits this far (unscaled) in front of the wrist
+	-- Your arms are your character's own (section 20; the owner, 2026-10-12:
+	-- "your arm is actually your arm and matches your avatar"): copies of its
+	-- upper arm, forearm and hand (Lib/ViewModel.armFrom), `Scale` of their
+	-- size and `Thickness` of that across (a Roblox arm is twice a real one's
+	-- girth for its length, and this close it filled the screen), bent by
+	-- Logic/ArmReach from a shoulder just off the screen (camera frame studs:
+	-- right, up, back; mirrored for the left) to each pose's `wrist`, the elbow
+	-- out towards `Pole`.
+	Arm = { Scale = 0.5, Thickness = 0.62, Shoulder = { 0.62, -0.78, -0.12 }, Pole = { 1, -1, 0.3 } },
+	-- F (section 20): the torch swings up from your hip into the pose above,
+	-- or drops back to it. Put away it hangs this far from its pose (studs in
+	-- the camera's frame) and turned this much (degrees: pitch, yaw, roll):
+	-- low, turned in and pointing at the floor. The swing is a spring, so a
+	-- raise overshoots a little and settles, and a second F mid-swing turns it
+	-- smoothly; `Raise` is stiffness (per second) and damping ratio going up,
+	-- `Lower` coming down (no bounce).
+	TorchAway = { at = { -0.14, -0.95, -0.3 }, turn = { -62, 18, -34 } },
+	TorchRaise = { 17, 0.62 },
+	TorchLower = { 19, 1 },
+	TorchClickKick = 3, -- degrees the torch dips as your thumb works the switch
+}
+
+-- Your own body in first person (the owner, 2026-10-12, after IT WANTS IN:
+-- "you can see your body in first person ... it makes it feel more grounded"):
+-- look down and there are your legs and your feet, walking, crouching,
+-- kneeling, and your shadow on the floor (Controllers/BodyController). Your
+-- head, torso and arms stay hidden: the arms you see are copies of yours that
+-- hold what you hold (Controllers/ViewModelController). The hips stay hidden
+-- too: these avatar meshes draw the top of the hips in the shirt's colour (the
+-- torso's bottom face), and looking down it was a block of shirt over your
+-- legs (Studio, 2026-10-12). Settings can hide it all.
+Config.Body = {
+	Show = {
+		"LeftUpperLeg",
+		"LeftLowerLeg",
+		"LeftFoot",
+		"RightUpperLeg",
+		"RightLowerLeg",
+		"RightFoot",
+	},
+	-- Your neck (Controllers/FeelController): Roblox's first-person eye sits
+	-- half a stud BEHIND your body's middle (measured 2026-10-12), so looking
+	-- down you'd see the top of your hips and nothing else. As you look down
+	-- your eye leans out over your body, as a head bends on its neck: from
+	-- NeckStart degrees below level to NeckFull, up to NeckReach studs forward
+	-- and NeckDrop down. Never closer than WallGap to a wall ahead (Roblox
+	-- draws nothing within half a stud of the camera, and an eye in a wall
+	-- would see the next room). Level aim is untouched.
+	NeckStart = 15,
+	NeckFull = 70,
+	NeckReach = 1.2,
+	NeckDrop = 0.35,
+	WallGap = 0.6,
 }
 
 Config.Debug = {

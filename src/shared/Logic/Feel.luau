@@ -164,4 +164,20 @@ function Feel.jitter(rng, spread: number): number
 	return 1 + (rng:NextNumber() * 2 - 1) * spread
 end
 
+-- Your neck (Config.Body; Controllers/FeelController): looking `down` degrees
+-- below level, how far your eye leans forward and dips, in studs. Nothing
+-- until NeckStart, all of it by NeckFull, eased at both ends. `room` caps the
+-- lean: the studs free ahead of your eye before WallGap from a wall (nil: open).
+function Feel.neckLean(down: number, B, room: number?): (number, number)
+	local t = math.clamp((down - B.NeckStart) / (B.NeckFull - B.NeckStart), 0, 1)
+	local s = t * t * (3 - 2 * t)
+	local forward = B.NeckReach * s
+	if room then
+		forward = math.clamp(forward, 0, math.max(room, 0))
+	end
+	-- The dip goes with the lean: a head held back by a wall bends less.
+	local drop = B.NeckReach > 0 and B.NeckDrop * forward / B.NeckReach or 0
+	return forward, drop
+end
+
 return Feel

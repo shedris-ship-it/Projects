@@ -1,11 +1,12 @@
 -- Tools (doc section 6; owner, 2026-10-04): the Lantern and the Radio are
--- found around the house, not picked in the hub. Each player has three slots
--- (Logic/Inventory): slot 1 is the flashlight, always, 2 and 3 hold found
--- tools (an empty one is a free hand), one thing in your hands at a time
--- (anything but the torch clips it to your shirt). This service owns the inventories, the
--- pickups lying on tables, what each tool does, and Lantern shrines (which
--- make a room safe to rest in). The Witness Camera and the Plumb Line
--- retired with the clue loop (R2c).
+-- found around the house, not picked in the hub. Each player has two slots
+-- for found tools (Logic/Inventory), one in the right hand at a time or a free
+-- hand. The torch isn't in them: it has its own hand and its own key (F,
+-- Services/PlayerStateService; docs/plans/gameplay-rework.md section 20), and
+-- clips to your shirt only while both hands work a tool lock. This service
+-- owns the inventories, the pickups lying on tables, what each tool does, and
+-- Lantern shrines (which make a room safe to rest in). The Witness Camera and
+-- the Plumb Line retired with the clue loop (R2c).
 --
 -- Players are told only the slot ids and which slot is in their hands;
 -- `PA.Tool` stays "the tool in your hands now" so everything that reads it
@@ -112,9 +113,13 @@ function ToolService:Start()
 	Net.onServer("UseTool", { interval = 0.25, types = { "string?", "Vector3?" } }, function(player)
 		self:Use(player)
 	end)
-	Net.onServer("SelectSlot", { interval = 0.08, burst = 8, types = { "number" } }, function(player, slot)
-		self:SelectSlot(player, slot)
-	end)
+	Net.onServer(
+		"SelectSlot",
+		{ interval = 0.08, burst = 8, types = { "number", "boolean?" } },
+		function(player, slot, exact)
+			self:SelectSlot(player, slot, exact == true)
+		end
+	)
 	Net.onServer("DropItem", { interval = 0.4, types = {} }, function(player)
 		self:DropHeld(player)
 	end)
@@ -196,27 +201,18 @@ function ToolService:EndRun()
 			end
 			player:SetAttribute(PA.ActiveSlot, nil)
 			player:SetAttribute(PA.Tool, nil)
-			player:SetAttribute(PA.TorchClipped, nil)
-			self.PlayerState:RefreshFlashlight(player)
 		end
 	end
 end
 
 -- Inventory ---------------------------------------------------------------------
 
--- Is the flashlight what's in this player's hands? True outside a run, where
--- there is no inventory to say otherwise.
-function ToolService:TorchHeld(player: Player): boolean
-	local inv = inventories[player]
-	return inv == nil or Inventory.torchHeld(inv)
-end
-
--- Is the torch clipped to their shirt (anything else in their hands)? The
--- light still works, as a weak short light where the body faces
--- (PlayerStateService picks the head beam or the clip light).
+-- Is the torch clipped to their shirt? Only while both hands work a tool lock
+-- (the crowbar at the boards, the cutters at a chain: LockService sets
+-- "Working"); the light still works, as a weak short light where the body
+-- faces (PlayerStateService picks the head beam or the clip light).
 function ToolService:TorchClipped(player: Player): boolean
-	local inv = inventories[player]
-	return inv ~= nil and Inventory.torchClipped(inv)
+	return player:GetAttribute("Working") ~= nil
 end
 
 -- Tell the player what they carry. Their hands drive everything else: the held
@@ -232,8 +228,6 @@ function ToolService:_publish(player: Player)
 	player:SetAttribute(PA.ActiveSlot, inv.active)
 	local held = Inventory.toolId(inv)
 	player:SetAttribute(PA.Tool, held)
-	player:SetAttribute(PA.TorchClipped, Inventory.torchClipped(inv))
-	self.PlayerState:RefreshFlashlight(player)
 	local light = lanterns[player]
 	if light and held ~= "Lantern" then
 		light:Destroy()
@@ -242,26 +236,20 @@ function ToolService:_publish(player: Player)
 	end
 end
 
-function ToolService:SelectSlot(player: Player, slot)
+-- `slot` into your hand: its key again puts it away, unless `exact` (the wheel).
+function ToolService:SelectSlot(player: Player, slot, exact: boolean?)
 	local inv = inventories[player]
 	if not inv or type(slot) ~= "number" or not self.PlayerState:CanAct(player) then
 		return
 	end
-	-- The light stays as it was: changing slots only moves the torch between
-	-- your hand and your shirt (_publish). Whatever you carry is put down when
-	-- your hand takes a tool (the torch, or an empty slot, leaves it free).
-	if Inventory.select(inv, slot) then
-		if Inventory.isToolSlot(slot) and inv.slots[slot] then
+	-- The torch is in the other hand and stays as it was. Whatever you carry is
+	-- put down when your hand takes a tool (putting one away leaves it free).
+	if Inventory.select(inv, slot, exact) then
+		if Inventory.toolId(inv) then
 			self.services.HandsService:Release(player)
 		end
 		self:_publish(player)
 	end
-end
-
--- F on the keyboard: the light on or off, wherever the torch is (in your hand,
--- or clipped to your shirt while you hold something else).
-function ToolService:OnFlashlightRequest(player: Player, on: boolean)
-	self.PlayerState:SetFlashlight(player, on)
 end
 
 function ToolService:DropHeld(player: Player)
@@ -410,7 +398,13 @@ function ToolService:_take(player: Player, uid: string)
 	local info = Tools.ById[entry.item.id]
 	notify(
 		player,
-		string.format("Took the %s (slot %d). Press %d to hold it.", info and info.name or entry.item.id, slot, slot),
+		string.format(
+			"Took the %s (slot %d). Press %d to hold it, %d again to put it away.",
+			info and info.name or entry.item.id,
+			slot,
+			slot,
+			slot
+		),
 		"good"
 	)
 	Sfx.play("Cloth", root.Position, 0.5, 1.1)

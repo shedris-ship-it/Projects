@@ -43,6 +43,7 @@ local StateController = {
 		musicVolume = 0.7,
 		tips = true, -- teaching in the house (UI/Tips)
 		crouchToggle = false, -- Ctrl toggles a crouch instead of holding it
+		hideBody = false, -- your legs and feet stay hidden in first person (Controllers/BodyController)
 		seenIntro = false,
 	},
 }

@@ -40,8 +40,9 @@ return function(test, check, Shared, require)
 	test("each item and each hand stays on screen at every field of view and aspect ratio", function()
 		for id, pose in VM.Poses do
 			local points = { { "item", pose.at[1], pose.at[2], pose.at[3] } }
-			local rx, ry, rz = ViewFrame.hand(pose, pose.wrist, 1, SCALE, VM.ArmHandForward)
-			table.insert(points, { "right hand", rx, ry, rz })
+			local side = pose.hand == "left" and -1 or 1
+			local rx, ry, rz = ViewFrame.hand(pose, pose.wrist, side, SCALE, VM.ArmHandForward)
+			table.insert(points, { side < 0 and "left hand" or "right hand", rx, ry, rz })
 			if pose.left then
 				local lx, ly, lz = ViewFrame.hand(pose, pose.left, -1, SCALE, VM.ArmHandForward)
 				table.insert(points, { "left hand", lx, ly, lz })
@@ -60,6 +61,33 @@ return function(test, check, Shared, require)
 						end
 					end
 				end
+			end
+		end
+	end)
+
+	test("the torch is in your left hand and every tool in your right, so both can be out", function()
+		check.equal(VM.Poses.Flashlight.hand, "left", "the torch's own hand")
+		check.truthy(VM.Poses.Flashlight.at[1] < 0, "held on the left of the screen")
+		for id, pose in VM.Poses do
+			if id ~= "Flashlight" then
+				check.truthy(pose.hand == nil and pose.at[1] > 0, id .. " is held on the right")
+				check.truthy(pose.left == nil, id .. " leaves the left hand to the torch")
+			end
+		end
+	end)
+
+	test("put away, the torch is below the screen", function()
+		local pose, away = VM.Poses.Flashlight, VM.TorchAway
+		for _, fov in fovs do
+			for _, aspect in aspects do
+				local _, y = ViewFrame.project(
+					pose.at[1] + away.at[1],
+					pose.at[2] + away.at[2],
+					pose.at[3] + away.at[3],
+					fov,
+					aspect
+				)
+				check.truthy(y ~= nil and y < -1, string.format("off the bottom at fov %d aspect %.2f", fov, aspect))
 			end
 		end
 	end)

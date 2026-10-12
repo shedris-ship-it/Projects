@@ -198,4 +198,32 @@ return function(test, check, Shared, require)
 		check.truthy(not with("stamina", P.JumpStamina - 1), "not without the breath for it")
 		check.truthy(not with("restUntil", 11), "not straight after landing")
 	end)
+
+	test("looking down, your eye leans out over your body, smoothly, and never into a wall", function()
+		local B = Config.Body
+		local level = Feel.neckLean(0, B)
+		check.equal(level, 0, "level aim is untouched")
+		check.equal((Feel.neckLean(B.NeckStart, B)), 0, "nothing until the neck starts")
+		local full, drop = Feel.neckLean(B.NeckFull, B)
+		check.near(full, B.NeckReach, 1e-9, "all the way by NeckFull")
+		check.near(drop, B.NeckDrop, 1e-9, "and the dip with it")
+		check.near((Feel.neckLean(90, B)), B.NeckReach, 1e-9, "no further past it")
+		local last = -1
+		for down = 0, 90, 2 do
+			local forward = Feel.neckLean(down, B)
+			check.truthy(forward >= last, "never jumps back as you look further down")
+			check.truthy(forward - last < 0.12 or last < 0, string.format("no jump at %d degrees", down))
+			last = forward
+		end
+		local blocked, dip = Feel.neckLean(80, B, 0.2)
+		check.near(blocked, 0.2, 1e-9, "a wall ahead holds the lean back")
+		check.truthy(dip < B.NeckDrop, "and the dip with it")
+		check.equal((Feel.neckLean(80, B, -0.4)), 0, "pressed to the wall: no lean at all")
+		-- Roblox's eye sits half a stud behind your middle: the full lean
+		-- must bring it out past the front of your body to see your feet.
+		check.truthy(
+			0.5 * math.cos(math.rad(60)) - Feel.neckLean(60, B) < -0.6,
+			"at 60 degrees down, ahead of your belly"
+		)
+	end)
 end

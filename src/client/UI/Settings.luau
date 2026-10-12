@@ -12,8 +12,8 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 -- outside playtest found the bolt on the torch's key and no list anywhere).
 local CONTROLS = table.concat({
 	"E  open, pick up, use  ·  hold E  drag a door or drawer, push furniture  ·  carrying: click throws, E puts down",
-	"hold click  drag or carry too  ·  right click  throw  ·  F  torch  ·  R  use the tool in hand  ·  X  put down",
-	"1 2 3  slots  ·  wheel  next slot  ·  Ctrl  crouch  ·  Shift  run  ·  Space  jump (hidden: hold your breath)  ·  V  bolt  ·  Q  squeeze past",
+	"hold click  drag or carry too  ·  right click  throw  ·  F  torch up or away  ·  R  use the tool in hand  ·  X  put down",
+	"1 2  a tool in your hand (again: away)  ·  wheel  next  ·  Ctrl  crouch  ·  Shift  run  ·  Space  jump (hidden: hold your breath)  ·  V  bolt  ·  Q  squeeze past",
 	"Tab  map and journal  ·  G  ping  ·  C  callouts  ·  Enter  say a line  ·  E  leave a puzzle or a note  ·  F1  settings  ·  F2  debug",
 }, "\n")
 
@@ -93,7 +93,10 @@ function Settings.new(ctx)
 		Size = UDim2.new(0.45, -10, 1, -40),
 		BackgroundTransparency = 1,
 		Parent = panel,
-	}, { Ui.list(8) })
+	}, { Ui.list(5) })
+	-- Every row this tall, so nine toggles, six sliders and Done fit the
+	-- panel (2026-10-12: with "Hide your own body" the column ran off its foot).
+	local ROW = 29
 	self.toggles = {}
 	for i, option in
 		{
@@ -105,11 +108,12 @@ function Settings.new(ctx)
 			{ key = "centerDot", label = "Centre dot (aiming aid)" },
 			{ key = "tips", label = "Show tips in the house" },
 			{ key = "crouchToggle", label = "Ctrl toggles crouch (off: hold)" },
+			{ key = "hideBody", label = "Hide your own body (first person)" },
 		}
 	do
 		local button = Ui.button(
 			"",
-			{ LayoutOrder = i, Size = UDim2.new(1, 0, 0, 34), TextSize = 14, Parent = column },
+			{ LayoutOrder = i, Size = UDim2.new(1, 0, 0, ROW), TextSize = 14, Parent = column },
 			function()
 				ctx.state:SetSetting(option.key, not ctx.state.settings[option.key])
 				self:Render()
@@ -130,7 +134,7 @@ function Settings.new(ctx)
 	do
 		local row = Ui.new(
 			"Frame",
-			{ LayoutOrder = 10 + i, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, Parent = column }
+			{ LayoutOrder = 10 + i, Size = UDim2.new(1, 0, 0, ROW), BackgroundTransparency = 1, Parent = column }
 		)
 		local label = Ui.label("", { Size = UDim2.new(1, -90, 1, 0), TextSize = 14, Parent = row })
 		local function nudge(direction)
@@ -146,7 +150,7 @@ function Settings.new(ctx)
 		Ui.button("−", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -46, 0, 0),
-			Size = UDim2.fromOffset(40, 34),
+			Size = UDim2.fromOffset(40, ROW),
 			Parent = row,
 		}, function()
 			nudge(-1)
@@ -154,7 +158,7 @@ function Settings.new(ctx)
 		Ui.button("+", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, 0, 0, 0),
-			Size = UDim2.fromOffset(40, 34),
+			Size = UDim2.fromOffset(40, ROW),
 			Parent = row,
 		}, function()
 			nudge(1)
@@ -163,7 +167,7 @@ function Settings.new(ctx)
 	end
 	Ui.button("Done", {
 		LayoutOrder = 99,
-		Size = UDim2.new(1, 0, 0, 40),
+		Size = UDim2.new(1, 0, 0, 36),
 		BackgroundColor3 = Color3.fromRGB(70, 56, 36),
 		Parent = column,
 	}, function()

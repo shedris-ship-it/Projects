@@ -66,17 +66,22 @@ Constants.RunState = {
 -- Attributes on each Player.
 Constants.PlayerAttributes = {
 	State = "RunState", -- "Lobby", "Active", "Downed", "Lost", "Extracted"
-	-- The tool in your hands right now, or nil with the torch or empty hands
-	-- (so everything that reads "your tool" still works with found tools).
+	-- The tool in your hand right now, or nil with a free hand (so everything
+	-- that reads "your tool" still works with found tools).
 	Tool = "Tool",
-	-- The three inventory slots (Logic/Inventory): ids, "" when empty, and
-	-- which one is in your hands (1 to 3). Slot 1 is always the flashlight.
-	Slots = { "Slot1", "Slot2", "Slot3" },
+	-- The two inventory slots (Logic/Inventory): ids, "" when empty, and which
+	-- one is in your hand (1 or 2, 0 for a free hand). The torch is in neither.
+	Slots = { "Slot1", "Slot2" },
 	ActiveSlot = "ActiveSlot",
 	Battery = "Battery",
+	-- The torch raised in your left hand (F), whether or not it's lit yet: it
+	-- lights at the top of the raise (Config.Torch.RaiseSeconds).
+	TorchUp = "TorchUp",
+	-- The torch is lit.
 	Flashlight = "Flashlight",
-	-- The torch is clipped to your shirt (anything but slot 1 in your hands):
-	-- a weak light where your body faces instead of the beam in your hand.
+	-- The torch is clipped to your shirt while both hands work a tool lock
+	-- (the crowbar, the bolt cutters): a weak light where your body faces
+	-- instead of the beam in your hand.
 	TorchClipped = "TorchClipped",
 	-- Alone, your full beam is holding him frozen (Config.Stare): the battery
 	-- drains faster while it does.

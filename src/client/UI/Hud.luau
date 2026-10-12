@@ -167,7 +167,7 @@ function Hud.new(ctx)
 
 	-- Controls reminder (bottom right, fades after the first minutes).
 	self.help = Ui.label(
-		"E: use · hold E: drag · R: tool · 1 2 3: slots · F: light · Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: help",
+		"E: use · hold E: drag · R: tool · 1 2: tools · F: torch ·Ctrl: crouch · Shift: run · G: ping · Tab: map · F1: help",
 		{
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -18, 1, -12),
@@ -247,20 +247,16 @@ function Hud:Update()
 	-- What's in your hands (the slots themselves are UI/Hotbar)
 	local toolId = player:GetAttribute(PA.Tool)
 	local tool = Tools.ById[toolId]
-	local activeSlot = player:GetAttribute(PA.ActiveSlot) or 1
-	local torchHeld = toolId == nil and activeSlot == 1
-	-- An empty slot: a free hand (the torch on your shirt).
-	local handsFree = toolId == nil and activeSlot ~= 1
-	self.toolLabel.Text = tool and tool.name or (torchHeld and "Flashlight" or "A free hand")
+	-- The torch has its own hand and its own key (section 20); this names the
+	-- tool in the other, if any.
+	self.toolLabel.Text = tool and tool.name or ""
 	local detail = ""
 	local hands = self.ctx.controllers.HandsController
+	local actions = self.ctx.controllers.ActionController
 	if hands and hands:IsCarrying() then
 		detail = "Click: throw (hold to wind up) · E: put down · wheel: nearer, further"
-	elseif torchHeld then
-		detail = player:GetAttribute(PA.Flashlight) and "F: switch off" or "F: switch on"
-	elseif handsFree then
-		-- The torch rides clipped to your shirt while your hands are free.
-		detail = player:GetAttribute(PA.Flashlight) and "F: clip light off" or "F: clip light on"
+	elseif not tool then
+		detail = (actions and actions:TorchWanted()) and "F: put the torch away" or "F: raise the torch"
 	elseif toolId == "Radio" then
 		local signal = player:GetAttribute("RadioSignal") or 0
 		detail = "Static "
@@ -284,7 +280,6 @@ function Hud:Update()
 		detail ..= "  ·  🔑 " .. (string.gsub(keys, "\n", ", "))
 	end
 	self.toolDetail.Text = detail
-	local actions = self.ctx.controllers.ActionController
 	self.staminaFill.Size = UDim2.fromScale(actions.stamina or 1, 1)
 	self.staminaFill.BackgroundColor3 = actions.exhausted and Ui.Theme.danger or Color3.fromRGB(200, 200, 200)
 	self.batteryFill.Size = UDim2.fromScale(player:GetAttribute(PA.Battery) or 1, 1)
