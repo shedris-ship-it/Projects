@@ -5,7 +5,7 @@ Two layers: automated tests for the pure game logic, which run anywhere with Lun
 ## Automated
 
 ```sh
-lune run tests/run        # 518 tests in 78 specs (about 90-150 s; 2-4 minutes while Studio runs)
+lune run tests/run        # 585 tests in 88 specs (about 90-150 s; 2-4 minutes while Studio runs)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint: undefined globals, unused variables, shadowing…
 ```
