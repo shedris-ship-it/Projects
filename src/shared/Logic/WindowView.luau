@@ -28,6 +28,13 @@ function WindowView.moon(rng, cfg)
 	}
 end
 
+-- The way to the run's moon as a unit vector's x, y, z (x east, y up, z
+-- south): moonlight comes the other way. Azimuth 0 is north (-z), 90 east.
+function WindowView.direction(moon): (number, number, number)
+	local az, el = math.rad(moon.azimuth), math.rad(moon.elevation)
+	return math.sin(az) * math.cos(el), math.sin(el), -math.cos(az) * math.cos(el)
+end
+
 -- Pick one of the weighted covers, in a fixed order so a seed is stable.
 local COVER_ORDER = { "bare", "sheer", "blinds", "boards" }
 

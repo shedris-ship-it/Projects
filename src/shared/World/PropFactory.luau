@@ -7,6 +7,8 @@
 -- naming conventions (e.g. a Clock's "Face" SurfaceGui) are what the client
 -- PerceptionController relies on, so keep them if you replace a builder.
 
+local CollectionService = game:GetService("CollectionService")
+
 local ClockFace = require(script.Parent.Parent.Logic.ClockFace)
 local Config = require(script.Parent.Parent.Config)
 local Joint = require(script.Parent.Parent.Lib.Joint)
@@ -2655,10 +2657,44 @@ function PropFactory.buildDecor(
 			PropFactory.material("SmoothPlastic"),
 			{ collide = false, query = false, castShadow = false, transparency = 1 }
 		)
+		-- Moonlight through a real opening (the visual rework V2): a spotlight
+		-- outside, along the way to the run's moon, aimed in through the hole,
+		-- so the frame, the muntins and the covering throw their shadows on
+		-- the floor. Looks only: what counts as lit is WorldService's rule.
+		local beamed = false
+		if open and view.moonVisible and opts and opts.moonDir then
+			local d = opts.moonDir
+			local outward = -cf.LookVector
+			if d:Dot(outward) > 0.05 then
+				local M = Config.Window.MoonBeam
+				local centre = cf.Position
+				local from = centre + d * M.Out
+				local source = part(
+					model,
+					"MoonBeam",
+					Vector3.new(0.2, 0.2, 0.2),
+					CFrame.lookAt(from, centre),
+					Color3.new(),
+					PropFactory.material("SmoothPlastic"),
+					{ collide = false, query = false, castShadow = false, transparency = 1 }
+				)
+				local beam = Instance.new("SpotLight")
+				beam.Name = "MoonBeam"
+				beam.Face = Enum.NormalId.Front
+				beam.Angle = M.Angle
+				beam.Range = M.Out + M.Reach
+				beam.Brightness = M.Brightness
+				beam.Color = rgb(Config.Lighting.Moonlight)
+				beam.Shadows = true
+				beam.Parent = source
+				CollectionService:AddTag(source, "ConsensusMoonLight")
+				beamed = true
+			end
+		end
 		-- Moonlight spilling in from a window that looks at the moon: a faint,
 		-- shadowless patch on the floor, from the same pane. A key window has
-		-- its own light instead.
-		if view.moonVisible and not (opts and opts.key) then
+		-- its own light instead, and a real opening its beam.
+		if view.moonVisible and not (opts and opts.key) and not beamed then
 			local spill = Instance.new("SurfaceLight")
 			spill.Name = "MoonSpill"
 			spill.Face = Enum.NormalId.Front

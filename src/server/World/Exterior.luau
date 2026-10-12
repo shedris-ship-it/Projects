@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local PropFactory = require(Shared.World.PropFactory)
+local WindowView = require(Shared.Logic.WindowView)
 
 local E = Config.Exterior
 
@@ -206,8 +207,7 @@ local function moonOf(model, centre: Vector3, radius: number, moon)
 	if not moon then
 		return
 	end
-	local az, el = math.rad(moon.azimuth), math.rad(moon.elevation)
-	local dir = Vector3.new(math.sin(az) * math.cos(el), math.sin(el), -math.cos(az) * math.cos(el))
+	local dir = Vector3.new(WindowView.direction(moon)) -- (the windows' beams use the same)
 	local distance = radius - 2
 	local at = centre + dir * distance
 	local halo = E.Sky.MoonHalo

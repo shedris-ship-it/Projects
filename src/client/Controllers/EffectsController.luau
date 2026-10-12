@@ -306,6 +306,14 @@ function EffectsController:Start()
 	CollectionService:GetInstanceAddedSignal(Constants.Tags.RoomLight):Connect(function(part)
 		task.defer(trackLight, part)
 	end)
+	CollectionService:GetInstanceAddedSignal("ConsensusMoonLight"):Connect(function(part)
+		task.defer(function()
+			local beam = part:FindFirstChildWhichIsA("SpotLight") or part:WaitForChild("MoonBeam", 5)
+			if beam and beam:IsA("SpotLight") then
+				beam.Shadows = preset.lightShadows
+			end
+		end)
+	end)
 	for _, card in CollectionService:GetTagged(Constants.Tags.Photo) do
 		trackPhoto(card)
 	end
@@ -398,6 +406,14 @@ function EffectsController:_applyQuality(settings)
 			emitter.Enabled = preset.dust
 		else
 			dust[emitter] = nil
+		end
+	end
+	-- Moonlight through the windows (World/PropFactory's MoonBeam): shadows
+	-- only where the preset has room lights cast them.
+	for _, part in CollectionService:GetTagged("ConsensusMoonLight") do
+		local beam = part:FindFirstChildWhichIsA("SpotLight")
+		if beam then
+			beam.Shadows = preset.lightShadows
 		end
 	end
 end

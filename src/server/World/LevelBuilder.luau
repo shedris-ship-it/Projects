@@ -528,6 +528,7 @@ function LevelBuilder.furnish(world, ctx)
 				decorOptions = {
 					key = decor.key == true,
 					open = ctx.openWindows == true,
+					moonDir = world.moon and Vector3.new(WindowView.direction(world.moon)),
 					view = WindowView.view(
 						rng:Fork("window:" .. room.id .. ":" .. decor.id),
 						WindowView.azimuth(outward.X, outward.Z),

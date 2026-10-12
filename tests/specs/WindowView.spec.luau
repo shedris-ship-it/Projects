@@ -92,4 +92,17 @@ return function(test, check, Shared, require)
 		check.equal(a.cover, b.cover, "cover")
 		check.near(a.moonX, b.moonX, 1e-12, "x")
 	end)
+
+	test("the way to the moon matches its bearing and height", function()
+		local nx, ny, nz = WindowView.direction({ azimuth = 0, elevation = 30 })
+		check.near(nx, 0, 1e-9, "due north has no east")
+		check.truthy(nz < 0, "north is -z")
+		check.near(ny, math.sin(math.rad(30)), 1e-9, "30 degrees up")
+		local ex, ey, ez = WindowView.direction({ azimuth = 90, elevation = 0 })
+		check.near(ex, 1, 1e-9, "east is +x")
+		check.near(math.sqrt(ex * ex + ey * ey + ez * ez), 1, 1e-9, "a unit vector")
+		-- And it agrees with the bearing the windows use.
+		local dx, _, dz = WindowView.direction({ azimuth = 137, elevation = 25 })
+		check.near(WindowView.azimuth(dx, dz), 137, 1e-6, "same bearing back")
+	end)
 end

@@ -724,6 +724,15 @@ Config.Window = {
 	-- Logic/Windows, World/MansionBuilder): a hole in the wall you see the
 	-- night through, not a painted pane. Windows on inner walls move out;
 	-- long outer walls get more.
+	-- Moonlight through a real opening that faces the moon: a shadowed
+	-- spotlight outside along the way to the moon, aimed in, so the frame and
+	-- muntins throw their shapes on the floor (World/PropFactory).
+	MoonBeam = {
+		Out = 9, -- studs outside the glass
+		Reach = 30, -- and on into the room
+		Angle = 50, -- degrees: wide enough for the whole opening from Out
+		Brightness = 1.1,
+	},
 	Openings = {
 		Y = 6, -- the window's centre above its floor (as the templates have it)
 		Every = 14, -- one window per this many studs of a wall (rounded)
