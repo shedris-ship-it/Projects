@@ -108,6 +108,15 @@ local HEM = 0.45 -- (the strip under it, lying well back: feet going by)
 local LINEN = Color3.fromRGB(184, 172, 146)
 PropFactory.ClothHem = HEM
 
+-- A window's casing width: its glass (and, in an outer wall, the hole behind
+-- it) is the window's size less this all round. World/MansionBuilder cuts the
+-- hole to PropFactory.windowOpening().
+local WINDOW_CASING = 0.45
+function PropFactory.windowOpening(): (number, number)
+	local size = Props.WallDecor.Window.size
+	return size[1] - 2 * WINDOW_CASING, size[2] - 2 * WINDOW_CASING
+end
+
 local function surfaceText(target: BasePart, face: Enum.NormalId, name: string, text: string, opts)
 	local o = opts or {}
 	local gui = Instance.new("SurfaceGui")
@@ -2474,8 +2483,14 @@ function PropFactory.buildDecor(
 		-- any wall, like a door's, and the inner opening leaves room for a
 		-- Sealed window's bricks.
 		local paint = rgb(Config.Trim.Paint)
-		local cw, cd = 0.45, 0.18
+		local cw, cd = WINDOW_CASING, 0.18
 		local iw, ih = w - 2 * cw, h - 2 * cw
+		-- A real opening behind it (the mansion's outer walls since the visual
+		-- rework V2, World/MansionBuilder): no painted night, the real one
+		-- through the hole; an invisible bar fills the opening so nobody climbs
+		-- out (a window in an outer wall faces outside, where he never is, so
+		-- it hides nothing from his sight).
+		local open = opts and opts.open == true
 		for _, edge in
 			{
 				{ 0, h / 2 - cw / 2, w, cw },
@@ -2503,18 +2518,30 @@ function PropFactory.buildDecor(
 			PropFactory.material("Wood"),
 			{ collide = false, castShadow = false }
 		)
+		local view = opts and opts.view or { cover = "bare", moonVisible = false }
+		if open then
+			part(
+				model,
+				"WindowBar",
+				Vector3.new(iw, ih, 0.3),
+				cf * CFrame.new(0, 0, 0.35),
+				Color3.new(),
+				PropFactory.material("SmoothPlastic"),
+				{ collide = true, query = false, castShadow = false, transparency = 1 }
+			)
+		end
 		-- Layers out from the wall: sky, room for a Sealed window's bricks,
 		-- glass, muntins, with clear gaps so nothing flickers.
-		local sky = part(
-			model,
-			"Sky",
-			Vector3.new(iw, ih, 0.02),
-			cf * CFrame.new(0, 0, -0.01),
-			Color3.new(0, 0, 0),
-			PropFactory.material("SmoothPlastic"),
-			{ collide = false, query = false, castShadow = false }
-		)
-		local view = opts and opts.view or { cover = "bare", moonVisible = false }
+		local sky = not open
+			and part(
+				model,
+				"Sky",
+				Vector3.new(iw, ih, 0.02),
+				cf * CFrame.new(0, 0, -0.01),
+				Color3.new(0, 0, 0),
+				PropFactory.material("SmoothPlastic"),
+				{ collide = false, query = false, castShadow = false }
+			)
 		local gui = Instance.new("SurfaceGui")
 		gui.Name = "Night"
 		gui.Face = Enum.NormalId.Front
@@ -2522,7 +2549,7 @@ function PropFactory.buildDecor(
 		gui.Brightness = 1
 		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 		gui.PixelsPerStud = 20
-		gui.Parent = sky
+		gui.Parent = sky or nil
 		-- A real night sky is nearly black: deep blue overhead, a little paler at
 		-- the horizon, then the dark ground fading up from the bottom (owner,
 		-- 2026-10-04: no painted scenery). Only a soft moon where one looks its way.
@@ -2578,6 +2605,9 @@ function PropFactory.buildDecor(
 			ring("MoonGlow", 30, glow, 0.92)
 			ring("MoonGlow", 19, Color3.fromRGB(180, 198, 232), 0.86)
 			ring("Moon", 8, Color3.fromRGB(214, 222, 238), 0.3)
+		end
+		if open then
+			gui:Destroy() -- (the real night is behind the glass)
 		end
 		-- A faintly tinted, nearly clear pane. Roblox's Glass material hides the
 		-- sky up close (so the window changed with distance), and reflectance

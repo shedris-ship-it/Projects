@@ -23,6 +23,7 @@ local Constants = require(Shared.Constants)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local MansionHouse = require(Shared.Logic.MansionHouse)
 local RoomFit = require(Shared.Logic.RoomFit)
+local Windows = require(Shared.Logic.Windows)
 local RoomRects = require(Shared.Logic.RoomRects)
 local TallRooms = require(Shared.Logic.TallRooms)
 local PropFactory = require(Shared.World.PropFactory)
@@ -114,9 +115,17 @@ local function wallBand(model, base: Vector3, dir: Vector3, length: number, heig
 		local width = opening.width or DOOR_W
 		local a, b = opening.offset - width / 2, opening.offset + width / 2
 		piece("Wall", (from + a) / 2, a - from, 0, height)
-		piece("Lintel", opening.offset, width, DOOR_H, height - DOOR_H)
-		if opening.seam then
-			panels[opening.seam.id] = piece("SeamPanel", opening.offset, width, 0, DOOR_H)
+		if opening.window then
+			-- A window (the visual rework V2, Logic/Windows): wall under its
+			-- sill and over its head, the night through the hole between.
+			local w = opening.window
+			piece("Wall", opening.offset, width, 0, w.bottom)
+			piece("Wall", opening.offset, width, w.top, height - w.top)
+		else
+			piece("Lintel", opening.offset, width, DOOR_H, height - DOOR_H)
+			if opening.seam then
+				panels[opening.seam.id] = piece("SeamPanel", opening.offset, width, 0, DOOR_H)
+			end
 		end
 		from = b
 	end
@@ -615,6 +624,52 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		local roomCF = CFrame.new(center) * CFrame.Angles(0, room.rotation * math.pi / 2, 0)
 		local even = room.rotation % 2 == 0
 		local inner = { x = (even and hx or hz) - WALL, z = (even and hz or hx) - WALL }
+
+		-- What the room holds, fitted to its size (Logic/RoomFit; the planners
+		-- read the same fit), and where its windows go (Logic/Windows, the
+		-- visual rework V2): decided before its walls go up, so its outer
+		-- walls get real holes where the windows hang.
+		local fitted = RoomFit.inMansion(layout, room, template, WALL)
+		local windowOpenings = {} -- world side -> window openings on the room's own storey
+		if room.floor >= 0 and not room.passage then
+			local function outer(localSide: string, along: number, half: number): boolean
+				local side = LevelGraph.worldSide(localSide, room.rotation)
+				local localPos = (localSide == "N" or localSide == "S") and Vector3.new(along, 0, 0)
+					or Vector3.new(0, 0, along)
+				local worldPos = roomCF:PointToWorldSpace(localPos)
+				local alongWorld = (side == "N" or side == "S") and worldPos.X - o.X or worldPos.Z - o.Z
+				for _, span in index[room.floor]:OuterSpans(room, side) do
+					if span.from <= alongWorld - half - 0.5 and span.to >= alongWorld + half + 0.5 then
+						return true
+					end
+				end
+				return false
+			end
+			local extras = not room.tall and room.kind ~= "stair" and room.floor <= 1
+			local placed
+			fitted.decor, placed = Windows.arrange(
+				fitted,
+				inner,
+				MansionHouse.fitDoors(layout, room),
+				outer,
+				Config.Window.Openings,
+				extras
+			)
+			local openW, openH = PropFactory.windowOpening()
+			for _, w in placed do
+				local side = LevelGraph.worldSide(w.side, room.rotation)
+				local localPos = (w.side == "N" or w.side == "S") and Vector3.new(w.along, 0, 0)
+					or Vector3.new(0, 0, w.along)
+				local worldPos = roomCF:PointToWorldSpace(localPos)
+				windowOpenings[side] = windowOpenings[side] or {}
+				table.insert(windowOpenings[side], {
+					offset = (worldPos - center):Dot(axisOf(DIRS[side])),
+					width = openW,
+					window = { bottom = w.y - openH / 2, top = w.y + openH / 2 },
+				})
+			end
+		end
+
 		local model = Instance.new("Model")
 		model.Name = string.format("Room%02d_%s", room.id, template.id)
 		model:SetAttribute(Attr.RoomId, room.id)
@@ -760,6 +815,11 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				for _, entry in openingsOf(room, floor, side) do
 					table.insert(list, entry)
 				end
+				if floor == room.floor then
+					for _, entry in windowOpenings[side] or {} do
+						table.insert(list, entry)
+					end
+				end
 				for id, panel in wallBand(model, base, dir, length, bandTop, list, wallSurface) do
 					panels[id] = panel
 				end
@@ -874,7 +934,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				end
 			end
 		end
-		local fitted = RoomFit.inMansion(layout, room, template, WALL)
+		-- (`fitted`, with its windows, was worked out before the walls.)
 		if room.lantern and not fitted.shrine then
 			fitted.shrine = { x = 0, z = 0 }
 		end
@@ -919,6 +979,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			inner = inner,
 			fixtureAt = room.tall and center + UP * (top - room.floor) * PITCH or nil,
 			facesOutside = facesOutside,
+			openWindows = true,
 			inFilledArm = function()
 				return false
 			end,

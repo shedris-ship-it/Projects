@@ -15,6 +15,7 @@
 -- flicker each have an off switch in Settings; the graphics preset decides
 -- the rest (Config.Graphics).
 
+local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -33,6 +34,8 @@ local player = Players.LocalPlayer
 local L = Config.Lens
 
 local LensController = {}
+
+local farBase = {} -- a tagged far light -> its brightness as built
 
 function LensController:Init(controllers)
 	self.state = controllers.StateController
@@ -380,6 +383,24 @@ function LensController:_update(dt: number)
 				local distance = offset.Magnitude
 				if distance < L.Glare.MaxDistance and offset.Unit:Dot(look) > 0.2 then
 					table.insert(candidates, { light = light, info = info, part = part, distance = distance })
+				end
+			end
+		end
+		-- Lights outside (World/Exterior's streetlamp): far brighter than a
+		-- house lamp, so their glare carries much further.
+		for _, part in CollectionService:GetTagged("ConsensusGlare") do
+			local light = part:IsA("BasePart") and part:FindFirstChildWhichIsA("Light")
+			if light and light.Enabled then
+				local offset = part.Position - from
+				local distance = offset.Magnitude
+				if distance < L.Glare.MaxDistance / L.Glare.Far and offset.Unit:Dot(look) > 0.2 then
+					farBase[light] = farBase[light] or light.Brightness
+					table.insert(candidates, {
+						light = light,
+						info = { base = farBase[light] },
+						part = part,
+						distance = distance * L.Glare.Far,
+					})
 				end
 			end
 		end

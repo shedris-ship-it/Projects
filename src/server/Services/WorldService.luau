@@ -15,6 +15,7 @@ local Signal = require(Shared.Lib.Signal)
 local Dressing = require(script.Parent.Parent.World.Dressing)
 local LevelBuilder = require(script.Parent.Parent.World.LevelBuilder)
 local MansionBuilder = require(script.Parent.Parent.World.MansionBuilder)
+local Exterior = require(script.Parent.Parent.World.Exterior)
 local FloorPlan = require(Shared.Logic.FloorPlan)
 local NavGraph = require(Shared.Logic.NavGraph)
 local RoomRects = require(Shared.Logic.RoomRects)
@@ -97,6 +98,10 @@ function WorldService:Build(layout, rng)
 	-- The old house (40x40 cells) or the mansion (docs/plans/mansion-generation.md).
 	if layout.mode == "Mansion" then
 		self.World = MansionBuilder.build(layout, Rooms.MansionById, folder, rng)
+		-- The night outside, seen through the windows (World/Exterior): its own
+		-- fork of the seed, so nothing in the house moves.
+		local o = Config.Level.Origin
+		Exterior.build(layout, folder, Vector3.new(o.x, o.y, o.z), rng:Fork("exterior"), self.World.moon)
 	else
 		self.World = LevelBuilder.build(layout, Rooms.ById, folder, rng)
 	end

@@ -355,7 +355,8 @@ end
 -- model, rng, center (floor point the room faces), prefabs, inner (optional
 -- inner half extents), fixtureAt (optional: where the ceiling light hangs
 -- from, for a double-height room), facesOutside(slot), inFilledArm(x, z),
--- wallInFilledArm(slot) }.
+-- wallInFilledArm(slot), openWindows (its outer walls have real holes for
+-- its windows: World/MansionBuilder) }.
 function LevelBuilder.furnish(world, ctx)
 	local fixtureAt = ctx.fixtureAt -- (the dining table pulls the key light over itself, WP5)
 	local room, record, template = ctx.room, ctx.record, ctx.template
@@ -526,6 +527,7 @@ function LevelBuilder.furnish(world, ctx)
 				local outward = -cf.LookVector
 				decorOptions = {
 					key = decor.key == true,
+					open = ctx.openWindows == true,
 					view = WindowView.view(
 						rng:Fork("window:" .. room.id .. ":" .. decor.id),
 						WindowView.azimuth(outward.X, outward.Z),

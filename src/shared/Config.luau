@@ -720,6 +720,16 @@ Config.Window = {
 	SpillRange = 16,
 	SpillBrightness = 0.3,
 	SpillAngle = 110,
+	-- Real windows in the mansion's outer walls (the visual rework V2;
+	-- Logic/Windows, World/MansionBuilder): a hole in the wall you see the
+	-- night through, not a painted pane. Windows on inner walls move out;
+	-- long outer walls get more.
+	Openings = {
+		Y = 6, -- the window's centre above its floor (as the templates have it)
+		Every = 14, -- one window per this many studs of a wall (rounded)
+		Spacing = 10, -- at least this far apart on one wall, centre to centre
+		Max = 3, -- in one room
+	},
 }
 
 -- Trim and doors (docs/ART.md, step 3). Baseboards and crown moulding catch
@@ -895,6 +905,47 @@ Config.PostFX = {
 	FlashlightFollow = 12,
 }
 
+-- The night outside the mansion (the visual rework V2; World/Exterior):
+-- seen through the windows and from the porch at the end. Decoration only.
+Config.Exterior = {
+	GroundDrop = 0.6, -- the lawn's top sits this far under the ground floor
+	Reach = 70, -- studs of grounds and trees beyond the house on every side
+	LawnClear = 16, -- no trees this close to the house
+	ThickAfter = 25, -- trees reach full density this far past LawnClear
+	Density = 0.6, -- chance of a tree in a grid cell at full density
+	TreeSpacing = 11,
+	TreeHeight = { 18, 30 },
+	-- Part-built pines read as snowmen (2026-10-12): none until the kit's
+	-- Blender trees replace these stand-ins (the visual rework V4d).
+	PineShare = 0,
+	-- The sky ring (Roblox's night sky is black): a gradient from a moonlit
+	-- horizon up into the real sky, on panels just past the trees.
+	Sky = {
+		Beyond = 12, -- studs past the furthest trees
+		Panels = 32,
+		Height = 120,
+		Sink = 6, -- its foot under the lawn
+		Gradient = { { 0, { 14, 18, 30 } }, { 0.7, { 46, 56, 80 } }, { 1, { 58, 68, 92 } } }, -- top to horizon
+		Fade = { { 0, 1 }, { 0.35, 0.65 }, { 0.8, 0 }, { 1, 0 } }, -- top transparent, into the real sky
+		MoonHalo = 60, -- studs across the glow
+		MoonDisc = 7, -- studs across the moon itself
+		MoonColour = { 196, 210, 236 },
+		MoonBrightness = 1.6,
+		HaloImage = "rbxassetid://128745649799331", -- the lens's glare (Assets.Lens.Glare), tinted
+	},
+	DriveLength = 60,
+	DriveWidth = 10,
+	LampHeight = 14,
+	LampRange = 40,
+	LampBrightness = 1.4,
+	Grass = { 30, 34, 24 },
+	Gravel = { 74, 70, 64 },
+	Bark = { 30, 26, 22 },
+	Needles = { 20, 28, 22 },
+	Iron = { 34, 34, 36 },
+	Sodium = { 255, 168, 88 }, -- a sodium streetlamp's orange
+}
+
 -- Light under a shut door (the visual rework V2; Controllers/DoorLightController):
 -- a line in the gap and a little spill on the dark side, when the room
 -- behind is lit and yours is dark. Decoration only.
@@ -1022,6 +1073,7 @@ Config.Lens = {
 		Max = 10, -- glares drawn at once (the nearest)
 		Streak = 0.35, -- the streak's opacity against the glare's
 		StreakWidth = 5, -- the streak is this many times the glare's width
+		Far = 0.4, -- a light outside (tagged ConsensusGlare) glares as if this much nearer
 	},
 	-- Lens dirt, shown when a bright light sits near the middle of the view.
 	Dirt = {
