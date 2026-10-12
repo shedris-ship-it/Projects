@@ -78,8 +78,9 @@ local function bodyParts(model: Model, keep: { [string]: boolean })
 end
 
 -- Dresses a prop PropFactory just built. cf: its base frame on the floor
--- (+Z its front); size: its kind's size (Data/Props). Returns the mesh it
--- put on, or nil when the kind stays grey-box.
+-- (+Z its front); size: its kind's size (Data/Props; the mesh keeps its own,
+-- which Kit.spec holds within it). Returns the mesh it put on, or nil when
+-- the kind stays grey-box.
 function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3): MeshPart?
 	local entry = KitData.Props[kindName]
 	local template = entry and Kit.template(entry.mesh)
@@ -93,8 +94,12 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	for _, part in bodyParts(model, keep) do
 		hide(part)
 	end
+	-- At the size it was modelled at (never stretched to the grey-box's box:
+	-- a coat rack is narrower than its footprint), standing on the floor.
+	local _ = size
+	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
 	local turn = CFrame.Angles(0, math.rad(entry.turn or 0), 0)
-	local mesh = visual(template, size, cf * CFrame.new(0, size.Y / 2, 0) * turn)
+	local mesh = visual(template, modelled, cf * CFrame.new(0, modelled.Y / 2, 0) * turn)
 	mesh.Name = "KitBody"
 	mesh.Parent = model
 	return mesh

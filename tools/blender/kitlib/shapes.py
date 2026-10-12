@@ -141,6 +141,77 @@ def panel_slab(name, width, height, thickness, panels, frame=0.28, raise_depth=0
     return joined
 
 
+def subdivide(obj, levels=2):
+    """Smooths a cage into soft curves (cushions, rolled arms)."""
+    mod = obj.modifiers.new("Subsurf", "SUBSURF")
+    mod.levels = levels
+    mod.render_levels = levels
+    select_only(obj)
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    return obj
+
+
+def cushion(name, size, location=(0, 0, 0), puff=0.12, levels=2, roundness=0.35):
+    """An upholstered cushion: a rounded box that bulges in the middle of its
+    top and front, as a stuffed one does. size = (x, y, z) studs."""
+    sx, sy, sz = size
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
+    obj = _object(name, bm)
+    bevel(obj, min(sx, sy, sz) * roundness * 0.5, 2, angle=30)
+    subdivide(obj, levels)
+    # Bulge: the top rises in the middle; the faces bow outwards a little.
+    for v in obj.data.vertices:
+        x, y, z = v.co
+        u = max(0.0, 1 - (2 * x / sx) ** 2)
+        w = max(0.0, 1 - (2 * y / sy) ** 2)
+        h = max(0.0, 1 - (2 * z / sz) ** 2)
+        if z > 0:
+            v.co.z += puff * u * w * (z / (sz / 2))
+        v.co.x *= 1 + 0.04 * w * h
+        v.co.y *= 1 + 0.04 * u * h
+    obj.location = Vector(location)
+    return smooth(obj, 60)
+
+
+def roll(name, length, radius, location=(0, 0, 0), axis="Y", steps=20):
+    """A rolled sofa arm or bolster: a cylinder with rounded ends."""
+    bm = bmesh.new()
+    bmesh.ops.create_cone(
+        bm, cap_ends=True, cap_tris=False, segments=steps, radius1=radius, radius2=radius, depth=length
+    )
+    obj = _object(name, bm)
+    bevel(obj, radius * 0.35, 3, angle=30)
+    if axis == "Y":
+        obj.rotation_euler = (math.radians(90), 0, 0)
+    elif axis == "X":
+        obj.rotation_euler = (0, math.radians(90), 0)
+    apply_transform(obj)
+    obj.location = Vector(location)
+    return smooth(obj, 60)
+
+
+def turn(obj, degrees=(0, 0, 0), at=(0, 0, 0)):
+    """Turns a piece built round the origin (make it at (0, 0, 0) first),
+    then puts it at `at`. Turning a piece already moved would swing it round
+    the world's origin instead of its own middle."""
+    obj.rotation_euler = tuple(math.radians(d) for d in degrees)
+    apply_transform(obj)
+    obj.location = Vector(at)
+    return obj
+
+
+def colour(obj, rgb):
+    """Gives every vertex of obj a colour (0-1 linear) in the "Col" attribute,
+    for materials that read it (one material for many coloured books)."""
+    mesh = obj.data
+    attr = mesh.color_attributes.get("Col") or mesh.color_attributes.new("Col", "FLOAT_COLOR", "POINT")
+    for item in attr.data:
+        item.color = (rgb[0], rgb[1], rgb[2], 1.0)
+    return obj
+
+
 def join(objects, name):
     bpy.ops.object.select_all(action="DESELECT")
     for o in objects:

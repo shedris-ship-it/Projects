@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-12.174",
-	note = "the storm that builds: rain, then thunder and lightning (F2 storm 0|1|2|auto|strike)",
+	id = "2026-10-12.175",
+	note = "the kit system (World/Kit) and the golden room's first Blender batch (waiting on the import)",
 }

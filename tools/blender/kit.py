@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import bake, materials, shapes  # noqa: E402
+from kitlib import bake, furniture, materials, shapes  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -123,6 +123,9 @@ def door():
 
 BATCHES = {
     "spike": [chair, floor_lamp, door],
+    # The golden room's furniture (the visual rework V3): the grand hall, the
+    # dining room and the living room, taken all the way first.
+    "golden": furniture.GOLDEN,
 }
 
 

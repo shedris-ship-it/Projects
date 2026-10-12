@@ -16,13 +16,21 @@ return function(test, check, Shared, require)
 			check.truthy(prop, kind .. " is a prop kind")
 			check.equal(type(entry.mesh), "string", kind .. " names its mesh")
 			check.equal(#entry.size, 3, kind .. " gives its modelled size")
+			-- Never bigger than the grey-box (it would poke through walls and
+			-- other things); smaller is fine (a coat rack is narrower than its
+			-- footprint), but not so small that the grey-box's body shows round it.
 			for axis = 1, 3 do
 				local want = prop.size[axis]
 				local got = entry.size[axis]
 				check.atMost(
-					math.abs(got - want) / want,
+					(got - want) / want,
 					TOLERANCE,
 					string.format("%s axis %d: modelled %.2f, prop %.2f", kind, axis, got, want)
+				)
+				check.atLeast(
+					got / want,
+					0.5,
+					string.format("%s axis %d: modelled %.2f of %.2f", kind, axis, got, want)
 				)
 			end
 		end

@@ -13,8 +13,24 @@
 
 return {
 	Props = {
+		-- The spike (tools/blender/kit.py spike).
 		Chair = { mesh = "Chair", size = { 2.5, 4.02, 2.42 } },
 		FloorLamp = { mesh = "FloorLamp", size = { 1.5, 5.95, 1.5 } },
+		-- The golden room (kit.py golden): the grand hall, the dining room, the
+		-- living room.
+		DiningTable = { mesh = "DiningTable", size = { 6, 3.4, 12 } },
+		Sofa = { mesh = "Sofa", size = { 9, 3.5, 3.97 } },
+		Armchair = { mesh = "Armchair", size = { 4, 4, 3.97 } },
+		Shelf = { mesh = "Shelf", size = { 8.2, 9, 2.12 } },
+		-- The case only: the face, hands, pendulum and glass are the game's own.
+		GrandfatherClock = {
+			mesh = "GrandfatherClock",
+			size = { 2.66, 8.38, 2.14 },
+			keep = { "Bezel", "Dial", "Tick", "HourHand", "MinuteHand", "Cap", "Pendulum", "Door" },
+		},
+		CoatRack = { mesh = "CoatRack", size = { 1.32, 7, 1.32 } },
+		Bench = { mesh = "Bench", size = { 8, 2.6, 2.3 } },
+		Rug = { mesh = "Rug", size = { 10, 0.06, 14.76 } },
 	},
 	-- Door slabs (World/LevelBuilder's "Slab"), fitted to the slab.
 	Slabs = {

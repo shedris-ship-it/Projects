@@ -82,6 +82,22 @@ class Nodes:
                 self.link(b, m.inputs[1])
         return m
 
+    def mix_colour(self, a, b, factor, blend="MIX"):
+        """A colour Mix node by its sockets' stable identifiers (their
+        positions move between Blender versions). Returns its colour output."""
+        node = self.add("ShaderNodeMix", data_type="RGBA", blend_type=blend)
+
+        def socket(sockets, ident):
+            for s in sockets:
+                if s.identifier == ident:
+                    return s
+            raise KeyError(ident)
+
+        socket(node.inputs, "Factor_Float").default_value = factor
+        self.link(a, socket(node.inputs, "A_Color"))
+        self.link(b, socket(node.inputs, "B_Color"))
+        return socket(node.outputs, "Result_Color")
+
     def bump(self, height, strength, distance=0.02):
         b = self.add("ShaderNodeBump")
         b.inputs["Strength"].default_value = strength
@@ -176,6 +192,101 @@ def brass(name, color=(150, 118, 70), roughness=0.38):
     rough = n.math("MULTIPLY_ADD", tarnish.outputs["Fac"], 0.3, roughness - 0.1)
     n.link(rough.outputs["Value"], n.bsdf.inputs["Roughness"])
     n.bsdf.inputs["Metallic"].default_value = 1.0
+    return mat
+
+
+def upholstery(name, base=(118, 74, 52), figure=(150, 108, 70), roughness=0.85):
+    """1980s upholstery: a woven ground with a faded damask-like figure (a
+    stretched voronoi and waves), worn paler where people sat."""
+    mat = bpy.data.materials.new(name)
+    n = Nodes(mat)
+    m = n.mapping(scale=(1.0, 1.0, 1.0))
+    cells = n.add("ShaderNodeTexVoronoi")
+    cells.inputs["Scale"].default_value = 1.6
+    n.link(m.outputs["Vector"], cells.inputs["Vector"])
+    wave = n.add("ShaderNodeTexWave", wave_type="BANDS")
+    wave.inputs["Scale"].default_value = 1.2
+    wave.inputs["Distortion"].default_value = 4.0
+    n.link(m.outputs["Vector"], wave.inputs["Vector"])
+    figure_mask = n.math("MULTIPLY", cells.outputs["Distance"], wave.outputs["Fac"])
+    shape = n.ramp(
+        figure_mask.outputs["Value"],
+        [(0.0, _srgb(base)), (0.12, _srgb(base)), (0.2, _srgb(figure)), (0.32, _srgb(base)), (1.0, _srgb(base))],
+    )
+    weave_a = n.add("ShaderNodeTexWave", wave_type="BANDS", bands_direction="X")
+    weave_a.inputs["Scale"].default_value = 80.0
+    n.link(m.outputs["Vector"], weave_a.inputs["Vector"])
+    weave_b = n.add("ShaderNodeTexWave", wave_type="BANDS", bands_direction="Z")
+    weave_b.inputs["Scale"].default_value = 80.0
+    n.link(m.outputs["Vector"], weave_b.inputs["Vector"])
+    weave = n.math("MULTIPLY", weave_a.outputs["Fac"], weave_b.outputs["Fac"])
+    wear = n.noise(m.outputs["Vector"], 2.0, 3.0, 0.5)
+    worn = n.mix_colour(shape.outputs["Color"], wear.outputs["Color"], 0.05, "SCREEN")
+    n.link(worn, n.bsdf.inputs["Base Color"])
+    n.bsdf.inputs["Roughness"].default_value = roughness
+    n.bump(weave.outputs["Value"], 0.18)
+    return mat
+
+
+def velvet(name, color=(84, 34, 38), roughness=0.95):
+    """Crushed velvet: a soft mottle and a sheen from the fibres."""
+    mat = bpy.data.materials.new(name)
+    n = Nodes(mat)
+    m = n.mapping(scale=(1.0, 1.0, 1.0))
+    crush = n.noise(m.outputs["Vector"], 6.0, 5.0, 0.6)
+    base = _srgb(color)
+    light = tuple(min(1.0, c * 1.5) for c in base[:3]) + (1.0,)
+    ramp = n.ramp(crush.outputs["Fac"], [(0.0, base), (0.55, base), (1.0, light)])
+    n.link(ramp.outputs["Color"], n.bsdf.inputs["Base Color"])
+    n.bsdf.inputs["Roughness"].default_value = roughness
+    try:
+        n.bsdf.inputs["Sheen Weight"].default_value = 0.6
+    except KeyError:
+        pass
+    n.bump(crush.outputs["Fac"], 0.08)
+    return mat
+
+
+def by_colour(name, roughness=0.6, grain=0.25):
+    """One material for many pieces each coloured by its "Col" attribute
+    (shapes.colour): a row of books, each its own cloth binding."""
+    mat = bpy.data.materials.new(name)
+    n = Nodes(mat)
+    attr = n.add("ShaderNodeAttribute", attribute_name="Col")
+    m = n.mapping(scale=(1.0, 1.0, 1.0))
+    cloth = n.noise(m.outputs["Vector"], 40.0, 3.0, 0.5)
+    shaded = n.mix_colour(attr.outputs["Color"], cloth.outputs["Color"], grain, "MULTIPLY")
+    n.link(shaded, n.bsdf.inputs["Base Color"])
+    n.bsdf.inputs["Roughness"].default_value = roughness
+    return mat
+
+
+def image(name, pixels, roughness=0.9, bump=0.1):
+    """A material from a drawn picture (numpy, h x w x 3, 0-1 sRGB): the rug's
+    pattern, mapped by the piece's UVs."""
+    import numpy as np
+
+    h, w = pixels.shape[:2]
+    img = bpy.data.images.new(name + "_src", w, h, alpha=False)
+    # (The colour space first: changing it afterwards regenerates the image
+    # and loses the pixels.)
+    img.colorspace_settings.name = "sRGB"
+    rgba = np.concatenate([pixels[::-1], np.ones((h, w, 1))], axis=-1).astype(np.float32)
+    img.pixels.foreach_set(rgba.ravel())
+    img.update()
+    img.pack()
+    mat = bpy.data.materials.new(name)
+    n = Nodes(mat)
+    uv = n.add("ShaderNodeUVMap", uv_map="Pattern")  # the piece's own flat layout (furniture.rug)
+    tex = n.add("ShaderNodeTexImage")
+    tex.image = img
+    n.link(uv.outputs["UV"], tex.inputs["Vector"])
+    n.link(tex.outputs["Color"], n.bsdf.inputs["Base Color"])
+    n.bsdf.inputs["Roughness"].default_value = roughness
+    m = n.mapping(scale=(1.0, 1.0, 1.0))
+    pile = n.noise(m.outputs["Vector"], 120.0, 2.0, 0.5)
+    n.bump(pile.outputs["Fac"], bump)
+    mat["uv_image"] = True  # (kit.py lays the piece's own UVs out before baking)
     return mat
 
 

@@ -24,13 +24,29 @@ def _setup_cycles(samples):
 
 
 def unwrap(obj, margin=0.01):
+    """Lays out the piece's own UVs for baking ("BakeUV"), leaving any authored
+    layer (a rug's "Pattern") for its materials to read while baking."""
     from .shapes import select_only
 
+    layers = obj.data.uv_layers
+    bake_uv = layers.get("BakeUV") or layers.new(name="BakeUV")
+    layers.active = bake_uv
     select_only(obj)
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=margin, scale_to_bounds=False)
     bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def keep_bake_uv(obj):
+    """After baking, the exported piece carries only its baked layout."""
+    layers = obj.data.uv_layers
+    for layer in list(layers):
+        if layer.name != "BakeUV":
+            layers.remove(layer)
+    if layers.get("BakeUV"):
+        layers.active = layers["BakeUV"]
+        layers["BakeUV"].active_render = True
 
 
 def _image(name, size, data):
@@ -146,6 +162,7 @@ def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24):
         _save(image, path)
         paths[key] = path
     _rewire(obj, color, normal, rough, metal)
+    keep_bake_uv(obj)
     return paths
 
 
