@@ -16,3 +16,8 @@ sourcemap.json
 
 # Rojo serve mirror (tools/serve-mirror.sh)
 /.rojo-mirror
+
+# Screenshots of other games (docs/reference): ours to study, not to publish
+docs/reference/**/*.webp
+docs/reference/**/*.png
+docs/reference/**/*.jpg

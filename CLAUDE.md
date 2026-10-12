@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Consensus: notes for Claude
 
 Consensus is a 2–4 player co-op horror game for Roblox. A squad is locked in a generated 1988 mansion with The Guest, a stalker who learns their habits; two players watching him freeze him, and each player sees a slightly different house as atmosphere. This repo is a Rojo project holding the vertical slice: The Halfway House and The Guest. **The owner chose a gameplay rework on 2026-10-04** (`docs/plans/gameplay-rework.md`): a procedural escape with locks, keys, puzzles and a physical, hands-on house, ending in the dinner (heirlooms set at the table) and a run out of the front door. **Since 2026-10-05 (R2c) it is the only loop:** the anomalies, evidence, verdict and Witnessing are gone.
@@ -7,7 +11,7 @@ Read these before starting real work:
 - `docs/plans/gameplay-rework.md`: the rework now under way. Where it disagrees with the design doc, it wins.
 - `docs/plans/level-design.md`: the level design now under way (2026-10-05): the adventure planned first, houses that follow the squad, every room with a reason, the best of many houses. Where it disagrees with the mansion plan about level design, it wins.
 - `docs/ARCHITECTURE.md`: how the code implements it (services, run flow, divergence model, remote protocol, security).
-- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-15).
+- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-274 as of 2026-10-11; new cases go at the end).
 - `README.md`: setup, controls, how a run plays, debug commands, how to add rooms and puzzles.
 
 ## Working with the owner
@@ -72,6 +76,19 @@ After a change to generation or the lock planner, also run `lune run tools/compl
 To run one spec while iterating, pass part of its file name: `lune run tests/run LockPlanner` runs every `tests/specs/*.spec.luau` whose name contains `LockPlanner`. Run the full suite before committing.
 
 All must pass. When MCP is available, also start a play session and check the console for errors. Report results honestly: if something wasn't checked in Studio, say so.
+
+**Gate A** (cited throughout the roadmap) is the regression check on the builder: the old house (F2 `layout cells`, `seed 1800820264`) must build the same part count and part hash, which F2 `gatea` prints in Studio. Run content goes in a `RunContent` folder it leaves out. A change that moves it needs the owner's OK to re-baseline (they gave a standing OK for gameplay fixes); record the new numbers here. Current: **parts 2269, hash 1553234744**. `lune run tools/golden` (the old generator's plans, `tests/golden/`) is rerun only for an approved change too.
+
+## Map of the code
+
+`docs/ARCHITECTURE.md` has a table of every service and controller; this is the shape you need before reading it.
+
+- **`src/shared`** (ReplicatedStorage.Shared) is used by both sides. `Logic/` is pure, engine-free rules run under Lune and spec'd in `tests/specs/` (generation, the lock planner, puzzles, his rules, physics feel). `Data/` is content. `Config.luau` is every tunable. `Net.luau` declares every remote. `Lib/Rng` is the seeded RNG.
+- **`src/server`** (ServerScriptService.Server). `Main.server.luau` requires every module in `Services/`, runs `Init(services)` in name order, then each `Start()` in its own thread; a service that fails to load is warned and skipped, so read the console. `Stalker/` is The Guest's brain and body (Director, Stalk, Tactician, Walker, Sight), driven by `StalkerService`. `World/` builds the house (`LevelBuilder`, `MansionBuilder`, `PropFactory`). `Puzzles/<Kind>` is the server half of each puzzle, hosted by `PuzzleService`.
+- **`src/client`** (StarterPlayerScripts.Client) mirrors it: `Controllers/` with `Init`/`Start`, `UI/` screens run by `UIController`. Clients draw The Guest themselves (`GuestController` animates every joint from `Logic/GuestPose`).
+- **A run:** `RunOrchestrator` picks a seed; `Logic/HouseSearch` builds 12 candidate houses (`HouseSize` → `Programme` → `MansionGen` + `LayoutValidator` → `Wings` → `LockPlanner` → `Leads`), scores each with `HouseMetrics` and keeps the best; `WorldService` builds it; then locks, items, puzzles and the dinner's table are set up. The escape ends when the dinner opens the front door.
+- **Passage:** every route, lock, door and barricade meets in `WorldService:SeamCost(seam, who)`; the Guest's walkers (`Logic/NavGraph`, `Stalker/Walker`) only ask it.
+- **Tools outside the game:** `tools/*.luau` run with `lune run tools/<name>` (`plan <seed> mansion [locks]` prints a house, `housestats`, `lockstats`, `completable`). `tools/_*.luau` are local scratch scripts, each listed in `.git/info/exclude` (add a new one there too).
 
 ## Roblox skill
 
@@ -226,7 +243,7 @@ The agreed plan, in order:
      - **A fuller short night is the default** (`Config.Mansion.Profiles.short`, `Config.Run.Night`).
      - 576 tests; `tools/completable` 1152 houses, all finish; Gate A unchanged. Waiting on the owner: TC-266 to TC-274 (TC-268, TC-271, TC-273 need two clients). Watch: the bot still stops for him 15-24 times a run.
      - Test races: a spec loads its modules when the runner reaches it, so editing `src` or `tests` during a full run mixes old and new code (three false failures this pass). Don't edit while a full run is going; edit docs, or wait.
-3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
+3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** **The quality bar (owner, 2026-10-11): beat IT WANTS IN [HORROR]**, the closest competitor, visually and in the loop; `docs/reference/it-wants-in/NOTES.md` has the owner's notes and what its screenshots show (the images are git-ignored). The owner wants a full visual rework plan once the gameplay loop is confirmed solid. Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)
      - 10-stud ceilings
@@ -263,7 +280,7 @@ The agreed plan, in order:
      - z-fighting and poke-through in the bed, armchair/sofa, bathtub rim, standalone curtains, rug layers and crib (`PropFactory`)
      - Decided (2026-10-04): the gameplay rework comes next (item 2), then the full visual refinement merged with M4.
    - Waiting on the owner (two or more clients): TC-16 to TC-21 in `docs/TESTING.md` — the teammate bleed-out marker, two watchers freezing him and cancelling a lunge, tier 1 seen by one player only, no popping in or out, the window reflection and face at the glass (Studio MCP screenshots can't show client-made 3D GUIs), and how the poses look in motion.
-   - Deferred from the step 6 plan: honest tracking (a per-room belief map plus Director "scent" hints). Between hunts he still reads his target's real position; perception and line of sight gate the lunge.
+   - Deferred from the step 6 plan: honest tracking, since built (the per-room belief map, `Logic/BeliefMap`; see the next item). The Director's "scent" hints are still not built.
    - Owner's playtest (2026-10-02): 60 fps, grain and flashlight drag good, markers fine.
    - Waiting on the owner's next playtest:
      - fps after steps 3 to 5 (trim, textures, props), and the low-graphics check
@@ -291,7 +308,7 @@ The agreed plan, in order:
        - Waiting on the owner: TC-46 to TC-50, including 3 clients.
        - Next is **M4** (furnishing, the bare-room mode, corridor closets, mansion art), now part of the level design's L3 (`docs/plans/level-design.md`).
      - step 7, hub polish
-   - Small known issues: the Witness Camera description says "6 shots" but solo runs get 8; Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
+   - Small known issues: Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 4. **Tutorial run**, never cut. Build it after the playtest so it teaches the escape. Currently there's only a how-to-play screen.
 5. **Hub place, MemoryStore matchmaking, reserved and private servers.** The owner must publish the places in Creator Hub; walk them through it.
 6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
@@ -302,6 +319,6 @@ Design doc rule (section 10): don't pile content onto a core that hasn't passed 
 ## Known limitations
 
 - The furniture is still grey-box geometry, though lighting, trim, materials and grime are done (see the visual pass above). Audio is mostly built-in `rbxasset://` placeholders; the Guest's sounds, the heartbeat and gasps are licensed library audio, and The Drift layers, radio static and hunt sting have library audio now (`Assets.luau`), but no music exists. Player footsteps are free community Creator Store samples (carpet, wood, tile, concrete) and the breath and house hum are library audio; swap ids in `Assets.luau` if any sounds wrong.
-- The Guest is built from primitives; `generate_mesh` for the head and hands is the plan B if it ever looks toy-like. Between hunts he knows where his target is (see "Deferred" above).
+- The Guest is built from primitives; `generate_mesh` for the head and hands is the plan B if it ever looks toy-like. Between hunts he tracks you honestly, from what he saw and heard (`Logic/BeliefMap`, `Stalk:Known`); the Director's scent hint is still not built.
 - Voice is plain proximity chat: no routing through the audio API, no radio or muffling.
 - Hub and run share one place.
