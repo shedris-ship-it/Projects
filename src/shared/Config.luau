@@ -854,15 +854,9 @@ Config.PostFX = {
 	BloomThresholdHub = 2.2, -- the hub is brightly lit, so only its brightest lights halo
 	BloomIntensity = 0.7,
 	BloomSize = 30,
-	-- Depth of field: sharp out to about 40 studs, so the Guest still reads at
-	-- 30 (doc section 8), softening beyond that like a real lens.
-	FocusDistance = 16,
-	InFocusRadius = 24,
-	FarBlur = 0.3,
-	GrainTile = 64, -- pixels per tile of the 32 px noise, so each grain is about 2 px
-	GrainShade = 70, -- darkens the noise so grain adds texture without lifting blacks
-	GrainCalm = 0.8, -- grain transparency at Drift 0
-	GrainCollapse = 0.7, -- and at Drift 100
+	-- (Grain, the vignette and depth of field moved to Config.Lens in the
+	-- visual rework: the focus now follows what you look at, and the Guest is
+	-- always kept sharp within 40 studs.)
 	-- Dust drifting in the light: soft additive motes lit by the scene, so they
 	-- only show inside lamp and window light. Each room's dust gathers around
 	-- its key light and drifts together on a slow, wandering air current.
@@ -893,6 +887,124 @@ Config.PostFX = {
 	-- Flashlight drag: the beam's aim trails the camera slightly on quick turns.
 	-- Higher follows faster. The camera itself never moves (doc section 4).
 	FlashlightFollow = 12,
+}
+
+-- Graphics presets (the visual rework V0, 2026-10-12; the owner: PC-first,
+-- lighter on phones). Settings "graphics": 0 Auto, 1 Cinematic, 2 Balanced,
+-- 3 Performance (Logic/GraphicsPreset).
+Config.Graphics = {
+	-- Auto: Roblox's own graphics quality picks (1-10); on its Automatic
+	-- setting the device does (touch only: Performance; a console: Balanced).
+	AutoCinematicAt = 7,
+	AutoBalancedAt = 4,
+	Presets = {
+		Cinematic = {
+			dof = true, -- depth of field and rack focus
+			bloom = true,
+			clutterShadows = true, -- small things (books, legs, decor) cast shadows
+			lightShadows = true, -- room lights cast shadows near you
+			torchShadows = true,
+			dust = true,
+			glare = true, -- glare and halation round lamps
+			dirt = true, -- lens dirt when you look into a light
+			adapt = true, -- eye adaptation
+		},
+		Balanced = {
+			dof = true,
+			bloom = true,
+			clutterShadows = false,
+			lightShadows = true,
+			torchShadows = true,
+			dust = true,
+			glare = true,
+			dirt = false,
+			adapt = true,
+		},
+		Performance = {
+			dof = false,
+			bloom = false,
+			clutterShadows = false,
+			lightShadows = false,
+			torchShadows = false,
+			dust = false,
+			glare = false,
+			dirt = false,
+			adapt = false,
+		},
+	},
+}
+
+-- The lens (the visual rework V1, 2026-10-12: P.T. on 35mm film; Logic/Lens,
+-- Controllers/LensController, the images from tools/lens.py).
+Config.Lens = {
+	-- Film grain at 24 frames a second whatever the frame rate, one texel to
+	-- a screen pixel. Opacity on Fine and on Film at Dread 0, then:
+	GrainFps = 24,
+	GrainFine = 0.14,
+	GrainFilm = 0.2,
+	GrainDread = 0.1, -- added by Dread 100
+	GrainDark = 0.5, -- this much stronger over a dark view
+	GrainHub = 0.6, -- the hub's share
+	-- The light specks' brightness (the frame's tint): over pure black they
+	-- lift it into TV snow (2026-10-12, measured +3 of 255), so they stay dim
+	-- in a dark view and only come up in a lit one.
+	GrainLightDark = 0.12,
+	GrainLightLit = 0.5,
+	-- Film flicker (the Film grain setting, and never with Reduce flicker): the
+	-- exposure wavers this many stops each grain frame.
+	Flicker = 0.025,
+	-- The vignette's opacity: at Dread 0, at Dread 100, in the hub.
+	Vignette = { calm = 0.55, collapse = 0.92, hub = 0.4 },
+	-- Roblox's tonemapper (ColorGradingEffect): "Default" or "Retro".
+	Tonemapper = "Default",
+	-- Rack focus: the lens focuses on what the middle of your view rests on.
+	Focus = {
+		Near = 2.5, -- studs: never closer
+		Far = 70, -- nothing hit: focus this far
+		MinRadius = 6, -- the sharp zone reaches at least this far either side
+		RadiusPerStud = 0.55, -- and deeper the further the focus
+		FarBlur = 0.25, -- how soft the room beyond goes
+		FarBlurClose = 0.55, -- ...when the focus is close (a note held up)
+		SoftUntil = 12, -- focus nearer than this softens the far room more
+		GuestReadable = 40, -- he's kept inside the sharp zone this close
+		GuestMargin = 4,
+		Ease = 5, -- per second: a pull, not a snap
+		Every = 0.05, -- seconds between focus rays
+	},
+	-- Eye adaptation: exposure in stops from a light estimate at the camera.
+	Exposure = {
+		Floor = 0.1, -- light added before the log, so pitch black isn't infinite
+		Key = 0.6, -- log2 of the light that needs no change (a lamp-lit room)
+		Gain = 0.16, -- stops per stop of light
+		Min = -0.3,
+		Max = 0.35, -- darkness stays dark (docs/ART.md rule 1)
+		ToDark = 0.35, -- per second, opening in the dark
+		ToLight = 1.4, -- per second, closing in the light
+		Lit = 1.5, -- this much light counts as fully lit (for the grain)
+		Torch = 1.1, -- your own lit torch counts as this much light
+		Every = 0.25, -- seconds between estimates
+		Occluded = 6, -- the strongest lights checked for a wall in the way
+	},
+	-- Glare round practical lights (warm core, amber halo, a red rim).
+	Glare = {
+		Size = 2600, -- pixels at one stud on a 1000 px tall screen
+		MinPixels = 18,
+		MaxPixels = 420,
+		Opacity = 0.75,
+		Edge = 0.45, -- opacity at the edge of the view, before facing it
+		FadeFrom = 30,
+		MaxDistance = 60,
+		Max = 10, -- glares drawn at once (the nearest)
+		Streak = 0.35, -- the streak's opacity against the glare's
+		StreakWidth = 5, -- the streak is this many times the glare's width
+	},
+	-- Lens dirt, shown when a bright light sits near the middle of the view.
+	Dirt = {
+		From = 0.55, -- 1 is dead centre; nothing below this
+		Opacity = 0.5,
+	},
+	-- Letterbox bars for the cutscenes (V8): 2.39:1.
+	Letterbox = { Aspect = 2.39, Seconds = 0.8 },
 }
 
 -- The run's arc (Logic/Acts, Logic/DirectorModel; docs/plans/

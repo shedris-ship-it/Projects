@@ -4,9 +4,12 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local GraphicsPreset = require(Shared.Logic.GraphicsPreset)
 local Net = require(Shared.Net)
 local Signal = require(Shared.Lib.Signal)
 local Storeys = require(Shared.Logic.Storeys)
@@ -30,10 +33,13 @@ local StateController = {
 	profile = nil,
 	settings = {
 		reduceFlicker = false,
-		reduceGrain = false,
 		subtitles = true,
 		colorblind = false,
-		lowEnd = false,
+		-- The visual rework (2026-10-12): presets in place of "Low-end graphics",
+		-- three steps of grain in place of "Reduce grain" (Logic/GraphicsPreset).
+		graphics = 0, -- 0 Auto, 1 Cinematic, 2 Balanced, 3 Performance
+		grain = 2, -- 0 off, 1 fine, 2 film
+		lensFlares = true, -- glare round lamps and lens dirt
 		centerDot = false, -- opt-in aiming aid; the game has no crosshair
 		fov = 70,
 		cameraMotion = 1, -- head bob, sway, FOV kick and landing dip; 0 turns them off
@@ -52,6 +58,7 @@ local player = Players.LocalPlayer
 
 function StateController:Init()
 	self.runState = ReplicatedStorage:WaitForChild("RunState")
+	self:_watchQuality()
 end
 
 function StateController:Start()
@@ -82,10 +89,14 @@ function StateController:Start()
 	end)
 	Net.get("ProfileData").OnClientEvent:Connect(function(profile)
 		self.profile = profile
-		for key, value in profile.settings or {} do
+		local saved = profile.settings or {}
+		for key, value in saved do
 			if self.settings[key] ~= nil and type(value) == type(self.settings[key]) then
 				self.settings[key] = value
 			end
+		end
+		for key, value in GraphicsPreset.migrate(saved) do
+			self.settings[key] = value
 		end
 		self.ProfileChanged:Fire(profile)
 		self.SettingsChanged:Fire(self.settings)
@@ -147,6 +158,47 @@ function StateController:SetSetting(key: string, value: any)
 	self.settings[key] = value
 	self.SettingsChanged:Fire(self.settings)
 	Net.get("SaveSettings"):FireServer(table.clone(self.settings))
+end
+
+-- This device as Auto sees it: Roblox's own graphics quality (nil while it is
+-- on Automatic), and whether it is a phone or a console.
+local function device(): GraphicsPreset.Device
+	local quality = nil
+	local ok, level = pcall(function()
+		return UserSettings():GetService("UserGameSettings").SavedQualityLevel
+	end)
+	if ok and level and level ~= Enum.SavedQualitySetting.Automatic then
+		quality = level.Value
+	end
+	return {
+		quality = quality,
+		touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
+		console = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled,
+	}
+end
+
+-- The graphics preset in force: its name and its switches (Config.Graphics).
+-- Worked out again when a setting changes or Roblox's own graphics quality
+-- moves (which also fires SettingsChanged, so every controller re-applies).
+local graphicsName = nil
+function StateController:Graphics(): (string, { [string]: boolean })
+	if not graphicsName then
+		graphicsName = GraphicsPreset.resolve(self.settings.graphics, device(), Config.Graphics)
+	end
+	return graphicsName, Config.Graphics.Presets[graphicsName]
+end
+
+function StateController:_watchQuality()
+	self.SettingsChanged:Connect(function()
+		-- (Connected first, so the preset is fresh before anyone reads it.)
+		graphicsName = nil
+	end)
+	pcall(function()
+		local userSettings = UserSettings():GetService("UserGameSettings")
+		userSettings:GetPropertyChangedSignal("SavedQualityLevel"):Connect(function()
+			self.SettingsChanged:Fire(self.settings)
+		end)
+	end)
 end
 
 -- Which storey a height (a world Y) is on, within the storeys the house has

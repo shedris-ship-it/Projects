@@ -176,10 +176,15 @@ function DataService:Start()
 		for _, key in
 			{
 				"reduceFlicker",
-				"reduceGrain",
+				"reduceGrain", -- (before the visual rework; carried over once by Logic/GraphicsPreset)
 				"subtitles",
 				"colorblind",
-				"lowEnd",
+				"lowEnd", -- (likewise)
+				"graphics",
+				"grain",
+				"lensFlares",
+				"crouchToggle",
+				"hideBody",
 				"centerDot",
 				"fov",
 				"cameraMotion",

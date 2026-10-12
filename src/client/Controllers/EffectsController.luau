@@ -1,7 +1,8 @@
 -- Post-processing and light behaviour driven by Drift (doc section 8:
 -- "tie saturation, contrast, grain, light-flicker rate and audio filtering to
--- Drift so the world visibly decays"). Respects the reduce-flicker and
--- reduce-grain settings; nothing here tilts or shakes the camera.
+-- Drift so the world visibly decays"). Respects the reduce-flicker setting
+-- and the graphics preset; nothing here tilts or shakes the camera. The lens
+-- (grain, vignette, focus, glare, exposure) is Controllers/LensController.
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -57,47 +58,12 @@ function EffectsController:_createEffects()
 	self.bloom.Size = FX.BloomSize
 	self.bloom.Threshold = FX.BloomThreshold
 	self.bloom.Parent = camera
-	self.dof = Instance.new("DepthOfFieldEffect")
-	self.dof.Name = "ConsensusDof"
-	self.dof.FarIntensity = FX.FarBlur
-	self.dof.FocusDistance = FX.FocusDistance
-	self.dof.InFocusRadius = FX.InFocusRadius
-	self.dof.NearIntensity = 0
-	self.dof.Parent = camera
 	self.atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 
-	-- Vignette from four soft edges, and an optional grain overlay.
+	-- The hunt's red wash and the bleed-out rim. (The vignette, the grain and
+	-- the depth of field are Controllers/LensController's since the visual
+	-- rework.)
 	local gui = Ui.screen("ConsensusEffects", -5, player:WaitForChild("PlayerGui"))
-	self.vignette = {}
-	for _, edge in
-		{
-			{ UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.35, 0), 90 },
-			{ UDim2.new(0, 0, 0.65, 0), UDim2.new(1, 0, 0.35, 0), -90 },
-			{ UDim2.new(0, 0, 0, 0), UDim2.new(0.3, 0, 1, 0), 0 },
-			{ UDim2.new(0.7, 0, 0, 0), UDim2.new(0.3, 0, 1, 0), 180 },
-		}
-	do
-		local frame = Ui.new("Frame", {
-			Position = edge[1],
-			Size = edge[2],
-			BackgroundColor3 = Color3.new(0, 0, 0),
-			BackgroundTransparency = 0,
-			Parent = gui,
-		})
-		Ui.new("UIGradient", {
-			Rotation = edge[3],
-			-- Eased rather than a straight ramp, so it has no visible band.
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.2),
-				NumberSequenceKeypoint.new(0.2, 0.42),
-				NumberSequenceKeypoint.new(0.45, 0.7),
-				NumberSequenceKeypoint.new(0.7, 0.9),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-			Parent = frame,
-		})
-		table.insert(self.vignette, frame)
-	end
 	self.tint = Ui.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(120, 0, 0),
@@ -136,22 +102,10 @@ function EffectsController:_createEffects()
 	self.blur.Size = 0
 	self.blur.Parent = camera
 	self.heartPhase = 0
-
-	if Assets.GrainTexture ~= "" then
-		self.grain = Ui.new("ImageLabel", {
-			Size = UDim2.fromScale(2, 2),
-			BackgroundTransparency = 1,
-			Image = Assets.GrainTexture,
-			ImageColor3 = Color3.fromRGB(FX.GrainShade, FX.GrainShade, FX.GrainShade),
-			ScaleType = Enum.ScaleType.Tile,
-			TileSize = UDim2.fromOffset(FX.GrainTile, FX.GrainTile),
-			ImageTransparency = 1,
-			Parent = gui,
-		})
-	end
 end
 
-local lowEnd = false
+-- The graphics preset's switches (Config.Graphics), kept for the loops below.
+local preset = Config.Graphics.Presets.Cinematic
 
 -- Dust drifting in the light (docs/ART.md): nested layers of motes around
 -- each room's key light, dense and bright at the lamp and thinning out
@@ -183,7 +137,7 @@ local function dustEmitter(glow: number, rate: number): ParticleEmitter
 	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 244, 228))
 	emitter.LightInfluence = 1
 	emitter.LightEmission = 1
-	emitter.Enabled = not lowEnd
+	emitter.Enabled = preset.dust
 	return emitter
 end
 
@@ -294,6 +248,9 @@ local function trackLight(part: Instance)
 		utility = fixture ~= nil and fixture:FindFirstChild("Housing") ~= nil, -- a fluorescent
 		glows = glows,
 	}
+	if not preset.lightShadows then
+		light.Shadows = false
+	end
 	task.spawn(addDust, part)
 end
 
@@ -387,6 +344,13 @@ function EffectsController:Start()
 		self:_applyQuality(settings)
 	end)
 	self:_applyQuality(self.state.settings)
+	-- A new house arrives in chunks after its layout: settle its clutter's
+	-- shadows to the preset once it's in.
+	self.state.LayoutChanged:Connect(function()
+		task.delay(4, function()
+			self:_applyQuality(self.state.settings)
+		end)
+	end)
 
 	local nextRandomFlicker = 0
 	RunService.RenderStepped:Connect(function(dt)
@@ -402,22 +366,23 @@ function EffectsController:Start()
 end
 
 function EffectsController:_applyQuality(settings)
-	self.dof.Enabled = not settings.lowEnd
-	self.bloom.Enabled = not settings.lowEnd
+	local _, switches = self.state:Graphics()
+	preset = switches
+	self.bloom.Enabled = preset.bloom
 	local camera = Workspace.CurrentCamera
 	camera.FieldOfView = settings.fov or 70
-	-- Low-end mode: drop shadows from small clutter (books, legs, decor), and
-	-- give back only those shadows afterwards. Parts built without a shadow
-	-- (glass, lamp trim, clock hands) stay that way.
+	-- Below Cinematic: drop shadows from small clutter (books, legs, decor),
+	-- and give back only those shadows afterwards. Parts built without a
+	-- shadow (glass, lamp trim, clock hands) stay that way.
 	local level = Workspace:FindFirstChild("ConsensusLevel")
-	if settings.lowEnd and level then
+	if not preset.clutterShadows and level then
 		for _, d in level:GetDescendants() do
 			if d:IsA("BasePart") and d.CastShadow and d.Size.Magnitude < 3 then
 				d.CastShadow = false
 				unshadowed[d] = true
 			end
 		end
-	elseif not settings.lowEnd then
+	elseif preset.clutterShadows then
 		for part in unshadowed do
 			part.CastShadow = true
 		end
@@ -425,17 +390,23 @@ function EffectsController:_applyQuality(settings)
 	end
 	for light, info in lights do
 		if light:IsA("PointLight") or light:IsA("SpotLight") or light:IsA("SurfaceLight") then
-			light.Shadows = info.shadows and not settings.lowEnd
+			light.Shadows = info.shadows and preset.lightShadows
 		end
 	end
-	lowEnd = settings.lowEnd == true
 	for emitter in dust do
 		if emitter.Parent then
-			emitter.Enabled = not lowEnd
+			emitter.Enabled = preset.dust
 		else
 			dust[emitter] = nil
 		end
 	end
+end
+
+-- The room lights this client tracks (light -> its info: base brightness,
+-- the part it hangs from, whether it's a lamp), for Controllers/LensController's
+-- glare and eye adaptation. Read only.
+function EffectsController:Lights()
+	return lights
 end
 
 function EffectsController:FlickerRoom(roomId: number?, duration: number)
@@ -547,17 +518,9 @@ function EffectsController:_update(dt: number)
 
 	self.bloom.Threshold = inRun and FX.BloomThreshold or FX.BloomThresholdHub
 
-	for _, frame in self.vignette do
-		frame.BackgroundTransparency = inRun and lerp(0.35, 0.05, t) or 0.6
-	end
 	self:_updateBleed(dt, downed)
 	if self.atmosphere then
 		self.atmosphere.Density = inRun and lerp(0.32, 0.46, t) or 0.25
-	end
-	if self.grain then
-		self.grain.ImageTransparency = settings.reduceGrain and 1
-			or (inRun and lerp(FX.GrainCalm, FX.GrainCollapse, t) or 1)
-		self.grain.Position = UDim2.fromOffset(-math.random(0, FX.GrainTile), -math.random(0, FX.GrainTile))
 	end
 
 	for part, blood in bloods do
@@ -619,7 +582,7 @@ function EffectsController:_update(dt: number)
 			info.dim += (target - info.dim) * ease
 			local base = info.base * info.dim
 			-- Only the lights near you cast shadows (hysteresis stops flicker at the edge).
-			if info.shadows and not lowEnd and camera then
+			if info.shadows and preset.lightShadows and camera then
 				local away = (info.part.Position - camera.CFrame.Position).Magnitude
 				local want = light.Shadows
 				if away < Config.ShadowRadius.on then

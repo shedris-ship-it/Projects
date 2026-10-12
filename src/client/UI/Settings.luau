@@ -1,12 +1,13 @@
 -- First-launch screen and settings (doc section 8, "UI and accessibility"):
--- reduce flicker, reduce grain, subtitles, colour-blind-safe pings, a
--- low-end graphics mode, FOV and volume. Also explains how to play.
+-- graphics presets, film grain, reduce flicker, lens flares, subtitles,
+-- colour-blind-safe pings, FOV and volume. Also explains how to play.
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+local GraphicsPreset = require(ReplicatedStorage:WaitForChild("Shared").Logic.GraphicsPreset)
 
 -- The real keys, as Controllers/ActionController binds them (WP9: the
 -- outside playtest found the bolt on the torch's key and no list anywhere).
@@ -94,17 +95,35 @@ function Settings.new(ctx)
 		BackgroundTransparency = 1,
 		Parent = panel,
 	}, { Ui.list(5) })
-	-- Every row this tall, so nine toggles, six sliders and Done fit the
-	-- panel (2026-10-12: with "Hide your own body" the column ran off its foot).
-	local ROW = 29
+	-- Every row this tall, so two choices, nine toggles, six sliders and Done
+	-- fit the panel (2026-10-12: with "Hide your own body" the column ran off
+	-- its foot; then the graphics presets came).
+	local ROW = 25
+	-- Choices cycle on a click (the visual rework: Logic/GraphicsPreset).
+	self.choices = {}
+	for i, option in
+		{
+			{ key = "graphics", label = "Graphics", next = GraphicsPreset.nextSetting },
+			{ key = "grain", label = "Film grain", next = GraphicsPreset.nextGrain },
+		}
+	do
+		local button = Ui.button(
+			"",
+			{ LayoutOrder = -10 + i, Size = UDim2.new(1, 0, 0, ROW), TextSize = 14, Parent = column },
+			function()
+				ctx.state:SetSetting(option.key, option.next(ctx.state.settings[option.key]))
+				self:Render()
+			end
+		)
+		self.choices[option.key] = { button = button, label = option.label }
+	end
 	self.toggles = {}
 	for i, option in
 		{
 			{ key = "reduceFlicker", label = "Reduce flicker" },
-			{ key = "reduceGrain", label = "Reduce grain" },
+			{ key = "lensFlares", label = "Lens flares and glare" },
 			{ key = "subtitles", label = "Subtitles for sound cues" },
 			{ key = "colorblind", label = "Colour-blind-safe pings" },
-			{ key = "lowEnd", label = "Low-end graphics (phones)" },
 			{ key = "centerDot", label = "Centre dot (aiming aid)" },
 			{ key = "tips", label = "Show tips in the house" },
 			{ key = "crouchToggle", label = "Ctrl toggles crouch (off: hold)" },
@@ -187,6 +206,18 @@ end
 
 function Settings:Render()
 	local settings = self.ctx.state.settings
+	local preset = self.ctx.state:Graphics()
+	for key, choice in self.choices do
+		local value
+		if key == "graphics" then
+			local chosen = GraphicsPreset.Order[settings.graphics or 0]
+			value = chosen or ("Auto (" .. preset .. ")")
+		else
+			value = GraphicsPreset.GrainNames[settings.grain or 2] or "Film"
+		end
+		choice.button.Text = choice.label .. ":  " .. value
+		choice.button.BackgroundColor3 = Ui.Theme.panelLight
+	end
 	for key, toggle in self.toggles do
 		toggle.button.Text = toggle.label .. ":  " .. (settings[key] and "ON" or "off")
 		toggle.button.BackgroundColor3 = settings[key] and Color3.fromRGB(70, 90, 70) or Ui.Theme.panelLight

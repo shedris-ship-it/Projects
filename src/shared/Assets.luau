@@ -143,9 +143,28 @@ Assets.Footsteps = {
 	},
 }
 
--- Full-screen film grain texture (a tiling noise image). The default is a 32 px
--- noise tile that ships with every Roblox client, so nothing needs uploading.
-Assets.GrainTexture = "rbxasset://textures/noise.dds"
+-- The lens (the visual rework V1, 2026-10-12: P.T. on 35mm film), drawn by
+-- tools/lens.py and uploaded with the owner's OK. Controllers/LensController.
+Assets.Lens = {
+	-- Film grain, 512 px seamless frames shown one texel to a screen pixel and
+	-- flipped at 24 a second. Each holds dark specks (black) and fainter light
+	-- ones (white); alpha is the strength.
+	Grain = {
+		"rbxassetid://92891459123910",
+		"rbxassetid://91123355776843",
+		"rbxassetid://129176190810488",
+		"rbxassetid://125887897250309",
+		"rbxassetid://140097820014085",
+		"rbxassetid://116456630070350",
+		"rbxassetid://120026429885487",
+		"rbxassetid://105665780834642",
+	},
+	GrainSize = 512, -- pixels across a frame
+	Vignette = "rbxassetid://135713679847886", -- dithered, so it never bands
+	Glare = "rbxassetid://128745649799331", -- warm core, amber halo, a red rim (halation)
+	GlareStreak = "rbxassetid://110530427197843",
+	Dirt = "rbxassetid://139050197609707", -- smudges and specks on the lens
+}
 
 -- Soft round blob for the dust drifting in lamp light (ships with the client).
 -- It has no alpha, so it's drawn additively: black adds nothing.

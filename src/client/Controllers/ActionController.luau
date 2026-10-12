@@ -820,7 +820,8 @@ function ActionController:_updateFlashlight(dt: number)
 		end
 	end
 	cameraLight.Enabled = on
-	cameraLight.Shadows = not self.state.settings.lowEnd
+	local _, graphics = self.state:Graphics()
+	cameraLight.Shadows = graphics.torchShadows
 	local head = character and character:FindFirstChild("Head")
 	local headLight = head and head:FindFirstChild("Flashlight")
 	if headLight then
