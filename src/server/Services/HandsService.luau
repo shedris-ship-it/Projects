@@ -271,7 +271,8 @@ function HandsService.rootOf(parts: { BasePart }): BasePart?
 	local root, best = nil, -1
 	for _, p in parts do
 		local volume = p.Size.X * p.Size.Y * p.Size.Z
-		if volume > best then
+		-- (Never the kit's mesh, World/Kit: it's only what you see.)
+		if volume > best and not p:GetAttribute("Kit") then
 			root, best = p, volume
 		end
 	end
@@ -291,6 +292,12 @@ function HandsService:_prepare(thing)
 			weld.Part0 = root
 			weld.Part1 = p
 			weld.Parent = root
+		end
+		if p:GetAttribute("Kit") then
+			-- The kit's mesh rides along, weightless and never in the way.
+			p.CanCollide = false
+			p.Massless = true
+			continue
 		end
 		p.CanCollide = true
 		p.CanTouch = false

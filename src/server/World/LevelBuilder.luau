@@ -17,6 +17,7 @@ local Corridor = require(Shared.Logic.Corridor)
 local LevelGraph = require(Shared.Logic.LevelGraph)
 local Props = require(Shared.Data.Props)
 local PropFactory = require(Shared.World.PropFactory)
+local Kit = require(Shared.World.Kit)
 local Rng = require(Shared.Lib.Rng)
 local RoomFit = require(Shared.Logic.RoomFit)
 local Dressing = require(script.Parent.Dressing)
@@ -1139,6 +1140,11 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 				p.CFrame = swing * p.CFrame
 			end
 		end
+	end
+	-- The kit's modelled door over the grey-box slab and its panels, for a
+	-- plain door (World/Kit; a glazed or hidden door keeps its own build).
+	if not glazed and not hidden then
+		Kit.dressSlab(slab, "Door", { "Panel" })
 	end
 	doorModel.Parent = roomA.model
 	setId(slab, doorId, "Door")

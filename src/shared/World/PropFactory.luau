@@ -12,6 +12,7 @@ local CollectionService = game:GetService("CollectionService")
 local ClockFace = require(script.Parent.Parent.Logic.ClockFace)
 local Config = require(script.Parent.Parent.Config)
 local Joint = require(script.Parent.Parent.Lib.Joint)
+local Kit = require(script.Parent.Kit)
 local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
 local ClockTimes = require(script.Parent.Parent.Data.ClockTimes)
@@ -2304,6 +2305,9 @@ function PropFactory.build(kindName: string, cf: CFrame, parent: Instance, overr
 			end
 		end
 	end
+	-- The kit's modelled piece over the grey-box, where there is one (the
+	-- visual rework, World/Kit): the grey-box stays as the game's body.
+	Kit.dressProp(model, kindName, cf, size)
 	model.Parent = parent
 	return model, lightPart
 end

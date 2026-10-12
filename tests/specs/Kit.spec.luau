@@ -1,0 +1,40 @@
+-- The kit (Data/Kit, World/Kit): every entry dresses a real kind, and each
+-- mesh was modelled at the size of the thing it dresses, so fitting it
+-- never stretches it out of shape.
+return function(test, check, Shared, require)
+	local Kit = require(Shared.Data.Kit)
+	local Props = require(Shared.Data.Props)
+	local Config = require(Shared.Config)
+
+	-- How far a modelled piece may differ from the grey-box it dresses, as a
+	-- share of each side (a raised panel or a cushion's curve stands proud).
+	local TOLERANCE = 0.08
+
+	test("every prop entry names a real kind and fits its size", function()
+		for kind, entry in Kit.Props do
+			local prop = Props.Kinds[kind]
+			check.truthy(prop, kind .. " is a prop kind")
+			check.equal(type(entry.mesh), "string", kind .. " names its mesh")
+			check.equal(#entry.size, 3, kind .. " gives its modelled size")
+			for axis = 1, 3 do
+				local want = prop.size[axis]
+				local got = entry.size[axis]
+				check.atMost(
+					math.abs(got - want) / want,
+					TOLERANCE,
+					string.format("%s axis %d: modelled %.2f, prop %.2f", kind, axis, got, want)
+				)
+			end
+		end
+	end)
+
+	test("the door slab's mesh fits the slab", function()
+		local door = Kit.Slabs.Door
+		check.truthy(door, "a door entry")
+		local width = Config.Level.DoorWidth - 0.2 -- World/LevelBuilder's slab
+		local height = Config.Level.DoorHeight - 0.2
+		check.atMost(math.abs(door.size[1] - width) / width, TOLERANCE, "slab width")
+		check.atMost(math.abs(door.size[2] - height) / height, TOLERANCE, "slab height")
+		check.atMost(door.size[3], 0.6, "no thicker than a door")
+	end)
+end

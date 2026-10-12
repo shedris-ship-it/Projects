@@ -1275,11 +1275,12 @@ function HandsController:_pickUp(thing: Model?): boolean
 end
 
 -- The part everything is welded to: the biggest, as the server picks
--- (Services/HandsService.rootOf).
+-- (Services/HandsService.rootOf). Never the kit's mesh (World/Kit): it's
+-- only what you see.
 local function rootOf(model: Model): BasePart?
 	local root, best = nil, -1
 	for _, p in model:GetDescendants() do
-		if p:IsA("BasePart") then
+		if p:IsA("BasePart") and not p:GetAttribute("Kit") then
 			local volume = p.Size.X * p.Size.Y * p.Size.Z
 			if volume > best then
 				root, best = p, volume
