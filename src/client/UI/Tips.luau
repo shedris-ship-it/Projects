@@ -199,6 +199,16 @@ local TIPS = {
 			return focus ~= nil and focus.object:GetAttribute("FindId") ~= nil
 		end,
 	},
+	-- Push your luck (2026-10-11): the family's valuables.
+	{
+		id = "valuable",
+		text = "Something of the family's worth taking. Carry it out of the front door and it's Marks for all of you; while you hold it, he knows where you are, and he puts back one left lying.",
+		when = function(self)
+			local hands = self.ctx.controllers.HandsController
+			local focus = hands and hands:Focus()
+			return focus ~= nil and focus.object:GetAttribute("Valuable") == true
+		end,
+	},
 	{
 		id = "battery",
 		text = "Your torch is going. Clip it (any slot but 1) to spare it; a lit Lantern room recharges it; drawers and the safe room keep batteries.",

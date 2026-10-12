@@ -68,7 +68,7 @@ local HELP = table.concat({
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
 	"furniture open|shut [all] (drawers, cupboard doors and lids within 20 studs, or in the whole house)",
 	"push <dx> <dz> [people 1] [seconds 1.5] (the nearest pushable furniture, as if that many pushed it that way)",
-	"locks (the locks to Output) · unlock <seam|all> · try <seam|piece> (as if you pressed on it) · give <token> · items · solve [puzzle]",
+	"locks (the locks to Output) · unlock <seam|all> · try <seam|piece> (as if you pressed on it) · give <token> · items · valuables · solve [puzzle]",
 	"leads [go <token> [note]] · puzzle [kind] (stand at it, open it) · ui map|journal|close · switch [list]",
 	"crank [go|up] · grab [id] · piece [id|show] · throwat [case] · barricade [here [piece]|squeeze|shove|burst|scan]",
 }, "\n")
@@ -137,6 +137,7 @@ local READ_ONLY = {
 	[""] = true,
 	overlay = true,
 	summary = true,
+	valuables = true,
 	watch = true,
 	where = true,
 	act = true,
@@ -380,6 +381,19 @@ function DebugService:Run(player: Player, text: string)
 		-- A key onto your ring, or an heirloom at your feet.
 		local token = args[2] or ""
 		local plan = services.LockService.plan
+		-- One of the family's valuables at your feet (`give valuable:1`).
+		if services.ItemService:IsValuable(token) then
+			local position = services.PlayerStateService:Position(player)
+			local state = services.ItemService.valuables[token]
+			if position and not state.thing and not state.banked then
+				local floor = services.WorldService:FloorBase(position.Y)
+				services.ItemService:_make(token, CFrame.new(position.X + 2, floor, position.Z))
+				reply(player, "at your feet: " .. services.ItemService:Label(token))
+			else
+				reply(player, token .. " is already out in the house (F2 valuables), or carried out")
+			end
+			return
+		end
 		-- (The console lower-cases what's typed: "tool:crowbar".)
 		for id in plan and plan.tokens or {} do
 			if string.lower(id) == token then
@@ -509,6 +523,13 @@ function DebugService:Run(player: Player, text: string)
 		task.wait(0.2)
 		services.HidingService:Enter(player, best)
 		reply(player, "hidden in the " .. tostring(best.label) .. " (" .. best.id .. ")")
+	elseif command == "valuables" then
+		-- The family's valuables (push your luck): each and where it is.
+		local lines = services.ItemService:ValuableLines()
+		for _, line in lines do
+			print("[valuables] " .. line)
+		end
+		reply(player, #lines > 0 and table.concat(lines, " · ") or "none this run")
 	elseif command == "items" then
 		local plan = services.LockService.plan
 		if not plan then

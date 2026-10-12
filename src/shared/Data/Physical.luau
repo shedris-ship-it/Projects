@@ -84,6 +84,7 @@ local Dressing = {
 	-- label rides on the model.
 	Key = { class = "light", label = "Key" },
 	Heirloom = { class = "medium", label = "Heirloom" },
+	Valuable = { class = "medium", label = "Valuable" }, -- the family's (Data/Valuables): carried, never pocketed
 	Printout = { class = "light", label = "Printout" },
 	-- A board pried off a boarded door (docs/plans/level-design.md 11, L3.3).
 	Plank = { class = "medium", label = "Plank" },

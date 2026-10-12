@@ -21,6 +21,12 @@
 -- his scent (Logic/Scent, StalkerService), and its home: where it was kept,
 -- so he can put it back (`Tidy`). Later producers (a safe, the music box)
 -- give their own homes with SetHome.
+--
+-- The family's valuables (push your luck, the owner's choice of 2026-10-11;
+-- Data/Valuables, Logic/Valuables) are kept the same way: optional, carried
+-- like an heirloom (his scent follows whoever holds one, and he puts back
+-- one left lying), worth Marks for the squad only once carried out of the
+-- front door (`CarryOut`, RunOrchestrator).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34,6 +40,8 @@ local Physical = require(Shared.Data.Physical)
 local Rooms = require(Shared.Data.Rooms)
 local NoteText = require(Shared.Logic.NoteText)
 local Throw = require(Shared.Logic.Throw)
+local ValuableData = require(Shared.Data.Valuables)
+local Valuables = require(Shared.Logic.Valuables)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
@@ -78,6 +86,10 @@ function ItemService:Init(services)
 	self.found = {} -- token -> true once someone has taken it
 	-- token -> { token, home, thing?, holder?, lastHolder?, droppedAt?, set }
 	self.heirlooms = {}
+	-- The family's valuables: "valuable:<n>" -> { token, kind (Data/Valuables),
+	-- home, thing?, holder?, lastHolder?, droppedAt?, banked? (who carried it out) }
+	self.valuables = {}
+	self.haul = {} -- { label, by } for each one carried out this run, in order
 	-- Leads (Logic/Leads): where each token was actually put, and how.
 	self.leadOf = {} -- token -> { kind, room, noteRoom? }
 	self.notes = {} -- note id -> { id, token, text, room, model, sheet }
@@ -96,12 +108,14 @@ function ItemService:Start()
 	end)
 	self.Hands.Released:Connect(function(player, thing)
 		local token = thing.model:GetAttribute("Item")
-		local state = token and self.heirlooms[token]
+		local state = token and (self.heirlooms[token] or self.valuables[token])
 		if state and state.holder == player then
 			state.holder = nil
 			state.lastHolder = player
 			state.droppedAt = os.clock()
-			self.HeirloomDropped:Fire(token)
+			if self.heirlooms[token] then
+				self.HeirloomDropped:Fire(token)
+			end
 		end
 	end)
 	-- Something thrown through a display case's glass breaks it.
@@ -114,6 +128,8 @@ function ItemService:Start()
 		table.clear(self.heirloomKinds)
 		table.clear(self.found)
 		table.clear(self.heirlooms)
+		table.clear(self.valuables)
+		table.clear(self.haul)
 		table.clear(self.leadOf)
 		table.clear(self.notes)
 		table.clear(self.cases)
@@ -391,6 +407,12 @@ function ItemService:_keep(id: string, room: number, rng)
 end
 
 function ItemService:Label(token: string): string
+	local valuable = self.valuables[token]
+	if valuable then
+		-- "Carriage clock".
+		local label = valuable.kind.label
+		return string.upper(string.sub(label, 1, 1)) .. string.sub(label, 2)
+	end
 	local info = self.plan and self.plan.tokens[token]
 	if info and info.kind == "heirloom" then
 		local kind = self.heirloomKinds[token]
@@ -403,8 +425,20 @@ end
 
 -- Build what a token is, lying at `at`, as a thing your hands can take.
 function ItemService:_make(token: string, at: CFrame)
-	local info = self.plan.tokens[token]
 	local folder = self.World.content
+	local valuable = self.valuables[token]
+	if valuable then
+		local model = Items.valuable(valuable.kind.id, at, folder)
+		model:SetAttribute("Item", token)
+		model:SetAttribute("Valuable", true)
+		local thing = self.Hands:AddThing(model, {
+			class = Physical.Dressing[model.Name].class,
+			label = self:Label(token),
+		})
+		valuable.thing = thing
+		return model, thing
+	end
+	local info = self.plan.tokens[token]
 	local model
 	if info.kind == "key" then
 		model = Items.key(at, info.label, folder, Marks.glyph(info.mark))
@@ -455,6 +489,114 @@ function ItemService:Heirlooms()
 	return list
 end
 
+-- Everything his scent follows (Logic/Scent) and he puts back when it's left
+-- lying: the heirlooms and the family's valuables, in Heirlooms()' shape.
+-- (Heirlooms() alone is what the table waits for.)
+function ItemService:Scented()
+	local list = self:Heirlooms()
+	local hiding = self.services.HidingService
+	for _, state in self.valuables do
+		local thing = state.thing
+		local model = thing and thing.model
+		if not state.banked then
+			table.insert(list, {
+				token = state.token,
+				holder = state.holder,
+				hidden = state.holder ~= nil and hiding:IsHidden(state.holder),
+				droppedAt = state.droppedAt,
+				lastHolder = state.lastHolder,
+				position = model and model.Parent and model:GetPivot().Position or nil,
+				set = false,
+				thing = thing,
+			})
+		end
+	end
+	return list
+end
+
+-- The family's valuables (push your luck; Logic/Valuables picks the rooms):
+-- `count` of them, each in a room off the way, in a locked display case
+-- (Config.Valuables.CaseChance) or on a top in plain sight. Optional: the
+-- plan, the leads and the objective line never know about them.
+function ItemService:PlaceValuables(layout, plan, rng, count: number)
+	table.clear(self.valuables)
+	table.clear(self.haul)
+	if count <= 0 or not self.plan then
+		return
+	end
+	local kinds = rng:Shuffle(table.clone(ValuableData))
+	for i, room in Valuables.pick(layout, plan, rng, count) do
+		local kind = kinds[(i - 1) % #kinds + 1]
+		local token = "valuable:" .. i
+		local state = { token = token, kind = kind, home = { room = room } }
+		self.valuables[token] = state
+		local placed = rng:Chance(Config.Valuables.CaseChance) and self:_placeDisplay(token, room, rng)
+		if not placed then
+			local at = self:_top(room, rng, kind.size)
+			if at then
+				state.home.cframe = at
+				self:_make(token, at)
+				placed = true
+			end
+		end
+		if not placed then
+			self.valuables[token] = nil -- no top and no case would take it
+		end
+	end
+end
+
+function ItemService:IsValuable(token: string?): boolean
+	return token ~= nil and self.valuables[token] ~= nil
+end
+
+-- Out of the front door (RunOrchestrator, the moment they leave): a valuable
+-- in their hands is the squad's. Returns its label, or nil.
+function ItemService:CarryOut(player: Player): string?
+	local thing = self.Hands:Held(player)
+	local token = thing and thing.model and thing.model:GetAttribute("Item")
+	local state = token and self.valuables[token]
+	if not state or state.banked then
+		return nil
+	end
+	state.banked = player
+	state.holder = nil
+	self.Hands:Forget(thing, true)
+	state.thing = nil
+	table.insert(self.haul, { label = state.kind.label, by = player.DisplayName })
+	notify(player, string.format("You got out with the %s.", state.kind.label), "good")
+	return state.kind.label
+end
+
+-- The night's haul: { { label, by } } carried out, and how many were left.
+function ItemService:Haul()
+	local left = 0
+	for _, state in self.valuables do
+		if not state.banked then
+			left += 1
+		end
+	end
+	return self.haul, left
+end
+
+-- For F2 `valuables`: each one and where it is now.
+function ItemService:ValuableLines(): { string }
+	local lines = {}
+	for i = 1, 16 do
+		local state = self.valuables["valuable:" .. i]
+		if state then
+			local model = state.thing and state.thing.model
+			local where = state.banked and ("carried out by " .. state.banked.DisplayName)
+				or state.holder and ("held by " .. state.holder.DisplayName)
+				or (model and model.Parent and ("lying in the " .. self:RoomPhrase(
+					self.World:RoomAt(model:GetPivot().Position) or state.home.room
+				)))
+				or ("kept in the " .. self:RoomPhrase(state.home.room) .. " (in a case)")
+			table.insert(lines, string.format("%s %s: %s", state.token, state.kind.label, where))
+		end
+	end
+	return lines
+end
+
 -- Where an heirloom was kept: { room, space? (a drawer or cupboard), cframe?
 -- (on the floor), station? (a puzzle that held it) }.
 function ItemService:HomeOf(token: string)
@@ -484,7 +626,7 @@ end
 -- He puts it back where it was kept (Stalker/Stalk's Tidy errand): out of
 -- the world, and kept there again, the drawer or cupboard shut on it.
 function ItemService:Tidy(token: string): boolean
-	local state = self.heirlooms[token]
+	local state = self.heirlooms[token] or self.valuables[token]
 	local thing = state and state.thing
 	if not state or state.set or state.holder or not thing then
 		return false
@@ -507,7 +649,9 @@ function ItemService:Tidy(token: string): boolean
 		local at = home.cframe or CFrame.new(self.World:Room(home.room).center)
 		self:_make(token, at)
 	end
-	self.Tidied:Fire(token, self:Label(token))
+	if self.heirlooms[token] then
+		self.Tidied:Fire(token, self:Label(token))
+	end
 	return true
 end
 
@@ -643,13 +787,16 @@ function ItemService:_placeDisplay(token: string?, room: number, rng): boolean
 	local shown
 	local inside = spot * CFrame.Angles(0, rng:NextNumber(-0.4, 0.4), 0)
 	if token then
-		local info = self.plan.tokens[token]
-		if info.kind == "key" then
+		local valuable = self.valuables[token]
+		local info = not valuable and self.plan.tokens[token]
+		if valuable then
+			shown = Items.valuable(valuable.kind.id, inside, model)
+		elseif info.kind == "key" then
 			shown = Items.key(inside, info.label, model, Marks.glyph(info.mark))
 		else
 			shown = Items.heirloom(self.heirloomKinds[token].id, inside, model)
 		end
-		local state = self.heirlooms[token]
+		local state = self.heirlooms[token] or valuable
 		if state then
 			state.home.cframe = inside
 		end
@@ -747,7 +894,7 @@ function ItemService:_openCase(case, player: Player?, how: string)
 		case.shown = nil
 	end
 	if case.token then
-		local state = self.heirlooms[case.token]
+		local state = self.heirlooms[case.token] or self.valuables[case.token]
 		if state then
 			state.home.cframe = at
 		end
@@ -945,6 +1092,24 @@ end
 -- A key taken by hand goes on your ring.
 function ItemService:_grabbed(player: Player, thing)
 	local token = thing.model:GetAttribute("Item")
+	local valuable = token and self.valuables[token]
+	if valuable then
+		valuable.holder = player
+		valuable.droppedAt = nil
+		if not valuable.everTaken then
+			-- The declared rule, said on the first pickup: he knows.
+			valuable.everTaken = true
+			notify(
+				player,
+				string.format(
+					"The family's %s. Carry it out of the front door and it's %d Marks for each of you. While you hold it, he knows where you are.",
+					valuable.kind.label,
+					Config.Valuables.Marks
+				)
+			)
+		end
+		return
+	end
 	local info = token and self.plan and self.plan.tokens[token]
 	if not info then
 		return

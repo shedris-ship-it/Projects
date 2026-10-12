@@ -324,6 +324,7 @@ Config.Mansion = {
 			regions = 1,
 			heirlooms = { 2, 2 },
 			pockets = { 0, 0 },
+			valuables = { 2, 2 },
 			maxTools = 0,
 			wingSteps = { 0, 0 },
 			storeys = { cellar = 0, attic = 0, onlyOne = true },
@@ -338,6 +339,9 @@ Config.Mansion = {
 			-- Side rooms behind the house key (docs/plans/level-design.md
 			-- section 11, L3.2): fewest and most a house.
 			pockets = { 0, 1 },
+			-- The family's valuables (Data/Valuables; push your luck, 2026-10-11):
+			-- optional, worth Marks only once carried out of the front door.
+			valuables = { 2, 2 },
 			maxTools = 1, -- one tool kind a run
 			-- Steps inside a wing (section 11, L3.4): none for one or two.
 			wingSteps = { 0, 0 },
@@ -349,6 +353,7 @@ Config.Mansion = {
 			regions = 2,
 			heirlooms = { 2, 3 },
 			pockets = { 1, 1 },
+			valuables = { 2, 3 },
 			maxTools = 1,
 			wingSteps = { 0, 0 },
 			storeys = { cellar = 1, attic = 1, onlyOne = true },
@@ -363,6 +368,7 @@ Config.Mansion = {
 			regions = 3,
 			heirlooms = { 3, 3 },
 			pockets = { 1, 2 },
+			valuables = { 3, 3 },
 			maxTools = 2,
 			wingSteps = { 0, 1 },
 			storeys = { cellar = 1, attic = 1 },
@@ -373,6 +379,7 @@ Config.Mansion = {
 			regions = 3,
 			heirlooms = { 3, 3 },
 			pockets = { 2, 2 },
+			valuables = { 3, 4 },
 			maxTools = 2,
 			wingSteps = { 1, 2 },
 			storeys = { cellar = 1, attic = 1 },
@@ -1616,6 +1623,16 @@ Config.Monitor = {
 }
 
 -- Wind-up toys (docs/plans/level-design.md section 4, L3.6; Services/ToyService).
+-- The family's valuables (Data/Valuables, Logic/Valuables, ItemService; push
+-- your luck, the owner's choice of 2026-10-11): how many a house keeps is
+-- `valuables` in Config.Mansion.BySquad. Carried in your hands like an
+-- heirloom (he knows your room, he puts back one left lying); worth Marks
+-- for everyone in the squad only once carried out of the front door.
+Config.Valuables = {
+	Marks = 25, -- each one carried out, for every player in the run
+	CaseChance = 0.4, -- in a locked display case (pick it or break the glass), else on a top in plain sight
+}
+
 -- What drawers and cupboards hold (Data/Finds, Services/FindService; the
 -- owner's playtest, 2026-10-11: "Useless items kinda suck").
 Config.Finds = {

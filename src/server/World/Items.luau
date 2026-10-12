@@ -1,5 +1,6 @@
 -- The escape's items (docs/plans/gameplay-rework.md section 5.6): keys with
--- a paper tag, the heirlooms the dinner needs, and the computer's printout.
+-- a paper tag, the heirlooms the dinner needs, the family's valuables (worth
+-- carrying out) and the computer's printout.
 -- Built where they lie; Services/ItemService makes them things your hands
 -- can take (Data/Physical lists their classes by model name).
 
@@ -188,6 +189,98 @@ function Items.heirloom(kind: string, at: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = "Heirloom"
 	heirlooms[kind](model, at)
+	model.Parent = parent
+	return model
+end
+
+-- The family's valuables (Data/Valuables; push your luck, 2026-10-11): worth
+-- taking out of the front door. Gilt and silver, readable at a glance, and
+-- nothing like an heirloom. Each builder sets one on the surface at `at`.
+local valuables = {}
+local GILT = Color3.fromRGB(198, 162, 78)
+
+function valuables.CarriageClock(model, at)
+	part(model, "Case", Vector3.new(0.62, 0.78, 0.4), at * CFrame.new(0, 0.43, 0), BRASS, metal(), { collide = false })
+	part(
+		model,
+		"Dial",
+		Vector3.new(0.03, 0.4, 0.4),
+		at * CFrame.new(0, 0.5, -0.21) * CFrame.Angles(0, math.pi / 2, 0),
+		Color3.fromRGB(236, 230, 210),
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, shape = CYL, castShadow = false }
+	)
+	part(model, "Handle", Vector3.new(0.44, 0.05, 0.05), at * CFrame.new(0, 0.9, 0), GILT, metal(), FLAT)
+	for i, x in { -0.25, 0.25 } do
+		part(model, "Foot" .. i, Vector3.new(0.1, 0.04, 0.38), at * CFrame.new(x, 0.02, 0), GILT, metal(), FLAT)
+	end
+end
+
+function valuables.JewelleryBox(model, at)
+	local lacquer = Color3.fromRGB(96, 30, 34)
+	part(
+		model,
+		"Box",
+		Vector3.new(0.95, 0.36, 0.62),
+		at * CFrame.new(0, 0.18, 0),
+		lacquer,
+		PropFactory.material("Wood"),
+		{
+			collide = false,
+		}
+	)
+	part(
+		model,
+		"Lid",
+		Vector3.new(0.99, 0.08, 0.66),
+		at * CFrame.new(0, 0.4, 0),
+		lacquer,
+		PropFactory.material("Wood"),
+		{
+			collide = false,
+		}
+	)
+	part(model, "Trim", Vector3.new(1.0, 0.03, 0.67), at * CFrame.new(0, 0.35, 0), GILT, metal(), FLAT)
+	part(model, "Clasp", Vector3.new(0.12, 0.12, 0.03), at * CFrame.new(0, 0.32, -0.33), GILT, metal(), FLAT)
+end
+
+function valuables.SilverTeapot(model, at)
+	part(model, "Body", Vector3.new(0.5, 0.62, 0.62), at * CFrame.new(0, 0.25, 0) * UPRIGHT, SILVER, metal(), {
+		collide = false,
+		shape = CYL,
+	})
+	part(model, "Lid", Vector3.new(0.08, 0.4, 0.4), at * CFrame.new(0, 0.54, 0) * UPRIGHT, SILVER, metal(), {
+		collide = false,
+		shape = CYL,
+	})
+	part(model, "Knob", Vector3.new(0.1, 0.1, 0.1), at * CFrame.new(0, 0.62, 0), SILVER, metal(), {
+		collide = false,
+		shape = BALL,
+	})
+	part(
+		model,
+		"Spout",
+		Vector3.new(0.08, 0.4, 0.08),
+		at * CFrame.new(0, 0.32, -0.42) * CFrame.Angles(math.rad(-50), 0, 0),
+		SILVER,
+		metal(),
+		FLAT
+	)
+	part(model, "Handle", Vector3.new(0.06, 0.36, 0.16), at * CFrame.new(0, 0.3, 0.38), SILVER, metal(), FLAT)
+end
+
+function valuables.CashBox(model, at)
+	local paint = Color3.fromRGB(62, 78, 66)
+	part(model, "Box", Vector3.new(0.95, 0.4, 0.62), at * CFrame.new(0, 0.2, 0), paint, metal(), { collide = false })
+	part(model, "Handle", Vector3.new(0.4, 0.05, 0.06), at * CFrame.new(0, 0.44, 0), SILVER, metal(), FLAT)
+	part(model, "Keyhole", Vector3.new(0.1, 0.12, 0.02), at * CFrame.new(0, 0.26, -0.32), BRASS, metal(), FLAT)
+end
+
+-- One valuable (an entry of Data/Valuables), lying at `at`.
+function Items.valuable(kind: string, at: CFrame, parent: Instance): Model
+	local model = Instance.new("Model")
+	model.Name = "Valuable"
+	valuables[kind](model, at)
 	model.Parent = parent
 	return model
 end

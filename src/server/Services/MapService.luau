@@ -334,8 +334,8 @@ function MapService:State()
 			table.insert(state.notes, { x = at[1], z = at[2], floor = self:_floorOf(note.sheet.Position) })
 		end
 	end
-	-- Keys and heirlooms lying where someone can see them (not in a drawer,
-	-- a box or anyone's hands).
+	-- Keys, heirlooms and the family's valuables lying where someone can see
+	-- them (not in a drawer, a box or anyone's hands).
 	for _, thing in self.services.HandsService.things do
 		local token = thing.model:GetAttribute("Item")
 		if token and thing.state == "rest" and not thing.inside and thing.model.Parent then
@@ -348,7 +348,8 @@ function MapService:State()
 					x = at[1],
 					z = at[2],
 					floor = self:_floorOf(position),
-					kind = info and info.kind or "item",
+					-- (The family's valuables too: worth remembering for the run out.)
+					kind = self.Items:IsValuable(token) and "valuable" or (info and info.kind or "item"),
 					label = self.Items:Label(token),
 				})
 			end

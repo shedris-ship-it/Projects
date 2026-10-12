@@ -243,6 +243,7 @@ function StalkerService:Begin(ctx)
 	self.huntCount = 0
 	self.heirloomArmed = false
 	self.heirlooms = {}
+	self.scented = {} -- the heirlooms and the family's valuables (ItemService:Scented)
 	self.haunts = {}
 	self.nextScent = 0
 	self.tableCooldownUntil = 0
@@ -562,9 +563,10 @@ end
 
 -- His things (R2c, "the Guest wants his dinner") -----------------------------------
 
--- Is this player carrying one of his heirlooms (Logic/Scent)?
+-- Is this player carrying one of his heirlooms, or one of the family's
+-- valuables (Logic/Scent)?
 function StalkerService:IsCarrier(player: Player): boolean
-	return Scent.carrying(self.heirlooms or {}, player)
+	return Scent.carrying(self.scented or self.heirlooms or {}, player)
 end
 
 -- Rooms where heirlooms nobody has found yet are kept: he visits them.
@@ -606,6 +608,10 @@ function StalkerService:_heirlooms(now: number)
 	end
 	local heirlooms = items:Heirlooms()
 	self.heirlooms = heirlooms
+	-- What his scent follows and he tidies: the heirlooms and the family's
+	-- valuables (push your luck: carry one and he knows your room).
+	local scented = items:Scented()
+	self.scented = scented
 	local haunts = {}
 	for _, h in heirlooms do
 		local home = not items.found[h.token] and items:HomeOf(h.token)
@@ -619,7 +625,7 @@ function StalkerService:_heirlooms(now: number)
 	-- hungry Guest: Data/Temperaments `scent`).
 	if now >= self.nextScent then
 		self.nextScent = now + Config.Scent.Interval * GuestMood.number(self.mood, "scent")
-		local sensed = Scent.targets(heirlooms, now, Config.Scent)
+		local sensed = Scent.targets(scented, now, Config.Scent)
 		for _, s in sensed do
 			local player = s.player
 			local at = s.position or self.services.PlayerStateService:Position(player)
@@ -634,7 +640,7 @@ function StalkerService:_heirlooms(now: number)
 			self:Sniff(now)
 		end
 	end
-	self:_errands(now, heirlooms)
+	self:_errands(now, heirlooms, scented)
 end
 
 -- A long, slow sniff, heard by everyone within Config.Guest.SniffRange
@@ -674,7 +680,7 @@ function StalkerService:_seatedAtTable(): boolean
 	return errand ~= nil and errand.id == "WaitAtTable" and errand.arrived == true
 end
 
--- The heirloom he meant to put back was picked up or moved.
+-- The heirloom (or valuable) he meant to put back was picked up or moved.
 function StalkerService:_tidyMoved(errand, heirlooms): boolean
 	for _, h in heirlooms do
 		if h.token == errand.token then
@@ -684,7 +690,7 @@ function StalkerService:_tidyMoved(errand, heirlooms): boolean
 	return true
 end
 
-function StalkerService:_errands(now: number, heirlooms)
+function StalkerService:_errands(now: number, heirlooms, scented)
 	local stalk = self.stalk
 	local errand = stalk.errand
 	local cfg = Config.Scent
@@ -713,12 +719,12 @@ function StalkerService:_errands(now: number, heirlooms)
 	if
 		errand
 		and errand.id == "Tidy"
-		and (now - errand.started > cfg.TidyGiveUp or self:_tidyMoved(errand, heirlooms))
+		and (now - errand.started > cfg.TidyGiveUp or self:_tidyMoved(errand, scented))
 	then
 		stalk.errand = nil
 		self.tidyCooldownUntil = now + cfg.TidyCooldown
 	elseif not errand and now >= self.tidyCooldownUntil and not self.final then
-		for _, h in heirlooms do
+		for _, h in scented do
 			if h.position and Scent.wantsTidy(h, now, self:_minPlayerDistance(h.position), cfg) then
 				stalk.errand = { id = "Tidy", started = now, token = h.token, position = h.position }
 				break

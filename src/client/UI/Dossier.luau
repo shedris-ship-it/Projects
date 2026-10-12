@@ -108,6 +108,25 @@ function Dossier:Show(data)
 			table.insert(lines, "  " .. line)
 		end
 	end
+	-- The family's valuables (push your luck): what got out, and what didn't.
+	local haul = s.haul
+	if haul and (#haul.carried > 0 or haul.left > 0) then
+		table.insert(lines, "")
+		table.insert(lines, "THE FAMILY'S VALUABLES")
+		for _, v in haul.carried do
+			table.insert(lines, string.format("  The %s: carried out by %s (+%d Marks each)", v.label, v.by, haul.each))
+		end
+		if haul.left > 0 then
+			table.insert(
+				lines,
+				string.format(
+					"  %d left in the house%s.",
+					haul.left,
+					#haul.carried == 0 and ", where he keeps them" or ""
+				)
+			)
+		end
+	end
 	if s.stats and #s.stats > 0 then
 		table.insert(lines, "")
 		table.insert(lines, "THE NIGHT IN NUMBERS")

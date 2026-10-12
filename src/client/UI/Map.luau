@@ -467,7 +467,9 @@ function Map:_renderMap()
 		if not x or not y then
 			continue
 		end
-		local color = item.kind == "heirloom" and Color3.fromRGB(230, 200, 120) or Color3.fromRGB(214, 180, 90)
+		local color = item.kind == "heirloom" and Color3.fromRGB(230, 200, 120)
+			or item.kind == "valuable" and Color3.fromRGB(196, 204, 216)
+			or Color3.fromRGB(214, 180, 90)
 		self:_dot(canvas, x, y, 8, color, item.label)
 	end
 	for _, mark in state.marks do

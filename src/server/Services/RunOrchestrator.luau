@@ -174,6 +174,7 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		-- The old house or the mansion (docs/plans/mansion-generation.md); F2
 		-- `layout` overrides Config.Level.Mode for testing.
 		local layout, plan, found
+		local valuables = 0 -- the family's, for this squad's house (Logic/Valuables)
 		local mansion = (self.layoutMode or Config.Level.Mode) == "Mansion"
 		if mansion then
 			-- The mansion is sized for the squad and is the best of several
@@ -204,6 +205,10 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 			end)
 			found.seconds = os.clock() - began
 			layout, plan = found.layout, found.plan
+			local range = progression.Valuables
+			if range then
+				valuables = rng:Fork("valuable count"):NextInteger(range[1], range[2])
+			end
 			self.run.house = found
 			print(
 				string.format(
@@ -285,6 +290,9 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		local leads = found and found.leads
 			or Leads.plan(plan, Leads.rooms(layout, templates), rng:Fork("leads"), Config.Leads)
 		services.ItemService:Begin(plan, rng:Fork("items"), leads)
+		-- The family's valuables, off the way (push your luck): after the
+		-- leads have their tops, before anything else takes one.
+		services.ItemService:PlaceValuables(layout, plan, rng:Fork("valuables"), valuables)
 		-- The nursery's baby monitor (on its tops, after the leads take theirs).
 		services.MonitorService:Begin(rng:Fork("monitor"))
 		services.PuzzleService:Begin(plan, rng:Fork("puzzles"))
@@ -425,6 +433,9 @@ function RunOrchestrator:_tick(_dt: number)
 		for _, player in services.PlayerStateService:ActivePlayers() do
 			local pos = services.PlayerStateService:Position(player)
 			if exit and pos and (pos - exit.zone.Position).Magnitude < 7 then
+				-- A valuable in their hands is the squad's (first: leaving drops
+				-- whatever you carry).
+				services.ItemService:CarryOut(player)
 				services.PlayerStateService:Extract(player)
 			end
 		end
@@ -478,6 +489,9 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		stalker = run.location.stalker,
 		escape = services.FinaleService:Progress(),
 	}
+	-- The family's valuables carried out (push your luck): Marks for everyone.
+	local haul, left = services.ItemService:Haul()
+	summary.haul = { carried = table.clone(haul), left = left, each = Config.Valuables.Marks }
 	if summary.escape then
 		-- Who did what (Services/RunLogService).
 		summary.escape.lines = services.RunLogService:Lines()
@@ -525,6 +539,8 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				survivedHunts = rewards.survivedHunts,
 				regionsOpened = rewards.regionsOpened,
 				puzzlesSolved = rewards.puzzlesSolved,
+				valuables = #haul,
+				valuableMarks = Config.Valuables.Marks,
 				stalker = run.location.stalker,
 			})
 			Net.get("Dossier"):FireClient(player, {

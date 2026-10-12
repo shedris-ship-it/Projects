@@ -6,8 +6,10 @@ local Progression = {}
 Progression.MaxClearance = 50
 
 -- result = { won, extracted (bool), drift, survivedHunts, regionsOpened,
--- puzzlesSolved }: the escape pays for progress made even when the run is
--- lost (R2c), so a squad that opened half the house still gains.
+-- puzzlesSolved, valuables, valuableMarks }: the escape pays for progress
+-- made even when the run is lost (R2c), so a squad that opened half the
+-- house still gains. The family's valuables carried out of the front door
+-- pay everyone in the squad (push your luck, 2026-10-11).
 function Progression.marksForRun(result): number
 	local marks = 40
 	if result.won then
@@ -20,6 +22,7 @@ function Progression.marksForRun(result): number
 	marks += 10 * (result.regionsOpened or 0)
 	marks += 10 * (result.puzzlesSolved or 0)
 	marks += 15 * (result.survivedHunts or 0)
+	marks += math.max(0, result.valuables or 0) * (result.valuableMarks or 0)
 	return marks
 end
 

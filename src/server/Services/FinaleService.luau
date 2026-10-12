@@ -331,9 +331,10 @@ function FinaleService:_stations()
 		end
 	end
 	-- A case with something of his in it (one with a porcelain figure isn't
-	-- worth a line: you can see what's in it).
+	-- worth a line: you can see what's in it; one with the family's silver is
+	-- optional, never the line's business).
 	for _, case in self.Items.cases do
-		if case.model.Parent and case.token then
+		if case.model.Parent and case.token and not self.Items:IsValuable(case.token) then
 			table.insert(list, {
 				id = case.id,
 				kind = "display",
