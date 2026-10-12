@@ -7,8 +7,12 @@
 -- It sits inside the prop's model, so pushing the prop moves it too
 -- (Services/PushService gathers every part in the model).
 --
--- A kind without a kit entry, or whose mesh isn't in the place yet, stays as
--- it was built.
+-- A kind without a kit entry, or whose mesh isn't loaded, stays as it was
+-- built.
+--
+-- The meshes are built once on the server from their ids (Kit.preload; how
+-- the kit reaches the place is in Data/Kit's header), each wearing its
+-- SurfaceAppearance from ReplicatedStorage.Kit.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,17 +20,107 @@ local KitData = require(script.Parent.Parent.Data.Kit)
 
 local Kit = {}
 
--- Where the kit's meshes live in the place: ReplicatedStorage.Kit, one
--- MeshPart (with its SurfaceAppearance) per mesh name.
+-- Where the kit's looks live in the place: ReplicatedStorage.Kit, one
+-- SurfaceAppearance per mesh name (assets/kit). (A MeshPart there, from a
+-- test in Studio, is used as it is.)
 function Kit.folder(): Instance?
 	return ReplicatedStorage:FindFirstChild("Kit")
 end
 
+local loaded: { [string]: MeshPart } = {} -- mesh name -> its template, built from its id
+local loading = false
+local done = Instance.new("BindableEvent")
+local ready = false
+
+-- Every kit entry with an id, once per mesh.
+local function entriesWithIds()
+	local byMesh = {}
+	for _, group in { KitData.Props, KitData.Slabs } do
+		for _, entry in group do
+			if entry.id and not byMesh[entry.mesh] then
+				byMesh[entry.mesh] = entry
+			end
+		end
+	end
+	return byMesh
+end
+
+-- Builds every imported mesh from its id, all at once (server; yields until
+-- they're in, a second or so). Safe to call again: later calls wait for the
+-- first. Returns the names loaded and those that failed.
+function Kit.preload(): ({ string }, { string })
+	if not ready then
+		if loading then
+			done.Event:Wait()
+		else
+			loading = true
+			local AssetService = game:GetService("AssetService")
+			local folder = Kit.folder()
+			local pending = 0
+			local finished = Instance.new("BindableEvent")
+			for name, entry in entriesWithIds() do
+				pending += 1
+				task.spawn(function()
+					local ok, part = pcall(function()
+						return AssetService:CreateMeshPartAsync(
+							Content.fromUri("rbxassetid://" .. tostring(entry.id)),
+							{ CollisionFidelity = Enum.CollisionFidelity.Box }
+						)
+					end)
+					if ok and part then
+						part.Name = name
+						local look = folder and folder:FindFirstChild(name)
+						if look and look:IsA("SurfaceAppearance") then
+							look:Clone().Parent = part
+						end
+						loaded[name] = part
+					else
+						warn(
+							("[Consensus] kit: %s's mesh (%s) didn't load: %s"):format(
+								name,
+								tostring(entry.id),
+								tostring(part)
+							)
+						)
+					end
+					pending -= 1
+					if pending == 0 then
+						finished:Fire()
+					end
+				end)
+			end
+			if pending > 0 then
+				finished.Event:Wait()
+			end
+			finished:Destroy()
+			ready = true
+			loading = false
+			done:Fire()
+		end
+	end
+	local names, failed = {}, {}
+	for name in entriesWithIds() do
+		table.insert(loaded[name] and names or failed, name)
+	end
+	table.sort(names)
+	table.sort(failed)
+	return names, failed
+end
+
 function Kit.template(name: string): MeshPart?
+	if loaded[name] then
+		return loaded[name]
+	end
 	local folder = Kit.folder()
 	local found = folder and folder:FindFirstChild(name, true)
 	return found and found:IsA("MeshPart") and found or nil
 end
+
+-- Studio's 3D importer turns a model's front from glTF's (+Z, where kit.py
+-- builds it) to Roblox's (-Z, the LookVector), but the grey-box's front is
+-- +Z: every imported piece needs a half turn (seen 2026-10-12: the dining
+-- chairs had their backs to the table).
+local IMPORT_TURN = CFrame.Angles(0, math.pi, 0)
 
 local function visual(template: MeshPart, size: Vector3, cframe: CFrame): MeshPart
 	local mesh = template:Clone()
@@ -37,7 +131,7 @@ local function visual(template: MeshPart, size: Vector3, cframe: CFrame): MeshPa
 	mesh.CastShadow = true
 	mesh.Massless = true
 	mesh.Size = size
-	mesh.CFrame = cframe
+	mesh.CFrame = cframe * IMPORT_TURN
 	mesh:SetAttribute("Kit", true)
 	return mesh
 end

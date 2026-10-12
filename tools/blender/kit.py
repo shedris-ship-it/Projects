@@ -79,6 +79,7 @@ def floor_lamp():
     stem on a weighted base, a pleated-look linen drum shade."""
     metal = materials.brass("Brass")
     linen = materials.fabric("Linen", color=(214, 196, 160))
+    linen["glow"] = 1.0  # the shade glows from the bulb (its emissive mask)
     base = shapes.lathe(
         "Base",
         [(0.0, 0.0), (0.68, 0.0), (0.7, 0.06), (0.6, 0.14), (0.3, 0.22), (0.12, 0.3), (0.0, 0.3)],

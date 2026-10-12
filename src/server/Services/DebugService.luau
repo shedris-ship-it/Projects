@@ -21,6 +21,7 @@ local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local LookSpots = require(Shared.Data.LookSpots)
 local Tools = require(Shared.Data.Tools)
+local Kit = require(Shared.World.Kit)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 local PartDump = require(script.Parent.Parent.World.PartDump)
 
@@ -1081,6 +1082,17 @@ function DebugService:Run(player: Player, text: string)
 					.. " (storm 0|1|2|auto|strike)"
 			)
 		end
+	elseif command == "kit" and not args[2] then
+		-- Which modelled pieces are in (World/Kit, Data/Kit).
+		local names, failed = Kit.preload()
+		reply(
+			player,
+			("kit: %d loaded (%s)%s"):format(
+				#names,
+				table.concat(names, ", "),
+				#failed > 0 and (", failed: " .. table.concat(failed, ", ")) or ""
+			)
+		)
 	elseif command == "kit" and args[2] == "probe" then
 		-- The visual rework's V0 question: can a game script build a kit
 		-- piece from asset ids alone (a mesh, then a SurfaceAppearance's

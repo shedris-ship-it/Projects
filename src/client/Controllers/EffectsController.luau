@@ -229,11 +229,16 @@ local function trackLight(part: Instance)
 	-- A fixture's glowing parts follow its light: they dim when it dims or goes
 	-- out, and redden with it.
 	local glows = {}
+	local surfaces = {} -- a kit mesh's look with a glow mask (a modelled lamp's shade): its tint
 	local fixture = part.Parent
 	if fixture and fixture:IsA("Model") then
 		for _, d in fixture:GetDescendants() do
 			if d:IsA("BasePart") and d:GetAttribute(Constants.Attributes.LampGlow) then
 				glows[d] = d.Color
+			elseif d:IsA("SurfaceAppearance") and d.Parent and d.Parent:GetAttribute("Kit") then
+				if d.EmissiveMaskContent.SourceType ~= Enum.ContentSourceType.None then
+					surfaces[d] = light.Color
+				end
 			end
 		end
 	end
@@ -247,6 +252,7 @@ local function trackLight(part: Instance)
 		lamp = (light:IsA("PointLight") or light:IsA("SpotLight")) and light.Name == "KeyLight",
 		utility = fixture ~= nil and fixture:FindFirstChild("Housing") ~= nil, -- a fluorescent
 		glows = glows,
+		surfaces = surfaces,
 	}
 	if not preset.lightShadows then
 		light.Shadows = false
@@ -635,6 +641,11 @@ function EffectsController:_update(dt: number)
 			for glow, color in info.glows do
 				local c = color:Lerp(HUNT_RED, red)
 				glow.Color = Color3.new(c.R * k, c.G * k, c.B * k)
+			end
+			-- A modelled lamp's shade glows through its mask the same way.
+			for surface, color in info.surfaces do
+				surface.EmissiveTint = color:Lerp(HUNT_RED, red)
+				surface.EmissiveStrength = Config.Kit.ShadeGlow * level
 			end
 		end
 	end

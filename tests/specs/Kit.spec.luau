@@ -36,6 +36,18 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("an imported piece gives its mesh's asset id", function()
+		for _, group in { Kit.Props, Kit.Slabs } do
+			for name, entry in group do
+				if entry.id ~= nil then
+					check.equal(type(entry.id), "number", name .. "'s id is a number")
+					check.truthy(entry.id > 0 and entry.id == math.floor(entry.id), name .. "'s id is an asset id")
+				end
+			end
+		end
+		check.truthy(Kit.Props.Chair.id, "the spike's chair is imported")
+	end)
+
 	test("the door slab's mesh fits the slab", function()
 		local door = Kit.Slabs.Door
 		check.truthy(door, "a door entry")

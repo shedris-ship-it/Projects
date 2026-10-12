@@ -916,6 +916,13 @@ Config.PostFX = {
 
 -- The night outside the mansion (the visual rework V2; World/Exterior):
 -- seen through the windows and from the porch at the end. Decoration only.
+-- The kit's modelled pieces (World/Kit, Data/Kit).
+Config.Kit = {
+	-- A modelled lamp's shade at full light: its glow through its emissive
+	-- mask (EffectsController, with the lamp's own colour; hunt red in a hunt).
+	ShadeGlow = 1.6,
+}
+
 Config.Exterior = {
 	GroundDrop = 0.6, -- the lawn's top sits this far under the ground floor
 	Reach = 70, -- studs of grounds and trees beyond the house on every side

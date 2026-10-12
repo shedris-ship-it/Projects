@@ -145,6 +145,27 @@ def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24):
         bsdf.inputs["Metallic"].default_value = value
         for from_socket, to_socket in links:
             tree.links.new(from_socket, to_socket)
+    # Glow: where a material is marked to glow (mat["glow"], a lamp's shade),
+    # white; elsewhere black. Roblox lights a SurfaceAppearance only where
+    # its emissive mask says (World/Kit, EffectsController drive how much).
+    emissive = None
+    if any(slot.material.get("glow", 0.0) > 0 for slot in obj.material_slots):
+        emissive = _image(name + "_emissive", size, "data")
+        for slot in obj.material_slots:
+            tree = slot.material.node_tree
+            emit = tree.nodes.new("ShaderNodeEmission")
+            emit.name = "GlowEmit"
+            g = float(slot.material.get("glow", 0.0))
+            emit.inputs["Color"].default_value = (g, g, g, 1.0)
+            out = [n for n in tree.nodes if n.type == "OUTPUT_MATERIAL"][0]
+            tree.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+        _bake(obj, "EMIT", emissive)
+        for slot in obj.material_slots:
+            tree = slot.material.node_tree
+            bsdf = _principled(slot.material)
+            out = [n for n in tree.nodes if n.type == "OUTPUT_MATERIAL"][0]
+            tree.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+            tree.nodes.remove(tree.nodes["GlowEmit"])
     _bake(obj, "ROUGHNESS", rough)
     _bake(obj, "NORMAL", normal, normal_space="TANGENT")
     bpy.context.scene.cycles.samples = max(samples, 64)
@@ -157,17 +178,21 @@ def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24):
     _set_pixels(color, c)
 
     paths = {}
-    for key, image in (("color", color), ("normal", normal), ("roughness", rough), ("metalness", metal)):
+    maps = [("color", color), ("normal", normal), ("roughness", rough), ("metalness", metal)]
+    if emissive is not None:
+        maps.append(("emissive", emissive))
+    for key, image in maps:
         path = os.path.join(out_dir, "%s_%s.png" % (name, key))
         _save(image, path)
         paths[key] = path
-    _rewire(obj, color, normal, rough, metal)
+    _rewire(obj, color, normal, rough, metal, emissive)
     keep_bake_uv(obj)
     return paths
 
 
-def _rewire(obj, color, normal, rough, metal):
-    """One plain material per piece, wired to the baked maps."""
+def _rewire(obj, color, normal, rough, metal, emissive=None):
+    """One plain material per piece, wired to the baked maps (the emissive
+    mask, if any, as the glTF's emissive texture)."""
     mat = bpy.data.materials.new(obj.name + "_baked")
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
@@ -185,6 +210,9 @@ def _rewire(obj, color, normal, rough, metal):
     tex(color, bsdf.inputs["Base Color"], False)
     tex(rough, bsdf.inputs["Roughness"], True)
     tex(metal, bsdf.inputs["Metallic"], True)
+    if emissive is not None:
+        tex(emissive, bsdf.inputs["Emission Color"], True)
+        bsdf.inputs["Emission Strength"].default_value = 1.0
     nmap = nodes.new("ShaderNodeNormalMap")
     n = tex(normal, None, True)
     links.new(n.outputs["Color"], nmap.inputs["Color"])

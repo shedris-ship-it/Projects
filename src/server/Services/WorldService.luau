@@ -17,6 +17,7 @@ local LevelBuilder = require(script.Parent.Parent.World.LevelBuilder)
 local MansionBuilder = require(script.Parent.Parent.World.MansionBuilder)
 local Exterior = require(script.Parent.Parent.World.Exterior)
 local FloorPlan = require(Shared.Logic.FloorPlan)
+local Kit = require(Shared.World.Kit)
 local NavGraph = require(Shared.Logic.NavGraph)
 local RoomRects = require(Shared.Logic.RoomRects)
 local Storeys = require(Shared.Logic.Storeys)
@@ -87,8 +88,22 @@ function WorldService:Init()
 	PhysicsService:CollisionGroupSetCollidable(Groups.Heavy, Groups.Phantom, false)
 end
 
+-- The kit's modelled pieces, built from their ids before the first house
+-- (World/Kit; Data/Kit).
+function WorldService:Start()
+	local names, failed = Kit.preload()
+	print(
+		("[Consensus] kit: %d meshes loaded (%s)%s"):format(
+			#names,
+			table.concat(names, ", "),
+			#failed > 0 and (", failed: " .. table.concat(failed, ", ")) or ""
+		)
+	)
+end
+
 function WorldService:Build(layout, rng)
 	self:Clear()
+	Kit.preload() -- (waits only if the first house comes before the kit is in)
 	local started = os.clock()
 	local folder = Instance.new("Folder")
 	folder.Name = "ConsensusLevel"

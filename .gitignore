@@ -24,3 +24,4 @@ docs/reference/**/*.jpg
 
 # The kit built by tools/blender/kit.py (regenerated from the scripts)
 /build
+__pycache__/

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-12.178",
-	note = "dense foliage outside: woods mostly in leaf, conifers, undergrowth, a garden along the walls, a terrain-grass lawn",
+	id = "2026-10-12.179",
+	note = "the kit in the game: modelled chairs, floor lamps and doors built from their ids (the import route settled)",
 }
