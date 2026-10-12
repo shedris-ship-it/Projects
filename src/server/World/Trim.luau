@@ -349,6 +349,42 @@ local function skin(parent, face: CFrame, x0, x1, y0, y1, surface): BasePart
 	)
 end
 
+-- The same, leaving `holes` uncovered ({ x0, x1, y0, y1 } in the face's own
+-- frame): a window's opening in that wall (the visual rework V2: a skin over
+-- the whole face hid the window's hole behind wallpaper, the owner's
+-- screenshot of 2026-10-12). Returns the pieces.
+local function skinAround(parent, face: CFrame, x0, x1, y0, y1, surface, holes): { BasePart }
+	local cuts = {}
+	for _, h in holes or {} do
+		local hx0, hx1 = math.max(h.x0, x0), math.min(h.x1, x1)
+		local hy0, hy1 = math.max(h.y0, y0), math.min(h.y1, y1)
+		if hx1 - hx0 > 0.01 and hy1 - hy0 > 0.01 then
+			table.insert(cuts, { hx0, hx1, hy0, hy1 })
+		end
+	end
+	table.sort(cuts, function(a, b)
+		return a[1] < b[1]
+	end)
+	local parts = {}
+	local x = x0
+	for _, c in cuts do
+		if c[1] > x then
+			table.insert(parts, skin(parent, face, x, c[1], y0, y1, surface))
+		end
+		if c[3] > y0 then
+			table.insert(parts, skin(parent, face, c[1], c[2], y0, c[3], surface))
+		end
+		if c[4] < y1 then
+			table.insert(parts, skin(parent, face, c[1], c[2], c[4], y1, surface))
+		end
+		x = math.max(x, c[2])
+	end
+	if x1 > x then
+		table.insert(parts, skin(parent, face, x, x1, y0, y1, surface))
+	end
+	return parts
+end
+
 -- Trim that flips with a seam. `faces` are the two rooms' wall faces at the
 -- seam (centre at floor level, LookVector into each room, with the room
 -- model to parent to, its wall `surface`: color, material, variant, its
@@ -409,11 +445,18 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 		end
 		-- The wall surface: whole while it's a wall, around the opening while
 		-- it's a doorway.
+		-- (Leaving any window in this stretch of wall open: `f.holes`.)
 		local half = width / 2
 		local s0, s1 = f.span and f.span[1] or -INNER, f.span and f.span[2] or INNER
-		asWall(skin(f.parent, f.face, s0, s1, 0, HEIGHT, f.surface))
-		asDoor(skin(f.parent, f.face, s0, -half, 0, HEIGHT, f.surface))
-		asDoor(skin(f.parent, f.face, half, s1, 0, HEIGHT, f.surface))
+		for _, p in skinAround(f.parent, f.face, s0, s1, 0, HEIGHT, f.surface, f.holes) do
+			asWall(p)
+		end
+		for _, p in skinAround(f.parent, f.face, s0, -half, 0, HEIGHT, f.surface, f.holes) do
+			asDoor(p)
+		end
+		for _, p in skinAround(f.parent, f.face, half, s1, 0, HEIGHT, f.surface, f.holes) do
+			asDoor(p)
+		end
 		asDoor(skin(f.parent, f.face, -half, half, DOOR_H, HEIGHT, f.surface))
 	end
 	-- Lining for the sides and top of the opening, through both wall layers.

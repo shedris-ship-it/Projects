@@ -953,6 +953,10 @@ Config.Exterior = {
 	Needles = { 20, 28, 22 },
 	Iron = { 34, 34, 36 },
 	Sodium = { 255, 168, 88 }, -- a sodium streetlamp's orange
+	-- The house's outside: weathered painted clapboard over every outer wall
+	-- (World/MansionBuilder), seen across a courtyard from a window and from
+	-- the porch at the end. A kit material later (the visual rework V4a).
+	Facade = { material = "WoodPlanks", color = { 92, 98, 92 }, Thickness = 0.12 },
 }
 
 -- The storm that builds (the visual rework V2; Logic/Storm, Services/

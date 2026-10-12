@@ -17,12 +17,18 @@ MIRROR=.rojo-mirror
 sync_once() {
 	for dir in src assets; do
 		[ -d "$dir" ] || continue
-		# New or changed files: copy in place.
+		# New or changed files: copy in place. A copy carries its source's time,
+		# read before copying, and any difference copies again: a save through
+		# a rename lands with the temporary file's (earlier) time, so a copy
+		# made just before the rename once kept the old text for good, stamped
+		# newer than the source (2026-10-12).
 		(cd "$dir" && find . -type f \( -name "*.luau" -o -name "*.json" -o -name "*.rbxm" -o -name "*.rbxmx" \)) 2>/dev/null |
 			while read -r f; do
-				if [ ! -e "$MIRROR/$dir/$f" ] || [ "$dir/$f" -nt "$MIRROR/$dir/$f" ]; then
+				if [ ! -e "$MIRROR/$dir/$f" ] || [ "$dir/$f" -nt "$MIRROR/$dir/$f" ] || [ "$dir/$f" -ot "$MIRROR/$dir/$f" ]; then
 					mkdir -p "$MIRROR/$dir/$(dirname "$f")"
+					touch -r "$dir/$f" "$MIRROR/.stamp" 2>/dev/null
 					cp "$dir/$f" "$MIRROR/$dir/$f" 2>/dev/null
+					touch -r "$MIRROR/.stamp" "$MIRROR/$dir/$f" 2>/dev/null
 				fi
 			done
 		# Files deleted from the source folder: delete from the mirror.

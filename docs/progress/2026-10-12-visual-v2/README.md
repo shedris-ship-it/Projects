@@ -35,6 +35,23 @@ Studio, one client, seed 1800820264 (the mansion), at the in-game exposure.
 
 600 tests pass (Windows.spec new); compile; selene 0/0; rojo build. **Gate A unchanged: parts 2269, hash 1553234744** (checked in Studio, the old house). Clean consoles.
 
+## Fixed later (build `.177`): the window that showed wallpaper
+
+The owner's screenshot of seed 111612098: the dining room's window showed pink wallpaper behind the glass.
+
+- **The cause:** the wall itself had its hole, but the seam's wall skin covered it. `Trim.seam` papers the wall either side of a doorway that can flip (a thin, opaque, non-queryable `WallSkin`), out to the corner or halfway to the next doorway. A window in that stretch of wall sat behind the paper. Rays skip non-queryable parts, so a raycast check showed nothing there.
+- **The fix:** `MansionBuilder` remembers each room's windows per side (`windowsByRoom`) and hands them to the seam's faces (`holes`). `Trim`'s `skinAround` lays the skin around each hole: a strip beside it, a piece under the sill, a piece over the head. The fix applies to the wall pieces, the doorway pieces either side, and both seam states.
+- **The outside walls got a facade** (`Config.Exterior.Facade`: grey-green clapboard, `WoodPlanks`). A courtyard house shows its own other wing through its windows, and it showed wallpaper on the outside of that wing. Now it shows the outside of a house.
+- **Checked in Studio:**
+  - Seeds 111612098, 165547210 and 1316117598: every open window (21, 19 and 22) checked for anything in the 3 studs behind its glass. Each test ran a segment against every part's box, so non-queryable parts count. None found.
+  - Gate A unchanged: parts 2269, hash 1553234744.
+- **Why the first Studio check still showed the bug:** `tools/serve-mirror.sh` had kept an older copy of `Trim.luau`. The editor saves through a temporary file and a rename, so the new file arrives with the temporary file's earlier time. The mirror copied the old file just before the rename and stamped its copy as newer, so it never copied again. Now each copy carries its source's time, read before copying, and any difference in time copies it again. This may also explain the 2026-10-11 note that Rojo "stopped applying edits to existing scripts".
+
+| | |
+| --- | --- |
+| `7_window_covered_by_wall_skin.jpg` | Before: the dining room's window on seed 111612098, papered over |
+| `8_window_onto_the_courtyard.jpg` | After: the courtyard, the other wing's clapboard and its window |
+
 ## Next in V2
 
 Moonlight through the windows with real shadows (the moon direction set to the run's moon), the storm (rain on the glass, lightning, a Guest beat), fireplaces, retuning the room lights for PBR.

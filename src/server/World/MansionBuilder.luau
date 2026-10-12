@@ -88,16 +88,27 @@ end
 -- over each, and a seam panel in each seam's opening. `base` is the wall's
 -- centre line at the band's bottom; `openings` are { offset, seam? } along
 -- the wall from its middle. Returns the panels by seam id.
-local function wallBand(model, base: Vector3, dir: Vector3, length: number, height: number, openings, surface)
+local function wallBand(
+	model,
+	base: Vector3,
+	dir: Vector3,
+	length: number,
+	height: number,
+	openings,
+	surface,
+	thickness: number?,
+	only: string?
+)
 	local axis = axisOf(dir)
+	local thick = thickness or WALL
 	local function piece(name: string, at: number, alongLength: number, y0: number, h: number)
 		if alongLength < 0.05 or h < 0.05 then
 			return nil
 		end
-		local size = dir.Z ~= 0 and Vector3.new(alongLength, h, WALL) or Vector3.new(WALL, h, alongLength)
+		local size = dir.Z ~= 0 and Vector3.new(alongLength, h, thick) or Vector3.new(thick, h, alongLength)
 		return PropFactory.part(
 			model,
-			name,
+			only or name, -- (a facade's pieces are all "Facade")
 			size,
 			CFrame.new(base + axis * at + UP * (y0 + h / 2)),
 			surface.color,
@@ -611,9 +622,17 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		return byFloor and byFloor[side] or {}
 	end
 
+	-- The outside walls' facade (Config.Exterior.Facade).
+	local facadeMaterial, facadeVariant = PropFactory.surface(Config.Exterior.Facade.material)
+	local facadeSurface = {
+		color = PropFactory.rgb(Config.Exterior.Facade.color),
+		material = facadeMaterial,
+		variant = facadeVariant,
+	}
 	local ceiling = Config.Ceiling
 	local ceilingMaterial, ceilingVariant = PropFactory.surface(ceiling.material)
 	local panelsByRoom = {}
+	local windowsByRoom = {} -- room id -> world side -> window openings (the seams' skins leave them open)
 
 	for _, room in rooms do
 		local template = templatesById[room.template]
@@ -631,6 +650,7 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 		-- walls get real holes where the windows hang.
 		local fitted = RoomFit.inMansion(layout, room, template, WALL)
 		local windowOpenings = {} -- world side -> window openings on the room's own storey
+		windowsByRoom[room.id] = windowOpenings
 		if room.floor >= 0 and not room.passage then
 			local function outer(localSide: string, along: number, half: number): boolean
 				local side = LevelGraph.worldSide(localSide, room.rotation)
@@ -822,6 +842,40 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 				end
 				for id, panel in wallBand(model, base, dir, length, bandTop, list, wallSurface) do
 					panels[id] = panel
+				end
+				-- The outside of the house (the visual rework V2): where this wall
+				-- faces no other room, a facade over its outer face, holed for its
+				-- windows and doors. Walls wear their room's wallpaper on both
+				-- faces, so a courtyard showed the next wing in pink wallpaper (the
+				-- owner's screenshot, 2026-10-12). Not underground, not in a passage.
+				if floor >= 0 and not room.passage then
+					local F = Config.Exterior.Facade
+					local middle = (side == "N" or side == "S") and room.x + room.w / 2 or room.z + room.d / 2
+					local wallFrom, wallTo = -length / 2, length / 2
+					local axis = axisOf(dir)
+					for _, span in index[floor]:OuterSpans(room, side) do
+						local a, b = span.from - middle, span.to - middle
+						-- Out to the corner, so two facades meet there.
+						if math.abs(a - wallFrom) < 0.01 then
+							a -= F.Thickness
+						end
+						if math.abs(b - wallTo) < 0.01 then
+							b += F.Thickness
+						end
+						local centre = (a + b) / 2
+						local holes = {}
+						for _, entry in list do
+							if entry.offset > a and entry.offset < b then
+								table.insert(holes, {
+									offset = entry.offset - centre,
+									width = entry.width,
+									window = entry.window,
+								})
+							end
+						end
+						local outside = base + dir * (WALL / 2 + F.Thickness / 2) + axis * centre
+						wallBand(model, outside, dir, b - a, bandTop, holes, facadeSurface, F.Thickness, "Facade")
+					end
 				end
 			end
 		end
@@ -1097,12 +1151,27 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			-- The face's own x axis may run the other way along the wall.
 			local sign = cf.RightVector:Dot(axisOf(dir)) >= 0 and 1 or -1
 			local s0, s1 = (left - mine) * sign, (right - mine) * sign
+			-- The windows in this wall (on the room's own storey), left open.
+			local holes = {}
+			if seam.floor == layoutRoom.floor then
+				local byside = windowsByRoom[layoutRoom.id]
+				for _, entry in byside and byside[side] or {} do
+					local x = (entry.offset - mine) * sign
+					table.insert(holes, {
+						x0 = x - entry.width / 2,
+						x1 = x + entry.width / 2,
+						y0 = entry.window.bottom,
+						y1 = entry.window.top,
+					})
+				end
+			end
 			return {
 				parent = roomRecord.model,
 				face = cf,
 				surface = roomRecord.wallSurface,
 				wainscot = seam.floor == roomRecord.floor and roomRecord.wainscot or nil,
 				span = { math.min(s0, s1), math.max(s0, s1) },
+				holes = holes,
 				-- A hidden door's room side (its passage is seam.b).
 				hidden = seam.hidden and roomRecord == roomA or nil,
 			}
