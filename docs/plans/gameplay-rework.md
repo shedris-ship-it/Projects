@@ -503,6 +503,26 @@ The second squad playtest asked for smoother movement, ducking under doorways an
 
 **Waiting on the owner:** TC-223 to TC-232.
 
+## 19. A Guest you can read, and reasons to play again (2026-10-11; builds `2026-10-11.162` to `.167`)
+
+After the squad playtest of 2026-10-11 ("we did have some fun ... it just needs polish and more replay ability"), the owner picked five of six suggestions from a review of the gameplay (all but the living house). The record, with each build's Studio evidence: `docs/progress/2026-10-11-readable/REPORT.md`.
+
+**The owner's decisions (2026-10-11):**
+- **Three rules, each with a tell.** Watch him; don't pester him; when he hunts, break his sight, hide or get to a lantern. Word for word in the how-to and the tips.
+- **Pestering: his head turns, one warning, then the reach** (crowding and tailing become one rule).
+- **His moods taught** (the counters written in `Logic/GuestMood` were never shown).
+- **His temperament felt from the first minutes; no guessing for Marks.** The voice trick is part of the playful temperament on Normal too.
+- **The family's valuables, carried in your hands** (push your luck).
+- **A fuller short night as the default** (about 15 minutes).
+
+**What changed:**
+- **Moods** (`.162`): `GuestMood.lesson`; a tip the first time you watch him a moment in each mood (`GuestController:_watchMood`), the journal's "His moods you've seen", the Dossier's HIS MOODS TONIGHT. The host's hum never played; he bows a little now, and his counter is his errands.
+- **Pestering** (`.163`): `StalkRules.pestering`, one meter (in his face, following him close as he backs off, tailing him further off; the close part drains fast, the tailing part slowly); notice at 40% (his head turns), warn when full (knuckles crack, he squares up, backs off; never a down), the reach when full again within 5 minutes. The reach can't catch anyone in its first 0.7 s (`ReachWindup`). The crowding scare and the instant grab are gone.
+- **The hold you can see** (`.164`): `GuestHoldLeft` (`Body:SetHoldLeft`); his head shakes (`GuestPose` tremble) and fingers twitch as a hunt's hold runs low, a creak at 30%, a crack and a head snap when it breaks, a sharp breath as eyes stop him.
+- **Temperaments** (`.165`): a dominant mood (odds 6 to 1, lasting twice as long), intro move weights, the scare deck leaned (`Data/ScareCards`, `ScareDeck.weighted`), one behaviour each (patient: waits ahead; restless: half the presence budget; playful: the voice on any difficulty, `StalkRules.voiceAllowed`; hungry: the scent twice as often and a sniff you can hear, `StalkerService:Sniff`). The Dossier gives the sign and "Next time: ...".
+- **Valuables** (`.166`): `Data/Valuables`, `Logic/Valuables` (side rooms first, then the cellar and the attic, then the furthest room in each wing; never the run's own rooms), `ItemService:PlaceValuables`/`Scented`/`CarryOut`; in a locked display case or on a top; the scent and tidying as an heirloom's; carried out of the front door, `Config.Valuables.Marks` (25) each for everyone; the Dossier's THE FAMILY'S VALUABLES; silver on the map. Never on the objective line or the plan.
+- **The default night** (`.167`): see the report.
+
 ## 12. Additions to the fairness contract (DesignDoc section 3)
 - **Locks:** every plan is solvable; the area open at the start has a chase loop and hiding spots; a lock is a wall for the Guest; Echoes can't pass locks (a locked door's slab collides with them).
 - **Barricades** delay the Guest by at most 8 s when there's room to shove the piece clear; when nothing lets it move he gets past only while nobody can see. Anyone can squeeze past one, so they never trap a player.
@@ -517,6 +537,8 @@ The second squad playtest asked for smoother movement, ducking under doorways an
 - **Beats and the disguise** (2026-10-08) never down anyone. A disguise is always his real body under the look, for one player alone, and falls away within 12 studs.
 - **A burst barricade** (2026-10-08): the bangs and the burst never down anyone. A flung piece lands only where a pushed one could stand: clear of walls and furniture, of every doorway and his walking points, on its floor, never on anyone; anyone in its path is knocked aside out of it before it lands. The delay is the shove's (8 s at most).
 - **Tidying:** only while he and the heirloom are both unseen and nobody is within 20 studs, never in a hunt or the dinner, and only back to where it was found (a puzzle never re-locks).
+- **The family's valuables** (2026-10-11): optional, never on the objective line, the plan or a hint; carrying one is a declared rule said on the first pickup (he knows your room, as with an heirloom); he puts back only one left lying, unseen, under the heirloom's rules; leaving drops nothing you carry out (it's banked first). A run never needs one.
+- **His temperament** (2026-10-11) leans weights, moods, the scare deck and his presence budget only; never a tell, a cooldown or a fairness gate. The voice trick needs two players, then Hard or a playful Guest.
 - **At the table** he's visible to everyone, follows the watch rules, can't reach any place (ContactRadius + 2) and leaves after 120 s.
 - **Two-person locks:** a crank door never drops on a body and can always be latched from inside; the dumbwaiter never strands an item; a power door never re-locks.
 - **No leaks:** a note's text is sent only on reading; the map shows only what someone has seen.

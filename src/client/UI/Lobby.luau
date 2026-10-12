@@ -16,6 +16,12 @@ local player = Players.LocalPlayer
 local Lobby = {}
 Lobby.__index = Lobby
 
+-- The Night button (Config.Run.Night, Config.Mansion.Profiles).
+local NIGHT_LABELS = {
+	short = "Night: Short (15 min)",
+	full = "Night: Full house",
+}
+
 function Lobby.new(ctx)
 	local self = setmetatable({ ctx = ctx }, Lobby)
 	local gui = Ui.screen("ConsensusLobby", 10, ctx.playerGui)
@@ -56,14 +62,15 @@ function Lobby.new(ctx)
 			Net.get("SetDifficulty"):FireServer(current == "Normal" and "Hard" or "Normal")
 		end
 	)
-	-- The length of the night (WP8): the squad's full house, or a short one
-	-- (one wing, two heirlooms) for a first run or a late night.
+	-- The length of the night (WP8): a short one by default (about 15
+	-- minutes: two wings, two heirlooms; Config.Run.Night), or the squad's
+	-- whole house.
 	self.nightButton = Ui.button(
-		"Night: Full",
+		NIGHT_LABELS.short,
 		{ Position = UDim2.new(0.62, 4, 0, 130), Size = UDim2.new(0.38, -4, 0, 34), TextSize = 14, Parent = panel },
 		function()
 			local lobby = ctx.state.lobby
-			local current = lobby and lobby.night or "full"
+			local current = lobby and lobby.night or "short"
 			Net.get("SetNight"):FireServer(current == "full" and "short" or "full")
 		end
 	)
@@ -155,7 +162,7 @@ function Lobby:Render()
 		self.note.Text = lobby.difficulty == "Hard"
 				and "Hard: uneasy from the start, more wings, quicker hunts, and two downs and you're out."
 			or "Tools are found in the house: look on tables, desks and dressers."
-		self.nightButton.Text = lobby.night == "short" and "Night: Short" or "Night: Full"
+		self.nightButton.Text = lobby.night == "full" and NIGHT_LABELS.full or NIGHT_LABELS.short
 		local lines = {}
 		for _, p in lobby.players do
 			local status = p.state == Constants.PlayerStates.Lobby or p.state == nil

@@ -134,6 +134,27 @@ return function(test, check, Shared, require)
 		end
 	end)
 
+	test("a room with a top to set one on ranks a little higher, nothing else changes", function()
+		for _, house in houses do
+			local layout, plan = house.layout, house.plan
+			local plain = Valuables.candidates(layout, plan)
+			local chosen = plain[1] and plain[1].room
+			local leaned = Valuables.candidates(layout, plan, function(room)
+				return room == chosen
+			end)
+			for i, option in plain do
+				local other = leaned[i]
+				check.equal(other.room, option.room, name(house) .. ": same rooms")
+				local bonus = other.score - option.score
+				if option.room == chosen then
+					check.truthy(bonus > 0.2 and bonus < 0.5, name(house) .. ": the top's bonus")
+				else
+					check.equal(bonus, 0, name(house) .. ": no bonus without a top")
+				end
+			end
+		end
+	end)
+
 	test("the same seed keeps them in the same rooms", function()
 		local house = houses[5]
 		local a = Valuables.pick(house.layout, house.plan, Rng.new(9), 3)

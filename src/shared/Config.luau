@@ -12,9 +12,10 @@ Config.Run = {
 	LobbyMajoritySeconds = 30,
 	-- The length of the night (docs/progress/2026-10-07-loop/REPORT.md, WP8):
 	-- "full" is the squad's house; "short" lays Config.Mansion.Profiles.short
-	-- over it (a dinner in about ten minutes: a first run, a late night). The
-	-- lobby's Night button and F2 `night` pick it for the next run.
-	Night = "full",
+	-- over it (about 15 minutes). Short is the default since 2026-10-11 (the
+	-- owner's choice: shorter runs are played more, and a loss costs less).
+	-- The lobby's Night button and F2 `night` pick it for the next run.
+	Night = "short",
 	MaxPlayers = 4,
 	LobbyCountdown = 5,
 	ArrivalSeconds = 180, -- (doc) 3-4 min
@@ -316,19 +317,22 @@ Config.Mansion = {
 	-- top, each a wing more (`storeys`: one of them for one or two players,
 	-- both for three or four; docs/plans/level-design.md section 10).
 	-- Profiles laid over the squad's entry (Logic/HouseSize.config): the
-	-- short night (WP8): one locked wing, two heirlooms, no pockets, tools or
-	-- steps, neither the cellar nor the attic, the plainest plan.
+	-- short night, the default since 2026-10-11 (the owner's choice: a
+	-- fuller short night, about 15 minutes; it was one wing and two
+	-- heirlooms, WP8): two wings, two heirlooms, one side room behind the
+	-- house key, one tool kind, two of the family's valuables, no steps,
+	-- neither the cellar nor the attic. Full is the squad's whole house.
 	Profiles = {
 		short = {
-			rooms = { 13, 15 },
-			regions = 1,
+			rooms = { 15, 17 },
+			regions = 2,
 			heirlooms = { 2, 2 },
-			pockets = { 0, 0 },
+			pockets = { 1, 1 },
 			valuables = { 2, 2 },
-			maxTools = 0,
+			maxTools = 1,
 			wingSteps = { 0, 0 },
 			storeys = { cellar = 0, attic = 0, onlyOne = true },
-			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0, TurnChance = 0, StackChance = 0 },
+			mansion = { Stairwells = { 1, 1 }, RearCorridorChance = 0.15, TurnChance = 0.15, StackChance = 0.15 },
 		},
 	},
 	BySquad = {

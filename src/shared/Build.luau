@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-11.166",
-	note = "the family's valuables: optional loot off the way, carried like an heirloom, Marks for the squad if it gets out",
+	id = "2026-10-11.167",
+	note = "a fuller short night is the default (two wings, a side room, about 15 min); the family's valuables",
 }

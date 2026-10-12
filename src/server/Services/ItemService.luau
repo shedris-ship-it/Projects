@@ -525,24 +525,42 @@ function ItemService:PlaceValuables(layout, plan, rng, count: number)
 		return
 	end
 	local kinds = rng:Shuffle(table.clone(ValuableData))
-	for i, room in Valuables.pick(layout, plan, rng, count) do
+	local placed = {}
+	local hasTop = function(room: number): boolean
+		return self:_hasTop(room)
+	end
+	for i, room in Valuables.pick(layout, plan, rng, count, hasTop) do
 		local kind = kinds[(i - 1) % #kinds + 1]
 		local token = "valuable:" .. i
 		local state = { token = token, kind = kind, home = { room = room } }
 		self.valuables[token] = state
-		local placed = rng:Chance(Config.Valuables.CaseChance) and self:_placeDisplay(token, room, rng)
-		if not placed then
+		local how = rng:Chance(Config.Valuables.CaseChance) and self:_placeDisplay(token, room, rng) and "case"
+		if not how then
+			-- On a top in plain sight; a side room often has none (Studio, seed
+			-- 1800820264's short night: both picked rooms were bare), so then on
+			-- the floor somewhere clear, as an heirloom with no drawer is.
 			local at = self:_top(room, rng, kind.size)
-			if at then
-				state.home.cframe = at
-				self:_make(token, at)
-				placed = true
+			how = at and "top" or "floor"
+			if not at then
+				local point = self.World:ClearFloorPoint(room, rng)
+				at = CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 			end
+			state.home.cframe = at
+			self:_make(token, at)
 		end
-		if not placed then
-			self.valuables[token] = nil -- no top and no case would take it
+		table.insert(placed, string.format("%s in %s (%s)", kind.label, self:RoomPhrase(room), how))
+	end
+	print("[Consensus] valuables: " .. (#placed > 0 and table.concat(placed, ", ") or "none"))
+end
+
+-- Has `room` a top to set something on (World/Dressing surfaces)?
+function ItemService:_hasTop(room: number): boolean
+	for _, s in self.World.World.surfaces or {} do
+		if s.record.id == room and s.prop.model.Parent then
+			return true
 		end
 	end
+	return false
 end
 
 function ItemService:IsValuable(token: string?): boolean
@@ -587,10 +605,10 @@ function ItemService:ValuableLines(): { string }
 			local model = state.thing and state.thing.model
 			local where = state.banked and ("carried out by " .. state.banked.DisplayName)
 				or state.holder and ("held by " .. state.holder.DisplayName)
-				or (model and model.Parent and ("lying in the " .. self:RoomPhrase(
+				or (model and model.Parent and ("lying in " .. self:RoomPhrase(
 					self.World:RoomAt(model:GetPivot().Position) or state.home.room
 				)))
-				or ("kept in the " .. self:RoomPhrase(state.home.room) .. " (in a case)")
+				or ("kept in " .. self:RoomPhrase(state.home.room) .. " (in a case)")
 			table.insert(lines, string.format("%s %s: %s", state.token, state.kind.label, where))
 		end
 	end

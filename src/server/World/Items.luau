@@ -200,20 +200,41 @@ local valuables = {}
 local GILT = Color3.fromRGB(198, 162, 78)
 
 function valuables.CarriageClock(model, at)
-	part(model, "Case", Vector3.new(0.62, 0.78, 0.4), at * CFrame.new(0, 0.43, 0), BRASS, metal(), { collide = false })
+	-- A plinth, the case, a cap and a handle; a dial on both faces, so it
+	-- reads as a clock whichever way it's set down (Studio, 2026-10-11: from
+	-- behind it was a brass block).
 	part(
 		model,
-		"Dial",
-		Vector3.new(0.03, 0.4, 0.4),
-		at * CFrame.new(0, 0.5, -0.21) * CFrame.Angles(0, math.pi / 2, 0),
-		Color3.fromRGB(236, 230, 210),
-		PropFactory.material("SmoothPlastic"),
-		{ collide = false, shape = CYL, castShadow = false }
+		"Plinth",
+		Vector3.new(0.66, 0.08, 0.46),
+		at * CFrame.new(0, 0.04, 0),
+		GILT,
+		metal(),
+		{ collide = false }
 	)
-	part(model, "Handle", Vector3.new(0.44, 0.05, 0.05), at * CFrame.new(0, 0.9, 0), GILT, metal(), FLAT)
-	for i, x in { -0.25, 0.25 } do
-		part(model, "Foot" .. i, Vector3.new(0.1, 0.04, 0.38), at * CFrame.new(x, 0.02, 0), GILT, metal(), FLAT)
+	part(model, "Case", Vector3.new(0.54, 0.62, 0.36), at * CFrame.new(0, 0.39, 0), BRASS, metal(), { collide = false })
+	part(model, "Cap", Vector3.new(0.62, 0.07, 0.42), at * CFrame.new(0, 0.735, 0), GILT, metal(), FLAT)
+	for i, z in { -0.185, 0.185 } do
+		part(
+			model,
+			"Dial" .. i,
+			Vector3.new(0.02, 0.36, 0.36),
+			at * CFrame.new(0, 0.42, z) * CFrame.Angles(0, math.pi / 2, 0),
+			Color3.fromRGB(236, 230, 210),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, shape = CYL, castShadow = false }
+		)
+		part(
+			model,
+			"Hands" .. i,
+			Vector3.new(0.025, 0.14, 0.012),
+			at * CFrame.new(0, 0.46, z * 1.06) * CFrame.Angles(0, 0, 0.6),
+			Color3.fromRGB(30, 26, 22),
+			PropFactory.material("SmoothPlastic"),
+			FLAT
+		)
 	end
+	part(model, "Handle", Vector3.new(0.4, 0.05, 0.05), at * CFrame.new(0, 0.84, 0), GILT, metal(), FLAT)
 end
 
 function valuables.JewelleryBox(model, at)

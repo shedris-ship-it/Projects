@@ -29,7 +29,9 @@ return function(test, check, Shared, require)
 		}
 	end
 
-	test("the short night (WP8): a small house, one locked wing, two heirlooms, found every time", function()
+	-- (The default since 2026-10-11, the owner's fuller short night: two
+	-- wings, a side room, no cellar or attic; it was one wing and no pockets.)
+	test("the short night: a smaller house, two locked wings at most, two heirlooms, no cellar or attic", function()
 		local fallbacks = 0
 		for seed = 1, 20 do
 			local found = HouseSearch.run(seed * 7 + 3, options(1, CANDIDATES, "short"))
@@ -38,17 +40,21 @@ return function(test, check, Shared, require)
 			if layout.fallback then
 				fallbacks += 1 -- (the frozen fallback is the full house: not short)
 			else
-				check.atMost(#layout.rooms, 16, "seed " .. seed .. ": a short house (" .. #layout.rooms .. " rooms)")
+				check.atMost(#layout.rooms, 18, "seed " .. seed .. ": a short house (" .. #layout.rooms .. " rooms)")
+				for _, room in layout.rooms do
+					local floor = room.floor or 0
+					check.truthy(floor >= 0 and floor <= 1, "seed " .. seed .. ": no cellar or attic")
+				end
+				check.atMost(plan.stats.pockets or 0, 1, "seed " .. seed .. ": a side room at most")
+				local regions = 0
+				for id in plan.regions do
+					if id ~= 0 then
+						regions += 1
+					end
+				end
+				check.atMost(regions, 2, "seed " .. seed .. ": two locked wings after the first, at most")
 			end
 			check.equal(#plan.finale.heirlooms, 2, "two heirlooms")
-			local regions = 0
-			for id in plan.regions do
-				if id ~= 0 then
-					regions += 1
-				end
-			end
-			check.atMost(regions, 1, "one locked wing after the first")
-			check.equal(plan.stats.pockets or 0, 0, "no pockets")
 		end
 		check.atMost(fallbacks, 2, "fallbacks: " .. fallbacks .. " of 20")
 	end)

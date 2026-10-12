@@ -4,7 +4,7 @@ A 2–4 player co-op horror game for Roblox. A squad is locked inside a lived-in
 
 This repository is the vertical slice: one location (The Halfway House, generated as a mansion), its stalker (The Guest), and the escape loop from [`docs/plans/gameplay-rework.md`](docs/plans/gameplay-rework.md), which replaced the original clue hunt of [`docs/DesignDoc.md`](docs/DesignDoc.md). It's a Rojo project, so the code lives in files and in git; you build it into a place and open it in Roblox Studio.
 
-> **Status (2026-10-05):** the escape loop is complete and runs in Studio: locks, keys and leads, six kinds of puzzle and lock, a hands-on physical house, barricades and closets, a Guest who wants his dinner, a map and journal, the dinner and the run out. Each house is now planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (414 tests). It has been played solo in Studio, but **it hasn't had a squad playtest yet**; that's next (`docs/TESTING.md`, TC-68 onward).
+> **Status (2026-10-11):** the escape loop is complete and has had three squad playtests (2026-10-08, 2026-10-10, 2026-10-11: "we did have some fun"). Locks, keys and leads, seven kinds of puzzle and lock, a hands-on physical house, hiding you step into, barricades, a Guest who wants his dinner and plays by three rules you can learn, his moods and temperament readable, the family's valuables to push your luck for, a map and journal, the dinner and the run out. Each house is planned as an adventure (wings, shortcuts, going back), sized for the squad, and the best of 12 (`docs/plans/level-design.md`). The pure logic is unit-tested (see `docs/TESTING.md`); the manual checks waiting on a playtest are TC-266 onward.
 
 ---
 
@@ -54,7 +54,7 @@ In **Game Settings** (after publishing the place once):
 - **Solo:** press **Play**. There is no companion (removed 2026-10-06). Alone, a lit Lantern room is safe ground and charges your torch; downed, you crawl to the light or into a hiding place's mouth to get up; smelling salts bring you round once; you push harder; after a catch he lets you go. Three downs and you're Lost (two on Hard).
 - **Squad:** **Test → Clients and Servers → 2–4 players → Start**. Several things (the dinner at the table, crank doors, the dumbwaiter, barricades, the shared map) only show their worth with two or more clients.
 
-In the hub, set the contract's difficulty and the night's length (**Night: Full** is the squad's house; **Short** is one wing and two heirlooms, a dinner in about ten minutes) and press **Ready**. The run starts when everyone in the hub is ready, or once half of you have been ready for thirty seconds: the ready go in, the rest stay in the hub. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
+In the hub, set the contract's difficulty and the night's length (**Night: Short**, the default, is two wings, two heirlooms and a side room, about 15 minutes; **Full** is the squad's whole house, with the cellar or the attic) and press **Ready**. The run starts when everyone in the hub is ready, or once half of you have been ready for thirty seconds: the ready go in, the rest stay in the hub. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
 
 ---
 
@@ -114,6 +114,13 @@ In the hub, set the contract's difficulty and the night's length (**Night: Full*
    - **Drawers and cupboards** hold something worth the look when the run keeps nothing there: batteries (E: a third of a torch back), painkillers (E: one of your downs forgiven; rare), old letters (E: someone's pencilled note points at what you need next, and the map rings that room), a box of matches (E: pocketed; a lantern shrine lights at once with one), or something to throw.
    - The house is physical: pick things up and throw them (a hit staggers him), push furniture (beds need two), barricade a doorway, shut yourself in a wardrobe, a locker or a walk-in closet and look out through its slats, flush a toilet or leave a tap running to send him the wrong way, switch lights off.
 3. **He wants his dinner.** Each step forward wakes a hunt a minute or two later. While you carry an heirloom he knows which room you're in. Leave one lying and he puts it back where you found it. Carry them all and he waits at the head of the table.
+   - **His three rules** (the how-to and the tips say them word for word):
+     1. **Watch him.** He only creeps closer while nobody's looking; two of you watching him in the light stop him (alone, your beam does), until he's after someone. In a hunt a hold wears thin: his head shakes, his mask creaks, then it breaks.
+     2. **Don't pester him.** Stand in his face or follow him about and his head turns to you: back off. Keep on and he warns you (his knuckles crack, he squares up); do it again within five minutes and he comes for you with his hands out. Run at him and he lunges.
+     3. **When he hunts:** break his line of sight (shut a door, throw something), hide, or get to a lit lantern.
+   - **His moods** show in how he holds himself (a curious tilt, the host's little bow, the playful nodding, dead stillness, a low crouch, cracking knuckles). The first time you watch him a moment in one, a tip says what it means; the journal keeps them.
+   - **His temperament** for the night (patient, restless, playful, hungry) shows from the first minutes; the Dossier names it, the sign and how to play him next time. A playful Guest speaks with a friend's voice from behind a door (on Hard, any Guest does).
+   - **The family's valuables** (a carriage clock, a jewellery box, a silver teapot, a cash box) are kept in side rooms, the cellar or attic and far rooms, some in locked cases. Optional: carry one out of the front door and it's 25 Marks for everyone; but while you hold one he knows where you are, and he puts back one left lying. The real choice comes in the run out.
 4. **The dinner.** Set the last heirloom (each place's card names the one it wants; carry it up to the table and it's set): the lights die, he takes his seat, the way from the dining room to the hall seals, every other lock springs open and the front door opens. Run out the long way while he hunts you.
 5. **Debrief.** The Dossier says who opened what, who carried what, the closest call, and what he learned about you.
 
@@ -129,12 +136,12 @@ These commands work in Studio, or on live servers for user ids listed in `Config
 help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lights on|off · gatea
 watch (the stare right now: watchers, lit, dark, beam, the room, the hold) · summary (the run in numbers, to Output)
 event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)
-seed <n> · layout cells|mansion|default · squad <1-4|auto> · night full|short   (apply to the next run)
+seed <n> · layout cells|mansion|default · squad <1-4|auto> · night short|full   (apply to the next run; short is the default)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy
 goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
-locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar) · items · leads [go <token> [note]]
+locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar, valuable:1) · items · valuables · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E) · solve [puzzle] · ui map|journal|close
 switch [list] · crank [go|up] · barricade [here|squeeze|shove|burst] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
@@ -146,7 +153,7 @@ botrun [fast] [flee|hide] (the bot plays the run with your character and reports
 inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
 down [name] · revive [name] · steps · clip · find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, Cassette, Candle, Spool)
 guest here [studs] · guest walk · guest reel [beat|stop] (every way he moves, near you, captioned; or one beat over and over) · guest pose <name> · guest form <0-2> · guest smile <0-1>
-guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest reach [studs] (he comes for you as if you'd tailed him; it can down you) · guest off
+guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest reach [studs] (he comes for you as if you'd pestered him after a warning; it can down you) · guest off
 guest mood [id|off] (his mood: Curious, Stalking, Host, Playful, Patient, Irritated) · guest temperament [id] (Patient, Restless, Playful, Hungry)
 guest move MakeWay|FingersPeek|HallwayStand|BehindTheDoor|HostAction|MimicVoice|SlowWithdraw|Duck (his new ways)
 ```

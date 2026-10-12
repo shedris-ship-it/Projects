@@ -61,7 +61,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (562 as of 2026-10-11; about 90-150 s, 2-4 minutes while Studio runs)
+lune run tests/run        # unit tests (576 as of 2026-10-11; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -218,6 +218,14 @@ The agreed plan, in order:
      - Drawers hold finds worth the look (`Data/Finds`, `Logic/Finds`, `Services/FindService`, F2 `find`): batteries, painkillers (a down forgiven, rare), letters (a pencilled pointer at the next step; the map rings it), matches (a shrine lit at once), and throwables.
      - Found on the way: a third of the mansion's lantern rooms were corridors with no shrine spot (upstairs the shrine stood in the lane; on the ground floor its CFrame was NaN and it vanished): lantern rooms are now rooms with a shrine spot (`MansionGen`), and `LevelBuilder` never builds a shrine facing nowhere (Gate A unchanged: parts 2269, hash 1553234744; `tools/completable`: 1152 houses, all finish). A squad player working a puzzle for a minute was made Lost as idle: every accepted remote now counts as activity (`Net.onActivity`). E on a desk's drawer hid you in the kneehole (since `.157`): a drawer, door or lid now wins over the hiding furniture it's in (`HandsController:_objectOf`). Text that didn't fit (scan every visible label's `TextFits`): the Dossier stopped after ~23 lines with nothing to scroll (now measured with TextService), the hub panel, the objective line, the map's legend. The Dossier no longer tells a solo player they split up.
      - 562 tests. Waiting on the owner: TC-254 to TC-265 (reviving and idling need two clients).
+   - **A Guest you can read, and reasons to play again (2026-10-11; builds `2026-10-11.162` to `.167`; `docs/progress/2026-10-11-readable/REPORT.md`, `docs/plans/gameplay-rework.md` section 19).** After the third squad playtest ("we did have some fun ... it just needs polish and more replay ability"), the owner picked five of six suggestions from Claude's review (not the living house yet). Built:
+     - **His three rules**, word for word in the how-to, tips and README: watch him (two in the light stop him, until he's after someone); don't pester him; when he hunts, break his sight, hide or get to a lantern. **Pestering** (`StalkRules.pestering`, `Pester.spec`) joins crowding and tailing: one meter; his head turns at 40%, then a warning (never a down), then the reach within 5 minutes (`ReachWindup` 0.7 s). A hunt's hold is seen wearing thin (`GuestHoldLeft`, `GuestPose` tremble, creak, crack).
+     - **His moods taught** (`GuestMood.lesson`; a tip on first sight, the journal, the Dossier). The host's hum never existed: he bows now.
+     - **His temperament felt** (`Data/Temperaments`: a dominant mood lasting twice as long, intro weights, `Data/ScareCards` leaned, one behaviour each; no guessing, the owner's answer). **The playful Guest's friend's-voice trick on Normal too** (`StalkRules.voiceAllowed`).
+     - **The family's valuables** (`Data/Valuables`, `Logic/Valuables`, `ItemService:PlaceValuables/Scented/CarryOut`): optional, carried like an heirloom (scent, tidying), 25 Marks each for the squad when carried out of the front door.
+     - **A fuller short night is the default** (`Config.Mansion.Profiles.short`, `Config.Run.Night`).
+     - 576 tests; `tools/completable` 1152 houses, all finish; Gate A unchanged. Waiting on the owner: TC-266 to TC-274 (TC-268, TC-271, TC-273 need two clients). Watch: the bot still stops for him 15-24 times a run.
+     - Test races: a spec loads its modules when the runner reaches it, so editing `src` or `tests` during a full run mixes old and new code (three false failures this pass). Don't edit while a full run is going; edit docs, or wait.
 3. **Visual pass (in progress, chosen first; continues after the rework).** This is Claude's job, since there is no artist. **`docs/ART.md` is the approved guide and its "How the visual pass will run" list is the work order.** Owner decisions so far: 1988 suburban house, P.T. as the mood reference, Moderate content rating (no Restricted content), The Guest concept, a corridor prototype. Before/after screenshots live in `docs/baseline/` and `docs/progress/`; retake from the same seed and camera spots.
    - Done (2026-10-02):
      - lighting (key lights with long falloff, bounce lights, olive ambient, P.T. grade)

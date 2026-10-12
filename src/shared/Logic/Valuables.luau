@@ -7,19 +7,24 @@
 --
 -- The rooms that keep them are the ones off the way: side rooms first (the
 -- plan's pockets), then the cellar and the attic, then the rooms farthest
--- from the hall by doorways, one a room, spread across the wings. Never the
--- hall, the dining room, the way out, a corridor, a stair, a lantern room or
--- the safe room. Pure (tests/specs/Valuables.spec).
+-- from the hall by doorways, one a room, spread across the wings. Among rooms
+-- as far off the way, one with a top to set it on (`hasTop`) comes first: on
+-- a dresser or in a locked case, not on a bathroom floor (Studio, 2026-10-11:
+-- most first went on the floor of a laundry or a bathroom). Never the hall,
+-- the dining room, the way out, a corridor, a stair, a lantern room or the
+-- safe room. Pure (tests/specs/Valuables.spec).
 
 local Graph = require(script.Parent.Graph)
 
 local Valuables = {}
 
--- How each candidate room ranks: higher is further off the way.
-local POCKET, STOREY = 3, 2
+-- How each candidate room ranks: higher is further off the way (a room's
+-- distance counts 0 to 1), and a little higher with a top to set it on.
+local POCKET, STOREY, TOP = 3, 2, 0.3
 
 -- Rooms that may keep a valuable, each with its score and region.
-function Valuables.candidates(layout, plan)
+-- `hasTop(room)`, optional: whether the room has a top to set one on.
+function Valuables.candidates(layout, plan, hasTop)
 	local ids = {}
 	for _, room in layout.rooms do
 		table.insert(ids, room.id)
@@ -48,6 +53,9 @@ function Valuables.candidates(layout, plan)
 			elseif room.floor and (room.floor < 0 or room.floor > 1) then
 				score += STOREY
 			end
+			if hasTop and hasTop(id) then
+				score += TOP
+			end
 			table.insert(out, {
 				room = id,
 				score = score,
@@ -61,8 +69,8 @@ end
 -- `count` rooms, best first, one a room, a different region each while there
 -- are regions left. Ties are broken by the seeded rng, so the same seed keeps
 -- them in the same rooms.
-function Valuables.pick(layout, plan, rng, count: number): { number }
-	local options = Valuables.candidates(layout, plan)
+function Valuables.pick(layout, plan, rng, count: number, hasTop): { number }
+	local options = Valuables.candidates(layout, plan, hasTop)
 	local jitter = {}
 	for _, option in options do
 		jitter[option.room] = rng:NextNumber() * 0.05
