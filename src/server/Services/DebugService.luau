@@ -19,6 +19,7 @@ local HouseMetrics = require(Shared.Logic.HouseMetrics)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local LookSpots = require(Shared.Data.LookSpots)
 local Tools = require(Shared.Data.Tools)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
 local PartDump = require(script.Parent.Parent.World.PartDump)
@@ -50,7 +51,7 @@ end
 local HELP = table.concat({
 	"overlay on|off · drift <0-100> · tier <0-4|off> · hunt · seed <n> · layout cells|mansion|default · squad <1-4|auto> · watch (the stare right now)",
 	"start · end · skip (to Investigation) · resolve (serve the dinner) · summary (the run in numbers, to Output)",
-	"act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · goto <room> | <x> <y> <z>",
+	"act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · goto <room> | <x> <y> <z> · look <spot> | look save <name> (fixed shots, Data/LookSpots)",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
@@ -1059,6 +1060,88 @@ function DebugService:Run(player: Player, text: string)
 			task.wait(0.3)
 			reply(player, services.ChuteService:Use(player))
 		end
+	elseif command == "kit" and args[2] == "probe" then
+		-- The visual rework's V0 question: can a game script build a kit
+		-- piece from asset ids alone (a mesh, then a SurfaceAppearance's
+		-- maps)? `kit probe <mesh id> [image id]`, placed in front of you.
+		local AssetService = game:GetService("AssetService")
+		local meshId = tonumber(args[3])
+		local imageId = tonumber(args[4]) or 128745649799331 -- the lens's glare, any image will do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not meshId or not root then
+			reply(player, "usage: kit probe <mesh id> [image id]")
+			return
+		end
+		local lines = {}
+		local ok, part = pcall(function()
+			return AssetService:CreateMeshPartAsync(Content.fromUri("rbxassetid://" .. meshId))
+		end)
+		table.insert(lines, "CreateMeshPartAsync: " .. (ok and "ok" or tostring(part)))
+		if ok and part then
+			part.Anchored = true
+			part.CFrame = root.CFrame * CFrame.new(0, 0, -6)
+			part.Name = "KitProbe"
+			local appearance = Instance.new("SurfaceAppearance")
+			local set = pcall(function()
+				appearance.ColorMapContent = Content.fromUri("rbxassetid://" .. imageId)
+			end)
+			table.insert(lines, "SurfaceAppearance.ColorMapContent: " .. (set and "ok" or "refused"))
+			local legacy = pcall(function()
+				(appearance :: any).ColorMap = "rbxassetid://" .. imageId
+			end)
+			table.insert(lines, "SurfaceAppearance.ColorMap: " .. (legacy and "ok" or "refused"))
+			appearance.Parent = part
+			part.Parent = workspace
+		end
+		print("[Consensus] kit probe: " .. table.concat(lines, " · "))
+		reply(player, table.concat(lines, " · "))
+	elseif command == "look" then
+		-- The visual rework's fixed shots (Data/LookSpots): `look <name>` puts
+		-- you and your view on a spot of this house; `look save <name>` prints
+		-- where you stand and look, to paste into Data/LookSpots.
+		local key = (services.RunOrchestrator.layoutMode or Config.Level.Mode)
+			.. ":"
+			.. tostring(ReplicatedStorage.RunState:GetAttribute(Constants.RunState.Seed))
+		local spots = LookSpots[key] or {}
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if args[2] == "save" and args[3] and root then
+			local view = services.WitnessService:GetView(player)
+			local look = view and (view.Position + view.LookVector * 12)
+				or (root.Position + root.CFrame.LookVector * 12)
+			local line = string.format(
+				"%s = { at = { %.1f, %.1f, %.1f }, look = { %.1f, %.1f, %.1f } },",
+				args[3],
+				root.Position.X,
+				root.Position.Y - 3,
+				root.Position.Z,
+				look.X,
+				look.Y,
+				look.Z
+			)
+			print("[Consensus] look spot for " .. key .. ":  " .. line)
+			reply(player, "printed to Output: " .. line)
+			return
+		end
+		local spot = spots[args[2] or ""]
+		if not spot or not character then
+			local names = {}
+			for name in spots do
+				table.insert(names, name)
+			end
+			table.sort(names)
+			reply(player, key .. " spots: " .. (#names > 0 and table.concat(names, ", ") or "none (look save <name>)"))
+			return
+		end
+		services.PlayerStateService:MarkTeleport(player)
+		character:PivotTo(CFrame.new(spot.at[1], spot.at[2] + 3, spot.at[3]))
+		player:SetAttribute("DebugLookAt", nil)
+		player:SetAttribute("DebugLookAt", Vector3.new(spot.look[1], spot.look[2], spot.look[3]))
+		if spot.guest then
+			self:Run(player, "guest here " .. spot.guest)
+		end
+		reply(player, "look: " .. args[2] .. " (" .. key .. ")")
 	elseif command == "goto" then
 		-- Step into a room (its middle, or a free spot near it), for testing;
 		-- or `goto <x> <y> <z>` to a spot (feet).

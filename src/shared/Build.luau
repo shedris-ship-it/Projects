@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-12.169",
-	note = "the visual rework begins: a 35mm lens (film grain, rack focus, eye adaptation, glare) and graphics presets",
+	id = "2026-10-12.170",
+	note = "F2 look (fixed shots), kit probe, your torch counts for eye adaptation; the Blender kit pipeline",
 }

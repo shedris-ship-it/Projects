@@ -144,6 +144,20 @@ function LensController:Start()
 	RunService.RenderStepped:Connect(function(dt)
 		self:_update(dt)
 	end)
+	-- F2 `look <name>` (Services/DebugService, Data/LookSpots): once you're on
+	-- the spot, your view turns to rest where the shot wants it.
+	player:GetAttributeChangedSignal("DebugLookAt"):Connect(function()
+		local target = player:GetAttribute("DebugLookAt")
+		if typeof(target) ~= "Vector3" then
+			return
+		end
+		task.wait(0.4)
+		local camera = Workspace.CurrentCamera
+		local head = player.Character and player.Character:FindFirstChild("Head")
+		if camera and head then
+			camera.CFrame = CFrame.lookAt(head.Position, target)
+		end
+	end)
 end
 
 function LensController:_applyPreset()

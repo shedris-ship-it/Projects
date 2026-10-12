@@ -21,3 +21,6 @@ sourcemap.json
 docs/reference/**/*.webp
 docs/reference/**/*.png
 docs/reference/**/*.jpg
+
+# The kit built by tools/blender/kit.py (regenerated from the scripts)
+/build

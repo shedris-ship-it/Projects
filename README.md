@@ -139,7 +139,7 @@ event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overh
 seed <n> · layout cells|mansion|default · squad <1-4|auto> · night short|full   (apply to the next run; short is the default)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy
-goto <room> | goto <x> <y> <z> · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
+goto <room> | goto <x> <y> <z> · look <spot> | look save <name> (the visual rework's fixed shots, Data/LookSpots) · plan (the house plan to Output) · where · chute [here] (down the laundry chute)
 house (why this house: the search's scores, the scorecard, the wings, every room's reasons)
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar, valuable:1) · items · valuables · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E) · solve [puzzle] · ui map|journal|close
