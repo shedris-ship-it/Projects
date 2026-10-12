@@ -83,18 +83,21 @@ local function rainBox(glass: BasePart): Part
 	emitter.Speed = NumberRange.new(55, 70)
 	emitter.SpreadAngle = Vector2.new(4, 4)
 	emitter.Lifetime = NumberRange.new(0.35, 0.5)
-	emitter.Size = NumberSequence.new(0.06)
-	emitter.Squash = NumberSequence.new(3.5) -- tall and thin: streaks, not dots
-	emitter.Orientation = Enum.ParticleOrientation.VelocityParallel
+	-- Upright to the camera and stretched tall (Squash above 0 stretches
+	-- up and down; below 0, sideways): streaks, not dots. Faintly lit by
+	-- themselves, or they vanish against the night (seen 2026-10-12).
+	emitter.Size = NumberSequence.new(0.18)
+	emitter.Squash = NumberSequence.new(3)
+	emitter.Orientation = Enum.ParticleOrientation.FacingCameraWorldUp
 	emitter.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.15, 0.55),
-		NumberSequenceKeypoint.new(0.85, 0.6),
+		NumberSequenceKeypoint.new(0.15, 0.3),
+		NumberSequenceKeypoint.new(0.85, 0.4),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	emitter.Color = ColorSequence.new(Color3.fromRGB(176, 190, 214))
-	emitter.LightInfluence = 0.6
-	emitter.LightEmission = 0.15
+	emitter.Color = ColorSequence.new(Color3.fromRGB(205, 215, 235))
+	emitter.LightInfluence = 0.15
+	emitter.LightEmission = 1
 	emitter.Rate = 0
 	emitter.Parent = box
 	box.Parent = Workspace.CurrentCamera -- client only

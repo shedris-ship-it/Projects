@@ -175,15 +175,19 @@ These constrain every pass; the reasons and dates are in the plan docs and `docs
 
 ## Where we are (2026-10-12)
 
-Build `2026-10-12.168` on `claude/overnight-foundation`, 585 tests.
+Build `2026-10-12.176` on `claude/overnight-foundation`, 606 tests.
 
 - **Built:** the escape loop (rework R0 to R2c); the mansion generator and its navigation (M1 to M3); the level design L1 to L3 except its last item; the foundation and loop passes (Dread, stuck-assist, the bot, the Reckoning, the short night); the Guest rework (moods, temperaments, the mask, his animations); the fixes from three squad playtests; the readable Guest (his three rules, pestering, the family's valuables); the torch on F with your own arms and legs. The visual pass's steps 1 to 6, the polish pass and visual audit round 1.
-- **Waiting on the owner:** the manual checks in `docs/TESTING.md`, newest TC-254 to TC-283 (several need 2–3 clients); the music stems, the scream and his sounds, picked by ear (`Assets.luau` lists alternatives); the visual pass's open questions (fps after trim, textures and props, and on low graphics; whether moonlit bedrooms are too dark); whether the safe room gets deterrents or weapons (deferred).
+- **Now: the full visual rework** (the owner, 2026-10-12: "the gameplay is in a good spot"; P.T. on 35mm film, models made in Blender, a diegetic 1988 UI, PC-first presets, a building storm, a few cutscenes, standard bodies in modular 80s clothing for a later shop). The plan's phases V0 to V9 and their state are in the reports `docs/progress/2026-10-12-visual-v1/`, `-v2/`, `-v3/`.
+  - Done: graphics presets; the 35mm lens (`Controllers/LensController`: grain, tonemapping, rack focus, eye adaptation, glare); light under doors; a hot core in the torch; real windows in outer walls (`Logic/Windows`) with the night outside (`World/Exterior`: trees, a streetlamp, a sky ring, the run's moon) and moonlight through them; the storm (`Logic/Storm`, `WeatherService`, `WeatherController`); the kit system (`World/Kit`, `Data/Kit`) and the Blender pipeline (`tools/blender/kit.py`, Blender 5.2.2 at `A:\Tools\blender-5.2.2-windows-x64\blender-5.2.2-windows-x64\blender.exe`) with the spike and the golden room's first batch built.
+  - Waiting on the owner: the **import** (Studio's Home → Import 3D of `build\kit\spike\spike.glb`, then `golden.glb`), which settles how the kit reaches the place; judging the lens, rain and moonlight by eye; the tonemapper (Default or Retro).
+  - Next in the rework: the import route, then the golden room in Studio; the rest of V2 (fireplaces, light recipes for PBR); V4 the kit by room family; V5 the Guest; V6 bodies, 80s clothing and the torch; V7 the UI; V8 cutscenes; V9 polish.
+- **Waiting on the owner:** the manual checks in `docs/TESTING.md`, newest TC-254 to TC-283 (several need 2–3 clients); the music stems, the scream and his sounds, picked by ear (`Assets.luau` lists alternatives); whether the safe room gets deterrents or weapons (deferred).
 - **Next, in order:**
   1. **Studio findings:** fix anything the owner reports, and any console errors in play mode.
-  2. **The last of L3:** furniture laid out for play (the old M4; `Logic/RoomFurnish` doesn't exist yet; `docs/plans/level-design.md` section 3, part 4, and section 11.2).
-  3. **L4, the house fights back** (the old R3, the living house: doors that become walls where nobody sees; rework section 10). The owner held it back on 2026-10-11, so ask before starting.
-  4. **The full visual rework plan,** once the owner confirms the loop is solid: `docs/ART.md`'s work order, the grey-box furniture, the arms and legs (plain R15 blocks), hub polish.
+  2. **The visual rework** (above).
+  3. **The last of L3:** furniture laid out for play (the old M4; `Logic/RoomFurnish` doesn't exist yet; `docs/plans/level-design.md` section 3, part 4, and section 11.2).
+  4. **L4, the house fights back** (the old R3, the living house: doors that become walls where nobody sees; rework section 10). The owner held it back on 2026-10-11, so ask before starting.
   5. A tutorial run that teaches the escape (never cut; today there's only a how-to-play screen).
   6. A hub place, MemoryStore matchmaking, reserved and private servers (the owner publishes the places in Creator Hub; walk them through it).
   7. A daily contract, and a harder Hard (more locked regions; `Config.Progression`).

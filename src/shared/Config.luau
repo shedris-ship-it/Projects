@@ -978,7 +978,7 @@ Config.Storm = {
 	GlassReach = 40, -- the rain on the glass is heard from the nearest window within this
 	-- Rain outside the windows (particles in a box just beyond each near one).
 	RainNearWindows = 6, -- the nearest windows that get rain outside them
-	RainRate = { 120, 320 }, -- streaks a second per window, rain and storm
+	RainRate = { 220, 520 }, -- streaks a second per window, rain and storm
 }
 
 -- Light under a shut door (the visual rework V2; Controllers/DoorLightController):
