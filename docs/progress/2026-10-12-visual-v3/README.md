@@ -1,4 +1,4 @@
-# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175` and `.179`)
+# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` and `.180`)
 
 The models come from Blender, built by script (the owner's choice, 2026-10-12). Blender 5.2.2 runs headless from `A:\Tools\blender-5.2.2-windows-x64\blender-5.2.2-windows-x64\blender.exe`.
 
@@ -66,9 +66,39 @@ The owner imported the spike (`spike.glb`) with Studio's 3D importer on 2026-10-
 
 **Gate A re-baselined** (the plan's approval covers the visual steps): **parts 2290, hash 387097105**. That's the 21 kit meshes added to the old house; nothing else moved.
 
+## The golden batch in the game (build `.180`)
+
+The owner imported `golden.glb` and the rebuilt `spike.glb`:
+- **Glow maps work.** The importer carried the lamp shade's emissive mask into the SurfaceAppearance, so glowing pieces need no separate upload. `assets/kit/FloorLamp.model.json` has `EmissiveMaskContent`, which `rojo build` writes.
+- **The other pieces:** the chair and the lamp got new meshes (new ids); the door is unchanged (the importer matched its uploads).
+- **The ids** come straight from Studio (`HttpService:JSONEncode` over the imported `Scene` models), and the eleven `assets/kit/*.model.json` files are written from them.
+- **In the game:** all 11 meshes load (`[Consensus] kit: 11 meshes loaded`).
+  - The dining table: turned legs and a dark top (shot 10).
+  - The grand hall: the Persian rug, and the clock case keeping the game's face and hands (shot 11).
+  - The sofa, in the old house's living room (shot 12).
+  - The armchair, bench and coat racks.
+  - The floor lamp's shade glowing through its real mask (shot 13). `Config.Kit.ShadeGlow` is 1.1: at 1.6 it blew out to white.
+  - The owner: the shade should "add a soft light around it, so far it looks like light only passes through on the bottom". The modelled shade cast shadows, so it hid its own bulb (shot 14); the old block shade cast none. Kit entries can now say `shadow = false`, and the floor lamp does: its light reaches the walls and ceiling all round again (shot 15).
+
+**One kind stands for several things.** `Shelf` is the living room's and the study's bookcases, but also the dining room's china cabinet and the shelving in the laundry, garage, pantry, sewing room, boiler room, storeroom, workshop and cold store. `Chair` is also the nursery's rocker and the music room's stool. A kit entry can now list the item names it dresses (`names`, Lua patterns on the `Data/Rooms` ids, `Kit.wears`):
+- the bookcase dresses only `books*`;
+- the spindle chair dresses only `chair*`;
+- the rest stay grey-box until their own pieces (V4).
+
+**The bookcase** (the owner: "from the importer it didn't look like it had a texture, the actual shelf part of it supposed to be made of wood"):
+- **The cause:** each of its hundreds of books had six faces with their own patches of the one 1024 px texture, which left the wood a corner of it. The wood came out blurred and pale (shot 8; the old `Shelf_color.png` was nearly all books).
+- **The fix in the pipeline, for every piece from now on:**
+  - `shapes.cull` deletes faces nobody sees (each book's back against the case and its bottom on the shelf).
+  - A material can claim a share of the texture: `mat["uv_share"]`, packed into its own band by `bake._pack_by_share` (Blender's `pack_islands` into the band). The books take 0.3 and the wood the rest.
+  - `kit.py <batch> <Piece>` builds one piece on its own (`build/kit/golden_Shelf/`), so a fix needs only that piece imported.
+- The rebuilt case (shot 9): grain on the frame and shelves, a dark back behind the books.
+
+**Gate A re-baselined** (the old house now has the golden pieces too): **parts 2308, hash 897645278**.
+
 ## Waiting on the owner
 
-- **Import again:** `build\kit\spike\spike.glb` (rebuilt with the lamp's glow mask; it also shows whether the importer carries emissive maps) and `build\kit\golden\golden.glb` (the golden room's 8 pieces). Then the `Scene` models in Workspace can be deleted: the game builds the kit from ids.
+- **Import** `build\kit\golden_Shelf\golden_Shelf.glb`, the rebuilt bookcase. Its new ids then replace the old ones in `Data/Kit` and `assets/kit/Shelf.model.json`.
+- Then the `Scene` models in Workspace can be deleted: the game builds the kit from ids.
 
 ## Shots
 
@@ -80,3 +110,11 @@ The owner imported the spike (`spike.glb`) with Studio's 3D importer on 2026-10-
 - `5_door.jpg`: a modelled door, ajar.
 - `6_lamp_unlit_shade.jpg`: the lamp, its shade unlit.
 - `7_lamp_glow_test.jpg`: the shade glowing through a stand-in mask.
+- `8_bookcase_imported_blurred_wood.jpg`: the first import of the bookcase, its wood blurred and its back pale.
+- `9_bookcase_rebaked_preview.png`: the rebuilt bookcase in Blender's preview.
+- `10_dining_table.jpg`: the dining table and its chairs.
+- `11_grand_hall_rug_clock.jpg`: the grand hall's rug and clock.
+- `12_sofa.jpg`: the sofa.
+- `13_lamp_shade_glowing.jpg`: the floor lamp with its real glow mask, at `Config.Kit.ShadeGlow` 1.1 (1.6 blew it out to white).
+- `14_lamp_light_trapped.jpg`: the modelled shade shadowing its own bulb: light only above and below.
+- `15_lamp_light_all_round.jpg`: the lamp casting no shadow of its own: the corner lit all round.

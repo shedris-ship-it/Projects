@@ -35,7 +35,50 @@ def unwrap(obj, margin=0.01):
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=margin, scale_to_bounds=False)
+    shares = {}
+    for i, slot in enumerate(obj.material_slots):
+        share = slot.material.get("uv_share") if slot.material else None
+        if share:
+            shares[i] = float(share)
+    if shares:
+        _pack_by_share(obj, "BakeUV", shares, margin)
     bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _pack_by_share(obj, layer, shares, margin):
+    """Packs a material's faces into its own band of the texture (bottom up,
+    mat["uv_share"] of its height each) and everything else into the rest,
+    so a crowd of small things (books) can't starve the piece's own
+    surfaces of texels. Edit mode, every face selected on entry."""
+    import bmesh
+
+    bpy.context.scene.tool_settings.use_uv_select_sync = True
+    bands = []
+    y = 0.0
+    for index, share in shares.items():
+        bands.append(({index}, (y, y + share)))
+        y += share
+    rest = {i for i in range(len(obj.material_slots)) if i not in shares}
+    bands.append((rest, (y, 1.0)))
+    for indices, (y0, y1) in bands:
+        bm = bmesh.from_edit_mesh(obj.data)
+        uv = bm.loops.layers.uv[layer]
+        faces = [f for f in bm.faces if f.material_index in indices]
+        if not faces:
+            continue
+        # Stretch the group's islands over its band: the box the packer
+        # then fills (udim_source ORIGINAL_AABB), keeping islands' shapes.
+        us = [l[uv].uv for f in faces for l in f.loops]
+        lo_u, hi_u = min(p.x for p in us), max(p.x for p in us)
+        lo_v, hi_v = min(p.y for p in us), max(p.y for p in us)
+        for p in us:
+            p.x = (p.x - lo_u) / max(hi_u - lo_u, 1e-6)
+            p.y = y0 + (p.y - lo_v) / max(hi_v - lo_v, 1e-6) * (y1 - y0)
+        for f in bm.faces:
+            f.select = f.material_index in indices
+        bmesh.update_edit_mesh(obj.data)
+        bpy.ops.uv.pack_islands(udim_source="ORIGINAL_AABB", rotate=True, scale=True, margin=margin)
+    bpy.ops.mesh.select_all(action="SELECT")
 
 
 def keep_bake_uv(obj):

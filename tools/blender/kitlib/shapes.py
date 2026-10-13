@@ -202,6 +202,22 @@ def turn(obj, degrees=(0, 0, 0), at=(0, 0, 0)):
     return obj
 
 
+def cull(obj, directions, threshold=0.9):
+    """Deletes the faces turned toward any of directions (unit (x, y, z)):
+    the sides of a piece nobody can see, so they take no triangles and no
+    room on its texture (a book's back against the case, its bottom on the
+    shelf)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    dirs = [Vector(d) for d in directions]
+    doomed = [f for f in bm.faces if any(f.normal.dot(d) > threshold for d in dirs)]
+    bmesh.ops.delete(bm, geom=doomed, context="FACES")
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return obj
+
+
 def colour(obj, rgb):
     """Gives every vertex of obj a colour (0-1 linear) in the "Col" attribute,
     for materials that read it (one material for many coloured books)."""

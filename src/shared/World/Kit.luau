@@ -175,10 +175,26 @@ end
 -- (+Z its front); size: its kind's size (Data/Props; the mesh keeps its own,
 -- which Kit.spec holds within it). Returns the mesh it put on, or nil when
 -- the kind stays grey-box.
+-- Whether a prop (by its item's name in its room, Data/Rooms: "books1",
+-- "china", "shelf2") wears its kind's mesh: one kind stands for many things
+-- (a Shelf is a bookcase, a china cabinet or a pantry's shelving), and an
+-- entry with `names` dresses only the items those patterns match.
+function Kit.wears(entry, itemName: string): boolean
+	if not entry.names then
+		return true
+	end
+	for _, pattern in entry.names do
+		if string.match(itemName, pattern) then
+			return true
+		end
+	end
+	return false
+end
+
 function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3): MeshPart?
 	local entry = KitData.Props[kindName]
 	local template = entry and Kit.template(entry.mesh)
-	if not template then
+	if not template or not Kit.wears(entry, model.Name) then
 		return nil
 	end
 	local keep = {}
@@ -195,6 +211,7 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	local turn = CFrame.Angles(0, math.rad(entry.turn or 0), 0)
 	local mesh = visual(template, modelled, cf * CFrame.new(0, modelled.Y / 2, 0) * turn)
 	mesh.Name = "KitBody"
+	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = model
 	return mesh
 end

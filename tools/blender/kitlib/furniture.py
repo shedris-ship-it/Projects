@@ -126,6 +126,9 @@ def bookcase():
     wood = materials.wood("CaseOak", OAK_DARK, OAK_LIGHT, grain_axis="Z", scale=0.9, roughness=0.45)
     wood_x = materials.wood("CaseOakAcross", OAK_DARK, OAK_LIGHT, grain_axis="X", scale=0.9, roughness=0.45)
     books = materials.by_colour("Bindings")
+    # Hundreds of books took most of the case's texture and left the wood
+    # blurred and pale (the owner, 2026-10-12): they get a fixed share of it.
+    books["uv_share"] = 0.3
     parts = []
     t = 0.18
     for sx in (-1, 1):
@@ -163,6 +166,7 @@ def bookcase():
             tall = min(pitch - 0.2, rng.uniform(0.85, 1.35))
             deep = rng.uniform(1.0, 1.4)
             book = shapes.box("Book", (thick, deep, tall), (x + thick / 2, d / 2 - 0.15 - deep / 2, z + 0.06 + tall / 2), 0.015, 1)
+            shapes.cull(book, [(0, 1, 0), (0, 0, -1)])  # its back to the case, its bottom on the shelf
             c = palette[rng.integers(len(palette))]
             fade = rng.uniform(0.75, 1.15)
             shapes.colour(book, tuple(min(1.0, v * fade) for v in c))

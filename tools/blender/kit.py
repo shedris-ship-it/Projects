@@ -150,9 +150,13 @@ def export(objects, out_dir, batch):
 
 
 def main():
+    # `-- <batch> [Piece ...]`: the whole batch, or only the named pieces (to
+    # fix one piece without the owner importing the rest again), written to
+    # build/kit/<batch>_<Piece...>/.
     args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else ["spike"]
-    batch = args[0]
-    out_dir = os.path.join(ROOT, "build", "kit", batch)
+    batch, only = args[0], set(args[1:])
+    name = batch if not only else batch + "_" + "_".join(sorted(only))
+    out_dir = os.path.join(ROOT, "build", "kit", name)
     os.makedirs(out_dir, exist_ok=True)
     clear()
     report = []
@@ -160,6 +164,9 @@ def main():
     spacing = 0.0
     for build in BATCHES[batch]:
         obj = build()
+        if only and obj.name not in only:
+            bpy.data.objects.remove(obj, do_unlink=True)
+            continue
         lo, hi = shapes.bounds(obj)
         size = hi - lo
         # Lay them out side by side for the importer's preview.
@@ -169,7 +176,7 @@ def main():
         bake.bake_piece(obj, out_dir, size=1024)
         objects.append(obj)
         report.append("%-12s %6.2f x %6.2f x %6.2f studs  %6d triangles" % (obj.name, size.x, size.z, size.y, shapes.triangles(obj)))
-    glb, fbx = export(objects, out_dir, batch)
+    glb, fbx = export(objects, out_dir, name)
     report.append("wrote " + os.path.relpath(glb, ROOT))
     report.append("wrote " + os.path.relpath(fbx, ROOT))
     with open(os.path.join(out_dir, "report.txt"), "w") as f:

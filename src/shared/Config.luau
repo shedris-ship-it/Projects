@@ -920,7 +920,7 @@ Config.PostFX = {
 Config.Kit = {
 	-- A modelled lamp's shade at full light: its glow through its emissive
 	-- mask (EffectsController, with the lamp's own colour; hunt red in a hunt).
-	ShadeGlow = 1.6,
+	ShadeGlow = 1.1, -- (1.6 blew the shade out to white, 2026-10-12)
 }
 
 Config.Exterior = {
