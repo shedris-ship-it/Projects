@@ -32,13 +32,27 @@ local loading = false
 local done = Instance.new("BindableEvent")
 local ready = false
 
--- Every kit entry with an id, once per mesh.
+-- Every kit entry with an id, once per mesh: the groups' entries, a prop's
+-- moving pieces and the mesh it hangs on each of its parts (`pieces`,
+-- `each`), and a wall decor's variants.
 local function entriesWithIds()
 	local byMesh = {}
-	for _, group in { KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures } do
+	local function add(entry)
+		if entry.id and entry.mesh and not byMesh[entry.mesh] then
+			byMesh[entry.mesh] = entry
+		end
+	end
+	for _, group in { KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures, KitData.Decor or {} } do
 		for _, entry in group do
-			if entry.id and not byMesh[entry.mesh] then
-				byMesh[entry.mesh] = entry
+			add(entry)
+			for _, piece in entry.pieces or {} do
+				add(piece)
+			end
+			if entry.each then
+				add(entry.each)
+			end
+			for _, variant in entry.variants or {} do
+				add(variant)
 			end
 		end
 	end
@@ -122,6 +136,13 @@ end
 -- chairs had their backs to the table).
 local IMPORT_TURN = CFrame.Angles(0, math.pi, 0)
 
+-- (An entry's `turn`, degrees about Y: a piece whose front faces another way
+-- than a prop's. Trim's front is its part's -Z, toward the room, so it turns
+-- back the half turn every piece gets.)
+local function turnOf(entry): CFrame
+	return CFrame.Angles(0, math.rad(entry.turn or 0), 0)
+end
+
 local function visual(template: MeshPart, size: Vector3, cframe: CFrame): MeshPart
 	local mesh = template:Clone()
 	mesh.Anchored = true
@@ -191,8 +212,70 @@ function Kit.wears(entry, itemName: string): boolean
 	return false
 end
 
+-- A prop's moving pieces (Data/Kit `pieces`: a drawer's front, a chest's
+-- lid): each piece's mesh hangs on the piece's main part, where kit.py built
+-- it round that part's middle (`at`), inside the piece's model so it moves
+-- with it (Services/FurnitureService and Controllers/MotionController move
+-- every part in the model). The grey-box parts it replaces (`hide`) stay as
+-- the game's.
+local function dressPieces(model: Model, entry)
+	for _, spec in entry.pieces or {} do
+		local template = Kit.template(spec.mesh)
+		if not template then
+			continue
+		end
+		for _, child in model:GetChildren() do
+			if not child:IsA("Model") or not string.match(child.Name, spec.match) then
+				continue
+			end
+			local primary = child.PrimaryPart
+			if not primary then
+				continue
+			end
+			local at = spec.at or { 0, 0, 0 }
+			local size = Vector3.new(spec.size[1], spec.size[2], spec.size[3])
+			local mesh = visual(template, size, primary.CFrame * CFrame.new(at[1], at[2], at[3]))
+			mesh.Name = "KitPiece"
+			mesh.Parent = child
+			local names = {}
+			for _, name in spec.hide or {} do
+				names[name] = true
+			end
+			for _, part in child:GetDescendants() do
+				if part:IsA("BasePart") and names[part.Name] then
+					hide(part)
+				end
+			end
+		end
+	end
+end
+
+-- A kind built of several alike things (Data/Kit `each`: the boxes in a
+-- stack): each matching part wears the mesh at its own size.
+local function dressEach(model: Model, entry): MeshPart?
+	local spec = entry.each
+	local template = Kit.template(spec.mesh)
+	if not template then
+		return nil
+	end
+	local last
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and string.match(part.Name, spec.match) then
+			local mesh = visual(template, part.Size, part.CFrame)
+			mesh.Name = "Kit" .. part.Name
+			mesh.Parent = model
+			hide(part)
+			last = mesh
+		end
+	end
+	return last
+end
+
 function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3): MeshPart?
 	local entry = KitData.Props[kindName]
+	if entry and entry.each then
+		return dressEach(model, entry)
+	end
 	local template = entry and Kit.template(entry.mesh)
 	if not template or not Kit.wears(entry, model.Name) then
 		return nil
@@ -216,22 +299,27 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	mesh.Name = "KitBody"
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = model
+	dressPieces(model, entry)
 	return mesh
 end
 
 -- Dresses a door slab (World/LevelBuilder): the mesh sits in the door's
 -- model at the slab, so it swings with it (Services/DoorService moves every
 -- part in the door's model, each keeping its place on the slab). `also`
--- names the slab's grey-box details the mesh replaces (its panels).
-function Kit.dressSlab(slab: BasePart, kind: string, also: { string }?): MeshPart?
+-- names the slab's grey-box details the mesh replaces (its panels). `whole`:
+-- the whole door's frame, when the slab is only part of it (a glazed door's
+-- slab stops at the glass): the mesh stands there at its modelled size.
+function Kit.dressSlab(slab: BasePart, kind: string, also: { string }?, whole: CFrame?): MeshPart?
 	local entry = KitData.Slabs[kind]
 	local template = entry and Kit.template(entry.mesh)
 	local model = slab.Parent
 	if not template or not model then
 		return nil
 	end
-	local size = Vector3.new(slab.Size.X, slab.Size.Y, entry.size[3])
-	local mesh = visual(template, size, slab.CFrame * CFrame.Angles(0, math.rad(entry.turn or 0), 0))
+	local size = if whole
+		then Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+		else Vector3.new(slab.Size.X, slab.Size.Y, entry.size[3])
+	local mesh = visual(template, size, (whole or slab.CFrame) * turnOf(entry))
 	mesh.Name = "KitSlab"
 	mesh.Parent = model
 	hide(slab)
@@ -252,23 +340,128 @@ end
 -- where the part is, at its modelled size, or at the part's own size when
 -- the entry `fit`s (a rail stretched to its length, or slimmed to a bottom
 -- rail). The part stays as the game's (a railing's collider is its own part).
+local function fitted(entry, size: Vector3?): Vector3
+	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+	if not size then
+		return modelled
+	elseif entry.fit == true then
+		return size
+	elseif entry.fit == "y" then
+		return Vector3.new(modelled.X, size.Y, modelled.Z) -- (a baluster stretched to its rail)
+	end
+	return modelled
+end
+
 function Kit.dressPart(part: BasePart, name: string): MeshPart?
 	local entry = KitData.Parts[name]
 	local template = entry and Kit.template(entry.mesh)
 	if not template or not part.Parent then
 		return nil
 	end
-	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
-	if entry.fit == true then
-		size = part.Size
-	elseif entry.fit == "y" then
-		size = Vector3.new(size.X, part.Size.Y, size.Z) -- (a baluster stretched to its rail)
-	end
-	local mesh = visual(template, size, part.CFrame)
+	local mesh = visual(template, fitted(entry, part.Size), part.CFrame * turnOf(entry))
 	mesh.Name = "Kit" .. name
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = part.Parent
 	hide(part)
+	return mesh
+end
+
+-- Puts a piece of the architecture where no grey-box part stands for it
+-- (Data/Kit `Parts`: a stair's tread and riser over its step); `size` for
+-- one that fits. Returns nil when it isn't in.
+function Kit.place(parent: Instance, name: string, cframe: CFrame, size: Vector3?): MeshPart?
+	local entry = KitData.Parts[name]
+	local template = entry and Kit.template(entry.mesh)
+	if not template then
+		return nil
+	end
+	local mesh = visual(template, fitted(entry, size), cframe * turnOf(entry))
+	mesh.Name = "Kit" .. name
+	mesh.CastShadow = entry.shadow ~= false
+	mesh.Parent = parent
+	return mesh
+end
+
+-- Swaps a piece of trim for its kit mesh (Data/Kit `Parts`: a baseboard,
+-- the crown, a casing). Trim is only seen (it never collides, never catches
+-- a ray), so the mesh takes the part's place, name, attributes, tags and
+-- transparency (a seam's trim shown only while it's a wall) and the part
+-- goes. `roll`: degrees about the part's own Z, for a casing's upright legs
+-- (the mesh lies along X; its length then runs up the part). Returns what
+-- stands there now.
+function Kit.swap(part: BasePart, name: string, roll: number?): BasePart
+	local entry = KitData.Parts[name]
+	local template = entry and Kit.template(entry.mesh)
+	if not template or not part.Parent then
+		return part
+	end
+	local size = part.Size
+	if roll and math.abs(roll) == 90 then
+		size = Vector3.new(size.Y, size.X, size.Z)
+	end
+	local mesh =
+		visual(template, fitted(entry, size), part.CFrame * CFrame.Angles(0, 0, math.rad(roll or 0)) * turnOf(entry))
+	mesh.Name = part.Name
+	mesh.Transparency = part.Transparency
+	mesh.CastShadow = part.CastShadow
+	for key, value in part:GetAttributes() do
+		mesh:SetAttribute(key, value)
+	end
+	for _, tag in part:GetTags() do
+		mesh:AddTag(tag)
+	end
+	mesh.Parent = part.Parent
+	part:Destroy()
+	return mesh
+end
+
+-- Dresses a wall decor's model (Data/Kit `Decor`: the window, a painting,
+-- the mirror). `cf` is the decor's frame on the wall (its LookVector into
+-- the room, World/PropFactory.buildDecor); kit.py built the piece out from
+-- the wall, its box's middle `at` = { x, y, out }. A kind with `variants`
+-- wears the `pick`th (from the decor's own seed). The grey-box parts it
+-- replaces (`hide`) stay, unseen; the rest (the glass, the night, a curtain)
+-- are the game's.
+function Kit.dressDecor(model: Model, kind: string, cf: CFrame, pick: number?): MeshPart?
+	local entry = KitData.Decor and KitData.Decor[kind]
+	if not entry then
+		return nil
+	end
+	local meshName = entry.mesh
+	if entry.variants then
+		local n = #entry.variants
+		meshName = entry.variants[((pick or 1) - 1) % n + 1].mesh
+		-- (One not imported yet: the first that is.)
+		if not Kit.template(meshName) then
+			for _, other in entry.variants do
+				if Kit.template(other.mesh) then
+					meshName = other.mesh
+					break
+				end
+			end
+		end
+	end
+	local template = meshName and Kit.template(meshName)
+	if not template then
+		return nil
+	end
+	local at = entry.at or { 0, 0, 0 }
+	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+	-- (Its front is the decor frame's LookVector: undo the half turn every
+	-- piece gets, which faces a prop's front the other way.)
+	local mesh = visual(template, size, cf * CFrame.new(at[1], at[2], -at[3]) * IMPORT_TURN)
+	mesh.Name = "KitBody"
+	mesh.CastShadow = entry.shadow ~= false
+	local names = {}
+	for _, name in entry.hide or {} do
+		names[name] = true
+	end
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and names[part.Name] then
+			hide(part)
+		end
+	end
+	mesh.Parent = model
 	return mesh
 end
 

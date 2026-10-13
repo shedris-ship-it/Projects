@@ -1733,16 +1733,22 @@ function builders.TVStand(model, cf, size, color, material)
 	return screen
 end
 
+-- A chest of drawers stands on a plinth (its feet) under a thick top, its
+-- three drawers between (the kit's Dresser is modelled round them:
+-- tools/blender/kitlib/furniture.py's DRESSER_PLINTH and DRESSER_TOP).
+local DRESSER_PLINTH, DRESSER_TOP = 0.45, 0.15
+
 function builders.Dresser(model, cf, size, color, material)
 	local w, h, d = size.X, size.Y, size.Z
 	part(model, "Body", size, cf * CFrame.new(0, h / 2, 0), color, material)
+	local pitch = (h - DRESSER_PLINTH - DRESSER_TOP) / 3
 	for i = 1, 3 do
-		local y = (i - 0.5) * h / 3
+		local y = DRESSER_PLINTH + (i - 0.5) * pitch
 		local drawer = piece(model, "Drawer" .. i)
 		local front = part(
 			drawer,
 			"Front",
-			Vector3.new(w - 0.5, h / 3 - 0.3, 0.1),
+			Vector3.new(w - 0.5, pitch - 0.12, 0.1),
 			cf * CFrame.new(0, y, d / 2 + 0.03),
 			shade(color, 1.1),
 			material,
@@ -1758,10 +1764,10 @@ function builders.Dresser(model, cf, size, color, material)
 				CYL
 			)
 		end
-		drawerSlot(model, cf, 0, y, d / 2 + 0.025, w - 0.6, h / 3 - 0.4)
+		drawerSlot(model, cf, 0, y, d / 2 + 0.025, w - 0.6, pitch - 0.22)
 		local spot = tray(drawer, cf, {
 			width = w - 0.8,
-			height = h / 3 - 0.5,
+			height = pitch - 0.32,
 			depth = d - 0.5,
 			y = y,
 			front = d / 2 - 0.02,
@@ -2785,6 +2791,10 @@ function PropFactory.buildDecor(
 		)
 		glass.Reflectance = 0.5
 	end
+	-- The kit's modelled piece over the grey-box (World/Kit): the sash
+	-- window, a painting (one of four, by the decor's own seed), the mirror's
+	-- frame. The glass, the night and any curtain stay the game's.
+	Kit.dressDecor(model, kindName, cf, rng:NextInteger(1, 4))
 	model.Parent = parent
 	return model, lightPart
 end

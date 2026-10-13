@@ -220,6 +220,72 @@ def extrude(name, profile, length, location=(0, 0, 0)):
     return smooth(_object(name, bm), 40)
 
 
+def moulding(name, profile, length, location=(0, 0, 0)):
+    """A length of trim lying along X: profile is its closed outline
+    [(y, z), ...] in the wall's section (y out of the wall is negative, the
+    front -Y; z up), swept from -length/2 to length/2. A baseboard, a crown,
+    a casing. Give the outline its full box (World/Kit stretches the box to
+    the game's part, so a profile short of it would be stretched too)."""
+    bm = bmesh.new()
+    left = [bm.verts.new((-length / 2, y, z)) for y, z in profile]
+    right = [bm.verts.new((length / 2, y, z)) for y, z in profile]
+    n = len(profile)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((left[i], left[j], right[j], right[i]))
+    bm.faces.new(list(reversed(left)))
+    bm.faces.new(right)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.translate(bm, vec=Vector(location), verts=bm.verts)
+    return smooth(_object(name, bm), 40)
+
+
+def frame(name, width, height, profile):
+    """A picture or mirror frame lying in the wall's plane (X across, Z up,
+    its front toward -Y, its back on y = 0): profile [(u, d), ...] is the
+    moulding's closed section, u in from the outer edge and d out from the
+    wall (both >= 0). Four lengths, mitred at the corners."""
+    parts = []
+    for turn, along, other in ((0, width / 2, height / 2), (90, height / 2, width / 2), (180, width / 2, height / 2), (270, height / 2, width / 2)):
+        # A "top" length: its outer edge at z = other, running x = +-along.
+        bm = bmesh.new()
+        left = [bm.verts.new((-along, -d, other - u)) for u, d in profile]
+        right = [bm.verts.new((along, -d, other - u)) for u, d in profile]
+        n = len(profile)
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((left[i], left[j], right[j], right[i]))
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        # Mitre both ends on the diagonals through the outer corners.
+        for sx in (-1, 1):
+            geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+            bmesh.ops.bisect_plane(
+                bm,
+                geom=geom,
+                plane_co=(sx * along, 0, other),
+                plane_no=(sx / math.sqrt(2), 0, -1 / math.sqrt(2)),
+                clear_outer=True,
+            )
+        obj = _object(name, bm)
+        obj.rotation_euler = (0, math.radians(turn), 0)
+        apply_transform(obj)
+        parts.append(smooth(obj, 40))
+    return join(parts, name)
+
+
+def cut_below(obj, z):
+    """Cuts away everything under height z, square (a window's casing on
+    three sides, its feet on the sill)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+    bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(0, 0, z), plane_no=(0, 0, -1), clear_outer=True)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    return obj
+
+
 def cull(obj, directions, threshold=0.9):
     """Deletes the faces turned toward any of directions (unit (x, y, z)):
     the sides of a piece nobody can see, so they take no triangles and no
@@ -284,6 +350,8 @@ def rotate(obj, degrees, axis="Z"):
 __all__ = [
     "box",
     "lathe",
+    "moulding",
+    "frame",
     "turned_leg",
     "panel_slab",
     "join",

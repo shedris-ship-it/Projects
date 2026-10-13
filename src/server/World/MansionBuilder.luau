@@ -221,6 +221,19 @@ local function flight(model, roomCF: CFrame, from: Vector3, to: Vector3, width: 
 			surface.material,
 			{ collide = false, variant = surface.variant }
 		)
+		-- The kit's tread and riser over it (World/Kit): the tread's top a
+		-- little over the step's and its nose out over the riser below, the
+		-- riser just in front of the step's face (+Z of `frame` faces down
+		-- the flight), so no two faces share a plane.
+		local riseOne = rise / steps
+		local over, nose = 0.04, 0.12
+		local height = riseOne + over
+		Kit.place(
+			model,
+			"StairStep",
+			frame * CFrame.new(0, (top + over - height / 2) - (bottom + (top - bottom) / 2), nose / 2),
+			Vector3.new(width, height, tread + nose)
+		)
 		if runner then
 			PropFactory.part(
 				model,

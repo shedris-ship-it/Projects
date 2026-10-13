@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, bake, furniture, materials, shapes, swatches  # noqa: E402
+from kitlib import architecture, bake, decor, furniture, materials, shapes, swatches, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -132,6 +132,11 @@ BATCHES = {
     # hall's chandelier, the rooms' pendant and the sconces; and the
     # golden area's surfaces as swatches (kitlib/swatches).
     "golden2": architecture.GOLDEN2 + swatches.GOLDEN,
+    # The kit's first rollout batch (V4): the trim every room has (baseboard,
+    # crown, casing, dado rail), the stair's steps, the doors and their knob,
+    # the sash window; the halls' paintings, mirror and plant; the chest of
+    # drawers and its drawer, the blanket chest and its lid, the moving box.
+    "kit3": trim.ARCH + decor.DECOR + furniture.CORRIDOR,
 }
 
 
@@ -184,10 +189,14 @@ def main():
         # middle is in the game's frame (x; z with the front +Z; Blender's
         # front is -Y), so World/Kit puts it back.
         centre = (round((lo.x + hi.x) / 2, 3), round(-(lo.y + hi.y) / 2, 3))
+        # (The middle of its box in all three: x, up, z with the front +Z.
+        # A wall piece's z is how far out from the wall; a moving piece's is
+        # from the middle of the grey-box part it hangs on.)
+        at = (round((lo.x + hi.x) / 2, 3), round((lo.z + hi.z) / 2, 3), round(-(lo.y + hi.y) / 2, 3))
         if bounds_only:
             report.append(
-                "%-16s size %.2f x %.2f x %.2f  centre = { %g, %g }  floor %.3f"
-                % (obj.name, size.x, size.z, size.y, centre[0], centre[1], lo.z)
+                "%-16s size %.2f x %.2f x %.2f  centre = { %g, %g }  at = { %g, %g, %g }  floor %.3f"
+                % (obj.name, size.x, size.z, size.y, centre[0], centre[1], at[0], at[1], at[2], lo.z)
             )
             bpy.data.objects.remove(obj, do_unlink=True)
             continue
@@ -196,11 +205,12 @@ def main():
         spacing += size.x + 2.0
         if not obj.get("swatch"):  # (a swatch carries its own maps: kitlib/swatches)
             bake.unwrap(obj)
-            bake.bake_piece(obj, out_dir, size=1024)
+            # (Small things get a smaller texture: a knob, a drawer's front.)
+            bake.bake_piece(obj, out_dir, size=int(obj.get("bake_size", 1024)))
         objects.append(obj)
         report.append(
-            "%-12s %6.2f x %6.2f x %6.2f studs  %6d triangles  centre = { %g, %g }"
-            % (obj.name, size.x, size.z, size.y, shapes.triangles(obj), centre[0], centre[1])
+            "%-14s %6.2f x %6.2f x %6.2f studs  %6d triangles  centre = { %g, %g }  at = { %g, %g, %g }"
+            % (obj.name, size.x, size.z, size.y, shapes.triangles(obj), centre[0], centre[1], at[0], at[1], at[2])
         )
     if bounds_only:
         print("KIT_REPORT")

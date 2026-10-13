@@ -29,6 +29,13 @@
 --        hide its own bulb's light)
 -- turn:  degrees about Y if a piece faces another way (0: its front is +Z in
 --        kit.py, which World/Kit turns to meet the importer)
+-- pieces: a prop's moving pieces' own meshes, each hung on its piece's main
+--        part (a drawer's Front, a chest's Lid): `match` (the piece's model
+--        name, a Lua pattern), `mesh`, `id`, `size`, `at` (where its box's
+--        middle is from that part's middle, { x, y, z }: kit.py's report) and
+--        `hide` (the piece's grey-box parts it stands for)
+-- each:  instead of one mesh for the prop, one on each part whose name
+--        matches (`match`), fitted to that part (the boxes in a stack)
 
 return {
 	Props = {
@@ -75,10 +82,49 @@ return {
 		-- emissive mask the fire drives: Controllers/FireController); it keeps
 		-- its shadow, so the fire lights the room out of the opening only.
 		Fireplace = { mesh = "Fireplace", id = 96892886241539, size = { 7, 4.42, 2.4 }, keep = { "Firebox" } },
+		-- kit.py kit3 (the V4 rollout's first batch: the halls and bedrooms).
+		Plant = { mesh = "Plant", id = 139600462191881, size = { 1.68, 4.48, 1.87 }, centre = { 0.031, -0.002 } },
+		-- Its drawers' fronts are their own (they slide out); the dark slot
+		-- behind an open one is the game's.
+		Dresser = {
+			mesh = "Dresser",
+			id = 115378518543178,
+			size = { 6, 3.6, 2.5 },
+			keep = { "Slot" },
+			pieces = {
+				{
+					match = "^Drawer%d",
+					mesh = "DresserDrawer",
+					id = 72312584490027,
+					size = { 5.5, 0.88, 0.24 },
+					at = { 0, 0, 0.068 },
+					hide = { "Front", "Knob" },
+				},
+			},
+		},
+		Chest = {
+			mesh = "Chest",
+			id = 82192598903046,
+			size = { 5.05, 2.4, 3 },
+			pieces = {
+				{
+					match = "^Lid$",
+					mesh = "ChestLid",
+					id = 92806527760040,
+					size = { 5.1, 0.95, 3.09 },
+					at = { 0, -0.175, 0.02 },
+					hide = { "Lid", "Latch" },
+				},
+			},
+		},
+		Boxes = { each = { match = "^Box%d", mesh = "Box", id = 79591403484128, size = { 4, 1.61, 4.02 } } },
 	},
 	-- Door slabs (World/LevelBuilder's "Slab"), fitted to the slab.
 	Slabs = {
-		Door = { mesh = "Door", id = 76133714825437, size = { 5.8, 7.8, 0.43 } },
+		Door = { mesh = "Door", id = 120563615441757, size = { 5.8, 7.8, 0.48 } },
+		-- A gate into a wing, glazed above its sill (kit.py kit3): over the
+		-- whole door, its glass the game's.
+		GlassDoor = { mesh = "GlassDoor", id = 92159403589343, size = { 5.8, 7.8, 0.48 } },
 	},
 	-- The architecture's pieces (kit.py golden2), each in place of one
 	-- grey-box part (World/MansionBuilder's railings and the grand staircase;
@@ -88,6 +134,18 @@ return {
 		Baluster = { mesh = "Baluster", id = 90124072108267, size = { 0.25, 3.1, 0.24 }, fit = "y" },
 		Newel = { mesh = "Newel", id = 124411410635746, size = { 0.86, 3.8, 0.86 } },
 		Handrail = { mesh = "Handrail", id = 131992520560699, size = { 0.45, 0.3, 4 }, fit = true },
+		-- kit.py kit3: the trim, a moulding's section stretched along each run
+		-- (World/Trim swaps its parts: World/Kit.swap). Their front is the
+		-- part's -Z (toward the room), the other way to a prop's: `turn`.
+		Baseboard = { mesh = "Baseboard", id = 130034150257135, size = { 4, 0.7, 0.14 }, fit = true, turn = 180 },
+		Crown = { mesh = "Crown", id = 89075899246670, size = { 4, 0.45, 0.3 }, fit = true, turn = 180 },
+		Casing = { mesh = "Casing", id = 87005014162128, size = { 4, 0.55, 0.18 }, fit = true, turn = 180 },
+		DadoRail = { mesh = "DadoRail", id = 122725608496664, size = { 4, 0.2, 0.12 }, fit = true, turn = 180 },
+		-- A step's walnut tread and cream riser (World/MansionBuilder's flight,
+		-- World/Kit.place), fitted to each step.
+		StairStep = { mesh = "StairStep", id = 118825365690466, size = { 6, 0.54, 1.12 }, fit = true },
+		-- A door's knob set, through the door.
+		Knob = { mesh = "Knob", id = 138656063626281, size = { 0.52, 0.52, 0.94 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -109,6 +167,44 @@ return {
 			size = { 0.9, 1.15, 0.95 },
 			floor = 0.15,
 			centre = { 0, -0.025 },
+			shadow = false,
+		},
+	},
+	-- Wall decor (World/PropFactory.buildDecor; World/Kit.dressDecor), built
+	-- out from the wall: `at` = { x, y, out } of its box's middle; `hide`: the
+	-- grey-box parts it stands for (the glass, the night, curtains and blinds
+	-- stay the game's); `variants`: one of these, by the decor's own seed.
+	Decor = {
+		-- A double-hung sash window, six panes over six (kit.py kit3).
+		Window = {
+			mesh = "Window",
+			id = 101840155990362,
+			size = { 6.3, 5, 0.5 },
+			at = { 0, 0, 0.25 },
+			hide = { "Frame", "Sill", "MuntinH", "MuntinV" },
+		},
+		-- Four old landscapes in gilt frames (kit.py kit3, kitlib/paintings).
+		-- No shadow: a sconce on the same wall shines along it, and the frame
+		-- standing 0.25 out put its own picture and a long stretch of wall in
+		-- the dark (seen 2026-10-13).
+		Painting = {
+			variants = {
+				{ mesh = "Painting1", id = 115264976402379 },
+				{ mesh = "Painting2", id = 114887369258049 },
+				{ mesh = "Painting3", id = 80018179966532 },
+				{ mesh = "Painting4", id = 129743371634638 },
+			},
+			size = { 5, 4, 0.25 },
+			at = { 0, 0, 0.125 },
+			hide = { "Frame", "Canvas", "Horizon", "Shape" },
+			shadow = false,
+		},
+		Mirror = {
+			mesh = "Mirror",
+			id = 136546360057247,
+			size = { 3, 5, 0.3 },
+			at = { 0, 0, 0.15 },
+			hide = { "Frame" },
 			shadow = false,
 		},
 	},

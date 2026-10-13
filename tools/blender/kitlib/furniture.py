@@ -374,3 +374,212 @@ def rug():
 
 
 GOLDEN = [dining_table, sofa, armchair, bookcase, grandfather_clock, coat_rack, hall_bench, rug]
+
+
+# The corridor's and the bedrooms' furniture (the visual rework V4c). Pieces
+# that open come as two meshes: the body, and the moving piece built round
+# the middle of its grey-box part (a drawer's Front, a chest's Lid), so
+# World/Kit can hang it on that part and it moves with it.
+
+DRESSER_PLINTH, DRESSER_TOP = 0.45, 0.15  # World/PropFactory's Dresser: drawers between
+
+
+def dresser():
+    """A walnut chest of drawers, 6 x 3.6 x 2.5 (Data/Props' Dresser): a
+    moulded top, a carcass whose face shows between the drawers, a plinth on
+    bracket feet. Its three drawers are DresserDrawer (World/PropFactory
+    hangs them between the plinth and the top)."""
+    w, h, d = 6.0, 3.6, 2.5
+    wood = materials.wood("DresserWalnut", WALNUT_DARK, WALNUT_LIGHT, grain_axis="Z", scale=1.1, roughness=0.4)
+    wood_x = materials.wood("DresserWalnutAcross", WALNUT_DARK, WALNUT_LIGHT, grain_axis="X", scale=1.1, roughness=0.36)
+    parts = []
+    face = d / 2 - 0.03  # the carcass's face: just behind the drawers' (World/PropFactory's at d/2 - 0.02)
+    body_d = face + d / 2
+    body_c = (face - d / 2) / 2
+    # The carcass: its sides and the face frame round the drawers (the dark
+    # behind an open drawer is the game's Slot).
+    for sx in (-1, 1):
+        side = shapes.box("Side", (0.16, body_d, h - DRESSER_PLINTH - DRESSER_TOP + 0.02), (sx * (w / 2 - 0.13), -body_c, DRESSER_PLINTH + (h - DRESSER_PLINTH - DRESSER_TOP) / 2), 0.02, 2)
+        parts.append(materials.assign(side, wood))
+    pitch = (h - DRESSER_PLINTH - DRESSER_TOP) / 3
+    for i in range(4):
+        z = DRESSER_PLINTH + i * pitch
+        rail = shapes.box("Rail", (w - 0.26, 0.06, 0.14 if 0 < i < 3 else 0.1), (0, -face + 0.03, z), 0.02, 2)
+        parts.append(materials.assign(rail, wood_x))
+    for sx in (-1, 1):
+        stile = shapes.box("Stile", (0.2, 0.06, h - DRESSER_PLINTH - DRESSER_TOP), (sx * (w / 2 - 0.16), -face + 0.03, DRESSER_PLINTH + (h - DRESSER_PLINTH - DRESSER_TOP) / 2), 0.02, 2)
+        parts.append(materials.assign(stile, wood))
+    # The back, and the dark inside behind the face (seen past an open
+    # drawer, round the game's dark slot).
+    back = shapes.box("Back", (w - 0.3, 0.08, h - DRESSER_PLINTH - DRESSER_TOP), (0, d / 2 - 0.04, DRESSER_PLINTH + (h - DRESSER_PLINTH - DRESSER_TOP) / 2), 0.0)
+    parts.append(materials.assign(back, materials.paint("DresserInside", color=(30, 24, 18), roughness=0.9, grime=0.0)))
+    # The top: a thick board with a thumbnail edge, over the sides and front.
+    top = shapes.box("Top", (w, d, DRESSER_TOP - 0.02), (0, 0, h - (DRESSER_TOP - 0.02) / 2), 0.05, 3)
+    parts.append(materials.assign(top, wood_x))
+    under = shapes.box("TopMould", (w - 0.12, d - 0.1, 0.05), (0, 0.04, h - DRESSER_TOP + 0.005), 0.02, 2)
+    parts.append(materials.assign(under, wood_x))
+    # The plinth: a moulding round the bottom, bracket feet at the corners.
+    plinth = shapes.box("Plinth", (w - 0.04, d - 0.08, 0.16), (0, 0.02, DRESSER_PLINTH - 0.08), 0.04, 2)
+    parts.append(materials.assign(plinth, wood_x))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            foot = shapes.box("Foot", (0.5, 0.5, DRESSER_PLINTH - 0.16), (sx * (w / 2 - 0.27), sy * (d / 2 - 0.29), (DRESSER_PLINTH - 0.16) / 2), 0.05, 2)
+            parts.append(materials.assign(foot, wood))
+    # The skirt between the front feet.
+    skirt = shapes.box("Skirt", (w - 1.1, 0.08, 0.12), (0, -(d / 2 - 0.08), DRESSER_PLINTH - 0.22), 0.02, 2)
+    parts.append(materials.assign(skirt, wood_x))
+    return shapes.join(parts, "Dresser")
+
+
+def dresser_drawer():
+    """One of the dresser's drawers' fronts, 5.5 x 0.88 x 0.1 round the middle
+    of World/PropFactory's Front (its back face at +0.05, Blender's +Y): a
+    lipped walnut front with a cock bead and two brass bail pulls on round
+    backplates."""
+    w, h, t = 5.5, 0.88, 0.1
+    wood = materials.wood("DrawerWalnut", WALNUT_DARK, WALNUT_LIGHT, grain_axis="X", scale=1.1, roughness=0.36)
+    brass = materials.brass("DrawerBrass", color=(150, 118, 70))
+    parts = []
+    front = shapes.box("Front", (w, t, h), (0, 0, 0), 0.03, 3)
+    parts.append(materials.assign(front, wood))
+    # A raised field with a bevel, the cock bead round the edge.
+    field = shapes.box("Field", (w - 0.5, 0.03, h - 0.3), (0, -t / 2 - 0.01, 0), 0.025, 2)
+    parts.append(materials.assign(field, wood))
+    for sx in (-1, 1):
+        x = sx * w * 0.2
+        plate = shapes.lathe("Backplate", [(0.0, 0.0), (0.16, 0.0), (0.17, 0.015), (0.12, 0.03), (0.0, 0.035)], steps=20)
+        shapes.turn(plate, (90, 0, 0), (x, -t / 2 - 0.0, 0.02))
+        parts.append(materials.assign(plate, brass))
+        for px in (-0.13, 0.13):
+            post = shapes.lathe("Post", [(0.0, 0.0), (0.03, 0.0), (0.025, 0.08), (0.035, 0.1), (0.0, 0.11)], steps=10)
+            shapes.turn(post, (90, 0, 0), (x + px, -t / 2 - 0.02, 0.06))
+            parts.append(materials.assign(post, brass))
+        bail = shapes.roll("Bail", 0.32, 0.018, (0, 0, 0), axis="X", steps=8)
+        shapes.turn(bail, (0, 0, 0), (x, -t / 2 - 0.12, -0.02))
+        parts.append(materials.assign(bail, brass))
+    piece = shapes.join(parts, "DresserDrawer")
+    piece["bake_size"] = 512
+    return piece
+
+
+CHEST_WALL = 0.9  # World/PropFactory's Chest: the lid 0.6, the floor 0.3
+
+
+def chest():
+    """A blanket chest, 5 x 2.4 x 3 under its lid (Data/Props' Chest, 3 high
+    with it): oak boards with iron straps at the corners, a moulded plinth,
+    an iron handle at each end, a dark papered inside. Its lid is ChestLid."""
+    w, h, d = 5.0, 3.0, 3.0
+    oak = materials.wood("ChestOak", OAK_DARK, OAK_LIGHT, grain_axis="X", scale=1.0, roughness=0.55)
+    oak_up = materials.wood("ChestOakUp", OAK_DARK, OAK_LIGHT, grain_axis="Z", scale=1.0, roughness=0.55)
+    iron = materials.paint("ChestIron", color=(34, 32, 30), roughness=0.55, grime=0.2)
+    lining = materials.paint("ChestLining", color=(70, 58, 44), roughness=0.9, grime=0.4)
+    top = h - 0.6
+    parts = []
+    t = 0.2
+    inset = 0.05
+    for sy in (-1, 1):
+        wall = shapes.box("Wall", (w - 2 * inset, t, top - 0.12), (0, sy * (d / 2 - inset - t / 2), 0.12 + (top - 0.12) / 2), 0.03, 2)
+        parts.append(materials.assign(wall, oak))
+    for sx in (-1, 1):
+        end = shapes.box("End", (t, d - 2 * inset - 2 * t, top - 0.12), (sx * (w / 2 - inset - t / 2), 0, 0.12 + (top - 0.12) / 2), 0.03, 2)
+        parts.append(materials.assign(end, oak))
+    floor = shapes.box("Floor", (w - 2 * inset - 2 * t, d - 2 * inset - 2 * t, 0.06), (0, 0, 0.3), 0.0)
+    parts.append(materials.assign(floor, lining))
+    # The lining up the inside of the walls.
+    for sy in (-1, 1):
+        sheet = shapes.box("Lining", (w - 2 * inset - 2 * t, 0.01, top - 0.36), (0, sy * (d / 2 - inset - t - 0.005), 0.33 + (top - 0.36) / 2), 0.0)
+        parts.append(materials.assign(sheet, lining))
+    for sx in (-1, 1):
+        sheet = shapes.box("Lining", (0.01, d - 2 * inset - 2 * t, top - 0.36), (sx * (w / 2 - inset - t - 0.005), 0, 0.33 + (top - 0.36) / 2), 0.0)
+        parts.append(materials.assign(sheet, lining))
+    plinth = shapes.box("Plinth", (w, d, 0.22), (0, 0, 0.11), 0.04, 2)
+    parts.append(materials.assign(plinth, oak))
+    # A moulded lip round the top of the walls (open in the middle: the lid
+    # shuts on it).
+    for sy in (-1, 1):
+        lip = shapes.box("Lip", (w - 0.04, t + 0.06, 0.06), (0, sy * (d / 2 - inset - t / 2 + 0.01), top - 0.03), 0.02, 2)
+        parts.append(materials.assign(lip, oak))
+    for sx in (-1, 1):
+        lip = shapes.box("Lip", (t + 0.06, d - 2 * inset - 2 * t, 0.06), (sx * (w / 2 - inset - t / 2 + 0.01), 0, top - 0.03), 0.02, 2)
+        parts.append(materials.assign(lip, oak))
+    # Iron straps over the corners.
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for along in ("x", "y"):
+                size = (0.5, 0.02, 0.18) if along == "x" else (0.02, 0.5, 0.18)
+                x = sx * (w / 2 - inset - (0.25 if along == "x" else -0.01))
+                y = sy * (d / 2 - inset + 0.01) if along == "x" else sy * (d / 2 - inset - 0.25)
+                for z in (0.45, top - 0.25):
+                    strap = shapes.box("Strap", size, (x, y, z), 0.008, 1)
+                    parts.append(materials.assign(strap, iron))
+        # An iron handle on each end: a plate and a drop ring.
+        plate = shapes.box("HandlePlate", (0.03, 0.5, 0.22), (sx * (w / 2 - inset + 0.015), 0, top - 0.6), 0.01, 1)
+        parts.append(materials.assign(plate, iron))
+        ring = shapes.roll("Handle", 0.42, 0.03, (0, 0, 0), axis="Y", steps=8)
+        shapes.turn(ring, (0, 0, 0), (sx * (w / 2 - inset + 0.05), 0, top - 0.78))
+        parts.append(materials.assign(ring, iron))
+    # The hasp's staple on the front, under the lid's hasp.
+    staple = shapes.box("Staple", (0.22, 0.05, 0.16), (0, -(d / 2 - inset + 0.025), top - 0.35), 0.015, 1)
+    parts.append(materials.assign(staple, iron))
+    _ = oak_up
+    return shapes.join(parts, "Chest")
+
+
+def chest_lid():
+    """The blanket chest's lid, 5.1 x 0.6 x 3.05 round the middle of World/
+    PropFactory's Lid board: a moulded thumbnail edge, a raised field on top,
+    and the iron hasp hanging over the
+    front (the grey-box's Latch) down to the chest's staple."""
+    w, h, d = 5.1, 0.6, 3.05
+    oak = materials.wood("LidOak", OAK_DARK, OAK_LIGHT, grain_axis="X", scale=1.0, roughness=0.5)
+    iron = materials.paint("LidIron", color=(34, 32, 30), roughness=0.55, grime=0.2)
+    parts = []
+    board = shapes.box("Board", (w, d, h * 0.55), (0, 0, -h / 2 + h * 0.275), 0.06, 3)
+    parts.append(materials.assign(board, oak))
+    field = shapes.box("Field", (w - 0.5, d - 0.5, h * 0.45), (0, 0, h / 2 - h * 0.225), 0.12, 4)
+    parts.append(materials.assign(field, oak))
+    hasp = shapes.box("Hasp", (0.18, 0.04, 0.62), (0, -d / 2 - 0.02, -h / 2 - 0.04), 0.015, 1)
+    parts.append(materials.assign(hasp, iron))
+    return shapes.join(parts, "ChestLid")
+
+
+def box():
+    """A cardboard moving box, 4 x 1.6 x 4 (World/PropFactory's Boxes stack
+    them, sized down): its flaps taped shut, the tape run down the sides, a
+    corner crushed, a word in marker on the side."""
+    w, h, d = 4.0, 1.6, 4.0
+    card = materials.paint("Cardboard", color=(150, 118, 80), roughness=0.85, grime=0.45)
+    tape = materials.paint("Tape", color=(176, 150, 104), roughness=0.3, grime=0.1)
+    ink = materials.paint("Marker", color=(26, 24, 24), roughness=0.6, grime=0.0)
+    parts = []
+    body = shapes.box("Box", (w, d, h), (0, 0, h / 2), 0.04, 2)
+    # Dents: the corners pushed in a little.
+    for v in body.data.vertices:
+        if v.co.z > h - 0.05 and v.co.x > w / 2 - 0.3 and v.co.y < -d / 2 + 0.3:
+            v.co.z -= 0.08
+    parts.append(materials.assign(body, card))
+    seam = shapes.box("Seam", (0.02, d - 0.1, 0.012), (0, 0, h + 0.004), 0.0)
+    parts.append(materials.assign(seam, ink))
+    strip = shapes.box("Tape", (0.5, d + 0.02, 0.01), (0, 0, h + 0.008), 0.0)
+    parts.append(materials.assign(strip, tape))
+    for sy in (-1, 1):
+        down = shapes.box("Tape", (0.5, 0.01, 0.55), (0, sy * (d / 2 + 0.006), h - 0.27), 0.0)
+        parts.append(materials.assign(down, tape))
+    # A word scrawled on the front: a few strokes.
+    import random
+
+    rng = random.Random(7)
+    x = -1.1
+    for _ in range(5):
+        for _ in range(2):
+            stroke = shapes.box("Ink", (0.04, 0.008, rng.uniform(0.25, 0.42)), (0, 0, 0), 0.0)
+            shapes.turn(stroke, (0, rng.uniform(-35, 35), 0), (x + rng.uniform(0, 0.18), -d / 2 - 0.005, 0.8 + rng.uniform(-0.05, 0.05)))
+            parts.append(materials.assign(stroke, ink))
+        x += 0.42
+    piece = shapes.join(parts, "Box")
+    piece["bake_size"] = 512
+    return piece
+
+
+CORRIDOR = [dresser, dresser_drawer, chest, chest_lid, box]

@@ -20,6 +20,7 @@
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local Attr = Constants.Attributes
@@ -38,6 +39,10 @@ local UP = Vector3.new(0, 1, 0)
 local NO_BLOCK = { collide = false, query = false, castShadow = false }
 
 local Trim = {}
+
+-- Trim the kit has a moulding for (Data/Kit `Parts`): its profile stretched
+-- along each run.
+local MOULDED = { Baseboard = true, Crown = true, DadoRail = true }
 
 local function wood(): (Color3, Enum.Material)
 	return PropFactory.rgb(T.Wood), PropFactory.material("Wood")
@@ -68,7 +73,7 @@ local function segment(
 		return nil
 	end
 	local mid = (a + b) / 2 + normal * (depth / 2) + UP * (y + height / 2)
-	return PropFactory.part(
+	local p = PropFactory.part(
 		parent,
 		name,
 		Vector3.new(length, height, depth),
@@ -77,6 +82,9 @@ local function segment(
 		material,
 		{ collide = false, query = false, castShadow = false, variant = variant }
 	)
+	-- The kit's moulding in its place, when it's in (World/Kit; not the
+	-- wainscot's flat panelling).
+	return if MOULDED[name] then Kit.swap(p, name) else p
 end
 
 -- The lower third of a formal room's walls: wood panelling under a dado rail
@@ -323,7 +331,9 @@ local function casing(parent, face: CFrame, tagPart: (BasePart?) -> (), width: n
 			material,
 			NO_BLOCK
 		)
-		tagPart(p)
+		-- The kit's moulded casing (World/Kit), lying along the head and
+		-- stood up for the legs, its back band away from the opening.
+		tagPart(Kit.swap(p, "Casing", if x < 0 then 90 elseif x > 0 then -90 else 0))
 	end
 	piece("Casing", -(DOOR_W / 2 + w / 2), (DOOR_H + w) / 2, w, DOOR_H + w)
 	piece("Casing", DOOR_W / 2 + w / 2, (DOOR_H + w) / 2, w, DOOR_H + w)

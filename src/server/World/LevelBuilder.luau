@@ -1149,10 +1149,18 @@ function LevelBuilder.seamDoor(world, seam, record, roomA, midpoint: Vector3, no
 			end
 		end
 	end
-	-- The kit's modelled door over the grey-box slab and its panels, for a
-	-- plain door (World/Kit; a glazed or hidden door keeps its own build).
-	if not glazed and not hidden then
+	-- The kit's modelled door over the grey-box slab and its panels (World/
+	-- Kit): a plain door, or a gate's glazed one over its slab, frame and
+	-- panels (its glass is the game's). A hidden door keeps its own build.
+	if glazed and not hidden then
+		-- (The whole door's frame where it rests now, ajar or not.)
+		Kit.dressSlab(slab, "GlassDoor", { "Panel", "Stile", "Rail", "Muntin" }, slab.CFrame * closed:Inverse() * full)
+	elseif not hidden then
 		Kit.dressSlab(slab, "Door", { "Panel" })
+	end
+	local knob = doorModel:FindFirstChild("Knob")
+	if knob then
+		Kit.dressPart(knob, "Knob")
 	end
 	doorModel.Parent = roomA.model
 	setId(slab, doorId, "Door")
