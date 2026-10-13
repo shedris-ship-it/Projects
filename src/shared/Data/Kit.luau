@@ -16,6 +16,10 @@
 -- size:  the size it was modelled at, in studs { x, y, z } (kit.py's
 --        report): World/Kit fits it to the prop's own size, and Kit.spec
 --        checks they agree, so nothing is stretched out of shape
+-- centre: where the middle of its box sits in the prop's frame, { x, z } with
+--        the front +Z (kit.py's report): the importer centres a mesh on its
+--        box, so a lopsided one (a cornice overhanging the front) would sit
+--        off the grey-box; none: { 0, 0 }
 -- keep:  the grey-box parts that stay visible because the game draws on them
 --        or animates them (a clock's face and hands, a screen)
 -- names: the item names (Lua patterns, Data/Rooms ids) that wear it, when the
@@ -31,7 +35,13 @@ return {
 		-- The spike (tools/blender/kit.py spike; imported 2026-10-12, again
 		-- with the lamp shade's glow mask).
 		-- (Not the nursery's rocker or the music room's stool.)
-		Chair = { mesh = "Chair", id = 94660495904035, size = { 2.5, 4.02, 2.42 }, names = { "^chair" } },
+		Chair = {
+			mesh = "Chair",
+			id = 94660495904035,
+			size = { 2.5, 4.02, 2.42 },
+			names = { "^chair" },
+			centre = { 0, -0.042 },
+		},
 		-- Its bulb shines through the linen all round, as the old block shade let
 		-- it (the owner, 2026-10-12: a shade that shadows its own bulb only lets
 		-- light out of the bottom): no shadow from the lamp itself.
@@ -39,16 +49,23 @@ return {
 		-- The golden room (kit.py golden; imported 2026-10-12): the grand hall,
 		-- the dining room, the living room.
 		DiningTable = { mesh = "DiningTable", id = 89708986746860, size = { 6, 3.4, 12 } },
-		Sofa = { mesh = "Sofa", id = 112802030819273, size = { 9, 3.5, 3.97 } },
-		Armchair = { mesh = "Armchair", id = 79903202176202, size = { 4, 4, 3.97 } },
+		Sofa = { mesh = "Sofa", id = 112802030819273, size = { 9, 3.5, 3.97 }, centre = { 0, -0.012 } },
+		Armchair = { mesh = "Armchair", id = 79903202176202, size = { 4, 4, 3.97 }, centre = { 0, -0.012 } },
 		-- The living room's and the study's bookcases only (the china cabinet and
 		-- the utility rooms' shelving wait for their own).
-		Shelf = { mesh = "Shelf", id = 78480435296134, size = { 8.2, 9, 2.12 }, names = { "^books" } },
+		Shelf = {
+			mesh = "Shelf",
+			id = 76759148172076,
+			size = { 8.2, 9, 2.12 },
+			names = { "^books" },
+			centre = { 0, 0.06 },
+		},
 		-- The case only: the face, hands, pendulum and glass are the game's own.
 		GrandfatherClock = {
 			mesh = "GrandfatherClock",
 			id = 87290908046199,
 			size = { 2.66, 8.38, 2.14 },
+			centre = { 0, 0.01 },
 			keep = { "Bezel", "Dial", "Tick", "HourHand", "MinuteHand", "Cap", "Pendulum", "Door" },
 		},
 		CoatRack = { mesh = "CoatRack", id = 90933748796114, size = { 1.32, 7, 1.32 } },

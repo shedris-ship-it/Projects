@@ -48,6 +48,16 @@ return function(test, check, Shared, require)
 		check.truthy(Kit.Props.Chair.id, "the spike's chair is imported")
 	end)
 
+	test("a piece's centre is a small nudge within its prop", function()
+		for name, entry in Kit.Props do
+			if entry.centre then
+				check.equal(#entry.centre, 2, name .. "'s centre is { x, z }")
+				check.atMost(math.abs(entry.centre[1]), 0.5, name .. "'s centre x")
+				check.atMost(math.abs(entry.centre[2]), 0.5, name .. "'s centre z")
+			end
+		end
+	end)
+
 	test("the door slab's mesh fits the slab", function()
 		local door = Kit.Slabs.Door
 		check.truthy(door, "a door entry")

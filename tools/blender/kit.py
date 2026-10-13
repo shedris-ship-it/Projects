@@ -153,7 +153,10 @@ def main():
     # `-- <batch> [Piece ...]`: the whole batch, or only the named pieces (to
     # fix one piece without the owner importing the rest again), written to
     # build/kit/<batch>_<Piece...>/.
+    # `--bounds` anywhere: only print each piece's box (no bake, no export).
     args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else ["spike"]
+    bounds_only = "--bounds" in args
+    args = [a for a in args if a != "--bounds"]
     batch, only = args[0], set(args[1:])
     name = batch if not only else batch + "_" + "_".join(sorted(only))
     out_dir = os.path.join(ROOT, "build", "kit", name)
@@ -169,13 +172,34 @@ def main():
             continue
         lo, hi = shapes.bounds(obj)
         size = hi - lo
+        # Studio's importer centres a mesh on its box, but the game puts a
+        # piece where its grey-box's middle is: a box made lopsided by an
+        # overhang (a bookcase's cornice) sits off by the difference, and its
+        # back went into the wall. Data/Kit's `centre` = where the box's
+        # middle is in the game's frame (x; z with the front +Z; Blender's
+        # front is -Y), so World/Kit puts it back.
+        centre = (round((lo.x + hi.x) / 2, 3), round(-(lo.y + hi.y) / 2, 3))
+        if bounds_only:
+            report.append(
+                "%-16s size %.2f x %.2f x %.2f  centre = { %g, %g }  floor %.3f"
+                % (obj.name, size.x, size.z, size.y, centre[0], centre[1], lo.z)
+            )
+            bpy.data.objects.remove(obj, do_unlink=True)
+            continue
         # Lay them out side by side for the importer's preview.
         obj.location.x += spacing - lo.x
         spacing += size.x + 2.0
         bake.unwrap(obj)
         bake.bake_piece(obj, out_dir, size=1024)
         objects.append(obj)
-        report.append("%-12s %6.2f x %6.2f x %6.2f studs  %6d triangles" % (obj.name, size.x, size.z, size.y, shapes.triangles(obj)))
+        report.append(
+            "%-12s %6.2f x %6.2f x %6.2f studs  %6d triangles  centre = { %g, %g }"
+            % (obj.name, size.x, size.z, size.y, shapes.triangles(obj), centre[0], centre[1])
+        )
+    if bounds_only:
+        print("KIT_REPORT")
+        print("\n".join(report))
+        return
     glb, fbx = export(objects, out_dir, name)
     report.append("wrote " + os.path.relpath(glb, ROOT))
     report.append("wrote " + os.path.relpath(fbx, ROOT))

@@ -209,7 +209,10 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	local _ = size
 	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
 	local turn = CFrame.Angles(0, math.rad(entry.turn or 0), 0)
-	local mesh = visual(template, modelled, cf * CFrame.new(0, modelled.Y / 2, 0) * turn)
+	-- (Where its box's middle belongs, Data/Kit `centre`: a bookcase's front
+	-- cornice put its back 0.06 into the wall, which showed between the books.)
+	local centre = entry.centre or { 0, 0 }
+	local mesh = visual(template, modelled, cf * CFrame.new(centre[1], modelled.Y / 2, centre[2]) * turn)
 	mesh.Name = "KitBody"
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = model

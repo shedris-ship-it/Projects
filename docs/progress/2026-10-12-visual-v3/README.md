@@ -1,4 +1,4 @@
-# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` to `.181`)
+# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` to `.182`)
 
 The models come from Blender, built by script (the owner's choice, 2026-10-12). Blender 5.2.2 runs headless from `A:\Tools\blender-5.2.2-windows-x64\blender-5.2.2-windows-x64\blender.exe`.
 
@@ -99,17 +99,30 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 
 - **Imported** (`golden_Shelf.glb`, mesh `78480435296134`) and in the game. Under a lamp to one side, the wood is sharp: the frame, the grained shelves, a dark back behind the books (shot 16).
 - **Under the torch, the back flared pale between the books** (shot 17).
-  - It isn't see-through: a red sheet placed behind it on one client never showed.
-  - It's the varnish. At roughness 0.45 the case is glossy, and the torch shines from the eye.
-- **Since the torch is how players see most furniture:**
-  - the case is now roughness 0.62;
-  - the back is its own plain, darker, unfinished board at 0.85 (`kitlib/furniture.py` `CaseBack`).
-- Rebuilt in `build/kit/golden_Shelf/`; it needs one more import.
+  - First guess: the varnish. At roughness 0.45 the case is glossy, and the torch shines from the eye.
+  - So the case went to roughness 0.62, and the back became its own plain, darker, unfinished board at 0.85 (`kitlib/furniture.py` `CaseBack`). Imported again: mesh `76759148172076`.
+  - It still flared (shot 18). Turning off eye adaptation (`LensBypass` "exposure") changed nothing.
+
+## Pieces placed by their centre (build `.182`)
+
+**The real cause of the flare:**
+- Studio's importer centres a mesh on its box, and the game puts that centre at the grey-box's middle.
+- The bookcase's cornice overhangs the front, so its box's middle is 0.06 studs in front of the case's middle. The whole mesh sat 0.06 too far back, and its thin back panel went into the wall.
+- What showed between the books was the wall's plaster, in front of the panel.
+- (The red-sheet test had put the sheet inside the wall too, so it proved nothing.)
+
+**The fix:**
+- `kit.py` reports each piece's `centre` (where its box's middle is in the prop's frame, `{ x, z }` with the front +Z). `kit.py <batch> --bounds` prints them without baking.
+- `Data/Kit` gives the lopsided pieces their centre: the bookcase `{ 0, 0.06 }`, the chair `{ 0, -0.042 }`, the sofa and armchair `{ 0, -0.012 }`, the clock `{ 0, 0.01 }`.
+- `World/Kit` places each mesh by it. `Kit.spec` keeps it a small nudge.
+
+**Under the torch now:** dark grained wood between the books (shot 19). The matte varnish stays: it suits a torch-lit house anyway.
+
+**Gate A re-baselined:** parts 2308, hash **919916609** (the nudged meshes).
 
 ## Waiting on the owner
 
-- **Import** `build\kit\golden_Shelf\golden_Shelf.glb` once more (the matte back). Its new ids then replace the old ones in `Data/Kit` and `assets/kit/Shelf.model.json`.
-- Then the `Scene` models in Workspace can be deleted: the game builds the kit from ids.
+- Nothing for the kit right now. The `Scene` models in Workspace (every import so far) can be deleted: the game builds the kit from ids.
 
 ## Shots
 
@@ -131,3 +144,5 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 - `15_lamp_light_all_round.jpg`: the lamp casting no shadow of its own: the corner lit all round.
 - `16_bookcase_sharp_wood.jpg`: the rebuilt bookcase in the old house, under a lamp to one side: sharp wood, a dark back.
 - `17_bookcase_torch_flare.jpg`: the same under the torch: the glossy back flares pale between the books (fixed in the next build of the piece).
+- `18_bookcase_back_in_the_wall.jpg`: the matte bookcase under the torch, still pale between the books: the wall's plaster in front of its back.
+- `19_bookcase_centred.jpg`: placed by its centre: dark grained wood between the books under the torch.
