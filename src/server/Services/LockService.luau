@@ -35,6 +35,7 @@ local GuestKeys = require(Shared.Logic.GuestKeys)
 local ToolLocks = require(Shared.Logic.ToolLocks)
 local Sfx = require(Shared.Lib.Sfx)
 local Signal = require(Shared.Lib.Signal)
+local Kit = require(Shared.World.Kit)
 
 local PA = Constants.PlayerAttributes
 local M = Config.Marks
@@ -218,6 +219,15 @@ end
 -- padlock on a hasp for a code, a bolt on the side it slides from, and for
 -- an electric lock a box with a lamp (red until the fuse box powers it).
 -- Above it, the door's mark.
+-- Each kind's modelled plate (Data/Kit Parts); any other is a keyhole's.
+local PLATE_KIT = {
+	padlock = "Hasp",
+	bolt = "Bolt",
+	power = "PowerBox",
+	levers = "PowerBox",
+	double = "KeyPlateDouble",
+}
+
 local function plate(door, lock)
 	local slab = door.slab
 	local brass = Color3.fromRGB(168, 138, 78)
@@ -267,6 +277,11 @@ local function plate(door, lock)
 			p.CFrame = face * CFrame.new(0, 0.6, side * 0.03)
 		end
 		p.Parent = folder
+		-- Its modelled hardware over it, its front out of this face.
+		local out = side > 0 and CFrame.identity or CFrame.Angles(0, math.pi, 0)
+		if Kit.place(folder, PLATE_KIT[lock.kind] or "KeyPlate", p.CFrame * out) then
+			Kit.hide(p)
+		end
 		if lock.mark then
 			markDisc(folder, face, side, lock.mark)
 		end
@@ -353,6 +368,7 @@ local function boards(door, steps: number, parent: Instance): Model
 			p.CFrame = (closed.Rotation + at) * CFrame.new(0, 0, side * 0.66) * CFrame.Angles(0, 0, tilt)
 			p:SetAttribute("Step", i)
 			p.Parent = model
+			Kit.swap(p, "Plank") -- (the modelled plank takes its place and its step)
 		end
 	end
 	model:SetAttribute("RunContent", true)
@@ -453,7 +469,7 @@ local function chain(door, parent: Instance): Model
 		local lowPoint = (lowest + at(knobX, knobY - 0.1, side * 0.3) + at(eyeX, knobY - 0.08, side * (casing + 0.12)))
 			/ 3
 		local hangAt = face + lowPoint
-		metal(
+		local shackle = metal(
 			model,
 			"Shackle",
 			Vector3.new(0.05, 0.26, 0.26),
@@ -461,13 +477,17 @@ local function chain(door, parent: Instance): Model
 			Color3.fromRGB(150, 150, 156),
 			Enum.PartType.Cylinder
 		)
-		metal(
+		local padlock = metal(
 			model,
 			"Padlock",
 			Vector3.new(0.36, 0.42, 0.16),
 			hangAt * CFrame.new(0, -0.38, 0),
 			Color3.fromRGB(70, 70, 74)
 		)
+		-- The modelled padlock has its own shackle.
+		if Kit.dressPart(padlock, "Padlock") then
+			Kit.hide(shackle)
+		end
 	end
 	model:SetAttribute("RunContent", true)
 	model.Parent = parent
@@ -528,6 +548,7 @@ local function pieceFixings(kind: string, frame: CFrame, size: Vector3, steps: n
 			plank.CFrame = frame * CFrame.new(0, y, face) * CFrame.Angles(0, 0, tilt)
 			plank:SetAttribute("Step", i)
 			plank.Parent = model
+			Kit.swap(plank, "Plank")
 		end
 	else
 		local spanX, spanY = w * 0.4, (high - low) / 2
@@ -546,6 +567,7 @@ local function pieceFixings(kind: string, frame: CFrame, size: Vector3, steps: n
 		lock.Size = Vector3.new(0.5, 0.6, 0.25)
 		lock.CFrame = middle * CFrame.new(0, -0.2, 0.12)
 		lock.Parent = model
+		Kit.dressPart(lock, "Padlock")
 	end
 	-- Where its prompt hangs: its middle, just out from the front.
 	local anchor = Instance.new("Part")
@@ -1089,13 +1111,19 @@ function LockService:_loosePlank(plank: BasePart)
 	model.Name = "Plank"
 	local copy = plank:Clone()
 	copy:SetAttribute("Step", nil)
-	copy.Size = Vector3.new(plank.Size.X * 0.8, 0.14, 0.55)
+	-- (The modelled plank, World/Kit: a thing now, the body your hands hold.)
+	copy:SetAttribute("Kit", nil)
+	-- Shorter, and lying on its face (turned, never squashed: the kit's mesh
+	-- would stretch).
+	copy.Size = Vector3.new(plank.Size.X * 0.8, plank.Size.Y, plank.Size.Z)
 	local floor = plank.Position.Y
 	local ray = workspace:Raycast(plank.Position, Vector3.new(0, -12, 0))
 	if ray then
 		floor = ray.Position.Y
 	end
-	copy.CFrame = CFrame.new(plank.Position.X, floor + 0.08, plank.Position.Z) * plank.CFrame.Rotation
+	copy.CFrame = CFrame.new(plank.Position.X, floor + plank.Size.Z / 2 + 0.01, plank.Position.Z)
+		* plank.CFrame.Rotation
+		* CFrame.Angles(math.pi / 2, 0, 0)
 	copy.Parent = model
 	model.PrimaryPart = copy
 	model.Parent = parent

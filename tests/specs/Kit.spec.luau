@@ -5,6 +5,7 @@ return function(test, check, Shared, require)
 	local Kit = require(Shared.Data.Kit)
 	local Props = require(Shared.Data.Props)
 	local Config = require(Shared.Config)
+	local Valuables = require(Shared.Data.Valuables)
 
 	-- How far a modelled piece may differ from the grey-box it dresses, as a
 	-- share of each side (a raised panel or a cushion's curve stands proud).
@@ -59,7 +60,7 @@ return function(test, check, Shared, require)
 				check.truthy(entry.id > 0 and entry.id == math.floor(entry.id), name .. "'s id is an asset id")
 			end
 		end
-		for _, group in { Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor } do
+		for _, group in { Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor, Kit.Things } do
 			for name, entry in group do
 				idOf(name, entry)
 				for _, piece in entry.pieces or {} do
@@ -153,5 +154,43 @@ return function(test, check, Shared, require)
 		check.atMost(math.abs(door.size[1] - width) / width, TOLERANCE, "slab width")
 		check.atMost(math.abs(door.size[2] - height) / height, TOLERANCE, "slab height")
 		check.atMost(door.size[3], 0.6, "no thicker than a door")
+	end)
+
+	test("the escape's things name their meshes, and their lids hide the game's", function()
+		for name, entry in Kit.Things do
+			check.equal(type(entry.mesh), "string", name .. " names its mesh")
+			check.equal(#entry.size, 3, name .. " gives its modelled size")
+			-- (Small things: the key rack and the display case are the biggest.)
+			for axis = 1, 3 do
+				check.atMost(entry.size[axis], 2, string.format("%s axis %d: a thing, not furniture", name, axis))
+			end
+			for _, piece in entry.pieces or {} do
+				check.equal(piece.match, "^Lid$", name .. "'s moving piece is its lid")
+				check.equal(#(piece.at or { 0, 0, 0 }), 3, piece.mesh .. "'s at is { x, y, z }")
+				check.truthy(piece.hide and #piece.hide > 0, piece.mesh .. " hides the lid it stands for")
+			end
+		end
+	end)
+
+	test("every valuable has its look, within the room it takes on a top", function()
+		for _, valuable in Valuables do
+			local entry = Kit.Things[valuable.id]
+			check.truthy(entry, valuable.id .. " has a kit entry")
+			-- (Data/Valuables' size is its footprint, { x, z }: what it claims
+			-- on a surface, World/Dressing.)
+			check.atMost(entry.size[1], valuable.size[1] * (1 + TOLERANCE), valuable.id .. " fits its footprint across")
+			check.atMost(entry.size[3], valuable.size[2] * (1 + TOLERANCE), valuable.id .. " fits its footprint deep")
+		end
+	end)
+
+	test("a placed piece's offset and scaled fit are well formed", function()
+		for name, entry in Kit.Parts do
+			if entry.at then
+				check.equal(#entry.at, 3, name .. "'s at is { x, y, z }")
+			end
+			if entry.fit ~= nil then
+				check.truthy(entry.fit == true or entry.fit == "y" or entry.fit == "scale", name .. "'s fit is known")
+			end
+		end
 	end)
 end

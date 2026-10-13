@@ -2,11 +2,14 @@
 -- a paper tag, the heirlooms the dinner needs, the family's valuables (worth
 -- carrying out) and the computer's printout.
 -- Built where they lie; Services/ItemService makes them things your hands
--- can take (Data/Physical lists their classes by model name).
+-- can take (Data/Physical lists their classes by model name). Each wears its
+-- modelled look (World/Kit.dressThing, Data/Kit `Things`) over the parts the
+-- hands carry.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local part = PropFactory.part
@@ -61,6 +64,7 @@ function Items.key(at: CFrame, label: string, parent: Instance, glyph: string?):
 		FLAT
 	)
 	tagText(tag, (glyph and glyph ~= "") and (glyph .. " " .. label) or label)
+	Kit.dressThing(model, "Key", at)
 	model.Parent = parent
 	return model
 end
@@ -189,6 +193,7 @@ function Items.heirloom(kind: string, at: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = "Heirloom"
 	heirlooms[kind](model, at)
+	Kit.dressThing(model, kind, at)
 	model.Parent = parent
 	return model
 end
@@ -302,6 +307,7 @@ function Items.valuable(kind: string, at: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = "Valuable"
 	valuables[kind](model, at)
+	Kit.dressThing(model, kind, at)
 	model.Parent = parent
 	return model
 end

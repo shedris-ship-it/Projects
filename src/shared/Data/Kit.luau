@@ -42,6 +42,7 @@
 -- floor: the bottom of its box above the floor (a curtain hangs clear of it)
 -- rises: it stands taller than its kind (a TV on its stand: things stand on
 --        tops, so only the footprint is held to the kind's size)
+-- fit:   (Parts) "scale": the whole piece scaled to the part's width
 
 return {
 	Props = {
@@ -412,6 +413,29 @@ return {
 		StairStep = { mesh = "StairStep", id = 118825365690466, size = { 6, 0.54, 1.12 }, fit = true },
 		-- A door's knob set, through the door.
 		Knob = { mesh = "Knob", id = 138656063626281, size = { 0.52, 0.52, 0.94 } },
+		-- kit.py kit6: the locks' hardware (Services/LockService), in place of
+		-- each grey-box plate on both faces of a locked door, its front out of
+		-- the door (World/Kit.place). `at`: its box's middle from the plate's.
+		KeyPlate = { mesh = "KeyPlate", id = 120854738275270, size = { 0.3, 0.6, 0.06 } },
+		KeyPlateDouble = { mesh = "KeyPlateDouble", id = 100910471241381, size = { 0.3, 1.3, 0.06 } },
+		Hasp = { mesh = "Hasp", id = 125760970342588, size = { 0.26, 0.6, 0.2 }, at = { 0, -0.02, 0 } },
+		Bolt = { mesh = "Bolt", id = 130454074450521, size = { 1.28, 0.22, 0.1 }, at = { 0.04, 0.027, -0.012 } },
+		PowerBox = { mesh = "PowerBox", id = 106778325120999, size = { 0.48, 0.79, 0.16 } },
+		-- A chain's padlock as wide as the game's (`fit` "scale"), its shackle
+		-- over the body (World/Kit.dressPart).
+		Padlock = {
+			mesh = "Padlock",
+			id = 109213005676995,
+			size = { 0.36, 0.66, 0.18 },
+			fit = "scale",
+			at = { 0, 0.12, 0 },
+		},
+		-- A plank nailed across a door or a chest, fitted to each (World/Kit.swap).
+		Plank = { mesh = "Plank", id = 75844709919411, size = { 7.04, 0.55, 0.17 }, fit = true },
+		-- A place at the dinner (Services/FinaleService): its plate and candle,
+		-- round their middles; the card and the flame are the game's.
+		DinnerPlate = { mesh = "DinnerPlate", id = 76849261321340, size = { 1.3, 0.08, 1.3 } },
+		TableCandle = { mesh = "TableCandle", id = 101457396689717, size = { 0.28, 0.62, 0.28 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -472,6 +496,129 @@ return {
 			at = { 0, 0, 0.15 },
 			hide = { "Frame" },
 			shadow = false,
+		},
+	},
+	-- The escape's things (kit.py kit6, kitlib/things; World/Kit.dressThing):
+	-- each stands on the frame its builder was given (World/Items: where it
+	-- lies; World/LeadProps: a box's place, a key rack's middle), `centre`,
+	-- `floor`, `keep` and `pieces` as a prop's. The hands carry the grey-box
+	-- (Services/HandsService), the mesh welded to it.
+	Things = {
+		-- Its paper tag is the game's, written on.
+		Key = {
+			mesh = "Key",
+			id = 121353418041503,
+			size = { 0.82, 0.07, 0.27 },
+			centre = { -0.096, 0.007 },
+			floor = -0.009,
+			keep = { "Tag" },
+		},
+		-- The heirlooms, by World/Items.Heirlooms id.
+		Candlestick = { mesh = "Candlestick", id = 131901863423276, size = { 0.6, 1.8, 0.6 } },
+		PocketWatch = {
+			mesh = "PocketWatch",
+			id = 76337101598846,
+			size = { 0.86, 0.14, 0.95 },
+			centre = { 0.13, -0.176 },
+			floor = -0.025,
+		},
+		Locket = {
+			mesh = "Locket",
+			id = 103040709172146,
+			size = { 0.84, 0.13, 0.84 },
+			centre = { 0.003, -0.205 },
+			floor = -0.02,
+		},
+		Doll = { mesh = "Doll", id = 100647881429023, size = { 0.54, 1.02, 0.54 } },
+		Cup = { mesh = "ChristeningCup", id = 90511645936859, size = { 0.61, 0.59, 0.47 }, centre = { 0.072, 0 } },
+		-- The valuables, by Data/Valuables id.
+		CarriageClock = { mesh = "CarriageClock", id = 123516832753045, size = { 0.66, 0.88, 0.46 } },
+		JewelleryBox = {
+			mesh = "JewelleryBox",
+			id = 134664438972180,
+			size = { 0.98, 0.47, 0.65 },
+			centre = { 0, -0.005 },
+		},
+		SilverTeapot = {
+			mesh = "SilverTeapot",
+			id = 119028869629952,
+			size = { 0.62, 0.68, 1.02 },
+			centre = { 0, -0.054 },
+		},
+		CashBox = { mesh = "CashBox", id = 123282168571868, size = { 0.97, 0.49, 0.66 }, centre = { 0, -0.006 } },
+		-- The keepsake boxes, by LeadProps.KeepsakeLooks, each with its lid.
+		KeepsakeWood = {
+			mesh = "KeepsakeWood",
+			id = 88803256910229,
+			size = { 1.15, 0.5, 0.81 },
+			centre = { 0, 0.005 },
+			pieces = {
+				{
+					match = "^Lid$",
+					mesh = "KeepsakeWoodLid",
+					id = 104370739716495,
+					size = { 1.19, 0.12, 0.84 },
+					hide = { "Lid", "Corner" },
+				},
+			},
+		},
+		KeepsakeTin = {
+			mesh = "KeepsakeTin",
+			id = 80727432939445,
+			size = { 1.16, 0.5, 0.81 },
+			pieces = {
+				{
+					match = "^Lid$",
+					mesh = "KeepsakeTinLid",
+					id = 126571458847268,
+					size = { 1.2, 0.13, 0.84 },
+					at = { 0, 0.015, 0 },
+					hide = { "Lid", "Band" },
+				},
+			},
+		},
+		KeepsakeVelvet = {
+			mesh = "KeepsakeVelvet",
+			id = 84985523142103,
+			size = { 1.17, 0.5, 0.82 },
+			pieces = {
+				{
+					match = "^Lid$",
+					mesh = "KeepsakeVelvetLid",
+					id = 100739862925129,
+					size = { 1.24, 0.23, 0.89 },
+					at = { 0, -0.025, 0.007 },
+					hide = { "Lid", "Clasp" },
+				},
+			},
+		},
+		-- Its glass is the game's; so is its lock plate, where the pick prompt
+		-- hangs (the hands look past a hidden part that doesn't collide).
+		DisplayCase = {
+			mesh = "DisplayCase",
+			id = 125621439553367,
+			size = { 1.3, 0.24, 1.04 },
+			centre = { 0, 0.019 },
+			keep = { "Lock", "Keyhole" },
+			pieces = {
+				{
+					match = "^Lid$",
+					mesh = "DisplayCaseCover",
+					id = 133623076628507,
+					size = { 1.26, 0.87, 0.97 },
+					at = { 0, -0.35, 0.005 },
+					hide = { "Frame" },
+				},
+			},
+		},
+		Figurine = { mesh = "Figurine", id = 87832522154805, size = { 0.31, 0.64, 0.31 } },
+		-- On a wall, round its board's middle, its back on the wall.
+		KeyRack = {
+			mesh = "KeyRack",
+			id = 121990939714753,
+			size = { 1.9, 0.8, 0.32 },
+			centre = { 0, 0.158 },
+			floor = -0.4,
 		},
 	},
 }

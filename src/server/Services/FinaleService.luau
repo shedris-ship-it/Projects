@@ -34,6 +34,7 @@ local Objectives = require(Shared.Logic.Objectives)
 local ToolLocks = require(Shared.Logic.ToolLocks)
 local Props = require(Shared.Data.Props)
 local RoomRects = require(Shared.Logic.RoomRects)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Sfx = require(Shared.Lib.Sfx)
 local Items = require(script.Parent.Parent.World.Items)
@@ -645,10 +646,19 @@ function FinaleService:_place(index: number, at: CFrame, folder: Instance, wants
 	label.Text = wants and self.Items:Label(wants) or "..."
 	label.Parent = gui
 	gui.Parent = card
-	part(model, "Candle", Vector3.new(0.6, 0.16, 0.16), at * CFrame.new(0.8, 0.3, -0.7) * UPRIGHT, white, china, {
-		collide = false,
-		shape = CYL,
-	})
+	local candle =
+		part(model, "Candle", Vector3.new(0.6, 0.16, 0.16), at * CFrame.new(0.8, 0.3, -0.7) * UPRIGHT, white, china, {
+			collide = false,
+			shape = CYL,
+		})
+	-- The modelled china and candlestick (Data/Kit Parts) over the plate and
+	-- the candle; the card and the flame are the game's.
+	if Kit.place(model, "DinnerPlate", at * CFrame.new(0, 0.04, 0)) then
+		Kit.hide(plate)
+	end
+	if Kit.place(model, "TableCandle", at * CFrame.new(0.8, 0.31, -0.7)) then
+		Kit.hide(candle)
+	end
 	local flame = part(
 		model,
 		"Flame",
@@ -702,7 +712,13 @@ function FinaleService:_ghost(token: string, at: CFrame, parent: Instance): Mode
 			d.MaterialVariant = ""
 			d.Color = Color3.fromRGB(D.GhostColor[1], D.GhostColor[2], D.GhostColor[3])
 			d.Transparency = math.max(d.Transparency, D.GhostTransparency)
-		elseif d:IsA("Decal") or d:IsA("Texture") or d:IsA("SurfaceGui") or d:IsA("Light") then
+		elseif
+			d:IsA("Decal")
+			or d:IsA("Texture")
+			or d:IsA("SurfaceGui")
+			or d:IsA("Light")
+			or d:IsA("SurfaceAppearance") -- (its modelled look: the shadow is one colour)
+		then
 			d:Destroy()
 		end
 	end

@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, bake, decor, furniture, house, living, materials, shapes, swatches, trim  # noqa: E402
+from kitlib import architecture, bake, decor, furniture, house, living, materials, shapes, swatches, things, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -144,6 +144,10 @@ BATCHES = {
     # kitchen, the utility rooms, the car, the lantern's shrine, the front
     # door (kitlib/house).
     "kit5": house.HOUSE,
+    # The fourth (V4d): the escape's things: the key, the heirlooms and the
+    # valuables, the leads that keep them, the locks' hardware, the dinner's
+    # places (kitlib/things).
+    "kit6": things.THINGS,
 }
 
 

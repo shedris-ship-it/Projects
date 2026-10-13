@@ -42,7 +42,9 @@ local function entriesWithIds()
 			byMesh[entry.mesh] = entry
 		end
 	end
-	for _, group in { KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures, KitData.Decor or {} } do
+	for _, group in
+		{ KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures, KitData.Decor or {}, KitData.Things or {} }
+	do
 		for _, entry in group do
 			add(entry)
 			for _, piece in entry.pieces or {} do
@@ -172,6 +174,7 @@ local function hide(part: BasePart)
 		end
 	end
 end
+Kit.hide = hide
 
 -- The parts of a prop that belong to its static body: not inside a moving
 -- piece (a Model of its own: a drawer, a door, a lid), not kept.
@@ -289,12 +292,10 @@ local function dressEach(model: Model, entry): MeshPart?
 	return last
 end
 
-function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3): MeshPart?
-	local entry = KitData.Props[kindName]
-	if entry and entry.each then
-		return dressEach(model, entry)
-	end
-	entry = entry and Kit.choose(entry, model.Name)
+-- A modelled body in place of a model's grey-box: the parts not kept are
+-- hidden, the mesh stands on `cf` (its floor; +Z its front) and the moving
+-- pieces wear theirs.
+local function dressBody(model: Model, entry, cf: CFrame): MeshPart?
 	local template = entry and Kit.template(entry.mesh)
 	if not template then
 		return nil
@@ -308,7 +309,6 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	end
 	-- At the size it was modelled at (never stretched to the grey-box's box:
 	-- a coat rack is narrower than its footprint), standing on the floor.
-	local _ = size
 	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
 	local turn = CFrame.Angles(0, math.rad(entry.turn or 0), 0)
 	-- (Where its box's middle belongs, Data/Kit `centre`: a bookcase's front
@@ -322,6 +322,25 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	mesh.Parent = model
 	dressPieces(model, entry)
 	return mesh
+end
+
+function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3): MeshPart?
+	local entry = KitData.Props[kindName]
+	if entry and entry.each then
+		return dressEach(model, entry)
+	end
+	local _ = size
+	return dressBody(model, entry and Kit.choose(entry, model.Name), cf)
+end
+
+-- Dresses one of the escape's things where its builder laid it (Data/Kit
+-- `Things`: a key, an heirloom, a valuable, a keepsake box and its lid, the
+-- display case, the key rack; World/Items, World/LeadProps). `at` is the
+-- frame the builder was given: a thing's place on its surface, a wall
+-- thing's middle. Nothing it does changes: its grey-box parts stay its body
+-- for the hands (Services/HandsService welds the mesh to them).
+function Kit.dressThing(model: Model, name: string, at: CFrame): MeshPart?
+	return dressBody(model, KitData.Things and KitData.Things[name], at)
 end
 
 -- Dresses a door slab (World/LevelBuilder): the mesh sits in the door's
@@ -361,16 +380,27 @@ end
 -- where the part is, at its modelled size, or at the part's own size when
 -- the entry `fit`s (a rail stretched to its length, or slimmed to a bottom
 -- rail). The part stays as the game's (a railing's collider is its own part).
-local function fitted(entry, size: Vector3?): Vector3
+local function fitted(entry, size: Vector3?): (Vector3, number)
 	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
 	if not size then
-		return modelled
+		return modelled, 1
 	elseif entry.fit == true then
-		return size
+		return size, 1
 	elseif entry.fit == "y" then
-		return Vector3.new(modelled.X, size.Y, modelled.Z) -- (a baluster stretched to its rail)
+		return Vector3.new(modelled.X, size.Y, modelled.Z), 1 -- (a baluster stretched to its rail)
+	elseif entry.fit == "scale" then
+		-- All of it, as wide as the part (a padlock, its shackle above).
+		local k = size.X / modelled.X
+		return modelled * k, k
 	end
-	return modelled
+	return modelled, 1
+end
+
+-- Where a placed piece's middle goes from the part's (`at`, scaled with it:
+-- a padlock's box rises over its body to take in the shackle).
+local function lifted(entry, k: number): CFrame
+	local at = entry.at
+	return at and CFrame.new(at[1] * k, at[2] * k, at[3] * k) or CFrame.identity
 end
 
 function Kit.dressPart(part: BasePart, name: string): MeshPart?
@@ -379,7 +409,8 @@ function Kit.dressPart(part: BasePart, name: string): MeshPart?
 	if not template or not part.Parent then
 		return nil
 	end
-	local mesh = visual(template, fitted(entry, part.Size), part.CFrame * turnOf(entry))
+	local size, k = fitted(entry, part.Size)
+	local mesh = visual(template, size, part.CFrame * lifted(entry, k) * turnOf(entry))
 	mesh.Name = "Kit" .. name
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = part.Parent
@@ -396,7 +427,8 @@ function Kit.place(parent: Instance, name: string, cframe: CFrame, size: Vector3
 	if not template then
 		return nil
 	end
-	local mesh = visual(template, fitted(entry, size), cframe * turnOf(entry))
+	local fit, k = fitted(entry, size)
+	local mesh = visual(template, fit, cframe * lifted(entry, k) * turnOf(entry))
 	mesh.Name = "Kit" .. name
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = parent
@@ -421,7 +453,7 @@ function Kit.swap(part: BasePart, name: string, roll: number?): BasePart
 		size = Vector3.new(size.Y, size.X, size.Z)
 	end
 	local mesh =
-		visual(template, fitted(entry, size), part.CFrame * CFrame.Angles(0, 0, math.rad(roll or 0)) * turnOf(entry))
+		visual(template, (fitted(entry, size)), part.CFrame * CFrame.Angles(0, 0, math.rad(roll or 0)) * turnOf(entry))
 	mesh.Name = part.Name
 	mesh.Transparency = part.Transparency
 	mesh.CastShadow = part.CastShadow

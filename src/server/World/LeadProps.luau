@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Joint = require(Shared.Lib.Joint)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local part = PropFactory.part
@@ -152,6 +153,8 @@ function LeadProps.keepsake(cf: CFrame, parent: Instance, look: number): Model
 		spot = cf * CFrame.new(0, 0.09, 0.05),
 		label = "Keepsake box",
 	})
+	-- Its modelled look by its style ("KeepsakeWood"), its lid's on the lid.
+	Kit.dressThing(model, "Keepsake" .. string.upper(string.sub(style.name, 1, 1)) .. string.sub(style.name, 2), cf)
 	model.Parent = parent
 	return model
 end
@@ -260,6 +263,7 @@ function LeadProps.displayCase(cf: CFrame, parent: Instance)
 		spot = spot,
 		label = "Display case",
 	})
+	Kit.dressThing(model, "DisplayCase", cf)
 	model.Parent = parent
 	return model, spot, panes, plate
 end
@@ -306,6 +310,7 @@ function LeadProps.figurine(at: CFrame, parent: Instance): Model
 		smooth,
 		{ collide = false, shape = BALL }
 	)
+	Kit.dressThing(model, "Figurine", at)
 	model.Parent = parent
 	return model
 end
@@ -354,6 +359,7 @@ function LeadProps.keyRack(cf: CFrame, parent: Instance)
 			* CFrame.new(x, -0.26, 0.2)
 			* CFrame.fromMatrix(Vector3.zero, Vector3.new(0, -1, 0), Vector3.new(0, 0, 1))
 	end
+	Kit.dressThing(model, "KeyRack", cf)
 	model.Parent = parent
 	return model, hangs
 end
