@@ -36,6 +36,12 @@
 --        `hide` (the piece's grey-box parts it stands for)
 -- each:  instead of one mesh for the prop, one on each part whose name
 --        matches (`match`), fitted to that part (the boxes in a stack)
+-- others: more entries for the same kind, each with its own `names` (a Shelf
+--        is a bookcase, a china cabinet or steel shelving): an item wears
+--        the first that names it
+-- floor: the bottom of its box above the floor (a curtain hangs clear of it)
+-- rises: it stands taller than its kind (a TV on its stand: things stand on
+--        tops, so only the footprint is held to the kind's size)
 
 return {
 	Props = {
@@ -48,6 +54,24 @@ return {
 			size = { 2.5, 4.02, 2.42 },
 			names = { "^chair" },
 			centre = { 0, -0.042 },
+			-- kit.py kit4: the nursery's rocking chair, the music room's stool.
+			others = {
+				{
+					names = { "^rocker" },
+					mesh = "Rocker",
+					id = 102228877288522,
+					size = { 2.39, 3.98, 2.44 },
+					floor = 0.021,
+				},
+				{
+					names = { "^stool" },
+					mesh = "Stool",
+					id = 98570492499744,
+					size = { 1.82, 2.2, 1.75 },
+					centre = { 0.081, 0 },
+					floor = 0.03,
+				},
+			},
 		},
 		-- Its bulb shines through the linen all round, as the old block shade let
 		-- it (the owner, 2026-10-12: a shade that shadows its own bulb only lets
@@ -66,6 +90,18 @@ return {
 			size = { 8.2, 9, 2.12 },
 			names = { "^books" },
 			centre = { 0, 0.06 },
+			-- kit.py kit4: the dining room's china cabinet; the utility rooms'
+			-- steel shelving (the pantry, laundry, garage, storerooms).
+			others = {
+				{
+					names = { "^china" },
+					mesh = "ChinaCabinet",
+					id = 85964663679049,
+					size = { 8.1, 8.92, 2.13 },
+					centre = { 0, 0.065 },
+				},
+				{ names = { "^shelf" }, mesh = "UtilityShelf", id = 133643658880042, size = { 8, 9, 2 } },
+			},
 		},
 		-- The case only: the face, hands, pendulum and glass are the game's own.
 		GrandfatherClock = {
@@ -118,6 +154,103 @@ return {
 			},
 		},
 		Boxes = { each = { match = "^Box%d", mesh = "Box", id = 79591403484128, size = { 4, 1.61, 4.02 } } },
+		-- kit.py kit4 (V4c: the living rooms, the study, the bedrooms). The TV's
+		-- glowing screen is the game's (its light, and its static:
+		-- Controllers/TVController); the set stands on the stand.
+		TVStand = { mesh = "TVStand", id = 80803329437718, size = { 6, 8.05, 2 }, rises = true, keep = { "Screen" } },
+		-- Its cloth hangs to the hem you look out under (World/PropFactory's
+		-- ClothHem), and shows from inside.
+		Table = { mesh = "Table", id = 108062801152470, size = { 8.24, 3.42, 5.24 } },
+		Desk = {
+			mesh = "Desk",
+			id = 103740615913609,
+			size = { 7, 3.41, 3.5 },
+			keep = { "Slot" },
+			pieces = {
+				{
+					match = "^Drawer1$",
+					mesh = "DeskDrawerDeep",
+					id = 124630045896062,
+					size = { 2, 1.8, 0.2 },
+					at = { 0, 0, 0.05 },
+					hide = { "Front", "Pull" },
+				},
+				{
+					match = "^Drawer2$",
+					mesh = "DeskDrawerShallow",
+					id = 102473637137198,
+					size = { 2, 0.95, 0.2 },
+					at = { 0, 0, 0.05 },
+					hide = { "Front", "Pull" },
+				},
+			},
+		},
+		Cabinet = {
+			mesh = "Cabinet",
+			id = 102191614656122,
+			size = { 6.02, 7.99, 3.2 },
+			centre = { 0, 0.1 },
+			pieces = {
+				{
+					match = "^DoorL$",
+					mesh = "CabinetDoorL",
+					id = 105495898012377,
+					size = { 2.97, 7.4, 0.31 },
+					at = { 0, 0, 0.081 },
+					hide = { "Door", "Handle" },
+				},
+				{
+					match = "^DoorR$",
+					mesh = "CabinetDoorR",
+					id = 93193123209018,
+					size = { 2.97, 7.4, 0.31 },
+					at = { 0, 0, 0.081 },
+					hide = { "Door", "Handle" },
+				},
+			},
+		},
+		-- Its doors' louvres are at the eye, as the game's (its unseen Screen
+		-- still stops his sight); each door hangs on its leaf below them.
+		Wardrobe = {
+			mesh = "Wardrobe",
+			id = 135053210081745,
+			size = { 6.02, 8.99, 3.2 },
+			centre = { 0, 0.1 },
+			pieces = {
+				{
+					match = "^DoorL$",
+					mesh = "WardrobeDoorL",
+					id = 83824722833978,
+					size = { 2.97, 8.4, 0.31 },
+					at = { 0, 2.375, 0.081 },
+					hide = { "Door", "DoorTop", "Stile", "Louvre", "Handle" },
+				},
+				{
+					match = "^DoorR$",
+					mesh = "WardrobeDoorR",
+					id = 97677335504663,
+					size = { 2.97, 8.4, 0.31 },
+					at = { 0, 2.375, 0.081 },
+					hide = { "Door", "DoorTop", "Stile", "Louvre", "Handle" },
+				},
+			},
+		},
+		-- Parted in the middle where you look out (World/PropFactory's gap).
+		Curtain = {
+			mesh = "Curtain",
+			id = 80084167410172,
+			size = { 6.4, 9.74, 1.41 },
+			centre = { 0, -0.046 },
+			floor = 0.12,
+		},
+		Piano = { mesh = "Piano", id = 112085447283801, size = { 7, 5, 3.03 }, centre = { 0, -0.013 } },
+		Mannequin = {
+			mesh = "DressForm",
+			id = 75814638297274,
+			size = { 1.63, 6.49, 1.43 },
+			centre = { 0, -0.208 },
+			floor = 0.005,
+		},
 	},
 	-- Door slabs (World/LevelBuilder's "Slab"), fitted to the slab.
 	Slabs = {

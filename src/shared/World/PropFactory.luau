@@ -1675,49 +1675,65 @@ function builders.Piano(model, cf, size, color, material)
 	legs(model, cf * CFrame.new(0, 0, d / 2 - 0.6), w, 1, 2.6, color, material, 0.3)
 end
 
+-- A 1988 console set on the stand (the kit's TVStand is modelled round it:
+-- tools/blender/kitlib/living.py's TV): a cabinet 5.2 wide and 3.4 high,
+-- the screen to the left of a control panel, the tube's housing behind.
+local TV = { width = 5.2, height = 3.4, screen = Vector2.new(3.6, 2.6), screenX = -0.6, screenY = 1.8 }
+
 function builders.TVStand(model, cf, size, color, material)
-	local w, h = size.X, size.Y
+	local h = size.Y
 	part(model, "Stand", size, cf * CFrame.new(0, h / 2, 0), color, material)
-	-- A wood-cased set: bezel at the front, the tube bulging out behind.
 	local black = PropFactory.material("SmoothPlastic")
-	part(model, "TV", Vector3.new(w * 0.8, 3, 1.2), cf * CFrame.new(0, h + 1.5, 0), Color3.fromRGB(30, 30, 30), black)
+	part(
+		model,
+		"TV",
+		Vector3.new(TV.width, TV.height, 1.1),
+		cf * CFrame.new(0, h + TV.height / 2, 0.05),
+		Color3.fromRGB(30, 30, 30),
+		black
+	)
 	-- (Owner, 2026-10-04: it poked through the wall. The stand is 2 deep and
 	-- backs onto the wall, so the tube stops at the stand's back face.)
 	part(
 		model,
 		"Tube",
-		Vector3.new(w * 0.55, 2.2, 0.8),
-		cf * CFrame.new(0, h + 1.5, -0.6),
+		Vector3.new(TV.width - 1.6, TV.height - 0.8, 0.5),
+		cf * CFrame.new(-0.3, h + TV.height / 2 - 0.1, -0.75),
 		Color3.fromRGB(26, 26, 28),
 		black,
 		{ collide = false, castShadow = false }
 	)
+	local sx, sy = TV.screenX, h + TV.screenY
 	part(
 		model,
 		"Bezel",
-		Vector3.new(w * 0.8 + 0.1, 3.1, 0.12),
-		cf * CFrame.new(0, h + 1.5, 0.6),
+		Vector3.new(TV.screen.X + 0.3, TV.screen.Y + 0.3, 0.12),
+		cf * CFrame.new(sx, sy, 0.6),
 		Color3.fromRGB(92, 66, 44),
 		PropFactory.material("Wood"),
 		{ collide = false, castShadow = false }
 	)
+	-- The glowing screen: the room's light when the TV is its lamp, and its
+	-- static each client draws when someone turns it up (Controllers/
+	-- TVController, the Television fixture: Services/InteractService).
 	local screen = part(
 		model,
 		"Screen",
-		Vector3.new(w * 0.7, 2.4, 0.1),
-		cf * CFrame.new(0, h + 1.5, 0.62),
+		Vector3.new(TV.screen.X, TV.screen.Y, 0.1),
+		cf * CFrame.new(sx, sy, 0.62),
 		Color3.fromRGB(80, 110, 140),
 		PropFactory.material("Neon"),
 		{ castShadow = false }
 	)
 	screen.Transparency = 0.4
 	screen:SetAttribute("LampGlow", true)
-	for _, dy in { -0.4, 0.4 } do
+	CollectionService:AddTag(screen, Constants.Tags.TV)
+	for _, dy in { 1.45, 0.95 } do
 		trim(
 			model,
 			"Dial",
 			Vector3.new(0.1, 0.3, 0.3),
-			cf * CFrame.new(w * 0.4 - 0.05, h + 1.5 + dy, 0.68) * ALONG_Z,
+			cf * CFrame.new(1.95, h + dy + 1.3, 0.68) * ALONG_Z,
 			Color3.fromRGB(190, 180, 150),
 			CYL
 		)
@@ -1727,7 +1743,7 @@ function builders.TVStand(model, cf, size, color, material)
 			model,
 			"Ear",
 			Vector3.new(0.05, 1.8, 0.05),
-			cf * CFrame.new(side * 0.5, h + 3.7, -0.3) * CFrame.Angles(0, 0, side * math.rad(-28))
+			cf * CFrame.new(0.6 + side * 0.45, h + TV.height + 0.85, 0.2) * CFrame.Angles(0, 0, side * math.rad(-28))
 		)
 	end
 	return screen

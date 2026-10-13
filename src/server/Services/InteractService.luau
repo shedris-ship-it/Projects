@@ -259,6 +259,7 @@ function InteractService:_fixture(model: Model, info)
 	end
 	local fixture = {
 		info = info,
+		model = model,
 		part = part,
 		position = model:GetBoundingBox().Position,
 		running = false,
@@ -286,10 +287,12 @@ function InteractService:_fixture(model: Model, info)
 end
 
 -- A sound looping from the fixture's part (every client plays it: the
--- SoundLoop tag), or stopped.
+-- SoundLoop tag), or stopped. Its model says it's running too (a TV's
+-- static: Controllers/TVController).
 local function loop(fixture, key: string?)
 	local info = fixture.info
 	local part = fixture.part
+	fixture.model:SetAttribute("Running", if key then true else nil)
 	if key then
 		part:SetAttribute("LoopVolume", info.volume)
 		part:SetAttribute("LoopPitch", info.pitch or 1)

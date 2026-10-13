@@ -54,6 +54,9 @@ local function entriesWithIds()
 			for _, variant in entry.variants or {} do
 				add(variant)
 			end
+			for _, other in entry.others or {} do
+				add(other)
+			end
 		end
 	end
 	return byMesh
@@ -212,6 +215,21 @@ function Kit.wears(entry, itemName: string): boolean
 	return false
 end
 
+-- Which of a kind's entries an item wears: the kind's own, or one of its
+-- `others` (another thing the kind stands for: the china cabinet and the
+-- steel shelving are Shelf items too), by its name. nil: none.
+function Kit.choose(entry, itemName: string)
+	if Kit.wears(entry, itemName) then
+		return entry
+	end
+	for _, other in entry.others or {} do
+		if Kit.wears(other, itemName) then
+			return other
+		end
+	end
+	return nil
+end
+
 -- A prop's moving pieces (Data/Kit `pieces`: a drawer's front, a chest's
 -- lid): each piece's mesh hangs on the piece's main part, where kit.py built
 -- it round that part's middle (`at`), inside the piece's model so it moves
@@ -276,8 +294,9 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	if entry and entry.each then
 		return dressEach(model, entry)
 	end
+	entry = entry and Kit.choose(entry, model.Name)
 	local template = entry and Kit.template(entry.mesh)
-	if not template or not Kit.wears(entry, model.Name) then
+	if not template then
 		return nil
 	end
 	local keep = {}
@@ -295,7 +314,9 @@ function Kit.dressProp(model: Model, kindName: string, cf: CFrame, size: Vector3
 	-- (Where its box's middle belongs, Data/Kit `centre`: a bookcase's front
 	-- cornice put its back 0.06 into the wall, which showed between the books.)
 	local centre = entry.centre or { 0, 0 }
-	local mesh = visual(template, modelled, cf * CFrame.new(centre[1], modelled.Y / 2, centre[2]) * turn)
+	-- (`floor`: its box's bottom above the floor, a curtain hanging clear of it.)
+	local mesh =
+		visual(template, modelled, cf * CFrame.new(centre[1], (entry.floor or 0) + modelled.Y / 2, centre[2]) * turn)
 	mesh.Name = "KitBody"
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = model

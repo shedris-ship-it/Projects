@@ -1045,6 +1045,21 @@ Config.Fire = {
 	Near = 70, -- studs: a fire further than this sleeps
 }
 
+-- A television's static (Controllers/TVController; the owner, 2026-10-13):
+-- snow on its screen and a cold flickering light while its Television
+-- fixture runs. Each client's own, decoration only, never lit for the rules.
+Config.TV = {
+	Colour = { 196, 210, 232 }, -- a cold blue-white
+	Brightness = { 0.5, 1.6 }, -- the light jumps between these with the snow
+	Range = 16,
+	Out = 0.6, -- studs out from the screen's glass
+	Flips = 30, -- new snow this often a second
+	Steady = 8, -- with Reduce flicker (and the light holds still)
+	Glow = 2.2, -- the snow's brightness on the screen
+	Roll = 0.3, -- the dark band rolling down: screens a second
+	Near = 70, -- studs: a set further than this sleeps
+}
+
 Config.DoorLight = {
 	Radius = 45, -- studs from the camera
 	Max = 8, -- doors lit this way at once (the nearest)

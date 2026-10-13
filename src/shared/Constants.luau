@@ -24,6 +24,7 @@ Constants.Tags = {
 	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)
 	SoundLoop = "ConsensusSoundLoop", -- a part that plays a looped sound while its Loop attribute is set (Controllers/AudioController)
 	Fire = "ConsensusFire", -- a fireplace's firebox: its fire is each client's own (Controllers/FireController), never lit for the rules
+	TV = "ConsensusTV", -- a television's screen: its static is each client's own (Controllers/TVController), never lit for the rules
 }
 
 Constants.Attributes = {
