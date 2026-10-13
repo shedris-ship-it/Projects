@@ -91,6 +91,63 @@ function GuestReflection:_copy(parts: { BasePart }, relativeTo: CFrame?)
 	end
 end
 
+-- A copy of his whole model in `parent` (a viewport), for when he wears his
+-- Blender model (V5): its meshes bend with its own bones, so the copy keeps
+-- them all; everything that moves or makes a sound is stripped, and every
+-- part anchored. `only`: show just that part and what's under it (his head).
+-- Returns the copy and its pairs ({ from, to }: each part and bone with its
+-- copy, to follow).
+local STRIP = {
+	Humanoid = true,
+	Script = true,
+	LocalScript = true,
+	ModuleScript = true,
+	Motor6D = true,
+	Weld = true,
+	WeldConstraint = true,
+	ProximityPrompt = true,
+	Sound = true,
+	PointLight = true,
+	SpotLight = true,
+	SurfaceLight = true,
+	BillboardGui = true,
+	ParticleEmitter = true,
+}
+
+function GuestReflection.copyModel(model: Model, parent: Instance, only: Instance?)
+	local originals = model:GetDescendants()
+	local copy = model:Clone()
+	local copies = copy:GetDescendants()
+	local pairs_ = {}
+	for i, from in originals do
+		local to = copies[i]
+		if to and to.ClassName == from.ClassName and to.Name == from.Name then
+			if from:IsA("BasePart") or from:IsA("Bone") then
+				table.insert(pairs_, { from = from, to = to })
+			end
+		end
+	end
+	for _, d in copy:GetDescendants() do
+		if STRIP[d.ClassName] then
+			d:Destroy()
+		end
+	end
+	for _, pair in pairs_ do
+		local to = pair.to
+		if to:IsA("BasePart") then
+			to.Anchored = true
+			to.CanQuery = false
+			to.CanCollide = false
+			to.LocalTransparencyModifier = 0
+			if only and not (pair.from == only or pair.from:IsDescendantOf(only)) then
+				to.Transparency = 1
+			end
+		end
+	end
+	copy.Parent = parent
+	return copy, pairs_
+end
+
 -- Point the viewport's camera at the pane from your eye, so the pane shows
 -- what's "beyond" it.
 function GuestReflection:_aim(eye: Vector3)
@@ -124,13 +181,18 @@ function GuestReflection:ShowReflection(glass: BasePart, model: Model, mirror: b
 		return
 	end
 	self:_open(glass, mirror)
-	local parts = {}
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			table.insert(parts, d)
+	if model:GetAttribute("GuestKit") then
+		local _, pairs_ = GuestReflection.copyModel(model, self.viewport)
+		self.pairs = pairs_
+	else
+		local parts = {}
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
 		end
+		self:_copy(parts)
 	end
-	self:_copy(parts)
 	self.mode = "reflection"
 end
 
@@ -141,6 +203,11 @@ function GuestReflection:UpdateReflection(eye: Vector3)
 		return v - normal * 2 * v:Dot(normal)
 	end
 	for _, pair in self.pairs do
+		if pair.to:IsA("Bone") then
+			-- (His face and fingers move on their bones.)
+			pair.to.Transform = pair.from.Transform
+			continue
+		end
 		local cf = pair.from.CFrame
 		local p = cf.Position
 		local image = p - normal * 2 * (p - origin):Dot(normal)
@@ -160,13 +227,23 @@ function GuestReflection:ShowFace(glass: BasePart, head: BasePart)
 	self.viewport.ImageTransparency = 0.05
 	self.viewport.Ambient = Color3.fromRGB(70, 74, 88)
 	self.viewport.LightColor = Color3.fromRGB(150, 160, 185)
-	local parts = { head }
-	for _, d in head:GetDescendants() do
-		if d:IsA("BasePart") and d.Name ~= "NeckSkin" then
-			table.insert(parts, d)
+	local model = head.Parent
+	if model and model:IsA("Model") and model:GetAttribute("GuestKit") then
+		local _, pairs_ = GuestReflection.copyModel(model, self.viewport, head)
+		self.pairs = {}
+		for _, pair in pairs_ do
+			pair.rel = pair.to:IsA("BasePart") and head.CFrame:ToObjectSpace(pair.from.CFrame) or nil
+			table.insert(self.pairs, pair)
 		end
+	else
+		local parts = { head }
+		for _, d in head:GetDescendants() do
+			if d:IsA("BasePart") and d.Name ~= "NeckSkin" then
+				table.insert(parts, d)
+			end
+		end
+		self:_copy(parts, head.CFrame)
 	end
-	self:_copy(parts, head.CFrame)
 	self.mode = "face"
 	self.face = { started = os.clock(), seen = 0, leaving = nil }
 	return true
@@ -196,7 +273,11 @@ function GuestReflection:UpdateFace(eye: Vector3, look: Vector3, dt: number): bo
 	local headCF = CFrame.lookAt(at, at + Vector3.new(toPane.X, 0, toPane.Z).Unit * -1)
 		* CFrame.Angles(0, 0, math.rad(16))
 	for _, pair in self.pairs do
-		pair.to.CFrame = headCF * pair.rel
+		if pair.rel then
+			pair.to.CFrame = headCF * pair.rel
+		elseif pair.to:IsA("Bone") then
+			pair.to.Transform = pair.from.Transform
+		end
 	end
 	self:_aim(eye)
 	return true

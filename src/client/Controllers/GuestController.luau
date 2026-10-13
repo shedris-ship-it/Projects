@@ -24,6 +24,7 @@ local PlayerPose = require(Shared.Logic.PlayerPose)
 local Net = require(Shared.Net)
 
 local GuestFace = require(script.Parent.Parent.Lib.GuestFace)
+local GuestMask = require(script.Parent.Parent.Lib.GuestMask)
 local GuestReflection = require(script.Parent.Parent.Lib.GuestReflection)
 
 local player = Players.LocalPlayer
@@ -115,17 +116,38 @@ function GuestController:_attach(model: Model)
 			motors[d.Name] = d
 		end
 	end
+	-- His Blender model (V5; Stalker/GuestSkin), or the primitives.
+	local kit = model:GetAttribute("GuestKit") == true and (head :: BasePart):WaitForChild("GuestMask", 10) ~= nil
+	local face, hands
+	if kit then
+		face = GuestMask.new(head :: BasePart, function(event, at)
+			if event == "crack" then
+				-- Porcelain giving way: a dry crack and a little breaking glass.
+				local audio = self.controllers.AudioController
+				audio:PlayAt("GuestCrack", at, 0.8, 1.35)
+				audio:PlayAt("GlassBreak", at, 0.35, 1.6)
+			end
+		end)
+		hands = {
+			Left = GuestMask.hand(leftHand :: BasePart, "Left"),
+			Right = GuestMask.hand(rightHand :: BasePart, "Right"),
+		}
+	else
+		face = GuestFace.new(head :: BasePart)
+		hands = {
+			Left = GuestFace.hand(leftHand :: BasePart, "Left"),
+			Right = GuestFace.hand(rightHand :: BasePart, "Right"),
+		}
+	end
 	guest = {
 		model = model,
 		root = root :: BasePart,
 		head = head :: BasePart,
 		feet = { Left = model:FindFirstChild("LeftFoot"), Right = model:FindFirstChild("RightFoot") },
 		motors = motors,
-		face = GuestFace.new(head :: BasePart),
-		hands = {
-			Left = GuestFace.hand(leftHand :: BasePart, "Left"),
-			Right = GuestFace.hand(rightHand :: BasePart, "Right"),
-		},
+		kit = kit,
+		face = face,
+		hands = hands,
 		pose = GuestPose.new(),
 		reflection = GuestReflection.new(),
 		paneClock = 0,
@@ -608,6 +630,11 @@ function GuestController:_frame(dt: number)
 		self:_grow(form)
 		guest.face:SetSmile(width, open)
 		self:_maskBetweenLooks(camera, form, distance, beam, dt)
+		if guest.kit then
+			-- The modelled face eases to all that (Lib/GuestMask).
+			guest.face:SetMood(mood, pose, guest.heldFor)
+			guest.face:Step(dt)
+		end
 		-- His eyes: caught in your torch, or a faint glow in the dark whenever
 		-- he faces you; they follow you either way.
 		local toFace = guest.head.Position - camera.CFrame.Position
@@ -661,6 +688,9 @@ function GuestController:_frame(dt: number)
 				+ (sound and (sound.every[1] + math.random() * (sound.every[2] - sound.every[1])) or 4)
 			if sound and pose ~= "Run" and pose ~= "Lunge" then
 				audio:PlayAt(sound.key, head, sound.volume, sound.pitch + math.random() * 0.08, muffle)
+				if guest.kit and sound.key == "GuestGiggle" then
+					guest.face:Chatter(0.9) -- his jaw clacks as he giggles
+				end
 			end
 		end
 	elseif pose ~= "Hold" then
@@ -1018,6 +1048,11 @@ function GuestController:_jumpscare(mode: string?)
 	guest.face:SetShine(1) -- his eyes catch the light, right in front of you
 	-- Staring dead into you.
 	guest.face:LookAt(guest.head.CFrame * Vector3.new(0, 0, -6))
+	if guest.kit then
+		-- Eyes wide, the jaw dropped, all of it at once.
+		guest.face:SetMood(nil, "Catch", 0)
+		guest.face:Snap()
+	end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "GuestJumpscare"
 	gui.IgnoreGuiInset = true
@@ -1050,30 +1085,42 @@ function GuestController:_jumpscare(mode: string?)
 	task.wait()
 	local pieces = {}
 	local headCF = head.CFrame
-	local parts = { head }
-	for _, d in head:GetDescendants() do
-		if d:IsA("BasePart") and d.Name ~= "NeckSkin" then
-			table.insert(parts, d)
-		end
-	end
-	for _, part in parts do
-		local copy = part:Clone()
-		for _, child in copy:GetChildren() do
-			if not (child:IsA("SpecialMesh") or child:IsA("Decal")) then
-				child:Destroy()
+	if guest.kit then
+		-- His whole model (its meshes bend with its own bones), only his
+		-- head shown.
+		local _, pairs_ = GuestReflection.copyModel(guest.model, viewport, head)
+		for _, pair in pairs_ do
+			if pair.to:IsA("BasePart") then
+				table.insert(pieces, { part = pair.to, rel = headCF:ToObjectSpace(pair.from.CFrame) })
 			end
 		end
-		copy.Anchored = true
-		copy.LocalTransparencyModifier = 0
-		copy.Parent = viewport
-		table.insert(pieces, { part = copy, rel = headCF:ToObjectSpace(part.CFrame) })
+	else
+		local parts = { head }
+		for _, d in head:GetDescendants() do
+			if d:IsA("BasePart") and d.Name ~= "NeckSkin" then
+				table.insert(parts, d)
+			end
+		end
+		for _, part in parts do
+			local copy = part:Clone()
+			for _, child in copy:GetChildren() do
+				if not (child:IsA("SpecialMesh") or child:IsA("Decal")) then
+					child:Destroy()
+				end
+			end
+			copy.Anchored = true
+			copy.LocalTransparencyModifier = 0
+			copy.Parent = viewport
+			table.insert(pieces, { part = copy, rel = headCF:ToObjectSpace(part.CFrame) })
+		end
 	end
 	local form = guest.model:GetAttribute("GuestForm") or 0
 	-- His hands first (2026-10-07): long finger bones curl round the edges of
 	-- your view, then his face comes between them. At Breaking the mask splits
 	-- down the middle as the head jerks.
 	local hands = self:_screenHands(viewport, form)
-	local split = form >= 2 and self:_catchSplit(viewport, headCF) or nil
+	-- (The modelled mask breaks by itself: its broken shell and dropped jaw.)
+	local split = (form >= 2 and not guest.kit) and self:_catchSplit(viewport, headCF) or nil
 	local lead = quiet and 0 or G.CatchHandsLead
 	local started = os.clock()
 	local last = started
@@ -1307,6 +1354,17 @@ function GuestController:_grow(form: number)
 	local scale = G.FingerScale[math.clamp(form, 0, 2) + 1]
 	for _, hand in guest.hands do
 		GuestFace.setFingerScale(hand, scale)
+	end
+	if guest.kit then
+		-- His modelled coat's rags (his neck draws out by itself: it's
+		-- skinned to his chest and his head).
+		for _, name in { "GuestLeftTatters", "GuestRightTatters" } do
+			local rags = guest.model:FindFirstChild(name, true)
+			if rags and rags:IsA("BasePart") then
+				rags.Transparency = form >= 2 and 0 or 1
+			end
+		end
+		return
 	end
 	if form >= 2 and not guest.tatters then
 		guest.tatters = self:_tatters()

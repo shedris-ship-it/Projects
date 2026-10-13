@@ -25,6 +25,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local GuestPose = require(Shared.Logic.GuestPose)
 
+local GuestMask = require(script.Parent.GuestMask)
+
 local GuestFace = {}
 GuestFace.__index = GuestFace
 
@@ -427,6 +429,11 @@ function GuestFace.setFingerScale(hand, scale: number)
 		return
 	end
 	hand.scale = scale
+	if hand.bones then
+		-- (His modelled hands: Lib/GuestMask.hand.)
+		GuestMask.grow(hand, scale)
+		return
+	end
 	for _, finger in hand.fingers do
 		local l1, l2 = finger.lengths[1] * scale, finger.lengths[2] * scale
 		local s1, s2 = finger.segments[1], finger.segments[2]
@@ -463,8 +470,14 @@ function GuestFace.curlHand(hand, curl: number, dt: number, random: () -> number
 		-- (Rows across the hand: the first finger at one edge, the fourth at
 		-- the other; the thumb keeps its own angle.)
 		local fan = i <= 4 and (2.5 - i) / 1.5 * hand.spread * SPREAD or 0
-		finger.knuckle.Transform = CFrame.Angles(fan, 0, 0) * CFrame.Angles(0, (i - 2.5) * 0.05, bend * 0.55)
-		finger.middle.Transform = CFrame.Angles(0, 0, bend * 0.75)
+		local knuckle = CFrame.Angles(fan, 0, 0) * CFrame.Angles(0, (i - 2.5) * 0.05, bend * 0.55)
+		local middle = CFrame.Angles(0, 0, bend * 0.75)
+		if hand.bones then
+			GuestMask.bend(finger, knuckle, middle)
+		else
+			finger.knuckle.Transform = knuckle
+			finger.middle.Transform = middle
+		end
 	end
 end
 

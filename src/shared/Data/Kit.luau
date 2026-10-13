@@ -1027,4 +1027,34 @@ return {
 			floor = -0.4,
 		},
 	},
+	-- The Guest (V5, the Guest remodelled; tools/blender/guest.py): his skinned
+	-- pieces, which Stalker/GuestSkin dresses his rig in once every one is
+	-- in (Data/GuestRig says where each goes and what it looks like; the
+	-- looks are assets/kit/GuestBody, GuestMask, GuestMaskWorn and
+	-- GuestMaskBroken).
+	Guest = {
+		GuestHead = { mesh = "GuestHead" },
+		GuestLeftHand = { mesh = "GuestLeftHand" },
+		GuestLeftLowerSleeve = { mesh = "GuestLeftLowerSleeve" },
+		GuestLeftShin = { mesh = "GuestLeftShin" },
+		GuestLeftSkirt = { mesh = "GuestLeftSkirt" },
+		GuestLeftTatters = { mesh = "GuestLeftTatters" },
+		GuestLeftThigh = { mesh = "GuestLeftThigh" },
+		GuestLeftUpperSleeve = { mesh = "GuestLeftUpperSleeve" },
+		GuestMask = { mesh = "GuestMask" },
+		GuestMaskBroken = { mesh = "GuestMaskBroken" },
+		GuestMaskVoid = { mesh = "GuestMaskVoid" },
+		GuestMaskWorn = { mesh = "GuestMaskWorn" },
+		GuestRightHand = { mesh = "GuestRightHand" },
+		GuestRightLowerSleeve = { mesh = "GuestRightLowerSleeve" },
+		GuestRightShin = { mesh = "GuestRightShin" },
+		GuestRightSkirt = { mesh = "GuestRightSkirt" },
+		GuestRightTatters = { mesh = "GuestRightTatters" },
+		GuestRightThigh = { mesh = "GuestRightThigh" },
+		GuestRightUpperSleeve = { mesh = "GuestRightUpperSleeve" },
+		GuestShardA = { mesh = "GuestShardA" },
+		GuestShardB = { mesh = "GuestShardB" },
+		GuestShardC = { mesh = "GuestShardC" },
+		GuestTorso = { mesh = "GuestTorso" },
+	},
 }

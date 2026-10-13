@@ -7,10 +7,11 @@
 --
 -- A custom rig with R15 part and joint names, built from the proportions in
 -- Logic/GuestPose so the server and every client agree on where his head is.
--- The joint parts are invisible "bones"; smooth primitives welded to them
--- are the clothes and skin, so nothing needs uploading. There is no
--- Animator: each client animates the joints itself (Controllers/
--- GuestController), and builds his face, smile and fingers locally.
+-- The joint parts are invisible "bones". Over them goes his Blender model
+-- (V5: Stalker/GuestSkin, skinned meshes bending with the joints); until
+-- it's imported, smooth primitives welded to them are the clothes and skin.
+-- There is no Animator: each client animates the joints itself (Controllers/
+-- GuestController), and his face and fingers.
 
 local CollectionService = game:GetService("CollectionService")
 
@@ -18,6 +19,8 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
+
+local GuestSkin = require(script.Parent.GuestSkin)
 
 local Rig = GuestPose.Rig
 
@@ -200,121 +203,191 @@ function StalkerModel.build(archetype, parent: Instance)
 		motor(side .. "Coat", lower, l.coat, l.hip)
 	end
 
-	-- Skin and clothes --------------------------------------------------------
-	-- A long, matte black overcoat over the dark (docs/ART.md "The Guest"; the
-	-- body pass of 2026-10-07, the owner: "his body doesn't really look very
-	-- good"). The coat swallows the torch, so what reads is the mask, the bony
-	-- hands and wrists, and one tall stooped shape: rounded and tapering
-	-- everywhere, no straight posts. Matte wool: plain Fabric's speckle
-	-- glittered in the torch like stone, and smooth plastic shone like latex.
-	local Cloth, Smooth = Enum.Material.Fabric, Enum.Material.SmoothPlastic
-	-- The head under the mask is dark (the mask over the dark, 2026-10-07):
-	-- each client lays the porcelain mask over its face (Lib/GuestFace), so
-	-- where the mask breaks there is only black. The neck is black too, so the
-	-- mask floats.
-	head.Transparency = 0
-	head.Color = DARK
-	head.Material = Smooth
-	head.Reflectance = 0
-	head.CanQuery = true
-	head.CastShadow = true
-	local headMesh = Instance.new("SpecialMesh")
-	headMesh.MeshType = Enum.MeshType.Sphere
-	headMesh.Parent = head
-	skin(head, "NeckSkin", "tube", at(0.34, Rig.neckLength + 0.3, 0.34), at(0, Rig.neckY + 0.12, 0.02), DARK, Smooth)
+	-- His Blender model over the rig (V5, the Guest remodelled;
+	-- Stalker/GuestSkin), or, until it's imported (or if it didn't load),
+	-- primitives.
+	local parts = { HumanoidRootPart = root, LowerTorso = lower, UpperTorso = upper, Head = head }
+	for side, l in limbs do
+		parts[side .. "UpperArm"] = l.upperArm
+		parts[side .. "LowerArm"] = l.lowerArm
+		parts[side .. "Hand"] = l.hand
+		parts[side .. "UpperLeg"] = l.upperLeg
+		parts[side .. "LowerLeg"] = l.lowerLeg
+		parts[side .. "Foot"] = l.foot
+		parts[side .. "CoatTail"] = l.coat
+	end
+	if GuestSkin.dress(model, parts) then
+		-- (The head stays what eyes look for: Stalker/Sight's rays.)
+		head.CanQuery = true
+	else
+		-- Skin and clothes --------------------------------------------------------
+		-- A long, matte black overcoat over the dark (docs/ART.md "The Guest"; the
+		-- body pass of 2026-10-07, the owner: "his body doesn't really look very
+		-- good"). The coat swallows the torch, so what reads is the mask, the bony
+		-- hands and wrists, and one tall stooped shape: rounded and tapering
+		-- everywhere, no straight posts. Matte wool: plain Fabric's speckle
+		-- glittered in the torch like stone, and smooth plastic shone like latex.
+		local Cloth, Smooth = Enum.Material.Fabric, Enum.Material.SmoothPlastic
+		-- The head under the mask is dark (the mask over the dark, 2026-10-07):
+		-- each client lays the porcelain mask over its face (Lib/GuestFace), so
+		-- where the mask breaks there is only black. The neck is black too, so the
+		-- mask floats.
+		head.Transparency = 0
+		head.Color = DARK
+		head.Material = Smooth
+		head.Reflectance = 0
+		head.CanQuery = true
+		head.CastShadow = true
+		local headMesh = Instance.new("SpecialMesh")
+		headMesh.MeshType = Enum.MeshType.Sphere
+		headMesh.Parent = head
+		skin(
+			head,
+			"NeckSkin",
+			"tube",
+			at(0.34, Rig.neckLength + 0.3, 0.34),
+			at(0, Rig.neckY + 0.12, 0.02),
+			DARK,
+			Smooth
+		)
 
-	-- The coat's body: a chest that narrows to the waist, round shoulders
-	-- sloping into the sleeves, a stoop between the shoulder blades, and the
-	-- collar turned up round the neck.
-	skin(upper, "Coat", "tube", at(1.16, 1.5, 0.7), at(0, Rig.waistY + 0.72, 0.02), suit, Cloth)
-	skin(upper, "Chest", "ball", at(1.32, 1.5, 0.8), at(0, Rig.shoulderY - 0.42, 0.02), suit, Cloth)
-	skin(upper, "Stoop", "ball", at(1.0, 0.95, 0.56), at(0, Rig.shoulderY - 0.3, 0.26), suit, Cloth)
-	skin(upper, "Collar", "tube", at(0.62, 0.42, 0.56), at(0, Rig.neckY + 0.09, 0.04), suit, Cloth)
-	for _, sx in { -1, 1 } do
-		skin(upper, "Shoulder", "ball", at(0.64, 0.32, 0.6), at(sx * 0.6, Rig.shoulderY - 0.04, 0.03), suit, Cloth, {
-			rotation = CFrame.Angles(0, 0, sx * math.rad(-18)),
-		})
-		skin(upper, "Lapel", "block", at(0.1, 1.1, 0.03), at(sx * 0.16, Rig.neckY - 0.62, -0.4), LAPEL, Cloth, {
-			rotation = CFrame.Angles(math.rad(-6), 0, sx * math.rad(16)),
+		-- The coat's body: a chest that narrows to the waist, round shoulders
+		-- sloping into the sleeves, a stoop between the shoulder blades, and the
+		-- collar turned up round the neck.
+		skin(upper, "Coat", "tube", at(1.16, 1.5, 0.7), at(0, Rig.waistY + 0.72, 0.02), suit, Cloth)
+		skin(upper, "Chest", "ball", at(1.32, 1.5, 0.8), at(0, Rig.shoulderY - 0.42, 0.02), suit, Cloth)
+		skin(upper, "Stoop", "ball", at(1.0, 0.95, 0.56), at(0, Rig.shoulderY - 0.3, 0.26), suit, Cloth)
+		skin(upper, "Collar", "tube", at(0.62, 0.42, 0.56), at(0, Rig.neckY + 0.09, 0.04), suit, Cloth)
+		for _, sx in { -1, 1 } do
+			skin(
+				upper,
+				"Shoulder",
+				"ball",
+				at(0.64, 0.32, 0.6),
+				at(sx * 0.6, Rig.shoulderY - 0.04, 0.03),
+				suit,
+				Cloth,
+				{
+					rotation = CFrame.Angles(0, 0, sx * math.rad(-18)),
+				}
+			)
+			skin(upper, "Lapel", "block", at(0.1, 1.1, 0.03), at(sx * 0.16, Rig.neckY - 0.62, -0.4), LAPEL, Cloth, {
+				rotation = CFrame.Angles(math.rad(-6), 0, sx * math.rad(16)),
+				shadow = false,
+			})
+		end
+		-- A narrow V of grubby shirt and a dark tie under the collar: a dinner
+		-- guest, still.
+		skin(upper, "ShirtFront", "ball", at(0.2, 0.6, 0.05), at(0, Rig.neckY - 0.36, -0.385), SHIRT, Smooth, {
 			shadow = false,
 		})
-	end
-	-- A narrow V of grubby shirt and a dark tie under the collar: a dinner
-	-- guest, still.
-	skin(upper, "ShirtFront", "ball", at(0.2, 0.6, 0.05), at(0, Rig.neckY - 0.36, -0.385), SHIRT, Smooth, {
-		shadow = false,
-	})
-	skin(upper, "Tie", "block", at(0.06, 0.5, 0.03), at(0, Rig.neckY - 0.42, -0.405), TIE, Smooth, {
-		shadow = false,
-	})
-	for i = 1, 3 do
-		skin(
-			upper,
-			"Button",
-			"ball",
-			at(0.07, 0.07, 0.04),
-			at(-0.05, Rig.waistY + 1.15 - i * 0.42, -0.37),
-			BUTTON,
-			Smooth,
-			{
-				shadow = false,
-				query = false,
-			}
-		)
-	end
-	-- The skirt of the coat: a band round the hips, then one half on each
-	-- thigh down to below the knee, flaring out and back, so it parts as he
-	-- walks instead of his legs pushing through it.
-	skin(lower, "CoatWaist", "tube", at(1.2, 0.9, 0.74), at(0, Rig.hipY + 0.3, 0.02), suit, Cloth)
-	local hem = Config.Guest.CoatHem
-	for side, l in limbs do
-		local sx = side == "Left" and -1 or 1
-		local top = Rig.hipY + 0.15
-		skin(l.coat, "Skirt", "tube", at(0.68, top - hem, 0.76), at(sx * 0.32, (top + hem) / 2, 0.06), suit, Cloth, {
-			rotation = CFrame.Angles(math.rad(-3), 0, sx * math.rad(4)),
+		skin(upper, "Tie", "block", at(0.06, 0.5, 0.03), at(0, Rig.neckY - 0.42, -0.405), TIE, Smooth, {
+			shadow = false,
 		})
-	end
+		for i = 1, 3 do
+			skin(
+				upper,
+				"Button",
+				"ball",
+				at(0.07, 0.07, 0.04),
+				at(-0.05, Rig.waistY + 1.15 - i * 0.42, -0.37),
+				BUTTON,
+				Smooth,
+				{
+					shadow = false,
+					query = false,
+				}
+			)
+		end
+		-- The skirt of the coat: a band round the hips, then one half on each
+		-- thigh down to below the knee, flaring out and back, so it parts as he
+		-- walks instead of his legs pushing through it.
+		skin(lower, "CoatWaist", "tube", at(1.2, 0.9, 0.74), at(0, Rig.hipY + 0.3, 0.02), suit, Cloth)
+		local hem = Config.Guest.CoatHem
+		for side, l in limbs do
+			local sx = side == "Left" and -1 or 1
+			local top = Rig.hipY + 0.15
+			skin(
+				l.coat,
+				"Skirt",
+				"tube",
+				at(0.68, top - hem, 0.76),
+				at(sx * 0.32, (top + hem) / 2, 0.06),
+				suit,
+				Cloth,
+				{
+					rotation = CFrame.Angles(math.rad(-3), 0, sx * math.rad(4)),
+				}
+			)
+		end
 
-	for _, l in limbs do
-		-- Sleeves that taper from the shoulder to a cuff that stops short, so
-		-- a thin bony wrist shows.
-		local s = l.shoulder
-		skin(l.upperArm, "Sleeve", "tube", at(0.37, 1.05, 0.37), s - at(0, 0.5, 0), suit, Cloth)
-		skin(l.upperArm, "Sleeve", "tube", at(0.33, 1.1, 0.33), s - at(0, 1.45, 0), suit, Cloth)
-		skin(l.upperArm, "ElbowCap", "ball", at(0.32, 0.36, 0.32), l.elbow, suit, Cloth)
-		local short = 0.34
-		skin(l.lowerArm, "Forearm", "tube", at(0.31, 0.85, 0.31), l.elbow - at(0, 0.45, 0), suit, Cloth)
-		skin(
-			l.lowerArm,
-			"Forearm",
-			"tube",
-			at(0.28, Rig.lowerArm - short - 0.8, 0.28),
-			l.wrist + at(0, short + (Rig.lowerArm - short - 0.8) / 2, 0),
-			suit,
-			Cloth
-		)
-		skin(l.lowerArm, "Cuff", "tube", at(0.32, 0.1, 0.32), l.wrist + at(0, short + 0.05, 0), suit, Cloth)
-		skin(l.lowerArm, "Wrist", "tube", at(0.15, short + 0.06, 0.15), l.wrist + at(0, short / 2, 0), BONE, Smooth)
-		skin(l.lowerArm, "WristKnob", "ball", at(0.19, 0.16, 0.17), l.wrist + at(0, 0.06, 0), BONE, Smooth)
-		-- Long, narrow, bony hands. The fingers are built on each client.
-		skin(l.hand, "Palm", "tube", at(0.085, Rig.hand - 0.08, 0.2), l.hand.Position + at(0, 0.04, 0), BONE, Smooth)
-		-- Trousers, thin under the coat; the shins taper to the shoes.
-		skin(l.upperLeg, "Trouser", "tube", at(0.42, Rig.upperLeg + 0.1, 0.42), l.upperLeg.Position, suit, Cloth)
-		skin(l.upperLeg, "KneeCap", "ball", at(0.38, 0.4, 0.38), l.knee, suit, Cloth)
-		skin(l.lowerLeg, "Shin", "tube", at(0.34, 1.0, 0.34), l.knee - at(0, 0.55, 0), suit, Cloth)
-		skin(
-			l.lowerLeg,
-			"Shin",
-			"tube",
-			at(0.29, Rig.lowerLeg - 0.9, 0.29),
-			l.ankle + at(0, (Rig.lowerLeg - 0.9) / 2, 0),
-			suit,
-			Cloth
-		)
-		-- Old dress shoes: a squared heel and a long rounded toe.
-		local f = l.foot.Position
-		skin(l.foot, "Shoe", "block", at(0.32, 0.24, 0.5), f + at(0, 0.0, 0.22), SHOE, Smooth, { reflectance = 0.06 })
-		skin(l.foot, "Shoe", "ball", at(0.34, 0.26, 0.8), f + at(0, 0.0, -0.12), SHOE, Smooth, { reflectance = 0.06 })
+		for _, l in limbs do
+			-- Sleeves that taper from the shoulder to a cuff that stops short, so
+			-- a thin bony wrist shows.
+			local s = l.shoulder
+			skin(l.upperArm, "Sleeve", "tube", at(0.37, 1.05, 0.37), s - at(0, 0.5, 0), suit, Cloth)
+			skin(l.upperArm, "Sleeve", "tube", at(0.33, 1.1, 0.33), s - at(0, 1.45, 0), suit, Cloth)
+			skin(l.upperArm, "ElbowCap", "ball", at(0.32, 0.36, 0.32), l.elbow, suit, Cloth)
+			local short = 0.34
+			skin(l.lowerArm, "Forearm", "tube", at(0.31, 0.85, 0.31), l.elbow - at(0, 0.45, 0), suit, Cloth)
+			skin(
+				l.lowerArm,
+				"Forearm",
+				"tube",
+				at(0.28, Rig.lowerArm - short - 0.8, 0.28),
+				l.wrist + at(0, short + (Rig.lowerArm - short - 0.8) / 2, 0),
+				suit,
+				Cloth
+			)
+			skin(l.lowerArm, "Cuff", "tube", at(0.32, 0.1, 0.32), l.wrist + at(0, short + 0.05, 0), suit, Cloth)
+			skin(l.lowerArm, "Wrist", "tube", at(0.15, short + 0.06, 0.15), l.wrist + at(0, short / 2, 0), BONE, Smooth)
+			skin(l.lowerArm, "WristKnob", "ball", at(0.19, 0.16, 0.17), l.wrist + at(0, 0.06, 0), BONE, Smooth)
+			-- Long, narrow, bony hands. The fingers are built on each client.
+			skin(
+				l.hand,
+				"Palm",
+				"tube",
+				at(0.085, Rig.hand - 0.08, 0.2),
+				l.hand.Position + at(0, 0.04, 0),
+				BONE,
+				Smooth
+			)
+			-- Trousers, thin under the coat; the shins taper to the shoes.
+			skin(l.upperLeg, "Trouser", "tube", at(0.42, Rig.upperLeg + 0.1, 0.42), l.upperLeg.Position, suit, Cloth)
+			skin(l.upperLeg, "KneeCap", "ball", at(0.38, 0.4, 0.38), l.knee, suit, Cloth)
+			skin(l.lowerLeg, "Shin", "tube", at(0.34, 1.0, 0.34), l.knee - at(0, 0.55, 0), suit, Cloth)
+			skin(
+				l.lowerLeg,
+				"Shin",
+				"tube",
+				at(0.29, Rig.lowerLeg - 0.9, 0.29),
+				l.ankle + at(0, (Rig.lowerLeg - 0.9) / 2, 0),
+				suit,
+				Cloth
+			)
+			-- Old dress shoes: a squared heel and a long rounded toe.
+			local f = l.foot.Position
+			skin(
+				l.foot,
+				"Shoe",
+				"block",
+				at(0.32, 0.24, 0.5),
+				f + at(0, 0.0, 0.22),
+				SHOE,
+				Smooth,
+				{ reflectance = 0.06 }
+			)
+			skin(
+				l.foot,
+				"Shoe",
+				"ball",
+				at(0.34, 0.26, 0.8),
+				f + at(0, 0.0, -0.12),
+				SHOE,
+				Smooth,
+				{ reflectance = 0.06 }
+			)
+		end
 	end
 
 	-- Humanoid: walks with MoveTo, never dies, never jumps or climbs ----------

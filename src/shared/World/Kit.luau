@@ -52,6 +52,7 @@ local function entriesWithIds()
 			KitData.Things or {},
 			KitData.Landmarks or {},
 			KitData.Outside or {},
+			KitData.Guest or {},
 		}
 	do
 		for _, entry in group do
