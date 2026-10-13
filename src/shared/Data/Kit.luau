@@ -251,6 +251,135 @@ return {
 			centre = { 0, -0.208 },
 			floor = 0.005,
 		},
+		-- kit.py kit5 (V4c: the bedrooms, the bathroom, the kitchen, the utility
+		-- rooms). The bed's spread falls to the hem you look out under.
+		Bed = { mesh = "Bed", id = 130066686188423, size = { 7, 5.05, 10.14 }, rises = true, centre = { 0, 0.08 } },
+		-- Its mirrored doors slide on their tracks; the mirror is the game's.
+		Closet = {
+			mesh = "Closet",
+			id = 85190350209587,
+			size = { 6, 9, 4 },
+			pieces = {
+				{
+					match = "^Door[LR]$",
+					mesh = "ClosetDoor",
+					id = 77820573958168,
+					size = { 3.1, 8.2, 0.18 },
+					at = { 0, 0, 0.04 },
+					hide = { "Door" },
+				},
+			},
+		},
+		Crib = { mesh = "Crib", id = 105189608991210, size = { 5, 4.1, 3 } },
+		-- Step in and look out through the louvres at the eye; each door hangs
+		-- on its leaf below them.
+		Locker = {
+			mesh = "Locker",
+			id = 140204305999356,
+			size = { 3, 8, 3 },
+			pieces = {
+				{
+					match = "^Door$",
+					mesh = "LockerDoor",
+					id = 126570085011608,
+					size = { 2.94, 7.7, 0.24 },
+					at = { 0, 1.9, 0.06 },
+					hide = { "Door", "DoorTop", "Stile", "Louvre", "Handle" },
+				},
+			},
+		},
+		TallCupboard = {
+			mesh = "TallCupboard",
+			id = 93183415257774,
+			size = { 3, 8, 3 },
+			pieces = {
+				{
+					match = "^Door$",
+					mesh = "TallCupboardDoor",
+					id = 123533743652438,
+					size = { 2.94, 7.7, 0.25 },
+					at = { 0, 1.9, 0.065 },
+					hide = { "Door", "DoorTop", "Stile", "Louvre", "Handle" },
+				},
+			},
+		},
+		Toilet = {
+			mesh = "Toilet",
+			id = 127067426178832,
+			size = { 2.4, 3.87, 3.38 },
+			rises = true,
+			centre = { 0, -0.059 },
+		},
+		Sink = { mesh = "Sink", id = 134567466420929, size = { 3, 4.1, 2.5 }, rises = true },
+		-- Full of the game's still water; its curtain parted where you look out.
+		Bathtub = {
+			mesh = "Bathtub",
+			id = 103438241652503,
+			size = { 8.05, 10, 4.01 },
+			rises = true,
+			centre = { -0.025, 0.053 },
+			keep = { "Water" },
+		},
+		Counter = {
+			mesh = "Counter",
+			id = 118602179795762,
+			size = { 12.02, 4.8, 3.01 },
+			rises = true,
+			centre = { 0, 0.005 },
+			pieces = {
+				{
+					match = "^Door%d$",
+					mesh = "CounterDoor",
+					id = 95617066024095,
+					size = { 2.26, 2.89, 0.2 },
+					at = { 0, 0, 0.05 },
+					hide = { "Door", "Handle" },
+				},
+			},
+		},
+		-- Its lamps light inside while a door's open (Services/FurnitureService).
+		Fridge = {
+			mesh = "Fridge",
+			id = 88266076504355,
+			size = { 4, 8, 3.53 },
+			centre = { 0, 0.015 },
+			pieces = {
+				{
+					match = "^DoorTop$",
+					mesh = "FridgeDoorTop",
+					id = 107279767589394,
+					size = { 3.85, 2.84, 0.83 },
+					at = { 0, 0, -0.177 },
+					hide = { "Door", "Handle", "Badge" },
+				},
+				{
+					match = "^DoorBottom$",
+					mesh = "FridgeDoorBottom",
+					id = 134523509928603,
+					size = { 3.85, 4.61, 0.83 },
+					at = { 0, 0, -0.177 },
+					hide = { "Door", "Handle" },
+				},
+			},
+		},
+		Stove = { mesh = "Stove", id = 76737929960354, size = { 4, 4.9, 3.75 }, rises = true, centre = { 0, 0.123 } },
+		Washer = { mesh = "Washer", id = 82571608824181, size = { 3.5, 4, 3.7 }, centre = { 0, 0.1 } },
+		WaterHeater = { mesh = "WaterHeater", id = 96079413552645, size = { 3.22, 7, 3.07 }, centre = { 0.19, 0.115 } },
+		Workbench = { mesh = "Workbench", id = 129304846002547, size = { 10, 8.6, 3.5 }, rises = true },
+		Car = { mesh = "Car", id = 87772743662583, size = { 7.45, 4.76, 14.4 } },
+		-- The fire shows through its firebox's grille (the game's glowing bars).
+		Boiler = {
+			mesh = "Boiler",
+			id = 78239211980577,
+			size = { 6, 10.8, 5.09 },
+			rises = true,
+			centre = { 0, 0.045 },
+			keep = { "Glow" },
+		},
+		WineRack = { mesh = "WineRack", id = 78014670704552, size = { 6, 8, 2 } },
+		WaterTank = { mesh = "WaterTank", id = 126435964550762, size = { 8.1, 6.35, 5.1 } },
+		-- The lantern's glass is the game's (its light).
+		Shrine = { mesh = "Shrine", id = 101030413645979, size = { 3, 5, 3 }, rises = true, keep = { "Glass" } },
 	},
 	-- Door slabs (World/LevelBuilder's "Slab"), fitted to the slab.
 	Slabs = {
@@ -258,6 +387,10 @@ return {
 		-- A gate into a wing, glazed above its sill (kit.py kit3): over the
 		-- whole door, its glass the game's.
 		GlassDoor = { mesh = "GlassDoor", id = 92159403589343, size = { 5.8, 7.8, 0.48 } },
+		-- The house's front door (World/MansionBuilder; World/Kit.dressFront):
+		-- it swings open whole at the end. `at`: its box's middle, out toward
+		-- the hall (the knob stands proud).
+		FrontDoor = { mesh = "FrontDoor", id = 123000985042269, size = { 6, 8, 1.22 }, at = { 0, 0, 0.19 } },
 	},
 	-- The architecture's pieces (kit.py golden2), each in place of one
 	-- grey-box part (World/MansionBuilder's railings and the grand staircase;

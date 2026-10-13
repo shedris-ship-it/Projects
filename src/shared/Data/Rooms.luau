@@ -381,7 +381,7 @@ local Rooms = {
 			{ id = "shelf", kind = "Shelf", x = 18.5, z = -10, ry = 270 },
 			{ id = "locker1", kind = "Locker", x = 10, z = 18, ry = 180 },
 			{ id = "locker2", kind = "Locker", x = 14, z = 18, ry = 180 },
-			{ id = "heater", kind = "WaterHeater", x = -17, z = 17 },
+			{ id = "heater", kind = "WaterHeater", x = -17, z = 17, ry = 180 },
 		},
 		decor = {
 			{ id = "window", kind = "Window", side = "S", along = -9, y = 6 },
@@ -708,7 +708,7 @@ local CellarRooms = {
 		light = { brightness = 1.1, range = 26, color = { 232, 194, 126 } },
 		props = {
 			{ id = "boiler", kind = "Boiler", x = -11, z = -16.5 },
-			{ id = "heater", kind = "WaterHeater", x = -17.5, z = -8 },
+			{ id = "heater", kind = "WaterHeater", x = -17.5, z = -8, ry = 90 },
 			{ id = "shelf", kind = "Shelf", x = 18.5, z = 10, ry = 270 },
 			{ id = "locker", kind = "Locker", x = 10, z = 17.5, ry = 180 },
 			{ id = "boxes", kind = "Boxes", x = 15, z = -16 },

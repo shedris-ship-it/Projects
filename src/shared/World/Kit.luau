@@ -436,6 +436,32 @@ function Kit.swap(part: BasePart, name: string, roll: number?): BasePart
 	return mesh
 end
 
+-- Dresses the house's front door (Data/Kit `Slabs` FrontDoor; World/
+-- MansionBuilder): the mesh hangs under the door part, which swings open
+-- with everything under it at the end of the run (Services/FinaleService),
+-- and the part and its grey-box panels and knob are hidden. `inside` is
+-- the door's frame facing into the hall (the mesh's front).
+function Kit.dressFront(door: BasePart, inside: CFrame): MeshPart?
+	local entry = KitData.Slabs.FrontDoor
+	local template = entry and Kit.template(entry.mesh)
+	if not template then
+		return nil
+	end
+	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+	local at = entry.at or { 0, 0, 0 }
+	-- (Its front is `inside`'s LookVector: undo the half turn every piece gets.)
+	local mesh = visual(template, size, inside * CFrame.new(at[1], at[2], -at[3]) * IMPORT_TURN)
+	mesh.Name = "KitFront"
+	hide(door)
+	for _, part in door:GetDescendants() do
+		if part:IsA("BasePart") then
+			hide(part)
+		end
+	end
+	mesh.Parent = door
+	return mesh
+end
+
 -- Dresses a wall decor's model (Data/Kit `Decor`: the window, a painting,
 -- the mirror). `cf` is the decor's frame on the wall (its LookVector into
 -- the room, World/PropFactory.buildDecor); kit.py built the piece out from

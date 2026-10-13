@@ -298,10 +298,11 @@ def image(name, pixels, roughness=0.9, bump=0.1):
     return mat
 
 
-def brick(name, color=(122, 58, 42), dark=(84, 38, 30), mortar=(150, 140, 124), scale=2.2, soot=0.0):
+def brick(name, color=(122, 58, 42), dark=(84, 38, 30), mortar=(150, 140, 124), scale=2.2, soot=0.0, width=0.5, height=0.18, offset=0.5, joint=0.025):
     """A 1970s-80s fireplace brick: running bond, each brick a little
     different, sandy mortar sunk between them; `soot` (0-1) darkens it, for a
-    firebox's inside."""
+    firebox's inside. With `width` = `height` and `offset` 0, square tiles
+    in a grid (a kitchen's splashback)."""
     mat = bpy.data.materials.new(name)
     n = Nodes(mat)
     m = n.mapping(scale=(1.0, 1.0, 1.0))
@@ -318,10 +319,11 @@ def brick(name, color=(122, 58, 42), dark=(84, 38, 30), mortar=(150, 140, 124), 
         n.link(xyz.outputs["Z"], vec.inputs["Y"])
         b = n.add("ShaderNodeTexBrick")
         b.inputs["Scale"].default_value = scale
-        b.inputs["Mortar Size"].default_value = 0.025
+        b.inputs["Mortar Size"].default_value = joint
         b.inputs["Bias"].default_value = 0.0
-        b.inputs["Brick Width"].default_value = 0.5
-        b.inputs["Row Height"].default_value = 0.18
+        b.inputs["Brick Width"].default_value = width
+        b.inputs["Row Height"].default_value = height
+        b.offset = offset
         b.inputs["Color1"].default_value = _srgb(color)
         b.inputs["Color2"].default_value = _srgb(dark)
         b.inputs["Mortar"].default_value = _srgb(mortar)

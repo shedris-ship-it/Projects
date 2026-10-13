@@ -609,6 +609,9 @@ local function frontDoor(model, point: Vector3, dir: Vector3)
 		PropFactory.material("Metal"),
 		quiet({ shape = Enum.PartType.Ball })
 	)
+	-- The kit's modelled door over it (World/Kit): it hangs under the door
+	-- part, so it swings open with it at the end (FinaleService:_openFront).
+	Kit.dressFront(door, inside)
 	return door
 end
 
