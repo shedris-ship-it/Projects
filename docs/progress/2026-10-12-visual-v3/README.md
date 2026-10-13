@@ -1,4 +1,4 @@
-# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` and `.180`)
+# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` to `.181`)
 
 The models come from Blender, built by script (the owner's choice, 2026-10-12). Blender 5.2.2 runs headless from `A:\Tools\blender-5.2.2-windows-x64\blender-5.2.2-windows-x64\blender.exe`.
 
@@ -95,9 +95,20 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 
 **Gate A re-baselined** (the old house now has the golden pieces too): **parts 2308, hash 897645278**.
 
+## The bookcase, rebuilt (build `.181`)
+
+- **Imported** (`golden_Shelf.glb`, mesh `78480435296134`) and in the game. Under a lamp to one side, the wood is sharp: the frame, the grained shelves, a dark back behind the books (shot 16).
+- **Under the torch, the back flared pale between the books** (shot 17).
+  - It isn't see-through: a red sheet placed behind it on one client never showed.
+  - It's the varnish. At roughness 0.45 the case is glossy, and the torch shines from the eye.
+- **Since the torch is how players see most furniture:**
+  - the case is now roughness 0.62;
+  - the back is its own plain, darker, unfinished board at 0.85 (`kitlib/furniture.py` `CaseBack`).
+- Rebuilt in `build/kit/golden_Shelf/`; it needs one more import.
+
 ## Waiting on the owner
 
-- **Import** `build\kit\golden_Shelf\golden_Shelf.glb`, the rebuilt bookcase. Its new ids then replace the old ones in `Data/Kit` and `assets/kit/Shelf.model.json`.
+- **Import** `build\kit\golden_Shelf\golden_Shelf.glb` once more (the matte back). Its new ids then replace the old ones in `Data/Kit` and `assets/kit/Shelf.model.json`.
 - Then the `Scene` models in Workspace can be deleted: the game builds the kit from ids.
 
 ## Shots
@@ -118,3 +129,5 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 - `13_lamp_shade_glowing.jpg`: the floor lamp with its real glow mask, at `Config.Kit.ShadeGlow` 1.1 (1.6 blew it out to white).
 - `14_lamp_light_trapped.jpg`: the modelled shade shadowing its own bulb: light only above and below.
 - `15_lamp_light_all_round.jpg`: the lamp casting no shadow of its own: the corner lit all round.
+- `16_bookcase_sharp_wood.jpg`: the rebuilt bookcase in the old house, under a lamp to one side: sharp wood, a dark back.
+- `17_bookcase_torch_flare.jpg`: the same under the torch: the glossy back flares pale between the books (fixed in the next build of the piece).

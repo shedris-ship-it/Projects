@@ -123,8 +123,12 @@ def bookcase():
     """A tall bookcase, 8 x 9 x 2, open shelves full of books in faded cloth
     bindings, a cornice on top and a plinth below."""
     w, h, d = 8.0, 9.0, 2.0
-    wood = materials.wood("CaseOak", OAK_DARK, OAK_LIGHT, grain_axis="Z", scale=0.9, roughness=0.45)
-    wood_x = materials.wood("CaseOakAcross", OAK_DARK, OAK_LIGHT, grain_axis="X", scale=0.9, roughness=0.45)
+    # An old varnish, not a gloss: the torch shines from the eye, and at 0.45
+    # the case flared pale in it (seen 2026-10-12).
+    wood = materials.wood("CaseOak", OAK_DARK, OAK_LIGHT, grain_axis="Z", scale=0.9, roughness=0.62)
+    wood_x = materials.wood("CaseOakAcross", OAK_DARK, OAK_LIGHT, grain_axis="X", scale=0.9, roughness=0.62)
+    # The back between the books: a plain, darker, unfinished board.
+    backboard = materials.wood("CaseBack", (40, 28, 19), (66, 46, 30), grain_axis="Z", scale=1.4, roughness=0.85)
     books = materials.by_colour("Bindings")
     # Hundreds of books took most of the case's texture and left the wood
     # blurred and pale (the owner, 2026-10-12): they get a fixed share of it.
@@ -135,7 +139,7 @@ def bookcase():
         side = shapes.box("Side", (t, d, h - 0.5), (sx * (w / 2 - t / 2), 0, (h - 0.5) / 2 + 0.25), 0.03, 2)
         parts.append(materials.assign(side, wood))
     back = shapes.box("Back", (w - 2 * t, 0.08, h - 0.5), (0, d / 2 - 0.04, (h - 0.5) / 2 + 0.25), 0.0)
-    parts.append(materials.assign(back, wood))
+    parts.append(materials.assign(back, backboard))
     plinth = shapes.box("Plinth", (w + 0.06, d + 0.04, 0.5), (0, -0.02, 0.25), 0.04, 2)
     parts.append(materials.assign(plinth, wood_x))
     cornice = shapes.box("Cornice", (w + 0.2, d + 0.12, 0.32), (0, -0.06, h - 0.16), 0.08, 3)

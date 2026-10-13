@@ -43,7 +43,7 @@ return {
 		Armchair = { mesh = "Armchair", id = 79903202176202, size = { 4, 4, 3.97 } },
 		-- The living room's and the study's bookcases only (the china cabinet and
 		-- the utility rooms' shelving wait for their own).
-		Shelf = { mesh = "Shelf", id = 111645086503689, size = { 8.2, 9, 2.12 }, names = { "^books" } },
+		Shelf = { mesh = "Shelf", id = 78480435296134, size = { 8.2, 9, 2.12 }, names = { "^books" } },
 		-- The case only: the face, hands, pendulum and glass are the game's own.
 		GrandfatherClock = {
 			mesh = "GrandfatherClock",
