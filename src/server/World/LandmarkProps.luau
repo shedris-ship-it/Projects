@@ -1,10 +1,13 @@
 -- The landmarks hung on corridor walls (Data/Landmarks, Services/
 -- LandmarkService): each built from parts at `cf`, its back to the wall and
--- its front (+Z) into the corridor, centred about eye height.
+-- its front (+Z) into the corridor, centred about eye height. The kit's
+-- model (Data/Kit `Landmarks`, World/Kit.dressLandmark) dresses each; the
+-- portrait's brass plate, with the founder's name, stays the game's.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local part = PropFactory.part
@@ -306,6 +309,7 @@ function LandmarkProps.build(kind: string, cf: CFrame, parent: Instance, opts): 
 	model.Name = "Landmark"
 	model:SetAttribute("Landmark", kind)
 	builder(model, cf, opts or {})
+	Kit.dressLandmark(model, kind, cf)
 	model:SetAttribute("RunContent", true)
 	model.Parent = parent
 	return model

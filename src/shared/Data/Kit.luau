@@ -468,6 +468,86 @@ return {
 		LeverArm = { mesh = "LeverArm", id = 120988926462158, size = { 0.26, 1.15, 0.26 }, at = { 0, 0.095, 0 } },
 		-- A servant's bell on its spring (Services/BellBoardService).
 		Bell = { mesh = "Bell", id = 102349406132325, size = { 0.3, 0.37, 0.31 }, at = { 0, 0.053, 0 } },
+		-- kit.py kit8 (kitlib/fittings): the moving fittings. A `turn = 180`
+		-- piece's front is its part's -Z, into the room, and its `at` is in the
+		-- part's frame.
+		-- The dumbwaiter (server/Puzzles/Dumbwaiter): the casing on each floor
+		-- (placed on its frame, its back on the floor), the stuck hatch (the
+		-- glass is the game's), the car (in the car's model, so it rides), the
+		-- jam box.
+		DumbwaiterCasing = {
+			mesh = "DumbwaiterCasing",
+			id = 124814881680506,
+			size = { 2.22, 10, 2.18 },
+			at = { 0, 5, 0.77 },
+		},
+		DumbwaiterHatch = {
+			mesh = "DumbwaiterHatch",
+			id = 114012586090348,
+			size = { 1.62, 1.4, 0.24 },
+			at = { -0.01, 0, 0.07 },
+		},
+		DumbwaiterCar = {
+			mesh = "DumbwaiterCar",
+			id = 100011009305897,
+			size = { 1.25, 3.65, 1.25 },
+			at = { 0, 1.775, 0 },
+		},
+		JamBox = { mesh = "JamBox", id = 120262420027486, size = { 0.91, 2.04, 0.78 }, at = { -0.063, 0.77, 0 } },
+		-- Both cranks' wheel, scaled to each's (the crank door's 1.1, the
+		-- dumbwaiter's 0.8); turned about its axle as it winds (Kit.repose).
+		HandWheel = {
+			mesh = "HandWheel",
+			id = 135257966268366,
+			size = { 1.06, 1.06, 0.58 },
+			at = { 0, 0, 0.107 },
+			fit = "scale",
+		},
+		-- The crank doors (Services/CrankService): a slat of the shutter (stacked
+		-- from the bar up as it rolls), the bottom bar, the roller box, the
+		-- crank's plate, the latch inside.
+		ShutterSlat = { mesh = "ShutterSlat", id = 120813956828415, size = { 6.6, 0.45, 0.22 }, at = { 0, 0, 0.01 } },
+		ShutterBar = { mesh = "ShutterBar", id = 128719687524517, size = { 6.7, 0.31, 0.59 }, at = { 0, -0.005, 0 } },
+		RollerBox = { mesh = "RollerBox", id = 137600998037512, size = { 7.16, 1.12, 1.14 } },
+		CrankPlate = {
+			mesh = "CrankPlate",
+			id = 79751279101169,
+			size = { 1.3, 1.3, 0.22 },
+			turn = 180,
+			at = { 0, 0, -0.037 },
+		},
+		ShutterLatch = {
+			mesh = "ShutterLatch",
+			id = 105812836210767,
+			size = { 0.5, 0.9, 0.26 },
+			turn = 180,
+			at = { 0, 0, -0.068 },
+		},
+		-- The laundry chute (Services/ChuteService): the wall hatch, the mouth
+		-- and the basket below it; the trapdoor and the ceiling's duct.
+		ChuteHatch = {
+			mesh = "ChuteHatch",
+			id = 110584818448833,
+			size = { 2.9, 2.5, 0.27 },
+			turn = 180,
+			at = { 0, 0, -0.074 },
+		},
+		ChuteMouth = {
+			mesh = "ChuteMouth",
+			id = 129040379089610,
+			size = { 2.66, 1.47, 1.49 },
+			turn = 180,
+			at = { 0, 0.004, -0.143 },
+		},
+		LaundryBasket = {
+			mesh = "LaundryBasket",
+			id = 87057863494058,
+			size = { 2.86, 2, 2.27 },
+			turn = 180,
+			at = { 0, 0.213, -0.079 },
+		},
+		ChuteTrapdoor = { mesh = "ChuteTrapdoor", id = 126328204106170, size = { 2.9, 0.1, 2.9 }, at = { 0, 0.042, 0 } },
+		ChuteDuct = { mesh = "ChuteDuct", id = 86976548936175, size = { 2.96, 1.26, 2.96 }, at = { 0, -0.03, 0 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -753,6 +833,50 @@ return {
 			centre = { 0, 0.08 },
 			floor = -1.5,
 			keep = { "Flag", "Label", "Bell" },
+		},
+	},
+	-- The corridors' landmarks (kit.py kit8; World/LandmarkProps), by their
+	-- Data/Landmarks id, dressed on the frame they're built on (World/
+	-- Kit.dressLandmark): their back on the wall, `floor` the bottom of their
+	-- box from it, `centre` { x, out }. The portrait's name plate is the game's.
+	Landmarks = {
+		stag = {
+			mesh = "StagHead",
+			id = 127754429400038,
+			size = { 2.02, 2.98, 1.99 },
+			centre = { 0, 0.952 },
+			floor = -0.899,
+		},
+		portrait = {
+			mesh = "FounderPortrait",
+			id = 90631542408260,
+			size = { 2.6, 3.4, 0.22 },
+			centre = { 0, 0.11 },
+			floor = -1.4,
+			keep = { "Plate" },
+		},
+		tapestry = {
+			mesh = "Tapestry",
+			id = 139984054320495,
+			size = { 3.44, 3.9, 0.25 },
+			centre = { 0, 0.127 },
+			-- (Hung 0.12 higher than modelled, so its fringe clears a corridor's
+			-- dado rail: seen in Studio, 2026-10-13.)
+			floor = -1.68,
+		},
+		clock = {
+			mesh = "StoppedClock",
+			id = 128016012919132,
+			size = { 2.4, 2.4, 0.25 },
+			centre = { 0, 0.122 },
+			floor = -0.9,
+		},
+		wheel = {
+			mesh = "ShipsWheel",
+			id = 129286749743554,
+			size = { 2.62, 2.62, 0.53 },
+			centre = { 0, 0.265 },
+			floor = -1.01,
 		},
 	},
 }

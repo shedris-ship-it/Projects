@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, bake, decor, devices, furniture, house, living, materials, shapes, swatches, things, trim  # noqa: E402
+from kitlib import architecture, bake, decor, devices, fittings, furniture, house, living, materials, shapes, swatches, things, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -151,6 +151,10 @@ BATCHES = {
     # The fifth (V4d): the puzzle stations and the house's devices, round
     # what lights or moves (kitlib/devices).
     "kit7": devices.DEVICES,
+    # The sixth (V4e): the moving fittings and the landmarks: the
+    # dumbwaiter, the crank doors' shutters and cranks, the laundry chute,
+    # the corridors' landmarks (kitlib/fittings).
+    "kit8": fittings.FITTINGS,
 }
 
 

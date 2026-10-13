@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Kit = require(Shared.World.Kit)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
 local RoomRects = require(Shared.Logic.RoomRects)
@@ -27,6 +28,10 @@ local C = Config.Crank
 local part = PropFactory.part
 local DOOR_W = Config.Level.DoorWidth
 local DOOR_H = Config.Level.DoorHeight
+-- The kit's shutter (Data/Kit): slats this tall stacked on a bar this tall;
+-- the crank's wheel (the kit's is scaled to it).
+local SLAT_PITCH, BAR_H = 0.45, 0.3
+local WHEEL = Vector3.new(1.1, 1.1, 1.1)
 
 local CrankService = {}
 
@@ -143,7 +148,7 @@ function CrankService:_build(seamId: string, seam, lock, rects)
 		PropFactory.material("Metal"),
 		{ collide = false }
 	)
-	part(
+	local roller = part(
 		model,
 		"RollerBox",
 		Vector3.new(DOOR_W + 1, 0.9, 1.1),
@@ -152,6 +157,22 @@ function CrankService:_build(seamId: string, seam, lock, rects)
 		PropFactory.material("Metal")
 	)
 	model.PrimaryPart = slab
+	-- The kit: the shutter as slats stacked from the bar up (those rolled into
+	-- the box are hidden: _place), the bar and the box modelled. The grey-box
+	-- slab stays the shutter's body, unseen.
+	local slats = {}
+	for k = 1, math.ceil((DOOR_H + 0.1 - BAR_H) / SLAT_PITCH) do
+		local slat = Kit.place(model, "ShutterSlat", base)
+		if not slat then
+			break
+		end
+		slats[k] = slat
+	end
+	if #slats > 0 then
+		Kit.hide(slab)
+	end
+	local barKit = Kit.dressPart(bar, "ShutterBar")
+	Kit.dressPart(roller, "RollerBox")
 	model.Parent = self.folder
 	local crank = {
 		id = seamId,
@@ -160,6 +181,8 @@ function CrankService:_build(seamId: string, seam, lock, rects)
 		base = base,
 		slab = slab,
 		bar = bar,
+		slats = slats,
+		barKit = barKit,
 		height = 0,
 		max = C.Max,
 		blocked = true,
@@ -189,6 +212,7 @@ function CrankService:_build(seamId: string, seam, lock, rects)
 	if latchAt then
 		self:_buildLatch(crank, latchAt)
 	end
+	self:_place(crank)
 end
 
 local function holdPrompt(parent: Instance, action: string, object: string, key: Enum.KeyCode, pad: Enum.KeyCode)
@@ -207,7 +231,14 @@ function CrankService:_buildCrank(crank, at: CFrame)
 	local model = Instance.new("Model")
 	model.Name = "Crank"
 	local metal = PropFactory.material("Metal")
-	part(model, "Plate", Vector3.new(1.3, 1.3, 0.15), at * CFrame.new(0, 0, -0.07), Color3.fromRGB(70, 72, 70), metal)
+	local plate = part(
+		model,
+		"Plate",
+		Vector3.new(1.3, 1.3, 0.15),
+		at * CFrame.new(0, 0, -0.07),
+		Color3.fromRGB(70, 72, 70),
+		metal
+	)
 	local wheel = part(
 		model,
 		"Wheel",
@@ -226,6 +257,15 @@ function CrankService:_buildCrank(crank, at: CFrame)
 		metal,
 		{ collide = false }
 	)
+	-- The kit's plate, and its wheel turning with the shutter (_place); the
+	-- grey-box wheel keeps the prompts, unseen.
+	Kit.dressPart(plate, "CrankPlate")
+	crank.wheelFrame = at * CFrame.new(0, 0, -0.25) * CFrame.Angles(0, math.pi, 0)
+	crank.wheelKit = Kit.place(model, "HandWheel", crank.wheelFrame, WHEEL)
+	if crank.wheelKit then
+		Kit.hide(wheel)
+		Kit.hide(handle)
+	end
 	model.Parent = self.folder
 	crank.wheel, crank.handle, crank.wheelAt = wheel, handle, at
 	crank.crankAt = at.Position
@@ -264,7 +304,7 @@ function CrankService:_buildLatch(crank, at: CFrame)
 		Color3.fromRGB(70, 72, 70),
 		PropFactory.material("Metal")
 	)
-	part(
+	local lever = part(
 		model,
 		"Lever",
 		Vector3.new(0.12, 0.5, 0.12),
@@ -273,6 +313,9 @@ function CrankService:_buildLatch(crank, at: CFrame)
 		PropFactory.material("Metal"),
 		{ collide = false }
 	)
+	if Kit.dressPart(plate, "ShutterLatch") then
+		Kit.hide(lever)
+	end
 	model.Parent = self.folder
 	crank.latchAt = at.Position
 	-- Down: heave it up (hold). Up: latch it open.
@@ -417,6 +460,18 @@ function CrankService:_place(crank)
 	crank.slab.Size = Vector3.new(DOOR_W + 0.6, tall, 0.3)
 	crank.slab.CFrame = crank.base * CFrame.new(0, h + tall / 2, 0)
 	crank.bar.CFrame = crank.base * CFrame.new(0, h + 0.15, 0)
+	if crank.barKit then
+		Kit.repose(crank.barKit, "ShutterBar", crank.bar.CFrame)
+	end
+	-- The slats from the bar up; one whose foot is in the box is rolled up.
+	for k, slat in crank.slats do
+		local y = h + BAR_H + (k - 0.5) * SLAT_PITCH
+		Kit.repose(slat, "ShutterSlat", crank.base * CFrame.new(0, y, 0))
+		slat.Transparency = if y - SLAT_PITCH / 2 < DOOR_H then 0 else 1
+	end
+	if crank.wheelKit then
+		Kit.repose(crank.wheelKit, "HandWheel", crank.wheelFrame * CFrame.Angles(0, 0, crank.height * 1.4), WHEEL)
+	end
 	if crank.wheel then
 		-- The wheel turns with the shutter.
 		crank.wheel.CFrame = crank.wheelAt

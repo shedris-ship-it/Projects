@@ -43,7 +43,15 @@ local function entriesWithIds()
 		end
 	end
 	for _, group in
-		{ KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures, KitData.Decor or {}, KitData.Things or {} }
+		{
+			KitData.Props,
+			KitData.Slabs,
+			KitData.Parts,
+			KitData.Fixtures,
+			KitData.Decor or {},
+			KitData.Things or {},
+			KitData.Landmarks or {},
+		}
 	do
 		for _, entry in group do
 			add(entry)
@@ -345,6 +353,14 @@ end
 -- for the hands (Services/HandsService welds the mesh to them).
 function Kit.dressThing(model: Model, name: string, at: CFrame): MeshPart?
 	return dressBody(model, KitData.Things and KitData.Things[name], at)
+end
+
+-- Dresses a corridor's landmark where World/LandmarkProps built it (Data/
+-- Kit `Landmarks`, by its Data/Landmarks id): `cf` is its frame on the wall
+-- (its back on the wall, +Z into the corridor). Its grey-box is hidden but
+-- what it keeps (the portrait's name plate).
+function Kit.dressLandmark(model: Model, kind: string, cf: CFrame): MeshPart?
+	return dressBody(model, KitData.Landmarks and KitData.Landmarks[kind], cf)
 end
 
 -- Dresses a door slab (World/LevelBuilder): the mesh sits in the door's

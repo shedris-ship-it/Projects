@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Kit = require(Shared.World.Kit)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
 local Sfx = require(Shared.Lib.Sfx)
@@ -87,7 +88,7 @@ function ChuteService:_build(world)
 	local hatchCF = CFrame.lookAt(hatchAt, hatchAt + into)
 	local model = Instance.new("Model")
 	model.Name = "LaundryChute"
-	PropFactory.part(
+	local frame = PropFactory.part(
 		model,
 		"Frame",
 		Vector3.new(C.Width + 0.3, C.HatchSize + 0.3, 0.12),
@@ -105,7 +106,7 @@ function ChuteService:_build(world)
 		metal,
 		{ collide = false, castShadow = false }
 	)
-	PropFactory.part(
+	local handle = PropFactory.part(
 		model,
 		"Handle",
 		Vector3.new(0.9, 0.18, 0.18),
@@ -114,6 +115,7 @@ function ChuteService:_build(world)
 		metal,
 		quiet
 	)
+	self:_dressHatch(frame, hatch, { handle }, "ChuteHatch")
 	model.Parent = upper.model
 
 	-- Downstairs: the chute's mouth near the ceiling, a flap, and the basket.
@@ -121,7 +123,7 @@ function ChuteService:_build(world)
 	local mouthCF = CFrame.lookAt(mouthAt, mouthAt + into)
 	local below = Instance.new("Model")
 	below.Name = "ChuteMouth"
-	PropFactory.part(
+	local mouth = PropFactory.part(
 		below,
 		"Mouth",
 		Vector3.new(C.Width, 1.4, C.MouthDepth),
@@ -130,7 +132,7 @@ function ChuteService:_build(world)
 		metal,
 		quiet
 	)
-	PropFactory.part(
+	local flap = PropFactory.part(
 		below,
 		"Flap",
 		Vector3.new(C.Width - 0.2, 1.1, 0.06),
@@ -143,8 +145,9 @@ function ChuteService:_build(world)
 	local basketCF = CFrame.lookAt(basketAt, basketAt + into)
 	local wicker = Color3.fromRGB(156, 128, 86)
 	-- (You walk through the basket: nothing here blocks the room.)
-	PropFactory.part(below, "Basket", BASKET, basketCF, wicker, PropFactory.material("Fabric"), { collide = false })
-	PropFactory.part(
+	local basket =
+		PropFactory.part(below, "Basket", BASKET, basketCF, wicker, PropFactory.material("Fabric"), { collide = false })
+	local linen = PropFactory.part(
 		below,
 		"Linen",
 		Vector3.new(BASKET.X - 0.3, 0.3, BASKET.Z - 0.3),
@@ -153,6 +156,12 @@ function ChuteService:_build(world)
 		PropFactory.material("Fabric"),
 		quiet
 	)
+	if Kit.dressPart(mouth, "ChuteMouth") then
+		Kit.hide(flap)
+	end
+	if Kit.dressPart(basket, "LaundryBasket") then
+		Kit.hide(linen)
+	end
 	below.Parent = ground.model
 
 	self:_prompt(hatch)
@@ -170,6 +179,23 @@ function ChuteService:_build(world)
 		-- Where someone stands to use it (F2 `chute`).
 		stand = Vector3.new(hatchAt.X, Config.Level.Origin.y + PITCH + 3, hatchAt.Z) + into * 3,
 	}
+end
+
+-- The kit's hatch (Data/Kit `name`) on the frame, its grey-box hidden. The
+-- grey-box hatch never collides, so hidden the hands' aim would look past
+-- it: the mesh hangs under the hatch and catches the ray itself, and the aim
+-- finds the hatch's prompt from it (HandsController walks up to it).
+function ChuteService:_dressHatch(frame: BasePart, hatch: BasePart, also: { BasePart }, name: string)
+	local mesh = Kit.dressPart(frame, name)
+	if not mesh then
+		return
+	end
+	mesh.CanQuery = true
+	mesh.Parent = hatch
+	Kit.hide(hatch)
+	for _, p in also do
+		Kit.hide(p)
+	end
 end
 
 function ChuteService:_prompt(hatch: BasePart)
@@ -200,7 +226,7 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 	local top = o.y + PITCH
 	local model = Instance.new("Model")
 	model.Name = "LaundryChute"
-	PropFactory.part(
+	local frame = PropFactory.part(
 		model,
 		"Frame",
 		Vector3.new(size + 0.3, 0.06, size + 0.3),
@@ -218,7 +244,7 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 		metal,
 		{ collide = false, castShadow = false }
 	)
-	PropFactory.part(
+	local ring = PropFactory.part(
 		model,
 		"Ring",
 		Vector3.new(0.08, 0.6, 0.6),
@@ -227,12 +253,13 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 		metal,
 		{ collide = false, query = false, castShadow = false, shape = Enum.PartType.Cylinder }
 	)
+	self:_dressHatch(frame, hatch, { ring }, "ChuteTrapdoor")
 	model.Parent = upper.model
 	-- Below: the chute's mouth out of the ceiling, over the basket.
 	local below = Instance.new("Model")
 	below.Name = "ChuteMouth"
 	local ceiling = o.y + Config.Level.WallHeight
-	PropFactory.part(
+	local mouth = PropFactory.part(
 		below,
 		"Mouth",
 		Vector3.new(size, 1.2, size),
@@ -241,8 +268,9 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 		metal,
 		quiet
 	)
+	Kit.dressPart(mouth, "ChuteDuct")
 	local basketAt = Vector3.new(x, o.y + BASKET.Y / 2, z)
-	PropFactory.part(
+	local basket = PropFactory.part(
 		below,
 		"Basket",
 		BASKET,
@@ -251,7 +279,7 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 		PropFactory.material("Fabric"),
 		{ collide = false }
 	)
-	PropFactory.part(
+	local linen = PropFactory.part(
 		below,
 		"Linen",
 		Vector3.new(BASKET.X - 0.3, 0.3, BASKET.Z - 0.3),
@@ -260,6 +288,9 @@ function ChuteService:_buildTrapdoor(chute, upper, ground)
 		PropFactory.material("Fabric"),
 		quiet
 	)
+	if Kit.dressPart(basket, "LaundryBasket") then
+		Kit.hide(linen)
+	end
 	below.Parent = ground.model
 	self:_prompt(hatch)
 	-- Land beside the basket, towards the laundry's middle.

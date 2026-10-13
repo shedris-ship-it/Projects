@@ -6,6 +6,7 @@ return function(test, check, Shared, require)
 	local Props = require(Shared.Data.Props)
 	local Config = require(Shared.Config)
 	local Valuables = require(Shared.Data.Valuables)
+	local Landmarks = require(Shared.Data.Landmarks)
 
 	-- How far a modelled piece may differ from the grey-box it dresses, as a
 	-- share of each side (a raised panel or a cushion's curve stands proud).
@@ -60,7 +61,7 @@ return function(test, check, Shared, require)
 				check.truthy(entry.id > 0 and entry.id == math.floor(entry.id), name .. "'s id is an asset id")
 			end
 		end
-		for _, group in { Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor, Kit.Things } do
+		for _, group in { Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor, Kit.Things, Kit.Landmarks } do
 			for name, entry in group do
 				idOf(name, entry)
 				for _, piece in entry.pieces or {} do
@@ -199,5 +200,43 @@ return function(test, check, Shared, require)
 				check.truthy(entry.fit == true or entry.fit == "y" or entry.fit == "scale", name .. "'s fit is known")
 			end
 		end
+	end)
+
+	test("every corridor landmark has its look, hung from the wall", function()
+		local ids = {}
+		for _, landmark in Landmarks do
+			ids[landmark.id] = true
+			check.truthy(Kit.Landmarks[landmark.id], landmark.id .. " has a kit entry")
+		end
+		for id, entry in Kit.Landmarks do
+			check.truthy(ids[id], id .. " is a landmark (Data/Landmarks)")
+			check.equal(type(entry.mesh), "string", id .. " names its mesh")
+			check.equal(#entry.size, 3, id .. " gives its modelled size")
+			check.equal(#entry.centre, 2, id .. "'s centre is { x, out }")
+			check.equal(type(entry.floor), "number", id .. " says where its box starts")
+			-- (Out from the wall: its box's middle is in front of it.)
+			check.truthy(entry.centre[2] > 0, id .. " stands out from the wall")
+			check.atMost(entry.centre[2] - entry.size[3] / 2, 0.02, id .. "'s back is on the wall")
+		end
+		-- The founder's name is the game's, on its plate.
+		check.truthy(table.find(Kit.Landmarks.portrait.keep or {}, "Plate"), "the portrait keeps its name plate")
+	end)
+
+	test("the moving fittings are modelled at the game's sizes", function()
+		local function near(got, want, what)
+			check.atMost(
+				math.abs(got - want) / want,
+				TOLERANCE,
+				string.format("%s: modelled %.2f, the game's %.2f", what, got, want)
+			)
+		end
+		local level = Config.Level
+		-- A slat spans the shutter (the doorway and 0.6), the casing a storey.
+		near(Kit.Parts.ShutterSlat.size[1], level.DoorWidth + 0.6, "a shutter slat's width")
+		near(Kit.Parts.DumbwaiterCasing.size[2], level.WallHeight, "the dumbwaiter casing's height")
+		near(Kit.Parts.DumbwaiterHatch.size[1], Config.Dumbwaiter.Width - 0.3, "the dumbwaiter hatch's width")
+		near(Kit.Parts.ChuteHatch.size[1], Config.Mansion.Chute.Width + 0.3, "the chute hatch's width")
+		-- (The hand wheel is scaled to each crank's wheel: Data/Kit `fit`.)
+		check.equal(Kit.Parts.HandWheel.fit, "scale", "the hand wheel fits each crank")
 	end)
 end

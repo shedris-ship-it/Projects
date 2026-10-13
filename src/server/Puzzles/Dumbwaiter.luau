@@ -19,6 +19,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Dumbwaiter = require(Shared.Logic.Dumbwaiter)
+local Kit = require(Shared.World.Kit)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
 local Rooms = require(Shared.Data.Rooms)
@@ -29,6 +30,8 @@ local part = PropFactory.part
 local WOOD = Color3.fromRGB(92, 66, 44)
 local HATCH_Y = 2.6 -- the car's floor at each hatch, above the room's floor
 local WIDTH, DEPTH, CAR = D.Width, D.Depth, 1.25 -- the planner keeps furniture off these (Logic/Dumbwaiter)
+local WHEEL = Vector3.new(0.8, 0.8, 0.8) -- the crank's wheel (the kit's is scaled to it)
+local WHEEL_TURNS = 4 -- turns of the crank from the bottom to the top
 
 local Kind = {
 	label = "Dumbwaiter",
@@ -118,12 +121,14 @@ end
 
 -- A wooden casing on one floor, against the wall, with its hatch: shut with
 -- a little window (`shut`) or open on a shelf. `cf` faces into the room
--- (+Z), on the wall face at the room's floor.
+-- (+Z), on the wall face at the room's floor. The kit's casing (Data/Kit
+-- DumbwaiterCasing) dresses it, and the stuck hatch its own; the glass stays.
 local function casing(model: Model, cf: CFrame, shut: boolean)
 	local wood = PropFactory.material("Wood")
 	local h = Config.Level.WallHeight -- floor to ceiling (the slab hides the shaft between)
+	local body = {}
 	for _, sx in { -1, 1 } do
-		part(
+		body[#body + 1] = part(
 			model,
 			"Side",
 			Vector3.new(0.15, h, DEPTH),
@@ -133,9 +138,16 @@ local function casing(model: Model, cf: CFrame, shut: boolean)
 		)
 	end
 	-- Front, above and below the hatch opening (1.4 high, from HATCH_Y).
-	part(model, "Front", Vector3.new(WIDTH, HATCH_Y, 0.12), cf * CFrame.new(0, HATCH_Y / 2, DEPTH - 0.06), WOOD, wood)
+	body[#body + 1] = part(
+		model,
+		"Front",
+		Vector3.new(WIDTH, HATCH_Y, 0.12),
+		cf * CFrame.new(0, HATCH_Y / 2, DEPTH - 0.06),
+		WOOD,
+		wood
+	)
 	local top = HATCH_Y + 1.4
-	part(
+	body[#body + 1] = part(
 		model,
 		"Front",
 		Vector3.new(WIDTH, h - top, 0.12),
@@ -143,7 +155,7 @@ local function casing(model: Model, cf: CFrame, shut: boolean)
 		WOOD,
 		wood
 	)
-	part(
+	body[#body + 1] = part(
 		model,
 		"Trim",
 		Vector3.new(1.6, 0.12, 0.16),
@@ -152,6 +164,11 @@ local function casing(model: Model, cf: CFrame, shut: boolean)
 		wood,
 		{ collide = false }
 	)
+	if Kit.place(model, "DumbwaiterCasing", cf) then
+		for _, p in body do
+			Kit.hide(p)
+		end
+	end
 	if shut then
 		local door = part(
 			model,
@@ -170,6 +187,7 @@ local function casing(model: Model, cf: CFrame, shut: boolean)
 			PropFactory.material("Glass"),
 			{ transparency = 0.55, castShadow = false }
 		)
+		Kit.dressPart(door, "DumbwaiterHatch")
 		return door
 	end
 	return nil
@@ -201,7 +219,7 @@ function Kind.build(service, session, wall: Vector3, into: Vector3)
 		WOOD,
 		PropFactory.material("Wood")
 	)
-	part(
+	local carBack = part(
 		car,
 		"CarBack",
 		Vector3.new(CAR, 1.3, 0.08),
@@ -210,7 +228,7 @@ function Kind.build(service, session, wall: Vector3, into: Vector3)
 		PropFactory.material("Wood"),
 		{ collide = false }
 	)
-	part(
+	local carTop = part(
 		car,
 		"CarTop",
 		Vector3.new(CAR, 0.08, CAR),
@@ -220,6 +238,12 @@ function Kind.build(service, session, wall: Vector3, into: Vector3)
 		{ collide = false }
 	)
 	car.PrimaryPart = carFloor
+	-- (Its kit rides in the car's model: PivotTo moves it with the floor.)
+	if Kit.place(car, "DumbwaiterCar", carFloor.CFrame) then
+		for _, p in { carFloor, carBack, carTop } do
+			Kit.hide(p)
+		end
+	end
 	-- The crank on the casing's side, and the jam box under it.
 	local crankAt = base0 * CFrame.new(WIDTH / 2 + 0.1, 3.4, DEPTH - 0.4) * CFrame.Angles(0, math.pi / 2, 0)
 	local wheel = part(
@@ -239,6 +263,14 @@ function Kind.build(service, session, wall: Vector3, into: Vector3)
 		Color3.fromRGB(70, 70, 70),
 		PropFactory.material("Metal")
 	)
+	-- The kit's wheel turns as the car rises (Kind.step); the grey-box's stays
+	-- the prompt's, unseen.
+	session.crankAt = crankAt
+	session.wheelKit = Kit.place(model, "HandWheel", crankAt, WHEEL)
+	if session.wheelKit then
+		Kit.hide(wheel)
+	end
+	Kit.dressPart(jam, "JamBox")
 	model.Parent = folder
 	session.model, session.car, session.station = model, car, wheel
 	session.front = into
@@ -339,6 +371,10 @@ function Kind.step(service, session, dt: number)
 	if session.p ~= before then
 		local at = session.carAt(session.p)
 		session.car:PivotTo(at * CFrame.new(0, -0.07, 0))
+		if session.wheelKit then
+			local turn = CFrame.Angles(0, 0, -session.p * WHEEL_TURNS * math.pi * 2)
+			Kit.repose(session.wheelKit, "HandWheel", session.crankAt * turn, WHEEL)
+		end
 		local item = session.item
 		if item and item.thing and item.thing.state == "rest" and not item.thing.holder and item.model.Parent then
 			item.model:PivotTo(at)
