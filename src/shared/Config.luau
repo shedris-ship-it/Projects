@@ -981,6 +981,10 @@ Config.Exterior = {
 	LampHeight = 14,
 	LampRange = 40,
 	LampBrightness = 1.4,
+	-- The modelled plants' tint (World/Kit.tint over their baked leaves and
+	-- bark): Tone, how dark the night makes them (set by eye in Studio
+	-- against the stand-ins' palette); each plant one of a few Shades of it.
+	KitTint = { Tone = 1, Shades = { 0.86, 0.95, 1.04, 1.12 } },
 	Grass = { 30, 34, 24 },
 	Gravel = { 74, 70, 64 },
 	Bark = { 30, 26, 22 },
@@ -1187,8 +1191,11 @@ Config.Lens = {
 	Flicker = 0.025,
 	-- The vignette's opacity: at Dread 0, at Dread 100, in the hub.
 	Vignette = { calm = 0.55, collapse = 0.92, hub = 0.4 },
-	-- Roblox's tonemapper (ColorGradingEffect): "Default" or "Retro".
-	Tonemapper = "Default",
+	-- Roblox's tonemapper (ColorGradingEffect): "Default" or "Retro". Retro,
+	-- the owner's pick (2026-10-13, from side-by-side shots: "it looks like it
+	-- has slightly more bloom"): its shadows a little lifted, its colour
+	-- flatter and warmer.
+	Tonemapper = "Retro",
 	-- Rack focus: the lens focuses on what the middle of your view rests on.
 	Focus = {
 		Near = 2.5, -- studs: never closer

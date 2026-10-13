@@ -335,8 +335,13 @@ def triangles(obj):
 
 
 def bounds(obj):
-    """(min, max) of the object's mesh in world space."""
-    corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    """(min, max) of the object's mesh in world space, from its vertices
+    (its cached bound_box can be stale after a bmesh edit: an arborvitae cut
+    off under the lawn still reported its old foot, 2026-10-13)."""
+    if obj.type == "MESH" and len(obj.data.vertices):
+        corners = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    else:
+        corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
     lo = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
     hi = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
     return lo, hi

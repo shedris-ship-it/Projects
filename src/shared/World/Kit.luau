@@ -51,6 +51,7 @@ local function entriesWithIds()
 			KitData.Decor or {},
 			KitData.Things or {},
 			KitData.Landmarks or {},
+			KitData.Outside or {},
 		}
 	do
 		for _, entry in group do
@@ -438,6 +439,20 @@ function Kit.dressPart(part: BasePart, name: string): MeshPart?
 	return mesh
 end
 
+-- Dresses a part that carries a prompt but never collides (a light switch's
+-- plate, the safe room's carton): hidden, the hands' aim would look past it
+-- (HandsController skips an unseen part that doesn't collide), so its mesh
+-- hangs under it and catches the ray itself, and the aim finds the part's
+-- prompt by walking up to it (as the chute's hatch, Services/ChuteService).
+function Kit.dressPrompted(part: BasePart, name: string): MeshPart?
+	local mesh = Kit.dressPart(part, name)
+	if mesh then
+		mesh.CanQuery = true
+		mesh.Parent = part
+	end
+	return mesh
+end
+
 -- Puts a piece of the architecture where no grey-box part stands for it
 -- (Data/Kit `Parts`: a stair's tread and riser over its step); `size` for
 -- one that fits. Returns nil when it isn't in.
@@ -607,6 +622,40 @@ function Kit.dressFixture(model: Model, name: string, origin: CFrame): MeshPart?
 	end
 	mesh.Parent = model
 	return mesh
+end
+
+-- Stands one of the things outside (Data/Kit `Outside`: a tree, a bush, the
+-- streetlamp; World/Exterior) on `cf`, its foot on the ground there (+Z its
+-- front), `scale` times its modelled size (the trees scaled to each plant).
+-- Returns nil when it isn't in.
+function Kit.placeOutside(parent: Instance, name: string, cf: CFrame, scale: Vector3): MeshPart?
+	local entry = KitData.Outside and KitData.Outside[name]
+	local template = entry and Kit.template(entry.mesh)
+	if not template then
+		return nil
+	end
+	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3]) * scale
+	local centre = entry.centre or { 0, 0 }
+	local mesh = visual(
+		template,
+		size,
+		cf * CFrame.new(centre[1] * scale.X, (entry.floor or 0) * scale.Y + size.Y / 2, centre[2] * scale.Z)
+	)
+	mesh.Name = "Kit" .. name
+	mesh.CastShadow = entry.shadow ~= false
+	mesh.Parent = parent
+	return mesh
+end
+
+-- Tints a kit mesh's look (its SurfaceAppearance's Color multiplies its
+-- colour map): a mug its own glaze, a tree its own green. Breaks the mesh
+-- out of the copies Roblox draws together, so only for a few, or for many
+-- that share a handful of tints.
+function Kit.tint(mesh: MeshPart?, color: Color3)
+	local look = mesh and mesh:FindFirstChildOfClass("SurfaceAppearance")
+	if look then
+		look.Color = color
+	end
 end
 
 -- A fixture's measures (Data/Kit), for callers that place it: its modelled

@@ -3,11 +3,14 @@
 -- Services/FindService picks one (Data/Finds) the first time a drawer or
 -- door is opened, never before, and gives it its use; Services/HandsService
 -- makes it something your hands can carry and throw (Data/Physical lists
--- each by model name).
+-- each by model name). Each wears its modelled look over its blocks
+-- (World/Kit.dressThing, Data/Kit `Things` by its name; kit.py kit9): the
+-- blocks stay its body for the hands.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local part = PropFactory.part
@@ -188,6 +191,7 @@ function Junk.build(name: string, at: CFrame, parent: Instance): Model
 	local model = Instance.new("Model")
 	model.Name = name
 	builders[name](model, at)
+	Kit.dressThing(model, name, at)
 	model.Parent = parent
 	return model
 end

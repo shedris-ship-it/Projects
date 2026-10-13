@@ -491,8 +491,13 @@ function InteractService:_buildSwitch(roomId: number, cf: CFrame)
 		PropFactory.material("SmoothPlastic"),
 		{ collide = false, castShadow = false }
 	)
+	-- The kit's plate and toggle (Data/Kit SwitchPlate, SwitchToggle): the
+	-- plate's mesh catches the hands' aim for its prompt (World/Kit.dressPrompted),
+	-- the toggle's flips with the grey-box's (Flip).
+	Kit.dressPrompted(plate, "SwitchPlate")
+	local toggle = Kit.dressPart(nub, "SwitchToggle")
 	model.Parent = self.folder
-	local switch = { plate = plate, nub = nub, cf = cf, off = false }
+	local switch = { plate = plate, nub = nub, toggle = toggle, cf = cf, off = false }
 	self.switches[roomId] = switch
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "SwitchPrompt"
@@ -521,6 +526,9 @@ function InteractService:Flip(roomId: number, off: boolean, player: Player?)
 	switch.nub.CFrame = switch.cf
 		* CFrame.new(0, off and -0.06 or 0.06, -0.08)
 		* CFrame.Angles(math.rad(off and 20 or -20), 0, 0)
+	if switch.toggle then
+		Kit.repose(switch.toggle, "SwitchToggle", switch.nub.CFrame)
+	end
 	switch.prompt.ActionText = off and "Switch the light on" or "Switch the light off"
 	Sfx.play("FlashlightClick", switch.plate.Position, 0.45, 0.8)
 	self.Noise:Emit(switch.plate.Position, I.SwitchNoise, player, "switch")

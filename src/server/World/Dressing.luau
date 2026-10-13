@@ -6,6 +6,12 @@
 -- collides, blocks a ray, or carries a CId: dressing is never Witnessable and
 -- never evidence (rule 6). Photos are tagged so the client can age them with
 -- Drift (EffectsController).
+--
+-- Each thing is built as blocks and then dressed in its modelled look
+-- (World/Kit.dressThing, Data/Kit `Things`, kit.py kit9): the blocks stay
+-- its body for the hands, which carry it with the mesh on. Which look a
+-- thing wears, and its tint, come from the draws its blocks already made,
+-- so the seed places everything where it always did.
 
 local CollectionService = game:GetService("CollectionService")
 local Workspace = game:GetService("Workspace")
@@ -14,6 +20,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Kit = require(Shared.World.Kit)
 local Props = require(Shared.Data.Props)
 local SurfaceSpots = require(Shared.Logic.SurfaceSpots)
 local PropFactory = require(Shared.World.PropFactory)
@@ -161,6 +168,7 @@ local function telephone(parent, cf: CFrame)
 			DECOR
 		)
 	end
+	Kit.dressThing(model, "Telephone", cf)
 	model.Parent = parent
 	return model
 end
@@ -207,6 +215,8 @@ local function photoFrame(parent, cf: CFrame, set: number)
 		PropFactory.material("Wood"),
 		DECOR
 	)
+	-- (The photo is the game's, its picture aged by Drift: Data/Kit `keep`.)
+	Kit.dressThing(model, "PhotoFrame", cf)
 	model.Parent = parent
 	return model
 end
@@ -287,6 +297,8 @@ local function mug(parent, cf, rng)
 		CYLINDER
 	)
 	bit(model, "Handle", Vector3.new(0.3, 0.07, 0.3), cf * CFrame.new(0.26, 0.22, 0), tint, "SmoothPlastic")
+	-- (Glazed near white: its tint is its own colour.)
+	Kit.tint(Kit.dressThing(model, "Mug", cf), tint)
 	model.Parent = parent
 	return model
 end
@@ -304,7 +316,8 @@ local function plate(parent, cf, rng)
 		"SmoothPlastic",
 		CYLINDER
 	)
-	if rng:Chance(0.5) then
+	local crust = rng:Chance(0.5)
+	if crust then
 		bit(
 			model,
 			"Crust",
@@ -315,6 +328,7 @@ local function plate(parent, cf, rng)
 			CYLINDER
 		)
 	end
+	Kit.dressThing(model, if crust then "SidePlateCrust" else "SidePlate", cf)
 	model.Parent = parent
 	return model
 end
@@ -323,7 +337,8 @@ local function books(parent, cf, rng)
 	local model = Instance.new("Model")
 	model.Name = "Books"
 	local y = 0
-	for _ = 1, rng:NextInteger(2, 3) do
+	local count = rng:NextInteger(2, 3)
+	for _ = 1, count do
 		local h = rng:NextNumber(0.14, 0.26)
 		local tint = Color3.fromHSV(rng:NextNumber(), 0.35, rng:NextNumber(0.25, 0.5))
 		bit(
@@ -336,6 +351,7 @@ local function books(parent, cf, rng)
 		)
 		y += h
 	end
+	Kit.dressThing(model, if count == 3 then "BooksA" else "BooksB", cf)
 	model.Parent = parent
 	return model
 end
@@ -362,7 +378,8 @@ local function vase(parent, cf, rng)
 		"SmoothPlastic",
 		CYLINDER
 	)
-	if rng:Chance(0.6) then
+	local stems = rng:Chance(0.6)
+	if stems then
 		bit(
 			model,
 			"Stems",
@@ -372,6 +389,8 @@ local function vase(parent, cf, rng)
 			"Fabric"
 		)
 	end
+	-- (Glazed pale: its tint is its glaze.)
+	Kit.tint(Kit.dressThing(model, if stems then "VaseStems" else "Vase", cf), tint)
 	model.Parent = parent
 	return model
 end
@@ -379,15 +398,11 @@ end
 local function magazine(parent, cf, rng)
 	local model = Instance.new("Model")
 	model.Name = "Magazine"
-	local tint = Color3.fromHSV(rng:NextNumber(), 0.45, 0.6)
-	bit(
-		model,
-		"Cover",
-		Vector3.new(0.85, 0.05, 1.1),
-		cf * CFrame.new(0, 0.03, 0) * CFrame.Angles(0, rng:NextNumber(-0.5, 0.5), 0),
-		tint,
-		"Fabric"
-	)
+	local hue = rng:NextNumber()
+	local tint = Color3.fromHSV(hue, 0.45, 0.6)
+	local turn = CFrame.Angles(0, rng:NextNumber(-0.5, 0.5), 0)
+	bit(model, "Cover", Vector3.new(0.85, 0.05, 1.1), cf * CFrame.new(0, 0.03, 0) * turn, tint, "Fabric")
+	Kit.dressThing(model, if hue < 0.5 then "MagazineA" else "MagazineB", cf * turn)
 	model.Parent = parent
 	return model
 end

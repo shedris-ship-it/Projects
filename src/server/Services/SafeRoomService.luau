@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Kit = require(Shared.World.Kit)
 local Net = require(Shared.Net)
 local PropFactory = require(Shared.World.PropFactory)
 local SafeRoom = require(Shared.Logic.SafeRoom)
@@ -98,6 +99,9 @@ function SafeRoomService:_batteries(at: CFrame, squad: number)
 	label.Text = "BATTERIES\nD-CELL"
 	label.Parent = gui
 	gui.Parent = box
+	-- The kit's carton (Data/Kit BatteryBox), its label still the game's on
+	-- top; its mesh catches the hands' aim for the prompt on the box.
+	Kit.dressPrompted(box, "BatteryBox")
 	model:SetAttribute("RunContent", true)
 	model.Parent = self.World.content
 	local left = math.max(1, squad)

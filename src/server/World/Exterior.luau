@@ -7,11 +7,13 @@
 -- bar), the Guest never comes out, and nothing in the run reads it. Built
 -- from the run's seed (its own fork), so a house always has the same night.
 --
--- The plants are stand-ins built from parts until their Blender batch lands
--- (the visual rework V4d): dense woods mostly still in leaf, undergrowth, and
--- a garden of shrubs and tall evergreens along the walls (Logic/Grounds; the
--- owner, 2026-10-12: "more dense foliage"). The lawn is terrain grass, whose
--- blades Roblox draws.
+-- The plants: dense woods mostly still in leaf, undergrowth, and a garden of
+-- shrubs and tall evergreens along the walls (Logic/Grounds; the owner,
+-- 2026-10-12: "more dense foliage"). Each is a modelled tree, bush or
+-- arborvitae (kit.py kit9, Data/Kit `Outside`; World/Kit.placeOutside),
+-- scaled to its plant and turned and tinted at random; until those are in,
+-- stand-ins built from parts. The lawn is terrain grass, whose blades Roblox
+-- draws.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +22,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Grounds = require(Shared.Logic.Grounds)
+local Kit = require(Shared.World.Kit)
 local MansionHouse = require(Shared.Logic.MansionHouse)
 local PropFactory = require(Shared.World.PropFactory)
 local WindowView = require(Shared.Logic.WindowView)
@@ -41,6 +44,47 @@ local function scenery(model, name: string, size: Vector3, cf: CFrame, color: Co
 		opts[k] = v
 	end
 	return PropFactory.part(model, name, size, cf, color, PropFactory.material(material), opts)
+end
+
+-- The modelled plants (Data/Kit `Outside`), by kind: each plant wears one of
+-- its kind's, picked from the seed.
+local LOOKS = {
+	leafy = { "TreeOakA", "TreeOakB" },
+	turning = { "TreeTurning" },
+	bare = { "TreeBareA", "TreeBareB" },
+	conifer = { "ConiferA", "ConiferB" },
+	bush = { "BushA", "BushB" },
+	column = { "Arborvitae" },
+}
+
+-- A modelled plant at `at` on the lawn, `height` tall, at most `reach` from
+-- `at` sideways (never nearer the house than its plant allows: the old
+-- stand-ins kept to the same), at most `top` high if given (a shrub under
+-- the sills): turned at random, leaning a little, tinted a shade lighter or
+-- darker (a handful of shades: Kit.tint). nil when its look isn't in.
+local function standPlant(model, names: { string }, at: Vector3, height: number, reach: number, rng, top: number?)
+	local name = names[rng:NextInteger(1, #names)]
+	local entry = Kit.measures("Outside", name)
+	if not entry then
+		return nil
+	end
+	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+	local centre = entry.centre or { 0, 0 }
+	local k = height / size.Y
+	-- (Its widest reach from its foot: half its box past its box's middle.)
+	local spread = math.max(size.X, size.Z) / 2 + math.max(math.abs(centre[1]), math.abs(centre[2]))
+	local wide = math.min(k, math.max(reach, 0.5) / spread)
+	local tall = k
+	if top then
+		tall = math.min(k, top / (size.Y + (entry.floor or 0)))
+	end
+	local lean = CFrame.Angles(math.rad(rng:NextNumber(-3, 3)), 0, math.rad(rng:NextNumber(-3, 3)))
+	local cf = CFrame.new(at) * lean * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local mesh = Kit.placeOutside(model, name, cf, Vector3.new(wide, tall, wide))
+	local T = E.KitTint
+	local shade = T.Shades[rng:NextInteger(1, #T.Shades)] * T.Tone
+	Kit.tint(mesh, Color3.new(shade, shade, shade))
+	return mesh
 end
 
 -- A mass of leaves: an ellipsoid (a block drawn as a sphere mesh, so it can
@@ -95,7 +139,12 @@ local function branch(model, base: CFrame, height: number, girth: number, rng, f
 end
 
 -- A bare autumn tree: a trunk and a handful of branches reaching up and out.
-local function bareTree(model, at: Vector3, height: number, far: boolean, rng)
+local function bareTree(model, at: Vector3, height: number, far: boolean, clear: number, rng)
+	local mesh = standPlant(model, LOOKS.bare, at, height, clear - 0.5 - 0.05 * height, rng)
+	if mesh then
+		mesh.CastShadow = not far
+		return
+	end
 	local girth = rng:NextNumber(0.7, 1.4)
 	local base = trunk(model, at, height, rng, girth)
 	for _ = 1, far and rng:NextInteger(3, 4) or rng:NextInteger(4, 7) do
@@ -106,6 +155,14 @@ end
 -- A tree still in leaf: a trunk, a limb or two, and a crown of overlapping
 -- masses of leaves round its upper part: lumpy, never a lollipop.
 local function leafyTree(model, at: Vector3, height: number, far: boolean, clear: number, rng)
+	-- (One in five turning, as the stand-ins' palette had it.)
+	local turning = rng:NextInteger(1, #E.Leaves) == #E.Leaves
+	local mesh =
+		standPlant(model, turning and LOOKS.turning or LOOKS.leafy, at, height, clear - 0.5 - 0.05 * height, rng)
+	if mesh then
+		mesh.CastShadow = not far
+		return
+	end
 	local girth = rng:NextNumber(0.8, 1.5)
 	local base = trunk(model, at, height * 0.8, rng, girth)
 	for _ = 1, far and 1 or 2 do
@@ -150,6 +207,11 @@ local TIERS = {
 local FAR_TIERS = { TIERS[1], { y = 0.62, tall = 0.62, wide = 0.55 } }
 
 local function conifer(model, at: Vector3, height: number, far: boolean, clear: number, rng)
+	local mesh = standPlant(model, LOOKS.conifer, at, height, clear - 0.5, rng)
+	if mesh then
+		mesh.CastShadow = not far
+		return
+	end
 	local base = trunk(model, at, height * 0.35, rng, rng:NextNumber(0.6, 1))
 	local wide = math.min(height * rng:NextNumber(0.24, 0.32), (clear - 0.5) * 2)
 	for _, tier in far and FAR_TIERS or TIERS do
@@ -167,6 +229,18 @@ end
 -- nothing of it as far as `clear` (the house), its top under `high`.
 local function bush(model, at: Vector3, scale: number, far: boolean, clear: number, rng, high: number?)
 	local U = E.Undergrowth
+	-- (A bush's masses spread about its size across: the modelled one as
+	-- wide; never casting a shadow, as the masses never did.)
+	local width = (U.Size[1] + U.Size[2]) / 2 * scale
+	local look = Kit.measures("Outside", LOOKS.bush[1])
+	if look then
+		local height = width * look.size[2] / look.size[1]
+		local mesh = standPlant(model, LOOKS.bush, at, height, clear - 0.3, rng, high)
+		if mesh then
+			mesh.CastShadow = false
+			return
+		end
+	end
 	local palette = E.Leaves[rng:NextInteger(1, #E.Leaves - 1)] -- (no turning colour this low)
 	local limit = clear - 0.3
 	for i = 1, far and 2 or rng:NextInteger(2, 3) do
@@ -194,6 +268,11 @@ end
 -- A tall narrow evergreen by the house (an arborvitae, as 1988's gardens
 -- had): one tall mass and a smaller one at its foot.
 local function column(model, at: Vector3, height: number, clear: number, rng)
+	local mesh = standPlant(model, LOOKS.column, at, height, clear - 0.75, rng)
+	if mesh then
+		mesh.CastShadow = false
+		return
+	end
 	local needles = E.Needles
 	local wide = math.min(rng:NextNumber(2.4, 3.2), (clear - 0.75) * 2 / 1.15) -- (its foot is the wider)
 	blob(
@@ -282,6 +361,17 @@ local function streetlamp(model, at: Vector3, facing: Vector3)
 	glow.Shadows = false
 	glow.Parent = head
 	CollectionService:AddTag(head, "ConsensusGlare") -- Controllers/LensController draws its halo
+	-- The modelled lamp (Data/Kit Streetlamp): its arm reaches toward `facing`
+	-- (its -Z), its refractor glowing where the head's lights shine from.
+	if Kit.placeOutside(model, "Streetlamp", CFrame.lookAt(at, at + facing), Vector3.one) then
+		for _, name in { "LampPost", "LampArm", "LampHead" } do
+			for _, part in model:GetChildren() do
+				if part.Name == name and part:IsA("BasePart") then
+					Kit.hide(part)
+				end
+			end
+		end
+	end
 	return head
 end
 
@@ -463,7 +553,7 @@ function Exterior.build(layout, folder: Instance, origin: Vector3, rng, moon)
 			leafyTree(model, at, plant.size, plant.far, plant.clear, rng)
 			trees += 1
 		elseif plant.kind == "bare" then
-			bareTree(model, at, plant.size, plant.far, rng)
+			bareTree(model, at, plant.size, plant.far, plant.clear, rng)
 			trees += 1
 		elseif plant.kind == "conifer" then
 			conifer(model, at, plant.size, plant.far, plant.clear, rng)

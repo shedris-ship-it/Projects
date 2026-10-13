@@ -7,6 +7,7 @@ return function(test, check, Shared, require)
 	local Config = require(Shared.Config)
 	local Valuables = require(Shared.Data.Valuables)
 	local Landmarks = require(Shared.Data.Landmarks)
+	local Finds = require(Shared.Data.Finds)
 
 	-- How far a modelled piece may differ from the grey-box it dresses, as a
 	-- share of each side (a raised panel or a cushion's curve stands proud).
@@ -61,7 +62,9 @@ return function(test, check, Shared, require)
 				check.truthy(entry.id > 0 and entry.id == math.floor(entry.id), name .. "'s id is an asset id")
 			end
 		end
-		for _, group in { Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor, Kit.Things, Kit.Landmarks } do
+		for _, group in
+			{ Kit.Props, Kit.Slabs, Kit.Parts, Kit.Fixtures, Kit.Decor, Kit.Things, Kit.Landmarks, Kit.Outside }
+		do
 			for name, entry in group do
 				idOf(name, entry)
 				for _, piece in entry.pieces or {} do
@@ -238,5 +241,66 @@ return function(test, check, Shared, require)
 		near(Kit.Parts.ChuteHatch.size[1], Config.Mansion.Chute.Width + 0.3, "the chute hatch's width")
 		-- (The hand wheel is scaled to each crank's wheel: Data/Kit `fit`.)
 		check.equal(Kit.Parts.HandWheel.fit, "scale", "the hand wheel fits each crank")
+	end)
+
+	test("the house's everyday things have their looks, at the game's sizes", function()
+		local function near(got, want, what)
+			check.atMost(
+				math.abs(got - want) / want,
+				TOLERANCE,
+				string.format("%s: modelled %.2f, the game's %.2f", what, got, want)
+			)
+		end
+		-- What World/Dressing sets on tops, by model name, and the looks each
+		-- wears (picked from the draws its blocks made).
+		local looks = {
+			Telephone = { "Telephone" },
+			PhotoFrame = { "PhotoFrame" },
+			Mug = { "Mug" },
+			Plate = { "SidePlate", "SidePlateCrust" },
+			Books = { "BooksA", "BooksB" },
+			Vase = { "Vase", "VaseStems" },
+			Magazine = { "MagazineA", "MagazineB" },
+		}
+		-- And every find in a drawer, by its own name (World/Junk).
+		for _, find in Finds do
+			looks[find.name] = { find.name }
+		end
+		for thing, names in looks do
+			for _, name in names do
+				local entry = Kit.Things[name]
+				check.truthy(entry, string.format("%s wears %s (Data/Kit Things)", thing, name))
+			end
+		end
+		-- The photo is the game's, aged by Drift.
+		check.truthy(table.find(Kit.Things.PhotoFrame.keep or {}, "Photo"), "the photo frame keeps its photo")
+		-- The switch and the carton as big as the parts they dress.
+		near(Kit.Parts.SwitchPlate.size[1], 0.38, "the switch plate's width")
+		near(Kit.Parts.SwitchPlate.size[2], 0.6, "the switch plate's height")
+		near(Kit.Parts.BatteryBox.size[1], 0.9, "the battery carton's width")
+		near(Kit.Parts.BatteryBox.size[2], 0.45, "the battery carton's height")
+		near(Kit.Parts.BatteryBox.size[3], 0.6, "the battery carton's depth")
+	end)
+
+	test("every plant outside stands on its foot, and the lamp is the lamp's height", function()
+		for name, entry in Kit.Outside do
+			check.equal(type(entry.mesh), "string", name .. " names its mesh")
+			check.equal(#entry.size, 3, name .. " gives its modelled size")
+			check.equal(#entry.centre, 2, name .. "'s centre is { x, z }")
+			-- (Its foot at or a little under the lawn: roots, never floating.)
+			check.truthy(entry.floor <= 0 and entry.floor > -1, name .. "'s foot is at the lawn")
+			-- (Its box's middle near its foot: World/Exterior keeps a plant
+			-- clear of the house by its reach from there.)
+			check.atMost(math.abs(entry.centre[1]), entry.size[1] / 2, name .. "'s middle is over its foot")
+		end
+		for _, tree in { "TreeOakA", "TreeOakB", "TreeTurning", "TreeBareA", "TreeBareB", "ConiferA", "ConiferB" } do
+			check.atLeast(Kit.Outside[tree].size[2], 20, tree .. " is modelled tree-sized")
+		end
+		local lamp = Kit.Outside.Streetlamp.size[2] + Kit.Outside.Streetlamp.floor
+		check.atMost(
+			math.abs(lamp - Config.Exterior.LampHeight) / Config.Exterior.LampHeight,
+			TOLERANCE,
+			"the lamp's height"
+		)
 	end)
 end

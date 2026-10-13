@@ -548,6 +548,19 @@ return {
 		},
 		ChuteTrapdoor = { mesh = "ChuteTrapdoor", id = 126328204106170, size = { 2.9, 0.1, 2.9 }, at = { 0, 0.042, 0 } },
 		ChuteDuct = { mesh = "ChuteDuct", id = 86976548936175, size = { 2.96, 1.26, 2.96 }, at = { 0, -0.03, 0 } },
+		-- kit.py kit9: a room's light switch (Services/InteractService), its
+		-- plate (World/Kit.dressPrompted: its mesh catches the aim for the
+		-- prompt) and its toggle, placed again as it flips (Kit.repose); the
+		-- safe room's carton of batteries (Services/SafeRoomService), its
+		-- label the game's on top.
+		SwitchPlate = { mesh = "SwitchPlate", id = 82539235853651, size = { 0.38, 0.6, 0.06 }, at = { 0, 0, -0.005 } },
+		SwitchToggle = {
+			mesh = "SwitchToggle",
+			id = 124128424801013,
+			size = { 0.07, 0.19, 0.06 },
+			at = { 0, 0.002, 0 },
+		},
+		BatteryBox = { mesh = "BatteryBox", id = 111372886674297, size = { 0.91, 0.45, 0.6 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -834,6 +847,56 @@ return {
 			floor = -1.5,
 			keep = { "Flag", "Label", "Bell" },
 		},
+		-- The atmosphere (kit.py kit9): the things on tops (World/Dressing, by
+		-- the model's name or the look it wears: a plate with or without its
+		-- crust, two stacks of books, a vase with or without stems, two
+		-- magazines), each facing the room down its spot's -z as its blocks
+		-- do; the mug and the vase are glazed pale for World/Dressing to tint.
+		Telephone = { mesh = "Telephone", id = 102430298963553, size = { 1.15, 0.62, 0.83 }, centre = { -0.021, 0 } },
+		-- (Its photo is the game's, aged by Drift.)
+		PhotoFrame = {
+			mesh = "PhotoFrame",
+			id = 136846176816220,
+			size = { 0.95, 1.22, 0.56 },
+			centre = { 0, 0.092 },
+			floor = -0.004,
+			keep = { "Photo" },
+		},
+		Mug = { mesh = "Mug", id = 84994011186313, size = { 0.53, 0.42, 0.38 }, centre = { 0.075, 0 } },
+		SidePlate = { mesh = "SidePlate", id = 133662375420617, size = { 0.95, 0.09, 0.95 } },
+		SidePlateCrust = { mesh = "SidePlateCrust", id = 92344115296333, size = { 0.95, 0.09, 0.95 } },
+		BooksA = { mesh = "BooksA", id = 99831365232436, size = { 1.05, 0.6, 0.82 }, centre = { 0.002, -0.008 } },
+		BooksB = { mesh = "BooksB", id = 88800997869858, size = { 1.04, 0.32, 0.82 }, centre = { -0.001, -0.013 } },
+		Vase = { mesh = "Vase", id = 121230759638449, size = { 0.58, 1.12, 0.58 } },
+		VaseStems = {
+			mesh = "VaseStems",
+			id = 119679986810220,
+			size = { 0.78, 2.01, 0.83 },
+			centre = { -0.099, -0.002 },
+		},
+		MagazineA = { mesh = "MagazineA", id = 74532519601746, size = { 0.85, 0.04, 1.1 } },
+		MagazineB = { mesh = "MagazineB", id = 133794080917818, size = { 0.85, 0.04, 1.1 } },
+		-- And the finds in drawers (World/Junk, by Junk.Names), each lying where
+		-- its blocks lie.
+		Cassette = {
+			mesh = "Cassette",
+			id = 84253129536132,
+			size = { 0.7, 0.08, 0.44 },
+			centre = { 0, 0.001 },
+			floor = 0.002,
+		},
+		Matchbox = { mesh = "Matchbox", id = 138271817970412, size = { 0.49, 0.14, 0.29 }, centre = { 0.033, 0 } },
+		Letters = { mesh = "Letters", id = 134821022582396, size = { 0.85, 0.09, 0.54 }, floor = -0.012 },
+		Candle = {
+			mesh = "Candle",
+			id = 126301794125458,
+			size = { 0.62, 0.35, 0.51 },
+			centre = { 0.055, 0 },
+			floor = -0.013,
+		},
+		Spool = { mesh = "Spool", id = 77281914622617, size = { 0.57, 0.35, 0.34 }, centre = { 0.074, 0 } },
+		PillBottle = { mesh = "PillBottle", id = 104829228625300, size = { 0.24, 0.44, 0.24 } },
+		SpareBatteries = { mesh = "SpareBatteries", id = 101801539497954, size = { 0.53, 0.27, 0.57 }, floor = -0.017 },
 	},
 	-- The corridors' landmarks (kit.py kit8; World/LandmarkProps), by their
 	-- Data/Landmarks id, dressed on the frame they're built on (World/
@@ -877,6 +940,91 @@ return {
 			size = { 2.62, 2.62, 0.53 },
 			centre = { 0, 0.265 },
 			floor = -1.01,
+		},
+	},
+	-- Outside (kit.py kit9; World/Exterior, World/Kit.placeOutside): the
+	-- trees, bushes and arborvitae (World/Exterior picks one of a kind's for
+	-- each plant and scales it to the plant, keeping it clear of the house),
+	-- and the streetlamp (its arm toward its -z). Each stands on its foot:
+	-- `floor` is its box's bottom (roots under the lawn), `centre` { x, z }
+	-- its box's middle from its foot.
+	Outside = {
+		TreeOakA = {
+			mesh = "TreeOakA",
+			id = 125811147058903,
+			size = { 13.6, 24.3, 15.07 },
+			centre = { 0.266, -0.328 },
+			floor = -0.5,
+		},
+		TreeOakB = {
+			mesh = "TreeOakB",
+			id = 134012809604702,
+			size = { 14.99, 22.75, 12.78 },
+			centre = { 0.951, -0.353 },
+			floor = -0.5,
+		},
+		TreeTurning = {
+			mesh = "TreeTurning",
+			id = 99530640759836,
+			size = { 15.55, 25.37, 13.63 },
+			centre = { 0.555, 1.346 },
+			floor = -0.5,
+		},
+		TreeBareA = {
+			mesh = "TreeBareA",
+			id = 106358727140238,
+			size = { 15.11, 29.88, 19.82 },
+			centre = { -0.379, 1.295 },
+			floor = -0.5,
+		},
+		TreeBareB = {
+			mesh = "TreeBareB",
+			id = 115835912297892,
+			size = { 15.55, 29.4, 16.06 },
+			centre = { 0.437, 1.375 },
+			floor = -0.5,
+		},
+		ConiferA = {
+			mesh = "ConiferA",
+			id = 80010507703410,
+			size = { 9.96, 24.4, 9.39 },
+			centre = { -0.04, -0.122 },
+			floor = -0.4,
+		},
+		ConiferB = {
+			mesh = "ConiferB",
+			id = 117494225464469,
+			size = { 7.82, 24.4, 7.67 },
+			centre = { -0.189, 0.271 },
+			floor = -0.4,
+		},
+		BushA = {
+			mesh = "BushA",
+			id = 88573365626003,
+			size = { 4.01, 3.05, 3.64 },
+			centre = { -0.083, -0.171 },
+			floor = -0.394,
+		},
+		BushB = {
+			mesh = "BushB",
+			id = 111446692908313,
+			size = { 4.87, 2.4, 3.28 },
+			centre = { 0.071, -0.13 },
+			floor = -0.285,
+		},
+		Arborvitae = {
+			mesh = "Arborvitae",
+			id = 100431676163808,
+			size = { 3.13, 9.86, 3.31 },
+			centre = { 0.13, 0.086 },
+			floor = -0.4,
+		},
+		Streetlamp = {
+			mesh = "Streetlamp",
+			id = 137753370874907,
+			size = { 0.68, 14.63, 3.52 },
+			centre = { 0, -1.42 },
+			floor = -0.4,
 		},
 	},
 }
