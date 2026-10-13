@@ -21,6 +21,7 @@ local Circuits = require(Shared.Logic.Circuits)
 local Config = require(Shared.Config)
 local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local RoomRects = require(Shared.Logic.RoomRects)
 local Rng = require(Shared.Lib.Rng)
@@ -29,6 +30,11 @@ local Sfx = require(Shared.Lib.Sfx)
 local B = Config.Breaker
 local part = PropFactory.part
 local STEEL = Color3.fromRGB(110, 116, 112)
+local D = Config.Devices.FuseBox
+
+local function rgb(t): Color3
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
 
 local Kind = {
 	label = "Fuse box",
@@ -193,8 +199,11 @@ function Kind.build(service, session, roomId: number, rng)
 		metal,
 		{ collide = false }
 	)
-	for i = 1, math.min(8, session.spec.count) do
-		local x = -0.6 + (i - 1) * (1.2 / math.max(1, math.min(8, session.spec.count) - 1))
+	local count = math.min(8, session.spec.count)
+	local xs = {}
+	for i = 1, count do
+		local x = -0.6 + (i - 1) * (1.2 / math.max(1, count - 1))
+		xs[i] = x
 		part(
 			model,
 			"Breaker",
@@ -214,6 +223,61 @@ function Kind.build(service, session, roomId: number, rng)
 		PropFactory.material("SmoothPlastic"),
 		{ collide = false, castShadow = false }
 	)
+	-- The modelled box first (it hides the grey-box), then each breaker's
+	-- body and toggle and the main switch (Data/Kit; Kind.show tips them).
+	Kit.dressThing(model, "FuseBox", cf)
+	local plastic = PropFactory.material("SmoothPlastic")
+	local lamp = { collide = false, castShadow = false, shape = Enum.PartType.Ball, query = false }
+	session.toggles = {}
+	session.pilots = {}
+	for i, x in xs do
+		Kit.place(model, "BreakerModule", cf * CFrame.new(x, 0.3, 0.41))
+		local pivot = cf * CFrame.new(x, 0.3, 0.45)
+		local toggle = Kit.place(model, "BreakerToggle", pivot * CFrame.Angles(math.rad(D.Tilt[1]), 0, 0))
+		if toggle then
+			session.toggles[i] = { mesh = toggle, pivot = pivot }
+		end
+		-- Its lamp over it: lit while it's on.
+		session.pilots[i] = part(
+			model,
+			"Pilot",
+			Vector3.new(0.07, 0.07, 0.07),
+			cf * CFrame.new(x, 0.62, 0.42),
+			rgb(D.PilotOff),
+			plastic,
+			lamp
+		)
+	end
+	local mainPivot = cf * CFrame.new(0, -0.6, 0.43)
+	local main = Kit.place(model, "MainSwitch", mainPivot * CFrame.Angles(math.rad(D.Tilt[1]), 0, 0))
+	session.mainSwitch = main and { mesh = main, pivot = mainPivot } or nil
+	session.mainLamp = part(
+		model,
+		"MainLamp",
+		Vector3.new(0.09, 0.09, 0.09),
+		cf * CFrame.new(0.32, -0.6, 0.42),
+		rgb(D.Main),
+		plastic,
+		lamp
+	)
+	-- The open panel's warm glow on the wall round it and whoever works it
+	-- (decoration: the rooms its breakers light are WorldService's).
+	local glow = part(
+		model,
+		"Glow",
+		Vector3.new(0.2, 0.2, 0.2),
+		cf * CFrame.new(0, 0.3, 0.9),
+		Color3.new(0, 0, 0),
+		plastic,
+		{ collide = false, castShadow = false, transparency = 1, query = false }
+	)
+	local light = Instance.new("PointLight")
+	light.Name = "PanelGlow"
+	light.Color = rgb(D.Glow)
+	light.Range = D.GlowRange
+	light.Shadows = false
+	light.Parent = glow
+	session.glow = light
 	model.Parent = world.content
 	session.model = model
 	session.station = face
@@ -263,8 +327,46 @@ function Kind.lights(service, session)
 	if session.seam and not session.state.solved then
 		service.Locks:SetPowered(session.seam, Breaker.powered(state, session.spec.gate))
 	end
+	Kind.show(session)
 	if session.safeSeam and not state.extraOpen then
 		service.Locks:SetPowered(session.safeSeam, Breaker.powered(state, session.spec.extra))
+	end
+end
+
+-- Its toggles, its main switch and its lamps as the panel stands: a
+-- breaker's lamp lit while it's on (and nothing tripped), the main's green
+-- or red, the panel's glow warmer the more breakers are on.
+function Kind.show(session)
+	local state = session.state
+	local on = 0
+	for i, pilot in session.pilots or {} do
+		local lit = state.on[i] == true and not state.tripped
+		if lit then
+			on += 1
+		end
+		pilot.Color = rgb(lit and D.Pilot or D.PilotOff)
+		pilot.Material = lit and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		local toggle = session.toggles[i]
+		if toggle then
+			local tilt = state.on[i] == true and D.Tilt[1] or D.Tilt[2]
+			Kit.repose(toggle.mesh, "BreakerToggle", toggle.pivot * CFrame.Angles(math.rad(tilt), 0, 0))
+		end
+	end
+	if session.mainLamp then
+		session.mainLamp.Color = rgb(state.tripped and D.Tripped or D.Main)
+		session.mainLamp.Material = Enum.Material.Neon
+	end
+	if session.mainSwitch then
+		local tilt = state.tripped and D.Tilt[2] or D.Tilt[1]
+		Kit.repose(
+			session.mainSwitch.mesh,
+			"MainSwitch",
+			session.mainSwitch.pivot * CFrame.Angles(math.rad(tilt), 0, 0)
+		)
+	end
+	if session.glow then
+		session.glow.Enabled = on > 0
+		session.glow.Brightness = D.GlowBase + D.GlowPer * on
 	end
 end
 

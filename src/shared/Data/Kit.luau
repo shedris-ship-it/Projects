@@ -43,6 +43,8 @@
 -- rises: it stands taller than its kind (a TV on its stand: things stand on
 --        tops, so only the footprint is held to the kind's size)
 -- fit:   (Parts) "scale": the whole piece scaled to the part's width
+-- query: (Things) its mesh catches the hands' ray, for a thing whose
+--        grey-box never collides (a radio, a kettle)
 
 return {
 	Props = {
@@ -436,6 +438,36 @@ return {
 		-- round their middles; the card and the flame are the game's.
 		DinnerPlate = { mesh = "DinnerPlate", id = 76849261321340, size = { 1.3, 0.08, 1.3 } },
 		TableCandle = { mesh = "TableCandle", id = 101457396689717, size = { 0.28, 0.62, 0.28 } },
+		-- kit.py kit7: the fuse box's breakers (server/Puzzles/Breaker): a body
+		-- where each sits, its toggle and the main switch tipped up or down
+		-- about their pivots (Kit.repose; `at`: the middle of each's box from
+		-- its pivot).
+		BreakerModule = { mesh = "BreakerModule", id = 110892485192315, size = { 0.15, 0.36, 0.08 } },
+		BreakerToggle = {
+			mesh = "BreakerToggle",
+			id = 94343339870049,
+			size = { 0.07, 0.15, 0.06 },
+			at = { 0, 0.075, 0.005 },
+		},
+		MainSwitch = {
+			mesh = "MainSwitch",
+			id = 139126965297804,
+			size = { 0.22, 0.33, 0.13 },
+			at = { 0, 0.125, 0.025 },
+		},
+		-- A lever's plate and its arm (server/Puzzles/Levers): their front is
+		-- the frame's -Z, into the room (`turn`); the plate's face a little
+		-- behind the game's, where the door's mark is painted.
+		LeverPlate = {
+			mesh = "LeverPlate",
+			id = 127747733849295,
+			size = { 0.78, 1.58, 0.2 },
+			turn = 180,
+			at = { 0, 0, -0.04 },
+		},
+		LeverArm = { mesh = "LeverArm", id = 120988926462158, size = { 0.26, 1.15, 0.26 }, at = { 0, 0.095, 0 } },
+		-- A servant's bell on its spring (Services/BellBoardService).
+		Bell = { mesh = "Bell", id = 102349406132325, size = { 0.3, 0.37, 0.31 }, at = { 0, 0.053, 0 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -619,6 +651,108 @@ return {
 			size = { 1.9, 0.8, 0.32 },
 			centre = { 0, 0.158 },
 			floor = -0.4,
+		},
+		-- kit.py kit7 (kitlib/devices): the puzzle stations and the house's
+		-- devices. What lights or moves is the game's (`keep`).
+		-- The computer's screen holds its text, its glow and its prompt.
+		HomeComputer = {
+			mesh = "HomeComputer",
+			id = 92010587592416,
+			size = { 4.26, 1.75, 2.15 },
+			centre = { -0.02, 0.375 },
+			keep = { "Screen" },
+		},
+		-- On a wall, round its frame; its pilot lamps and their glow are the
+		-- game's (server/Puzzles/Breaker).
+		FuseBox = {
+			mesh = "FuseBox",
+			id = 97724896695779,
+			size = { 1.93, 2.62, 2.2 },
+			centre = { -0.028, 1.1 },
+			floor = -1.24,
+			keep = { "Pilot", "MainLamp", "Glow" },
+		},
+		-- The tuning dial glows and its needle wanders (Controllers/
+		-- DeviceController).
+		Radio = {
+			mesh = "Radio",
+			id = 92548453921892,
+			size = { 2.4, 5.03, 1.9 },
+			keep = { "Dial", "Needle", "Scale" },
+			query = true,
+		},
+		-- On a wall; the dial holds its prompt.
+		WallSafe = {
+			mesh = "WallSafe",
+			id = 131554105237850,
+			size = { 1.8, 1.8, 0.94 },
+			centre = { 0, 0.469 },
+			floor = -0.9,
+			pieces = {
+				{
+					match = "^SafeDoor$",
+					mesh = "SafeDoor",
+					id = 99644366416978,
+					size = { 1.72, 1.6, 0.2 },
+					at = { 0, 0, 0.039 },
+					hide = { "Door", "Handle" },
+				},
+				{
+					match = "^Painting$",
+					mesh = "SafePainting",
+					id = 103039993549596,
+					size = { 2.4, 2.2, 0.14 },
+					hide = { "Frame", "Canvas" },
+				},
+			},
+		},
+		-- Its comb and its coloured teeth light as it plays.
+		MusicBox = {
+			mesh = "MusicBox",
+			id = 98353203999751,
+			size = { 1.37, 1.22, 1.04 },
+			centre = { 0.072, -0.117 },
+			keep = { "Comb", "Tooth1", "Tooth2", "Tooth3", "Tooth4", "Tooth5", "Tooth6", "Tooth7", "Tooth8" },
+		},
+		Kettle = {
+			mesh = "Kettle",
+			id = 140623888781772,
+			size = { 1, 1.26, 1.24 },
+			centre = { 0, 0.121 },
+			query = true,
+		},
+		RecordPlayer = {
+			mesh = "RecordPlayer",
+			id = 88871371706856,
+			size = { 1.5, 1.44, 1.38 },
+			centre = { 0, -0.088 },
+			query = true,
+		},
+		-- Their fronts are -Z as the game builds them; the monitor's lamp and
+		-- the robot's eyes glow.
+		BabyMonitor = {
+			mesh = "BabyMonitor",
+			id = 84427122794301,
+			size = { 0.47, 0.95, 0.26 },
+			centre = { 0.013, -0.004 },
+			keep = { "Light" },
+		},
+		TinRobot = {
+			mesh = "TinRobot",
+			id = 99933363387283,
+			size = { 0.61, 1.09, 0.43 },
+			centre = { 0, 0.038 },
+			keep = { "Eye" },
+		},
+		-- On a wall; its bells are each a Bell (Parts), its flags and labels
+		-- the game's.
+		BellBoard = {
+			mesh = "BellBoard",
+			id = 134195723361167,
+			size = { 2.85, 3.1, 0.16 },
+			centre = { 0, 0.08 },
+			floor = -1.5,
+			keep = { "Flag", "Label", "Bell" },
 		},
 	},
 }

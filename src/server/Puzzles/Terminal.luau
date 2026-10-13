@@ -6,12 +6,15 @@
 -- Terminal; this is its station in the house (Services/PuzzleService runs
 -- it).
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Padlock = require(Shared.Logic.Puzzles.Padlock)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
@@ -137,17 +140,38 @@ function Kind.build(service, session, roomId: number)
 	gui.CanvasSize = Vector2.new(280, 210)
 	gui.LightInfluence = 0
 	gui.Brightness = 1.5
+	Kind.tube(gui)
 	local text = Instance.new("TextLabel")
-	text.Size = UDim2.fromScale(1, 1)
+	text.Size = UDim2.new(1, -24, 1, -20)
+	text.Position = UDim2.fromOffset(14, 12)
 	text.BackgroundTransparency = 1
 	text.TextColor3 = PHOSPHOR
+	-- (A halo of its own green: the phosphor bleeds.)
+	text.TextStrokeColor3 = PHOSPHOR
+	text.TextStrokeTransparency = 0.82
 	text.Font = Enum.Font.Code
 	text.TextSize = 20
 	text.TextXAlignment = Enum.TextXAlignment.Left
 	text.TextYAlignment = Enum.TextYAlignment.Top
 	text.Text = "HOMEWARE 64\nFAMILY FILES\n\nPASSWORD:\n> _"
+	text.ZIndex = 2
 	text.Parent = gui
 	gui.Parent = screen
+	-- Its green light out over the desk and whoever sits at it (its breath
+	-- is each client's: Controllers/DeviceController).
+	local S = Config.Devices.Screen
+	local out = Instance.new("Attachment")
+	out.Name = "ScreenLightAt"
+	out.Position = Vector3.new(0, 0, S.Out) -- (+Z: the screen's face toward the room)
+	out.Parent = screen
+	local light = Instance.new("PointLight")
+	light.Name = "ScreenLight"
+	light.Color = Color3.fromRGB(S.Glow[1], S.Glow[2], S.Glow[3])
+	light.Brightness = S.Brightness
+	light.Range = S.Range
+	light.Shadows = false
+	light.Parent = out
+	CollectionService:AddTag(screen, Constants.Tags.Screen)
 	part(
 		model,
 		"Keyboard",
@@ -167,12 +191,63 @@ function Kind.build(service, session, roomId: number)
 		plastic,
 		{ castShadow = false, collide = false }
 	)
+	-- The modelled monitor, keyboard and printer round the game's screen.
+	Kit.dressThing(model, "HomeComputer", top)
 	model.Parent = world.content
 	session.model = model
 	session.station = screen
 	session.screenText = text
 	session.printerAt = printer * CFrame.new(0, 0.02, 1.0)
 	session.prompt = service:Prompt(session, screen, "Use", Kind.label)
+end
+
+-- A lit tube behind the screen's text: the dark green of a warm phosphor,
+-- brighter in the middle and falling off to the corners of the curved
+-- glass, with fine scanlines over it all.
+function Kind.tube(gui: SurfaceGui)
+	local S = Config.Devices.Screen
+	local back = Instance.new("Frame")
+	back.Name = "Tube"
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.fromRGB(6, 26, 14)
+	back.BorderSizePixel = 0
+	back.ZIndex = 0
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.07, 0)
+	corner.Parent = back
+	back.Parent = gui
+	-- The bloom in the middle: two soft bands crossing.
+	for _, rotation in { 0, 90 } do
+		local bloom = Instance.new("Frame")
+		bloom.Name = "Bloom"
+		bloom.Size = UDim2.fromScale(1, 1)
+		bloom.BackgroundColor3 = Color3.fromRGB(26, 84, 44)
+		bloom.BackgroundTransparency = 0.35
+		bloom.BorderSizePixel = 0
+		bloom.ZIndex = 1
+		local fade = Instance.new("UIGradient")
+		fade.Rotation = rotation
+		fade.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0.25),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		fade.Parent = bloom
+		local round = corner:Clone()
+		round.Parent = bloom
+		bloom.Parent = gui
+	end
+	for k = 0, 69 do
+		local line = Instance.new("Frame")
+		line.Name = "Scanline"
+		line.Size = UDim2.new(1, 0, 0, 1)
+		line.Position = UDim2.fromOffset(0, k * 3)
+		line.BackgroundColor3 = Color3.new(0, 0, 0)
+		line.BackgroundTransparency = S.Scanlines
+		line.BorderSizePixel = 0
+		line.ZIndex = 3
+		line.Parent = gui
+	end
 end
 
 -- What a click did, heard in the house.

@@ -14,6 +14,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Interactables = require(Shared.Data.Interactables)
 local Physical = require(Shared.Data.Physical)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
@@ -101,6 +102,18 @@ local function robot(cf: CFrame, parent: Instance): (Model, BasePart)
 			collide = false,
 		}
 	)
+	-- Its modelled tin round the game's eyes, and their faint glow.
+	Kit.dressThing(model, "TinRobot", cf)
+	local eye = model:FindFirstChild("Eye")
+	if eye then
+		local R = Config.Devices.Robot
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(R.Colour[1], R.Colour[2], R.Colour[3])
+		glow.Brightness = R.Brightness
+		glow.Range = R.Range
+		glow.Shadows = false
+		glow.Parent = eye
+	end
 	model.PrimaryPart = body
 	model.Parent = parent
 	return model, body

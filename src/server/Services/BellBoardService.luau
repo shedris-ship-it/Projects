@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Interactables = require(Shared.Data.Interactables)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rooms = require(Shared.Data.Rooms)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
@@ -176,6 +177,11 @@ function BellBoardService:Begin(rng)
 		text.Parent = gui
 		gui.Parent = label
 		bells[id] = { bell = bell, flag = flag, up = up, downUntil = 0 }
+	end
+	-- The modelled board first (it hides the grey-box), then each bell.
+	Kit.dressThing(model, "BellBoard", cf)
+	for _, entry in bells do
+		Kit.dressPart(entry.bell, "Bell")
 	end
 	model:SetAttribute("RunContent", true)
 	model.Parent = self.World.content

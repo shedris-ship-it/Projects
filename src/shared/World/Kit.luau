@@ -319,6 +319,10 @@ local function dressBody(model: Model, entry, cf: CFrame): MeshPart?
 		visual(template, modelled, cf * CFrame.new(centre[1], (entry.floor or 0) + modelled.Y / 2, centre[2]) * turn)
 	mesh.Name = "KitBody"
 	mesh.CastShadow = entry.shadow ~= false
+	-- (`query`: a thing whose grey-box never collides, a radio or a kettle:
+	-- the hands look past a hidden part that doesn't, so they find it by
+	-- what you see, as they found the grey-box's parts.)
+	mesh.CanQuery = entry.query == true
 	mesh.Parent = model
 	dressPieces(model, entry)
 	return mesh
@@ -433,6 +437,17 @@ function Kit.place(parent: Instance, name: string, cframe: CFrame, size: Vector3
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = parent
 	return mesh
+end
+
+-- Puts a placed piece (Kit.place) where its part has moved to: a lever's
+-- arm pulled down, a breaker's toggle flipped. `cframe` as Kit.place's.
+function Kit.repose(mesh: BasePart, name: string, cframe: CFrame, size: Vector3?)
+	local entry = KitData.Parts[name]
+	if not entry then
+		return
+	end
+	local _, k = fitted(entry, size)
+	mesh.CFrame = cframe * lifted(entry, k) * turnOf(entry) * IMPORT_TURN
 end
 
 -- Swaps a piece of trim for its kit mesh (Data/Kit `Parts`: a baseboard,

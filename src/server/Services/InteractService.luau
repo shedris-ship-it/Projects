@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Interactables = require(Shared.Data.Interactables)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rooms = require(Shared.Data.Rooms)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
@@ -184,6 +185,7 @@ function InteractService:_kettle(cf: CFrame): Model
 		PropFactory.part(model, "Post", Vector3.new(0.07, 0.4, 0.07), cf * CFrame.new(0, 1.0, z), black, enamel, quiet)
 	end
 	PropFactory.part(model, "Handle", Vector3.new(0.09, 0.09, 0.7), cf * CFrame.new(0, 1.2, 0), black, enamel, quiet)
+	Kit.dressThing(model, "Kettle", cf)
 	model.PrimaryPart = body
 	model.Parent = self.folder
 	return model
@@ -229,6 +231,7 @@ function InteractService:_recordPlayer(cf: CFrame): Model
 		PropFactory.material("Metal"),
 		{ collide = false }
 	)
+	Kit.dressThing(model, "RecordPlayer", cf)
 	model.PrimaryPart = case
 	model.Parent = self.folder
 	return model
@@ -237,6 +240,12 @@ end
 -- Fixtures ----------------------------------------------------------------------------
 
 local function mainPart(model: Model): BasePart?
+	-- (A modelled one that catches the hands' ray: its grey-box is hidden and
+	-- never collides, so the hands find it by its look, Data/Kit `query`.)
+	local kit = model:FindFirstChild("KitBody")
+	if kit and kit:IsA("BasePart") and kit.CanQuery then
+		return kit
+	end
 	if model.PrimaryPart then
 		return model.PrimaryPart
 	end

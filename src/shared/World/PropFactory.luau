@@ -3108,6 +3108,58 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 			{ collide = false, castShadow = false }
 		)
 		dial.Transparency = 0.45
+		-- Its tuning scale printed on the glass: the stations' numbers over a
+		-- row of ticks, dark against its light. (On a clear pane just before
+		-- the glass, behind the needle: the lit Neon drowned a gui on itself.)
+		local pane = part(
+			m,
+			"Scale",
+			Vector3.new(0.72, 0.3, 0.002),
+			cf * CFrame.new(0.45, 3.32, 0.357),
+			Color3.new(0, 0, 0),
+			PropFactory.material("SmoothPlastic"),
+			{ collide = false, castShadow = false, query = false, transparency = 1 }
+		)
+		local scale = Instance.new("SurfaceGui")
+		scale.Name = "Scale"
+		scale.Face = Enum.NormalId.Back -- (+Z: the radio's front)
+		scale.CanvasSize = Vector2.new(288, 120)
+		scale.LightInfluence = 0
+		local ink = Color3.fromRGB(46, 26, 14)
+		for k = 0, 16 do
+			local tick = Instance.new("Frame")
+			tick.AnchorPoint = Vector2.new(0.5, 0)
+			tick.Position = UDim2.fromOffset(24 + k * 15, 64)
+			tick.Size = UDim2.fromOffset(2, k % 4 == 0 and 26 or 14)
+			tick.BackgroundColor3 = ink
+			tick.BorderSizePixel = 0
+			tick.Parent = scale
+		end
+		local rule = Instance.new("Frame")
+		rule.Position = UDim2.fromOffset(20, 62)
+		rule.Size = UDim2.fromOffset(248, 2)
+		rule.BackgroundColor3 = ink
+		rule.BorderSizePixel = 0
+		rule.Parent = scale
+		local numbers = Instance.new("TextLabel")
+		numbers.Position = UDim2.fromOffset(6, 16)
+		numbers.Size = UDim2.fromOffset(276, 40)
+		numbers.BackgroundTransparency = 1
+		numbers.Font = Enum.Font.Code
+		numbers.TextSize = 22
+		numbers.TextColor3 = ink
+		numbers.Text = "55  70  90  110  130  160"
+		numbers.Parent = scale
+		local band = Instance.new("TextLabel")
+		band.Position = UDim2.fromOffset(6, 92)
+		band.Size = UDim2.fromOffset(276, 24)
+		band.BackgroundTransparency = 1
+		band.Font = Enum.Font.Code
+		band.TextSize = 16
+		band.TextColor3 = ink
+		band.Text = "STANDARD BROADCAST   KC"
+		band.Parent = scale
+		scale.Parent = pane
 		part(
 			m,
 			"Needle",
@@ -3138,6 +3190,10 @@ function PropFactory.buildTellBase(model: string, cf: CFrame, parent: Instance, 
 			PropFactory.material("Metal"),
 			{ collide = false, castShadow = false, query = false }
 		)
+		-- Its modelled cabinet and table round the game's dial and needle,
+		-- which light and wander while it plays (Controllers/DeviceController).
+		Kit.dressThing(m, "Radio", cf)
+		m:AddTag(Constants.Tags.Radio)
 	elseif model == "Portrait" then
 		part(
 			m,

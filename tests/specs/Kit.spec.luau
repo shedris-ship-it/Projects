@@ -156,18 +156,25 @@ return function(test, check, Shared, require)
 		check.atMost(door.size[3], 0.6, "no thicker than a door")
 	end)
 
-	test("the escape's things name their meshes, and their lids hide the game's", function()
+	test("the things and stations name their meshes, and their pieces hide the game's", function()
 		for name, entry in Kit.Things do
 			check.equal(type(entry.mesh), "string", name .. " names its mesh")
 			check.equal(#entry.size, 3, name .. " gives its modelled size")
-			-- (Small things: the key rack and the display case are the biggest.)
+			-- (Things and stations, never furniture: the radio on its table is
+			-- the biggest.)
 			for axis = 1, 3 do
-				check.atMost(entry.size[axis], 2, string.format("%s axis %d: a thing, not furniture", name, axis))
+				check.atMost(entry.size[axis], 5.5, string.format("%s axis %d: a thing, not furniture", name, axis))
 			end
 			for _, piece in entry.pieces or {} do
-				check.equal(piece.match, "^Lid$", name .. "'s moving piece is its lid")
+				check.equal(type(piece.match), "string", name .. "'s piece names its model")
 				check.equal(#(piece.at or { 0, 0, 0 }), 3, piece.mesh .. "'s at is { x, y, z }")
-				check.truthy(piece.hide and #piece.hide > 0, piece.mesh .. " hides the lid it stands for")
+				check.truthy(piece.hide and #piece.hide > 0, piece.mesh .. " hides the grey-box it stands for")
+			end
+			-- (The rest are small: 2.5 studs at most every way.)
+			if name ~= "HomeComputer" and name ~= "FuseBox" and name ~= "Radio" and name ~= "BellBoard" then
+				for axis = 1, 3 do
+					check.atMost(entry.size[axis], 2.5, string.format("%s axis %d: small", name, axis))
+				end
 			end
 		end
 	end)

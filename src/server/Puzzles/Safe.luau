@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Joint = require(Shared.Lib.Joint)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
 local Safe = require(Shared.Logic.Puzzles.Safe)
@@ -167,6 +168,21 @@ function Kind.build(service, session, roomId: number, rng)
 		cf:PointToWorldSpace(Vector3.new(-1.2, 0, 1.14)),
 		{ max = 105, group = "Painting", label = "Painting" }
 	)
+	-- The modelled box, its door round the game's dial and the painting.
+	Kit.dressThing(model, "WallSafe", cf)
+	-- (The modelled canvas is one face: swung aside, the painting's back
+	-- showed the wall through it. A board behind it, swinging with it.)
+	if painting:FindFirstChild("KitPiece") then
+		part(
+			painting,
+			"Backing",
+			Vector3.new(2.1, 1.9, 0.02),
+			cf * CFrame.new(0, 0, 1.08),
+			Color3.fromRGB(58, 44, 32),
+			PropFactory.material("Wood"),
+			SMALL
+		)
+	end
 	model.Parent = world.content
 	local spaces = service.services.FurnitureService:AddProp({
 		id = session.id,

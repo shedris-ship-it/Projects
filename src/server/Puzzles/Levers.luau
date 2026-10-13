@@ -17,6 +17,7 @@ local Config = require(Shared.Config)
 local Levers = require(Shared.Logic.Puzzles.Levers)
 local Marks = require(Shared.Data.Marks)
 local Net = require(Shared.Net)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local RoomRects = require(Shared.Logic.RoomRects)
 local Rng = require(Shared.Lib.Rng)
@@ -108,6 +109,21 @@ function Kind.build(service, session, at: CFrame, name: string)
 		Enum.Material.SmoothPlastic,
 		{ collide = false, castShadow = false, shape = Enum.PartType.Ball }
 	)
+	-- Its modelled plate and arm (Data/Kit): the arm is moved with the
+	-- game's (show); the lamp's light warms the plate when it's lit.
+	Kit.dressPart(plate, "LeverPlate")
+	local armKit = Kit.place(model, "LeverArm", armFrame(at, UP))
+	if armKit then
+		Kit.hide(arm)
+		Kit.hide(knob)
+	end
+	local glow = Instance.new("PointLight")
+	glow.Name = "LampLight"
+	glow.Brightness = Config.Devices.Lamp.Brightness
+	glow.Range = Config.Devices.Lamp.Range
+	glow.Shadows = false
+	glow.Enabled = false
+	glow.Parent = lamp
 	-- The door's mark, so whoever finds one knows which door it's for.
 	if session.mark then
 		local gui = Instance.new("SurfaceGui")
@@ -134,6 +150,8 @@ function Kind.build(service, session, at: CFrame, name: string)
 		arm = arm,
 		knob = knob,
 		lamp = lamp,
+		armKit = armKit,
+		glow = glow,
 		at = at,
 		position = plate.Position,
 		holders = {},
@@ -216,9 +234,14 @@ local function show(lever, tilt: number, lamp: Color3, neon: boolean)
 		lever.tilt = tilt
 		lever.arm.CFrame = armFrame(lever.at, tilt)
 		lever.knob.CFrame = armFrame(lever.at, tilt) * CFrame.new(0, 0.5, 0)
+		if lever.armKit then
+			Kit.repose(lever.armKit, "LeverArm", armFrame(lever.at, tilt))
+		end
 	end
 	lever.lamp.Color = lamp
 	lever.lamp.Material = neon and Enum.Material.Neon or Enum.Material.SmoothPlastic
+	lever.glow.Color = lamp
+	lever.glow.Enabled = neon
 end
 
 local function notify(player: Player, text: string)

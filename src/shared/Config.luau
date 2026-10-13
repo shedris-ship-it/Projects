@@ -1060,6 +1060,51 @@ Config.TV = {
 	Near = 70, -- studs: a set further than this sleeps
 }
 
+-- The devices' own light (the owner, 2026-10-13: "make sure the light
+-- sources from this new batch like from the computer and the fuse box and
+-- the radio ... look really good"). Decoration only, as the TV's static:
+-- what counts as lit is WorldService's light rule. Drawn by Controllers/
+-- DeviceController (the radio, the screen's breath) and the stations
+-- themselves (the fuse box's lamps, a lever's, the monitor's, the robot's).
+Config.Devices = {
+	Radio = {
+		DialOn = { 236, 124, 46 }, -- the dial's glass, lit and playing (a deep amber: brighter read lemon)
+		DialOff = { 138, 98, 54 }, -- off: a dull amber you still see
+		Clear = { 0.35, 0.55 }, -- the glass's transparency, on and off (on: lit, its scale and needle still read)
+		Light = { 255, 170, 92 }, -- its warm light out over the table
+		Brightness = 1.1,
+		Range = 7,
+		Out = 0.5, -- studs out from the dial
+		Flicker = 0.14, -- the light breathes this much with the static
+		Sway = 0.06, -- studs the needle wanders while it plays
+		SwaySeconds = 7, -- one wander there and back
+		Near = 70, -- studs: one further than this sleeps
+	},
+	Screen = {
+		Glow = { 110, 255, 150 }, -- the phosphor's green
+		Brightness = 0.55, -- the light spilling over the desk and your face
+		Range = 9,
+		Out = 0.6,
+		Breath = 0.08, -- its brightness wavers this much
+		Scanlines = 0.82, -- the dark lines' transparency (1: none)
+		Near = 60,
+	},
+	FuseBox = {
+		Pilot = { 255, 118, 30 }, -- a breaker's lamp while it's on (an amber: brighter read lemon)
+		PilotOff = { 44, 32, 26 },
+		Main = { 120, 255, 140 }, -- the main's lamp, powered
+		Tripped = { 255, 54, 44 }, -- tripped
+		Glow = { 255, 190, 130 }, -- the open panel's warm light
+		GlowBase = 0.18, -- its brightness, and more for each breaker on
+		GlowPer = 0.05,
+		GlowRange = 6,
+		Tilt = { 55, 125 }, -- degrees a toggle tips out of its slot: on (up), off (down)
+	},
+	Lamp = { Brightness = 0.9, Range = 4.5 }, -- a lever's, lit amber or green
+	Monitor = { Colour = { 90, 220, 110 }, Brightness = 0.45, Range = 2.5 },
+	Robot = { Colour = { 255, 220, 120 }, Brightness = 0.35, Range = 2.2 },
+}
+
 Config.DoorLight = {
 	Radius = 45, -- studs from the camera
 	Max = 8, -- doors lit this way at once (the nearest)

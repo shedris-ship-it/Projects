@@ -27,6 +27,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local MusicBox = require(Shared.Logic.Puzzles.MusicBox)
 local Net = require(Shared.Net)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Rng = require(Shared.Lib.Rng)
 local Sfx = require(Shared.Lib.Sfx)
@@ -243,6 +244,8 @@ function Kind.box(service, session, roomId: number, rng)
 			collide = false,
 		}
 	)
+	-- Its modelled box round the game's comb and teeth (they light).
+	Kit.dressThing(model, "MusicBox", at)
 	model.PrimaryPart = base
 	model.Parent = items.folder or service.World.content
 	model:SetAttribute("Precious", true) -- never left for a client to fly

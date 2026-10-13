@@ -14,6 +14,7 @@ local Constants = require(Shared.Constants)
 local Interactables = require(Shared.Data.Interactables)
 local Net = require(Shared.Net)
 local Physical = require(Shared.Data.Physical)
+local Kit = require(Shared.World.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 local Sfx = require(Shared.Lib.Sfx)
 
@@ -84,7 +85,7 @@ local function unit(name: string, cf: CFrame, parent: Instance, color: Color3): 
 		PropFactory.material("SmoothPlastic"),
 		{ collide = false }
 	)
-	PropFactory.part(
+	local led = PropFactory.part(
 		model,
 		"Light",
 		Vector3.new(0.08, 0.08, 0.02),
@@ -93,6 +94,16 @@ local function unit(name: string, cf: CFrame, parent: Instance, color: Color3): 
 		PropFactory.material("Neon"),
 		{ collide = false, castShadow = false }
 	)
+	-- Its modelled case round the lamp, and the lamp's green on the top it
+	-- stands on.
+	Kit.dressThing(model, "BabyMonitor", cf)
+	local M = Config.Devices.Monitor
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(M.Colour[1], M.Colour[2], M.Colour[3])
+	glow.Brightness = M.Brightness
+	glow.Range = M.Range
+	glow.Shadows = false
+	glow.Parent = led
 	model.PrimaryPart = body
 	model.Parent = parent
 	return model, body
