@@ -11,6 +11,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local ClockFace = require(script.Parent.Parent.Logic.ClockFace)
 local Config = require(script.Parent.Parent.Config)
+local Constants = require(script.Parent.Parent.Constants)
 local Joint = require(script.Parent.Parent.Lib.Joint)
 local Kit = require(script.Parent.Kit)
 local Materials = require(script.Parent.Parent.Data.Materials)
@@ -2277,6 +2278,59 @@ function builders.WaterTank(model, cf, size, color, material)
 		PropFactory.material("Metal"),
 		{ collide = false, castShadow = false }
 	)
+end
+
+-- A brick fireplace against the wall (the living room's centrepiece, the
+-- owner's pick of 2026-10-12): the surround, a hearth stepping into the
+-- room, a mantel shelf and the dark opening. Its fire is the client's alone
+-- (Controllers/FireController finds the Firebox by its tag): warm light and
+-- flames, never counted as lit for the rules.
+function builders.Fireplace(model, cf, size, color, material)
+	local w, h, d = size.X, size.Y, size.Z
+	local back = -d / 2
+	part(
+		model,
+		"Surround",
+		Vector3.new(w - 0.6, h - 0.22, 1),
+		cf * CFrame.new(0, (h - 0.22) / 2, back + 0.5),
+		color,
+		material
+	)
+	part(
+		model,
+		"Hearth",
+		Vector3.new(w, 0.25, d),
+		cf * CFrame.new(0, 0.125, 0),
+		Color3.fromRGB(58, 56, 54),
+		PropFactory.material("Slate")
+	)
+	part(
+		model,
+		"Mantel",
+		Vector3.new(w, 0.22, 1.4),
+		cf * CFrame.new(0, h - 0.11, back + 0.7),
+		Color3.fromRGB(74, 51, 36),
+		PropFactory.material("Wood")
+	)
+	part(
+		model,
+		"Opening",
+		Vector3.new(2.8, 2.35, 0.05),
+		cf * CFrame.new(0, 0.25 + 1.175, back + 1.03),
+		Color3.fromRGB(12, 10, 9),
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, castShadow = false }
+	)
+	local firebox = part(
+		model,
+		"Firebox",
+		Vector3.new(1.8, 1.2, 0.6),
+		cf * CFrame.new(0, 0.25 + 0.6, back + 0.6),
+		Color3.new(),
+		PropFactory.material("SmoothPlastic"),
+		{ collide = false, query = false, castShadow = false, transparency = 1 }
+	)
+	CollectionService:AddTag(firebox, Constants.Tags.Fire)
 end
 
 function builders.Default(model, cf, size, color, material)

@@ -27,6 +27,7 @@ local Windows = require(Shared.Logic.Windows)
 local RoomRects = require(Shared.Logic.RoomRects)
 local TallRooms = require(Shared.Logic.TallRooms)
 local PropFactory = require(Shared.World.PropFactory)
+local Kit = require(Shared.World.Kit)
 local WindowView = require(Shared.Logic.WindowView)
 local Dressing = require(script.Parent.Dressing)
 local Grime = require(script.Parent.Grime)
@@ -252,14 +253,15 @@ local function railing(model, roomCF: CFrame, a: Vector3, b: Vector3, height: nu
 	local wood, material = PropFactory.rgb(Config.Trim.Wood), PropFactory.material("Wood")
 	local function bar(name: string, y: number, size: Vector3)
 		local mid = (a + b) / 2 + UP * y
-		PropFactory.part(model, name, size, roomCF * CFrame.lookAt(mid, mid + along), wood, material, quiet())
+		return PropFactory.part(model, name, size, roomCF * CFrame.lookAt(mid, mid + along), wood, material, quiet())
 	end
-	bar("HandRail", h, Vector3.new(0.45, 0.3, length))
-	bar("BottomRail", 0.3, Vector3.new(0.3, 0.2, length))
+	-- (The kit's modelled pieces over the grey-box, when they're in: World/Kit.)
+	Kit.dressPart(bar("HandRail", h, Vector3.new(0.45, 0.3, length)), "Handrail")
+	Kit.dressPart(bar("BottomRail", 0.3, Vector3.new(0.3, 0.2, length)), "Handrail")
 	local count = math.max(1, math.floor(length / 1.2))
 	for i = 0, count do
 		local p = a + span * (i / count) + UP * (h / 2)
-		PropFactory.part(
+		local baluster = PropFactory.part(
 			model,
 			"Baluster",
 			Vector3.new(0.22, h - 0.1, 0.22),
@@ -268,6 +270,7 @@ local function railing(model, roomCF: CFrame, a: Vector3, b: Vector3, height: nu
 			material,
 			quiet()
 		)
+		Kit.dressPart(baluster, "Baluster")
 	end
 	local mid = (a + b) / 2 + UP * (h + 0.5) / 2
 	local collider = PropFactory.part(
@@ -332,6 +335,11 @@ local function sconce(model, roomCF: CFrame, roomId: number, at: Vector3, facing
 	shade:SetAttribute(Attr.RoomId, roomId)
 	shade:SetAttribute(Attr.Lit, true)
 	tag(shade, Tags.RoomLight)
+	-- The kit's brass sconce over it (World/Kit), its backplate on the wall:
+	-- kit.py builds it with the plate's back half a stud behind its middle and
+	-- the plate's centre 0.55 above its floor.
+	local origin = at + facing * 0.5 + UP * (S.height - 0.55)
+	Kit.dressFixture(fixture, "Sconce", roomCF * CFrame.lookAt(origin, origin - facing))
 	fixture.Parent = model
 	return light
 end
@@ -386,7 +394,7 @@ local function buildGrandHall(model, roomCF: CFrame, roomId: number, inner, floo
 		local a, b = Vector3.new(x, 0, STAIR_FOOT), Vector3.new(x, top, edgeZ)
 		local span = b - a
 		local mid = (a + b) / 2 + UP * RAIL
-		PropFactory.part(
+		local rail = PropFactory.part(
 			model,
 			"HandRail",
 			Vector3.new(0.45, 0.3, span.Magnitude),
@@ -395,7 +403,8 @@ local function buildGrandHall(model, roomCF: CFrame, roomId: number, inner, floo
 			PropFactory.material("Wood"),
 			quiet()
 		)
-		PropFactory.part(
+		Kit.dressPart(rail, "Handrail")
+		local newel = PropFactory.part(
 			model,
 			"Newel",
 			Vector3.new(0.8, RAIL + 0.6, 0.8),
@@ -404,6 +413,32 @@ local function buildGrandHall(model, roomCF: CFrame, roomId: number, inner, floo
 			PropFactory.material("Wood"),
 			quiet()
 		)
+		Kit.dressPart(newel, "Newel")
+		-- Balusters up the flight, two to a tread, standing on the treads
+		-- under the rail (the visual rework V3: the flight had a rail
+		-- floating over bare treads). Looks only: the rail's line is the
+		-- flight's own edge.
+		local steps = math.max(1, math.floor(top / 0.5 + 0.5))
+		for i = 1, steps * 2 - 1 do
+			local t = i / (steps * 2)
+			local stepIndex = math.floor(t * steps)
+			local treadTop = top * (stepIndex + 1) / steps
+			local z = STAIR_FOOT - (STAIR_FOOT - edgeZ) * t
+			local railY = RAIL + top * t
+			local height = railY - treadTop
+			if height > 0.6 then
+				local baluster = PropFactory.part(
+					model,
+					"Baluster",
+					Vector3.new(0.22, height, 0.22),
+					roomCF * CFrame.new(x, treadTop + height / 2, z),
+					PropFactory.rgb(Config.Trim.Paint),
+					PropFactory.material("Wood"),
+					quiet()
+				)
+				Kit.dressPart(baluster, "Baluster")
+			end
+		end
 	end
 	-- Sconces: a pair either side of the front door, and four along the
 	-- gallery, which the light over the stairs can't reach. Each slides along

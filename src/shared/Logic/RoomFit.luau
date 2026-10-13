@@ -222,7 +222,9 @@ function RoomFit.fit(template, source, inner, doors)
 
 	-- Where a prop goes: along its own wall first; an essential one may then
 	-- move to another wall (turned to face the room), and last anywhere on
-	-- the floor nearest where it was. Returns x, z and its turn in degrees.
+	-- the floor nearest where it was. One that must stand against a wall
+	-- (`anyWall`: a fireplace) may move to another wall, facing the room,
+	-- but never out onto the floor. Returns x, z and its turn in degrees.
 	local function place(prop, x: number, z: number, isSolid: boolean, wide: boolean)
 		local ry = prop.ry or 0
 		local allowMiddle = prop.middle == true
@@ -244,7 +246,7 @@ function RoomFit.fit(template, source, inner, doors)
 		else
 			px, pz = slide(x, z, ex, ez, isSolid, alongX, allowMiddle)
 		end
-		if px or not wide then
+		if px or not (wide or prop.anyWall) then
 			return px, pz, ry
 		end
 		-- Another wall, at the same distance from it.
@@ -252,7 +254,7 @@ function RoomFit.fit(template, source, inner, doors)
 		if gap < RoomFit.Band then
 			-- Facing the room first, then lengthways along the wall (a bed too
 			-- long to stand out from a small room's wall lies along it).
-			for _, quarter in { 0, 90 } do
+			for _, quarter in prop.anyWall and { 0 } or { 0, 90 } do
 				for _, side in { "N", "E", "S", "W" } do
 					local turn = (WALL_TURN[side] + quarter) % 360
 					local wx, wz = RoomFit.footprint(prop.kind, turn)
@@ -270,6 +272,9 @@ function RoomFit.fit(template, source, inner, doors)
 					end
 				end
 			end
+		end
+		if prop.anyWall then
+			return nil -- (against a wall or not at all)
 		end
 		-- Anywhere, nearest first.
 		for _, offset in SPIRAL do

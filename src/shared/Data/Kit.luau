@@ -71,9 +71,45 @@ return {
 		CoatRack = { mesh = "CoatRack", id = 90933748796114, size = { 1.32, 7, 1.32 } },
 		Bench = { mesh = "Bench", id = 137534368415543, size = { 8, 2.6, 2.3 } },
 		Rug = { mesh = "Rug", id = 138678122533642, size = { 10, 0.06, 14.76 } },
+		-- kit.py golden2: the living room's brick fireplace. Its embers glow (an
+		-- emissive mask the fire drives: Controllers/FireController); it keeps
+		-- its shadow, so the fire lights the room out of the opening only.
+		Fireplace = { mesh = "Fireplace", id = 96892886241539, size = { 7, 4.42, 2.4 }, keep = { "Firebox" } },
 	},
 	-- Door slabs (World/LevelBuilder's "Slab"), fitted to the slab.
 	Slabs = {
 		Door = { mesh = "Door", id = 76133714825437, size = { 5.8, 7.8, 0.43 } },
+	},
+	-- The architecture's pieces (kit.py golden2), each in place of one
+	-- grey-box part (World/MansionBuilder's railings and the grand staircase;
+	-- World/Kit.dressPart). `fit`: sized to the part (a rail to its length);
+	-- "y": to its height only (a baluster to its rail, on the stairs too).
+	Parts = {
+		Baluster = { mesh = "Baluster", id = 90124072108267, size = { 0.25, 3.1, 0.24 }, fit = "y" },
+		Newel = { mesh = "Newel", id = 124411410635746, size = { 0.86, 3.8, 0.86 } },
+		Handrail = { mesh = "Handrail", id = 131992520560699, size = { 0.45, 0.3, 4 }, fit = true },
+	},
+	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
+	-- bottom of its box above where kit.py built it round; `scale`: shown that
+	-- much bigger than modelled. Their shades glow
+	-- (an emissive mask) and cast no shadow, or they'd hide their own bulb.
+	Fixtures = {
+		Pendant = { mesh = "Pendant", id = 123039045628887, size = { 2.24, 1.45, 2.24 }, shadow = false },
+		Chandelier = {
+			mesh = "Chandelier",
+			id = 75925560212712,
+			size = { 3.74, 2.7, 3.3 },
+			floor = 0.5,
+			scale = 1.5, -- (as modelled it was a small thing in a double-height hall)
+			shadow = false,
+		},
+		Sconce = {
+			mesh = "Sconce",
+			id = 89083803782824,
+			size = { 0.9, 1.15, 0.95 },
+			floor = 0.15,
+			centre = { 0, -0.025 },
+			shadow = false,
+		},
 	},
 }

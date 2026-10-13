@@ -1,4 +1,4 @@
-# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` to `.182`)
+# The visual rework, V0 and V3 (part 1): the kit pipeline, the golden room's first batch, the import route (builds `2026-10-12.175`, `.179` to `.183`)
 
 The models come from Blender, built by script (the owner's choice, 2026-10-12). Blender 5.2.2 runs headless from `A:\Tools\blender-5.2.2-windows-x64\blender-5.2.2-windows-x64\blender.exe`.
 
@@ -120,9 +120,85 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 
 **Gate A re-baselined:** parts 2308, hash **919916609** (the nudged meshes).
 
+## V3, the golden area (build `.183`)
+
+The plan's V3: one area taken all the way before the rollout, so the owner can approve the style. The area is the grand hall, a corridor and the living room, on seed 3, which has all three.
+
+**The owner's picks (2026-10-12):**
+- wallpaper by room: dark damask in the hall and the dining room, faded 80s floral in the living room;
+- dark oak herringbone parquet in the hall;
+- a lit brick fireplace as the living room's centrepiece.
+
+**Before** (shots 21, 24, 28):
+- The hall's staircase was block treads, block newels, square balusters and a flat rail, with no balusters along the flight at all.
+- The corridor read as P.T. already, but its ceiling light was a flat glowing drum.
+- The living room was big and empty: plain plaster, a grey carpet, cold bluish light (its key light is the TV) and no focal point.
+
+**The batch** (`kit.py golden2`, imported in one go):
+- **Staircase:**
+  - turned cream balusters (`fit = "y"`: stretched to each rail, on the flight too);
+  - a walnut newel with a ball finial;
+  - a moulded walnut handrail (`fit`: stretched to each rail's length).
+- **The brick fireplace:**
+  - piers and a lintel of running-bond brick, a sooty firebox, logs on an iron grate;
+  - a slate hearth and a walnut mantel;
+  - embers with a glow mask.
+- **The light fittings:**
+  - a brass chandelier for the hall (`scale` 1.5);
+  - a linen drum pendant for the rooms;
+  - a brass sconce.
+  - Their shades glow with their light and cast no shadow.
+- **Three swatches** carrying the new surfaces' maps through the importer. Their image ids went into `Assets.Textures` and three MaterialVariants, each with a real roughness map:
+  - **Damask:** an ogee lattice round a palmette, its motif satin on a matt ground;
+  - **FloralStripe:** in colour;
+  - **Parquet:** chevron, waxed and worn.
+
+**In the game:**
+- **Kit placement:**
+  - `Kit.dressPart` puts a mesh on one grey-box part: the railings' balusters and rails, the stair's newels and handrails;
+  - `Kit.dressFixture` puts one on a light fitting, from where it was modelled: `LevelBuilder.ceilingFixture`, a template's `fixture = "chandelier"`, and `MansionBuilder` sconce.
+- **The staircase:** balusters now stand up both sides of the flight, two to a tread.
+- **The fireplace:**
+  - A new fixed prop kind, `Fireplace`, is in the living room's template. `RoomFit`'s new `anyWall` lets it move to another wall, facing the room, when doorways fill its own; it never goes out onto the floor. Spec'd: 300 rooms, at least 85% keep it, and it always backs onto a wall.
+  - The fire (`Controllers/FireController`, `Config.Fire`) is each client's own and decoration only:
+    - a flickering warm light set in the opening;
+    - a dim shadowed bounce light facing the fireplace, since Roblox has no bounce of its own;
+    - flames and sparks (Roblox's built-in particle textures);
+    - the embers' glow through the mask;
+    - Pro Sound Effects' "Fireplace Constant Burning Flame" crackle.
+  - It sleeps beyond 70 studs, and "Reduce flicker" holds it steady.
+- **The surfaces:**
+  - the hall: parquet, with green damask over its wainscot;
+  - the dining room: oxblood damask;
+  - the living room: the floral stripe, aged with a warm tint.
+
+**Fixed on the way:**
+- **The fireplace was left out of seed 3's living room.** That room's sofa wall has two doorways, and the sofa took the only gap. That's why `anyWall` exists.
+- **The fireplace front was black** (shot 26). The fire's light sat deep in the firebox, and nothing lit the surround. Now the light sits in the opening, plus the bounce light.
+- **The brick textured as vertical stripes.** Blender's brick node reads only a vector's x and y, so `materials.brick` now box-projects it per face.
+- **The wood roughness never took effect.** `Nodes.math` ignored MULTIPLY_ADD's addend, so every wood's `roughness` was Blender's default 0.5. It only affects pieces built from now on.
+
+**After** (shots 22, 23, 25, 27):
+- The hall: the chandelier's ring of shades over the staircase, turned balusters the whole way up and round the gallery, damask, sconces, parquet.
+- The living room: the fireplace lit, warm light over the hearth and the carpet.
+- The dining room: the drum pendant over the modelled table.
+
+**Checks:**
+- 613 tests pass.
+- `tools/completable`: all 1,152 houses finish.
+- Gate A re-baselined: **parts 2319, hash 1010683597** (the old house's fireplace and fittings).
+- Clean console.
+
+**Not done yet:**
+- the corridor's own pieces (it has the new pendant; the rest is still grey-box);
+- the stair treads' nosings;
+- trim profiles (V4b);
+- the fire's flames are Roblox's built-in texture: a drawn flipbook would read better.
+
 ## Waiting on the owner
 
-- Nothing for the kit right now. The `Scene` models in Workspace (every import so far) can be deleted: the game builds the kit from ids.
+- **The golden area's look** (the plan: approve it before the rollout to the whole house).
+- The `Scene` models in Workspace (every import so far) can be deleted: the game builds the kit from ids.
 
 ## Shots
 
@@ -146,3 +222,10 @@ The owner imported `golden.glb` and the rebuilt `spike.glb`:
 - `17_bookcase_torch_flare.jpg`: the same under the torch: the glossy back flares pale between the books (fixed in the next build of the piece).
 - `18_bookcase_back_in_the_wall.jpg`: the matte bookcase under the torch, still pale between the books: the wall's plaster in front of its back.
 - `19_bookcase_centred.jpg`: placed by its centre: dark grained wood between the books under the torch.
+- `20_golden2_batch.jpg`: the golden2 batch in Blender (baluster, newel, handrail, fireplace, chandelier; pendant, sconce, damask, floral, parquet).
+- `21_hall_before.jpg`, `22_hall_after.jpg`: the grand hall from the front door, before and after.
+- `23_hall_staircase_after.jpg`: the staircase, balusters up both flights.
+- `24_living_before.jpg`, `25_living_fireplace_after.jpg`: the living room before; the fireplace lit.
+- `26_fireplace_unlit_front.jpg`: the first try, its front black.
+- `27_dining_pendant.jpg`: the dining room under the drum pendant.
+- `28_corridor_before.jpg`: the main corridor before.

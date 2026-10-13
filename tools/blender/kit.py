@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import bake, furniture, materials, shapes  # noqa: E402
+from kitlib import architecture, bake, furniture, materials, shapes, swatches  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -127,6 +127,11 @@ BATCHES = {
     # The golden room's furniture (the visual rework V3): the grand hall, the
     # dining room and the living room, taken all the way first.
     "golden": furniture.GOLDEN,
+    # The golden area's architecture and fixtures (V3): the staircase's
+    # balusters, newels and rail, the living room's brick fireplace, the
+    # hall's chandelier, the rooms' pendant and the sconces; and the
+    # golden area's surfaces as swatches (kitlib/swatches).
+    "golden2": architecture.GOLDEN2 + swatches.GOLDEN,
 }
 
 
@@ -189,8 +194,9 @@ def main():
         # Lay them out side by side for the importer's preview.
         obj.location.x += spacing - lo.x
         spacing += size.x + 2.0
-        bake.unwrap(obj)
-        bake.bake_piece(obj, out_dir, size=1024)
+        if not obj.get("swatch"):  # (a swatch carries its own maps: kitlib/swatches)
+            bake.unwrap(obj)
+            bake.bake_piece(obj, out_dir, size=1024)
         objects.append(obj)
         report.append(
             "%-12s %6.2f x %6.2f x %6.2f studs  %6d triangles  centre = { %g, %g }"

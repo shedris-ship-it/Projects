@@ -329,6 +329,14 @@ local function ceilingFixture(parent, center: Vector3, family: string?): BasePar
 				round
 			)
 		)
+		-- The kit's pendant over it, or the grand hall's chandelier (a template's
+		-- `fixture = "chandelier"`), its top at the ceiling (World/Kit).
+		local name = family == "chandelier" and "Chandelier" or "Pendant"
+		local entry = Kit.measures("Fixtures", name)
+		if entry then
+			local top = ((entry.floor or 0) + entry.size[2]) * (entry.scale or 1)
+			Kit.dressFixture(fixture, name, CFrame.new(center + Vector3.new(0, HEIGHT - top, 0)))
+		end
 	end
 	fixture.Parent = parent
 	return diffuser

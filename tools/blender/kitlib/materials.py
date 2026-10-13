@@ -80,6 +80,14 @@ class Nodes:
                 m.inputs[1].default_value = b
             else:
                 self.link(b, m.inputs[1])
+        # The third input (MULTIPLY_ADD's addend). It was ignored until
+        # 2026-10-12, so every wood's `roughness` had no effect: the addend
+        # stayed Blender's default 0.5.
+        if value is not None:
+            if isinstance(value, (int, float)):
+                m.inputs[2].default_value = value
+            else:
+                self.link(value, m.inputs[2])
         return m
 
     def mix_colour(self, a, b, factor, blend="MIX"):
@@ -287,6 +295,63 @@ def image(name, pixels, roughness=0.9, bump=0.1):
     pile = n.noise(m.outputs["Vector"], 120.0, 2.0, 0.5)
     n.bump(pile.outputs["Fac"], bump)
     mat["uv_image"] = True  # (kit.py lays the piece's own UVs out before baking)
+    return mat
+
+
+def brick(name, color=(122, 58, 42), dark=(84, 38, 30), mortar=(150, 140, 124), scale=2.2, soot=0.0):
+    """A 1970s-80s fireplace brick: running bond, each brick a little
+    different, sandy mortar sunk between them; `soot` (0-1) darkens it, for a
+    firebox's inside."""
+    mat = bpy.data.materials.new(name)
+    n = Nodes(mat)
+    m = n.mapping(scale=(1.0, 1.0, 1.0))
+    # The brick texture reads only a vector's x and y, so each face is given
+    # its own pair (a box projection): across and up on the faces that look
+    # along Y, deep and up on the sides. (One pair striped the sides, and the
+    # front as well when it was the wrong one, seen 2026-10-12.)
+    xyz = n.add("ShaderNodeSeparateXYZ")
+    n.link(m.outputs["Vector"], xyz.inputs["Vector"])
+
+    def course(u):
+        vec = n.add("ShaderNodeCombineXYZ")
+        n.link(xyz.outputs[u], vec.inputs["X"])
+        n.link(xyz.outputs["Z"], vec.inputs["Y"])
+        b = n.add("ShaderNodeTexBrick")
+        b.inputs["Scale"].default_value = scale
+        b.inputs["Mortar Size"].default_value = 0.025
+        b.inputs["Bias"].default_value = 0.0
+        b.inputs["Brick Width"].default_value = 0.5
+        b.inputs["Row Height"].default_value = 0.18
+        b.inputs["Color1"].default_value = _srgb(color)
+        b.inputs["Color2"].default_value = _srgb(dark)
+        b.inputs["Mortar"].default_value = _srgb(mortar)
+        n.link(vec.outputs["Vector"], b.inputs["Vector"])
+        return b
+
+    front, side = course("X"), course("Y")
+    geometry = n.add("ShaderNodeNewGeometry")
+    normal = n.add("ShaderNodeSeparateXYZ")
+    n.link(geometry.outputs["Normal"], normal.inputs["Vector"])
+    facing = n.math("GREATER_THAN", n.math("ABSOLUTE", normal.outputs["X"]).outputs["Value"], 0.5)
+    grit = n.noise(m.outputs["Vector"], 30.0, 4.0, 0.6)
+    c = n.mix_colour(front.outputs["Color"], side.outputs["Color"], 0.0)
+    n.link(facing.outputs["Value"], c.node.inputs[0])
+    fac = n.add("ShaderNodeMix", data_type="FLOAT")
+    sockets = {s.identifier: s for s in fac.inputs}
+    n.link(facing.outputs["Value"], sockets["Factor_Float"])
+    n.link(front.outputs["Fac"], sockets["A_Float"])
+    n.link(side.outputs["Fac"], sockets["B_Float"])
+    mortar_mask = [s for s in fac.outputs if s.identifier == "Result_Float"][0]
+    if soot > 0:
+        black = n.add("ShaderNodeRGB")
+        black.outputs[0].default_value = (0.02, 0.018, 0.016, 1.0)
+        c = n.mix_colour(c, black.outputs[0], soot)
+    n.link(c, n.bsdf.inputs["Base Color"])
+    rough = n.math("MULTIPLY_ADD", grit.outputs["Fac"], 0.15, 0.82)
+    n.link(rough.outputs["Value"], n.bsdf.inputs["Roughness"])
+    # The mortar sunk: the brick texture's own factor is 1 in the mortar.
+    height = n.math("SUBTRACT", 1.0, mortar_mask)
+    n.bump(height.outputs["Value"], 0.5, 0.03)
     return mat
 
 

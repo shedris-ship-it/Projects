@@ -1022,6 +1022,29 @@ Config.Storm = {
 -- Light under a shut door (the visual rework V2; Controllers/DoorLightController):
 -- a line in the gap and a little spill on the dark side, when the room
 -- behind is lit and yours is dark. Decoration only.
+-- A fireplace's fire (Controllers/FireController; the visual rework V3, the
+-- owner's lit brick fireplace): each client's own, decoration only, never
+-- counted as lit for the rules.
+Config.Fire = {
+	Colour = { 255, 146, 70 },
+	Brightness = { 1.8, 3.0 }, -- the light flickers between these
+	Range = 22,
+	-- The light sits in the opening (deep in the firebox it lit only the
+	-- firebox, seen 2026-10-12), so it spills over the hearth and the room.
+	LightAt = { 0, 0.5, 0.5 }, -- studs from the firebox's middle: up, out
+	-- Real fires light their own surround by bounce, which Roblox doesn't
+	-- do: a dim warm light a few studs out, facing the fireplace, shadowed so
+	-- it never reaches the room behind its wall.
+	Bounce = { Brightness = { 0.35, 0.7 }, Range = 10, Ahead = 3.5, Height = 2.4, Angle = 100 },
+	Flicker = 8, -- new targets a second (Reduce flicker: steady at the middle)
+	Embers = { 0.5, 1.5 }, -- the embers' glow through their mask (EmissiveStrength)
+	EmberTint = { 255, 104, 36 },
+	Flames = 26, -- flame particles a second (half on a weaker machine)
+	Volume = 0.4,
+	Reach = 26, -- studs: the crackle fades out by here
+	Near = 70, -- studs: a fire further than this sleeps
+}
+
 Config.DoorLight = {
 	Radius = 45, -- studs from the camera
 	Max = 8, -- doors lit this way at once (the nearest)

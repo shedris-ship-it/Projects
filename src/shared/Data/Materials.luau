@@ -31,6 +31,14 @@ local Materials = {
 	{ name = "CheckerLino", base = "Plastic", maps = T.Linoleum, rough = R.Satin, studs = 11 },
 	{ name = "HexTile", base = "CeramicTiles", maps = T.HexTile, rough = R.Satin, studs = 6 },
 	{ name = "StainedConcrete", base = "Concrete", maps = T.Concrete, rough = R.Matte, studs = 16, organic = true },
+	-- The golden area (the visual rework V3, the owner's picks of 2026-10-12):
+	-- tone-on-tone damask, its motif satin on a matt ground (the hall green,
+	-- the dining room oxblood); a faded 1980s floral stripe in colour (the
+	-- living room; its wall colour near white); dark oak chevron parquet, waxed
+	-- and worn (the hall's floor).
+	{ name = "Damask", base = "Plaster", maps = T.Damask, rough = T.Damask.rough, studs = 7 },
+	{ name = "FloralStripe", base = "Plaster", maps = T.FloralStripe, rough = T.FloralStripe.rough, studs = 8 },
+	{ name = "Parquet", base = "WoodPlanks", maps = T.Parquet, rough = T.Parquet.rough, studs = 8 },
 	-- The Guest's overcoat (Stalker/StalkerModel): black wool, matte so the
 	-- torch never shines on it; the carpet's pile, small, reads as a coarse
 	-- weave.

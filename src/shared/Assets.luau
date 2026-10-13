@@ -67,6 +67,10 @@ Assets.Sounds = {
 	ThunderFar1 = "rbxassetid://9120021540", -- PSE "Thunder Sharp Booming Strikes Rumbling 1"
 	ThunderFar2 = "rbxassetid://9120021794", -- PSE "... Rumbling 4"
 	ThunderFar3 = "rbxassetid://9120021237", -- PSE "Thunder Rumbling 1": crashing, long decays
+	-- The living room's fire (Controllers/FireController; the visual rework V3):
+	-- PSE "Fireplace Constant Burning Flame 4", crackly, loop. Alternatives: 9112780193,
+	-- 9112780438, 9112780212 (the same family).
+	FireCrackle = "rbxassetid://9112780462",
 	-- Your own breath, looped: it follows stamina (Controllers/AudioController).
 	PlayerBreath = "rbxassetid://124832136911190", -- Creator Store "Breathing and Tired" (Maz_Rx1)
 	-- Loops for the Drift layers and room tone. Fill these with real assets.
@@ -196,6 +200,24 @@ Assets.Textures = {
 	Linoleum = { color = "rbxassetid://138425394516162", normal = "rbxassetid://86453271657573" },
 	HexTile = { color = "rbxassetid://89596429873713", normal = "rbxassetid://121778616853454" },
 	Concrete = { color = "rbxassetid://93657982194767", normal = "rbxassetid://130961398154099" },
+	-- The golden area's surfaces (the visual rework V3; tools/textures.py, ONLY=golden),
+	-- uploaded by the owner's import of kit.py golden2 (on its swatches), each with a
+	-- roughness map of its own.
+	Damask = {
+		color = "rbxassetid://117970108473050",
+		normal = "rbxassetid://91542375873880",
+		rough = "rbxassetid://136342603443370",
+	},
+	FloralStripe = {
+		color = "rbxassetid://133532414792551",
+		normal = "rbxassetid://103833348594909",
+		rough = "rbxassetid://82640829423827",
+	},
+	Parquet = {
+		color = "rbxassetid://106099641586986",
+		normal = "rbxassetid://132229840322224",
+		rough = "rbxassetid://80419864582955",
+	},
 }
 
 -- Uniform roughness maps (8 px): matte for paper, plaster and carpet, satin

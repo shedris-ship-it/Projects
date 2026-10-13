@@ -781,9 +781,203 @@ def guest_masks():
         img = np.concatenate([np.clip(rgb, 0, 255) / 255, alpha[..., None]], axis=-1)
         save(Image.fromarray((img * 255 + 0.5).astype(np.uint8), "RGBA"), "guest_mask_" + name)
 
+# The golden area's surfaces (the visual rework V3, the owner's picks of
+# 2026-10-12: damask in the hall and dining room, faded floral in the living
+# room, dark oak herringbone in the hall). Each has a roughness map of its own,
+# not one flat value: a damask's motif is satin on a matt ground, a waxed floor
+# is worn where people walk.
+
+
+def damask():
+    """Tone-on-tone damask: an ogee lattice of S-curved frames, each round a
+    mirrored palmette with curling acanthus scrolls, in a half-drop; the
+    motif a shade darker and satin (lower roughness) on a matt ground.
+    Greyscale: the wall's colour tints it (dark green in the hall, oxblood in
+    the dining room)."""
+    rng = rng_for("damask")
+    ink = Canvas(SIZE, 0.0)
+    half = SIZE // 4  # half a motif's width and height
+
+    def stroke(points, w0, w1):
+        # A line thinning from w0 to w1 along its length.
+        n = len(points)
+        for i in range(n - 1):
+            w = w0 + (w1 - w0) * i / max(n - 2, 1)
+            ink.line([points[i], points[i + 1]], 1.0, w)
+
+    def frame(cx, cy):
+        # Four S-curves from the top point round to the left, each with a
+        # few small leaves along it.
+        for sx, sy in ((1, 1), (-1, 1)):
+            for upper in (True, False):
+                pts = []
+                for t in np.linspace(0, 1, 28):
+                    if upper:
+                        x = cx + sx * half * t
+                        y = cy - half + half * t - sy * 34 * math.sin(math.pi * 2 * t)
+                    else:
+                        x = cx + sx * half * (1 - t)
+                        y = cy + half * t + sy * 34 * math.sin(math.pi * 2 * t)
+                    pts.append((x, y))
+                stroke(pts, 7, 7)
+                for k in (7, 14, 21):
+                    x, y = pts[k]
+                    x2, y2 = pts[k + 1]
+                    a = math.atan2(y2 - y, x2 - x)
+                    ink.ellipse(x + 9 * math.cos(a + 1.2), y + 9 * math.sin(a + 1.2), 13, 5, a + 0.6, 1.0)
+
+    def scroll(cx, cy, side):
+        # An acanthus scroll: a spiral curling in, leaves on its outer side.
+        pts = []
+        for th in np.linspace(0, 2.6 * math.pi, 46):
+            r = 62 * math.exp(-0.2 * th)
+            pts.append((cx + side * r * math.cos(th + 1.2), cy - r * math.sin(th + 1.2)))
+        stroke(pts, 13, 3)
+        for k in range(0, 30, 5):
+            x, y = pts[k]
+            x2, y2 = pts[k + 1]
+            a = math.atan2(y2 - y, x2 - x)
+            ink.ellipse(x - side * 12 * math.sin(a), y + 12 * math.cos(a), 15, 6, a, 1.0)
+
+    def motif(cx, cy):
+        # The palmette: a bulb, a stem, a fan of petals.
+        ink.ellipse(cx, cy + 92, 34, 46, 0, 1.0)
+        ink.ellipse(cx, cy + 20, 12, 92, 0, 1.0)
+        for p in range(9):
+            a = -math.pi / 2 + (p - 4) * 0.27
+            ink.ellipse(cx + 54 * math.cos(a), cy - 64 + 54 * math.sin(a), 40, 11, a, 1.0)
+        ink.ellipse(cx, cy - 64, 16, 16, 0, 1.0)
+        for side in (-1, 1):
+            scroll(cx + side * 70, cy + 6, side)
+            # A pair of leaves curling off the foot.
+            ink.ellipse(cx + side * 48, cy + 140, 34, 10, side * 0.5, 1.0)
+            ink.ellipse(cx + side * 22, cy - 140, 20, 8, -side * 0.9, 1.0)
+        ink.ellipse(cx, cy - 158, 9, 18, 0, 1.0)
+
+    centres = []
+    for col in range(2):
+        for row in range(2):
+            cx = col * 2 * half + half
+            cy = row * 2 * half + (half if col % 2 == 0 else 2 * half)
+            centres.append((cx, cy))
+    for cx, cy in centres:
+        frame(cx, cy)
+        motif(cx, cy)
+    pattern = np.clip(blur(ink.array(), 0.7), 0, 1)
+    colour = paper(rng, SIZE, 0.86) - 0.14 * pattern
+    # Satin on matt: the motif catches the light.
+    rough = 0.82 - 0.32 * pattern + 0.03 * fbm(rng, SIZE, 1.0)
+    height = 0.6 * pattern + 0.04 * fbm(rng, SIZE, 0.6)
+    save(grey(colour), "damask")
+    save(normal_map(height, 1.6), "damask_normal")
+    save(grey(rough), "damask_rough")
+
+
+def floral_stripe():
+    """1980s faded floral stripe, in colour: dusty-rose bands with a fine line
+    either side, trailing roses and leaves between them on cream, sun-faded
+    unevenly. The wall's colour should be near white."""
+    rng = rng_for("floral_stripe")
+    band = Canvas(SIZE, 0.0)
+    line = Canvas(SIZE, 0.0)
+    petal = Canvas(SIZE, 0.0)
+    heart = Canvas(SIZE, 0.0)
+    leaf = Canvas(SIZE, 0.0)
+    unit = SIZE // 4
+    for col in range(4):
+        x = col * unit
+        band.polygon([(x + 8, 0), (x + 40, 0), (x + 40, SIZE), (x + 8, SIZE)], 1.0)
+        for lx in (x + 2, x + 46):
+            line.line([(lx, 0), (lx, SIZE)], 1.0, 2.0)
+        for row in range(4):
+            cx = x + 40 + (unit - 40) / 2
+            cy = row * unit + (unit / 2 if col % 2 == 0 else 0)
+            flip = -1 if (row + col) % 2 else 1
+            # A trailing stem with leaves.
+            stem = [(cx + flip * 18 * math.sin(t * 3.0), cy - 70 + t * 150) for t in np.linspace(0, 1, 18)]
+            leaf.line(stem, 0.9, 3.0)
+            for t, side in ((0.25, 1), (0.5, -1), (0.75, 1)):
+                sx, sy = stem[int(t * 17)]
+                leaf.ellipse(sx + side * 16, sy, 15, 6, side * 0.7, 1.0)
+            # A rose: overlapping petals round a darker heart.
+            rx, ry = stem[0]
+            for p in range(7):
+                a = p * 2 * math.pi / 7 + flip * 0.4
+                petal.ellipse(rx + 11 * math.cos(a), ry + 10 * math.sin(a), 13, 9, a, 1.0)
+            heart.ellipse(rx, ry, 8, 7, 0.4, 1.0)
+            heart.ellipse(rx + 3, ry - 2, 4, 3, 0.9, 1.0)
+            # A bud lower down.
+            bx, by = stem[-1]
+            petal.ellipse(bx, by, 7, 9, 0.3 * flip, 1.0)
+    b, l, p, h, g = band.array(), line.array(), petal.array(), heart.array(), leaf.array()
+    fade = 1 + 0.12 * fbm(rng, SIZE, 1.8)  # uneven sun-fading
+    cream = np.array([0.93, 0.89, 0.81])
+    rose_band = np.array([0.83, 0.70, 0.68])
+    rose = np.array([0.80, 0.56, 0.56])
+    rose_heart = np.array([0.62, 0.36, 0.38])
+    green = np.array([0.58, 0.64, 0.50])
+    base = paper(rng, SIZE, 0.0)[..., None] + cream
+    colour = base
+    for mask, ink_colour, strength in ((b, rose_band, 0.8), (l, rose_heart, 0.6), (g, green, 0.85), (p, rose, 0.9), (h, rose_heart, 0.9)):
+        k = (mask * strength / fade)[..., None]
+        colour = colour * (1 - k) + ink_colour * k
+    rough = 0.86 - 0.06 * np.maximum.reduce([p, g, h]) + 0.02 * fbm(rng, SIZE, 1.0)
+    height = 0.4 * np.maximum.reduce([p, g, h, b * 0.3]) + 0.04 * fbm(rng, SIZE, 0.6)
+    img = Image.fromarray((np.clip(colour, 0, 1) * 255 + 0.5).astype(np.uint8), "RGB")
+    save(img, "floral_stripe")
+    save(normal_map(height, 1.4), "floral_stripe_normal")
+    save(grey(rough), "floral_stripe_rough")
+
+
+def parquet_chevron():
+    """Dark oak parquet in a chevron (French herringbone): columns of oak
+    blocks at 45 degrees, leaning one way then the other, meeting in a
+    zigzag. Each block its own tone, grain along it, dark joints, waxed (low
+    roughness) and worn duller where people walk. Greyscale: the floor's
+    colour tints it."""
+    rng = rng_for("parquet_chevron")
+    cols = 8
+    c = SIZE // cols  # column width
+    p = 64  # block width down the column: divides the tile (seamless), blocks about 4 to 1
+    y, x = np.mgrid[0:SIZE, 0:SIZE].astype(np.float64)
+    col = (x // c).astype(int)
+    xl = x - col * c  # across the column
+    lean = np.where(col % 2 == 0, 1.0, -1.0)
+    # Distance down the column measured across the blocks' slant.
+    s = y - lean * (xl - c / 2)
+    row = np.floor(s / p).astype(int)
+    within = s - row * p  # 0..p across a block's width
+    rows = SIZE // p
+    key = (col * 7919 + (row % rows) * 104729) % 9973
+    tones = rng.uniform(-1, 1, 9973)
+    tone = tones[key]
+    # Grain along each block: bands across its width, wobbling.
+    wobble = fbm(rng, SIZE, 1.4)
+    grain = np.sin((within + 2.2 * wobble) * (2 * math.pi / rng.uniform(7.5, 9.5)))
+    pores = fbm(rng, SIZE, 0.25)
+    colour = 0.78 + 0.07 * tone + 0.035 * grain + 0.02 * pores
+    # Joints: along the blocks and down the zigzag between columns.
+    joint = np.clip(1.6 - np.minimum(within, p - within), 0, 1)
+    edge = np.minimum(xl, c - 1 - xl)
+    joint = np.maximum(joint, np.clip(1.4 - edge, 0, 1))
+    colour = colour * (1 - 0.55 * joint)
+    wear = np.clip(fbm(rng, SIZE, 2.4), 0, None)
+    colour += 0.025 * wear
+    rough = 0.38 + 0.12 * wear + 0.05 * (pores > 0.8) + 0.3 * joint
+    height = 0.25 * grain + 0.1 * pores - 2.2 * blur(joint, 0.7)
+    save(grey(colour), "parquet_chevron")
+    save(normal_map(height, 2.0), "parquet_chevron_normal")
+    save(grey(np.clip(rough, 0, 1)), "parquet_chevron_rough")
+
+
 if __name__ == "__main__":
     if os.environ.get("ONLY") == "guest":
         guest_masks()
+        raise SystemExit
+    if os.environ.get("ONLY") == "golden":
+        damask()
+        floral_stripe()
+        parquet_chevron()
         raise SystemExit
     wallpaper_sprig()
     wallpaper_stripe()

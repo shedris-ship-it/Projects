@@ -126,7 +126,7 @@ local Rooms = {
 		weight = 2,
 		max = 1,
 		floor = { material = "PileCarpet", color = { 112, 96, 72 } },
-		wall = { material = "OldPlaster", color = { 150, 132, 104 } },
+		wall = { material = "FloralStripe", color = { 204, 190, 168 } }, -- faded 80s floral, aged (a warm tint over its colours)
 		reverb = "LivingRoom",
 		props = {
 			{ id = "sofa", kind = "Sofa", x = 11, z = -17.5 },
@@ -135,6 +135,10 @@ local Rooms = {
 			{ id = "books", kind = "Shelf", x = -18.5, z = -10, ry = 90 },
 			{ id = "curtain", kind = "Curtain", x = -18.75, z = 12, ry = 90 },
 			{ id = "rug", kind = "Rug", x = 0, z = 0 },
+			-- The room's centrepiece (the visual rework V3, the owner's pick of
+			-- 2026-10-12): a lit brick fireplace on the sofa's wall, or another
+			-- wall when doorways fill that one (RoomFit `anyWall`).
+			{ id = "fireplace", kind = "Fireplace", x = -8, z = -18.3, anyWall = true },
 		},
 		decor = {
 			{ id = "window", kind = "Window", side = "S", along = -12, y = 6 },
@@ -180,7 +184,7 @@ local Rooms = {
 		max = 1,
 		roles = { deliberation = true },
 		floor = { material = "OakFloor", color = { 98, 68, 50 } },
-		wall = { material = "WallpaperStripe", color = { 150, 116, 116 } },
+		wall = { material = "Damask", color = { 122, 60, 58 } }, -- oxblood damask
 		wainscot = true,
 		reverb = "LivingRoom",
 		-- The table at the room's heart, lit from above, its candles a beacon
@@ -947,11 +951,12 @@ local MansionExtras = {
 		name = "Grand Hall",
 		mood = "open",
 		family = "living",
+		fixture = "chandelier", -- a brass chandelier from the top ceiling (World/Kit; the visual rework V3)
 		-- Double height. A split staircase rises from the middle to a half landing
 		-- on the north wall, then up both sides to a gallery along the north,
 		-- east and west walls. The front door (south) shuts behind the squad.
-		floor = { material = "OakFloor", color = { 92, 64, 46 } },
-		wall = { material = "Panelling", color = { 104, 78, 56 } },
+		floor = { material = "Parquet", color = { 96, 66, 44 } }, -- dark oak chevron (the owner's pick)
+		wall = { material = "Damask", color = { 70, 86, 68 } }, -- bottle-green damask over the wainscot
 		wainscot = true,
 		reverb = "Auditorium",
 		light = { brightness = 1.2, range = 30 },

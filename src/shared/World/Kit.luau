@@ -35,7 +35,7 @@ local ready = false
 -- Every kit entry with an id, once per mesh.
 local function entriesWithIds()
 	local byMesh = {}
-	for _, group in { KitData.Props, KitData.Slabs } do
+	for _, group in { KitData.Props, KitData.Slabs, KitData.Parts, KitData.Fixtures } do
 		for _, entry in group do
 			if entry.id and not byMesh[entry.mesh] then
 				byMesh[entry.mesh] = entry
@@ -245,6 +245,75 @@ function Kit.dressSlab(slab: BasePart, kind: string, also: { string }?): MeshPar
 		end
 	end
 	return mesh
+end
+
+-- Dresses one grey-box part of the architecture (Data/Kit `Parts`: a
+-- railing's baluster, the staircase's newel, a handrail): the mesh stands
+-- where the part is, at its modelled size, or at the part's own size when
+-- the entry `fit`s (a rail stretched to its length, or slimmed to a bottom
+-- rail). The part stays as the game's (a railing's collider is its own part).
+function Kit.dressPart(part: BasePart, name: string): MeshPart?
+	local entry = KitData.Parts[name]
+	local template = entry and Kit.template(entry.mesh)
+	if not template or not part.Parent then
+		return nil
+	end
+	local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+	if entry.fit == true then
+		size = part.Size
+	elseif entry.fit == "y" then
+		size = Vector3.new(size.X, part.Size.Y, size.Z) -- (a baluster stretched to its rail)
+	end
+	local mesh = visual(template, size, part.CFrame)
+	mesh.Name = "Kit" .. name
+	mesh.CastShadow = entry.shadow ~= false
+	mesh.Parent = part.Parent
+	hide(part)
+	return mesh
+end
+
+-- Dresses a light fixture's model (Data/Kit `Fixtures`: the pendant, the
+-- hall's chandelier, a sconce). `origin` is where kit.py built the piece
+-- round (its floor and middle; +Z its front, into the room), so the caller
+-- says where that is (a pendant's top at the ceiling, a sconce's back on the
+-- wall). Every grey-box part in the model is hidden, the light-carrying ones
+-- too: their lights shine on, and the mesh's glow mask follows them
+-- (EffectsController).
+function Kit.dressFixture(model: Model, name: string, origin: CFrame): MeshPart?
+	local entry = KitData.Fixtures[name]
+	local template = entry and Kit.template(entry.mesh)
+	if not template then
+		return nil
+	end
+	-- (`scale`: bigger than modelled, all of it: the hall's chandelier.)
+	local k = entry.scale or 1
+	local modelled = Vector3.new(entry.size[1], entry.size[2], entry.size[3]) * k
+	local centre = entry.centre or { 0, 0 }
+	local mesh = visual(
+		template,
+		modelled,
+		origin * CFrame.new(centre[1] * k, (entry.floor or 0) * k + modelled.Y / 2, centre[2] * k)
+	)
+	mesh.Name = "KitBody"
+	-- (A shade mustn't hide its own bulb: Data/Kit `shadow`.)
+	mesh.CastShadow = entry.shadow ~= false
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			hide(part)
+		end
+	end
+	mesh.Parent = model
+	return mesh
+end
+
+-- A fixture's measures (Data/Kit), for callers that place it: its modelled
+-- size, nil when it isn't in.
+function Kit.measures(group: string, name: string)
+	local entry = KitData[group] and KitData[group][name]
+	if not entry or not Kit.template(entry.mesh) then
+		return nil
+	end
+	return entry
 end
 
 return Kit

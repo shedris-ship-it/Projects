@@ -228,4 +228,36 @@ return function(test, check, Shared, require)
 			"most chairs stay round the table: " .. chairsKept .. "/" .. chairsAll
 		)
 	end)
+	test("a fireplace stands against a wall, facing the room, or not at all", function()
+		local template = Rooms.MansionById.living_room
+		local rng = Rng.new(7)
+		local w, d = template.mansion.size[1], template.mansion.size[2]
+		local inner = { x = w / 2 - 0.5, z = d / 2 - 0.5 }
+		-- Where each wall's back is, by the turn that faces the room from it.
+		local backs = { [0] = "N", [90] = "W", [180] = "S", [270] = "E" }
+		local kept, tries = 0, 300
+		for _ = 1, tries do
+			local fitted =
+				RoomFit.fit(template, { x = 19.5, z = 19.5 }, inner, randomDoors(rng, inner, rng:NextInteger(2, 4)))
+			for _, prop in fitted.props do
+				if prop.kind == "Fireplace" then
+					kept += 1
+					local ry = (prop.ry or 0) % 360
+					local side = backs[ry]
+					check.truthy(side ~= nil, "a fireplace turned " .. ry .. ", not to face the room")
+					local ex, ez = RoomFit.footprint("Fireplace", ry)
+					local gap = side == "N" and (prop.z - ez + inner.z)
+						or side == "S" and (inner.z - prop.z - ez)
+						or side == "W" and (prop.x - ex + inner.x)
+						or (inner.x - prop.x - ex)
+					check.atMost(
+						math.abs(gap),
+						0.6,
+						"a fireplace " .. gap .. " off its wall (" .. tostring(side) .. ")"
+					)
+				end
+			end
+		end
+		check.atLeast(kept, tries * 0.85, "most living rooms keep their fireplace: " .. kept .. "/" .. tries)
+	end)
 end

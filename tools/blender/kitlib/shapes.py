@@ -202,6 +202,24 @@ def turn(obj, degrees=(0, 0, 0), at=(0, 0, 0)):
     return obj
 
 
+def extrude(name, profile, length, location=(0, 0, 0)):
+    """A moulding: profile is a closed outline [(x, z), ...] (counter-
+    clockwise, seen from -Y), swept straight along Y for length studs,
+    centred. A handrail, a cornice, a baseboard."""
+    bm = bmesh.new()
+    front = [bm.verts.new((x, -length / 2, z)) for x, z in profile]
+    back = [bm.verts.new((x, length / 2, z)) for x, z in profile]
+    n = len(profile)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((front[i], front[j], back[j], back[i]))
+    bm.faces.new(list(reversed(front)))
+    bm.faces.new(back)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.translate(bm, vec=Vector(location), verts=bm.verts)
+    return smooth(_object(name, bm), 40)
+
+
 def cull(obj, directions, threshold=0.9):
     """Deletes the faces turned toward any of directions (unit (x, y, z)):
     the sides of a piece nobody can see, so they take no triangles and no

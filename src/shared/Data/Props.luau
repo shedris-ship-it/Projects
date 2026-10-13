@@ -137,6 +137,9 @@ local Props = {
 	Fridge = { size = { 4, 8, 3.5 }, color = { 210, 210, 204 }, material = "SmoothPlastic" },
 	Stove = { size = { 4, 3.6, 3.5 }, color = { 60, 60, 62 }, material = "Metal" },
 	Shelf = { size = { 8, 9, 2 }, color = { 96, 70, 50 }, material = "Wood" },
+	-- A brick fireplace, its back to the wall (the living room, the visual
+	-- rework V3): fixed (Data/Physical lists it nowhere), its fire the client's.
+	Fireplace = { size = { 7, 4.42, 2.4 }, color = { 122, 58, 42 }, material = "Brick" },
 	Sink = { size = { 3, 3.5, 2.5 }, color = { 220, 220, 214 }, material = "Marble" },
 	Toilet = { size = { 2.5, 3, 3.5 }, color = { 226, 226, 220 }, material = "Marble" },
 	Crib = { size = { 5, 4, 3 }, color = { 200, 190, 170 }, material = "Wood" },
