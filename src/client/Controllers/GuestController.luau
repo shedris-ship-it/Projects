@@ -96,6 +96,10 @@ function GuestController:_attach(model: Model)
 	if guest and guest.model == model then
 		return
 	end
+	-- (Only him, in the world: never a copy of him in a viewport.)
+	if not model:IsDescendantOf(Workspace) then
+		return
+	end
 	self:_detach()
 	local root = model:WaitForChild("HumanoidRootPart", 10)
 	local head = model:WaitForChild("Head", 10)
@@ -1085,15 +1089,21 @@ function GuestController:_jumpscare(mode: string?)
 	task.wait()
 	local pieces = {}
 	local headCF = head.CFrame
+	local kitCopy = nil
 	if guest.kit then
-		-- His whole model (its meshes bend with its own bones), only his
-		-- head shown.
-		local _, pairs_ = GuestReflection.copyModel(guest.model, viewport, head)
-		for _, pair in pairs_ do
-			if pair.to:IsA("BasePart") then
-				table.insert(pieces, { part = pair.to, rel = headCF:ToObjectSpace(pair.from.CFrame) })
-			end
-		end
+		-- (His own frame has run since and eased his face back: the catch's
+		-- face again, all at once, just before it's copied.)
+		guest.face:SetForm(math.max(guest.model:GetAttribute("GuestForm") or 0, 1))
+		guest.face:SetSmile(math.rad(108), 1)
+		guest.face:SetMood(nil, "Catch", 0)
+		guest.face:SetShine(1)
+		guest.face:LookAt(guest.head.CFrame * Vector3.new(0, 0, -6))
+		guest.face:Snap()
+		-- His whole model, its joints kept (its meshes bend with them), moved
+		-- by its root: his face comes at you, and his arms with it.
+		local copy, root, pairs_, from = GuestReflection.copyModel(guest.model, viewport)
+		kitCopy = { model = copy, root = root, pairs = pairs_ }
+		table.insert(pieces, { part = root, rel = headCF:ToObjectSpace(from.CFrame) })
 	else
 		local parts = { head }
 		for _, d in head:GetDescendants() do
@@ -1118,7 +1128,7 @@ function GuestController:_jumpscare(mode: string?)
 	-- His hands first (2026-10-07): long finger bones curl round the edges of
 	-- your view, then his face comes between them. At Breaking the mask splits
 	-- down the middle as the head jerks.
-	local hands = self:_screenHands(viewport, form)
+	local hands = kitCopy and self:_screenHandsKit(kitCopy, form) or self:_screenHands(viewport, form)
 	-- (The modelled mask breaks by itself: its broken shell and dropped jaw.)
 	local split = (form >= 2 and not guest.kit) and self:_catchSplit(viewport, headCF) or nil
 	local lead = quiet and 0 or G.CatchHandsLead
@@ -1280,6 +1290,55 @@ function GuestController:_screenHands(viewport: ViewportFrame, form: number)
 				finger.k1.CFrame = CFrame.new(root)
 				finger.k2.CFrame = CFrame.new(mid)
 				finger.tip.CFrame = CFrame.new(tip)
+			end
+		end
+	end
+	hands:Update(0, 0, 0, 0)
+	return hands
+end
+
+-- His modelled hands in the catch (V5; a placeholder until he takes you down
+-- with an animation of his own, the owner, 2026-10-14): his copy's arms rise
+-- into his Reach (Logic/GuestPose: out at your face, closing round it) as
+-- the hands slide in, and the long fingers hook as they grip. Same Update as
+-- _screenHands.
+function GuestController:_screenHandsKit(copy, form: number)
+	local reach = GuestPose.target({ pose = "Reach", phase = 0, breath = 0, tilt = 14, form = form })
+	local motors = {}
+	for _, pair in copy.pairs do
+		if pair.to:IsA("Motor6D") and reach[pair.to.Name] then
+			motors[pair.to.Name] = pair.to
+		end
+	end
+	local arms = { "LeftShoulder", "LeftElbow", "LeftWrist", "RightShoulder", "RightElbow", "RightWrist" }
+	local hands = {}
+	local fingers = {}
+	for _, name in { "Left", "Right" } do
+		local hand = copy.model:FindFirstChild(name .. "Hand")
+		if hand then
+			local h = GuestMask.hand(hand, name)
+			GuestMask.grow(h, G.FingerScale[math.clamp(form, 0, 2) + 1])
+			table.insert(fingers, { hand = h, inward = name == "Left" and 1 or -1 })
+		end
+	end
+	function hands:Update(slide: number, grip: number, tremble: number, _dt: number)
+		for _, joint in arms do
+			local m, v = motors[joint], reach[joint]
+			if m and v then
+				local shake = (math.random() - 0.5) * tremble * 4
+				m.Transform = CFrame.new(v[4], v[5], v[6])
+					* CFrame.Angles(v[1] * slide + shake, v[2] * slide, v[3] * slide)
+			end
+		end
+		for _, f in fingers do
+			for i, finger in f.hand.fingers do
+				local bend = (0.1 + grip * (0.9 + (i % 3) * 0.12)) * f.inward
+				local fan = i <= 4 and (2.5 - i) / 1.5 * math.rad(18) * (1 - grip * 0.5) or 0
+				GuestMask.bend(
+					finger,
+					CFrame.Angles(fan, 0, 0) * CFrame.Angles(0, (i - 2.5) * 0.05, bend * 0.55),
+					CFrame.Angles(0, 0, bend * 0.75)
+				)
 			end
 		end
 	end

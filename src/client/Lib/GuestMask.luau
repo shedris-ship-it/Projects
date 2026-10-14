@@ -77,9 +77,19 @@ local MASK_ON_HEAD = CFrame.new(v(Face.centre))
 local SLIP_MOVE = Vector3.new(0.015, -0.035, 0)
 local SLIP_ROLL = math.rad(6)
 
+-- His pupils: a pinprick in the dark, smaller caught in your torch (studs),
+-- and at least this much of the distance from you (about a pixel and a half
+-- at 1080p).
+local PIN_DARK = 0.013
+local PIN_TORCH = 0.011
+local PIN_SCREEN = 0.0016
+
 -- How quickly each weight eases (per second), and the forms.
 local EASE = { width = 6, open = 8, pose = 3.5, jaw = 10 }
 local CREEP = 0.4 -- Calm to Fraying: the crazing creeps over in about 2.5 s
+-- The jaw drops only past this much open (below it the lips draw back off
+-- clenched teeth).
+local JAW_FROM = 0.6
 local CRACK = 2.5 -- to Breaking: at once
 
 local MOODS = {
@@ -142,7 +152,7 @@ function GuestMask.new(head: BasePart, onEvent: ((string, Vector3) -> ())?)
 		pin.Shape = Enum.PartType.Ball
 		pin.Material = Enum.Material.Neon
 		pin.Color = Color3.new(1, 1, 1)
-		pin.Size = Vector3.one * 0.05
+		pin.Size = Vector3.one * PIN_DARK
 		pin.Transparency = 1
 		pin.CanCollide = false
 		pin.CanQuery = false
@@ -192,24 +202,41 @@ function GuestMask:SetTurn(yaw: number?, roll: number?, pitch: number?)
 	end
 end
 
+-- His glowing pinpoint pupils: 0 none, a faint glow in the dark (EyeGlow),
+-- 1 caught full in your torch. Always opaque, dimmed by their colour: a
+-- see-through pin vanished in front of the black behind it (2026-10-14).
 function GuestMask:SetShine(level: number | boolean)
 	local amount = level == true and 1 or (level == false and 0 or level :: number)
 	for _, pin in self.shine do
-		pin.Transparency = amount <= 0 and 1 or (1 - amount) * 0.85 + 0.05
-		local size = amount >= 1 and 0.03 or 0.05
-		pin.Size = Vector3.new(size, size, size)
+		if amount <= 0 then
+			pin.Transparency = 1
+		else
+			pin.Transparency = 0
+			local k = 0.6 + 0.4 * math.clamp(amount, 0, 1)
+			pin.Color = Color3.new(k, k, k * 0.94)
+		end
 	end
+	-- Pinpricks (the owner, 2026-10-14: "tiny, like uncanny and clearly
+	-- inhuman"): sized in LookAt, by how far you are.
+	self.pinSize = amount >= 1 and PIN_TORCH or PIN_DARK
 end
 
--- Lidless, and they follow you.
+-- Lidless, and they follow you. (And never smaller on your screen than a
+-- pinprick that still reads: a sub-pixel pin flickers away across a room.)
 function GuestMask:LookAt(point: Vector3)
 	local frame = self.mask.CFrame * TO_PART:Inverse()
 	local rel = frame:PointToObjectSpace(point)
+	local size = math.max(self.pinSize or PIN_DARK, rel.Magnitude * PIN_SCREEN)
+	for _, pin in self.shine do
+		if math.abs(pin.Size.X - size) > 1e-4 then
+			pin.Size = Vector3.new(size, size, size)
+		end
+	end
 	for _, eye in self.eyes do
 		local toward = rel - eye.at
 		if toward.Magnitude > 0.01 then
 			local d = toward.Unit
-			local reach = 0.045
+			local reach = 0.04
 			local offset = Vector3.new(math.clamp(d.X * 1.6, -1, 1) * reach, math.clamp(d.Y * 1.6, -1, 1) * reach, 0)
 			eye.weld.C0 = TO_PART:Inverse() * CFrame.new(eye.at + offset)
 		end
@@ -227,7 +254,7 @@ function GuestMask:Snap()
 		self.state[key] = value
 	end
 	self.state.droop = math.clamp(self.formTarget - 1, 0, 1)
-	self.state.jaw = smoothstep(0.5, 1, self.state.open)
+	self.state.jaw = smoothstep(JAW_FROM, 1, self.state.open)
 	self.form = self.formTarget
 	if self.form >= 2 and not self.shed then
 		self:_shed(false)
@@ -263,7 +290,7 @@ function GuestMask:Step(dt: number)
 		end
 	end
 	ease("droop", EASE.pose, math.clamp(self.form - 1, 0, 1))
-	local jaw = smoothstep(0.5, 1, s.open)
+	local jaw = smoothstep(JAW_FROM, 1, s.open)
 	if self.now < self.chatterUntil then
 		jaw += 0.14 * (0.5 + 0.5 * math.sin(self.now * 30))
 	end

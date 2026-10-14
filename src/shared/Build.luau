@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-13.191",
-	note = "V5 (part 1): the Guest modelled in Blender, skinned, his face on bones; waiting on the import (until then, the old body)",
+	id = "2026-10-14.192",
+	note = "V5: the Guest in his Blender model, his face moving on bones, his forms blending, tiny pinprick pupils",
 }

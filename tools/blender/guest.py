@@ -3,7 +3,7 @@
 
 Run from the repository root (Blender 5.2, headless):
 
-    blender.exe -b --factory-startup -P tools/blender/guest.py -- [--preview] [--nobake]
+    blender.exe -b --factory-startup -P tools/blender/guest.py -- [--preview] [--nobake] [--only=A,B]
 
 Writes build/kit/guest/: guest.glb (his skinned pieces and their rig, the
 mask's two shells), the baked maps, report.txt; and the game's side of the
@@ -12,6 +12,9 @@ rest, which part each piece rides on, the face's lip columns and poses).
 `--preview` also renders him (build/kit/guest/preview_*.png), posed as
 Logic/GuestPose poses him (build/kit/guest/poses.json, from
 `lune run tools/_guestposes`). `--nobake` skips the bake (a quick look).
+`--only=GuestMask,GuestMaskWorn`: export just those pieces (with the whole
+rig) to guest_<names>.glb, for the owner to import again without the rest;
+only the atlases they wear are baked.
 
 Every bone rests with the game's axes at its head (kitlib/guestrig), so the
 game makes a Bone of the same name at the same place (Stalker/StalkerModel)
@@ -539,6 +542,10 @@ def main():
     args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     preview = "--preview" in args
     nobake = "--nobake" in args
+    only = set()
+    for a in args:
+        if a.startswith("--only="):
+            only = set(a[len("--only=") :].split(","))
     os.makedirs(OUT, exist_ok=True)
     clear()
     report = []
@@ -581,7 +588,8 @@ def main():
 
     # Bake: the body as one atlas, the mask as another; the shells carry
     # their paint as drawn.
-    if not nobake:
+    wanted = lambda name: not only or name in only  # noqa: E731
+    if not nobake and any(wanted(obj.name) for obj, _ in body):
         names = [obj.name for obj, _ in body]
         for i, (obj, _) in enumerate(body):
             _tag(obj, i)
@@ -593,13 +601,16 @@ def main():
         split = _split(joined, names)
         for name, obj in split.items():
             pieces[name]["obj"] = obj
+    if not nobake and any(wanted(obj.name) for obj in mask_set):
         names = [o.name for o in mask_set]
         for i, obj in enumerate(mask_set):
             _tag(obj, i)
         joined = _join(mask_set, "GuestMaskSet")
         _mask_layout(joined)
         hidden = _alone(joined)
-        bake.bake_piece(joined, OUT, size=1024)
+        # (Little occlusion: at rest the teeth and the grin's edges are shut
+        # inside the porcelain, and they show only when it opens.)
+        bake.bake_piece(joined, OUT, size=1024, ao_strength=0.2)
         _unhide(hidden)
         split = _split(joined, names)
         for name, obj in split.items():
@@ -614,11 +625,12 @@ def main():
         p["size"] = hi - lo
         report.append("%-22s on %-14s %6d triangles  box %.2f x %.2f x %.2f" % (name, p["part"], _triangles(p["obj"]), *p["size"]))
 
-    # Export: the rig and every piece.
+    # Export: the rig and every piece (or the ones asked for).
     objects = [p["obj"] for p in pieces.values()]
     _names(objects)
-    _select([arm] + objects, arm)
-    glb = os.path.join(OUT, "guest.glb")
+    chosen = [p["obj"] for name, p in pieces.items() if wanted(name)]
+    _select([arm] + chosen, arm)
+    glb = os.path.join(OUT, "guest.glb" if not only else "guest_" + "_".join(sorted(only)) + ".glb")
     bpy.ops.export_scene.gltf(
         filepath=glb,
         export_format="GLB",

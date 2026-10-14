@@ -168,8 +168,8 @@ return {
 		},
 		GuestMaskBroken = {
 			part = "Mask",
-			centre = { 0.0008, 7.8237, -0.3594 },
-			size = { 0.7125, 0.8439, 0.2671 },
+			centre = { 0.0011, 7.8255, -0.3606 },
+			size = { 0.7291, 0.8566, 0.2818 },
 			look = "GuestMaskBroken",
 			overlay = "broken",
 		},
@@ -181,8 +181,8 @@ return {
 		},
 		GuestMaskWorn = {
 			part = "Mask",
-			centre = { 0.0006, 7.8236, -0.3591 },
-			size = { 0.7099, 0.8412, 0.2643 },
+			centre = { 0.0004, 7.8239, -0.3590 },
+			size = { 0.7208, 0.8491, 0.2755 },
 			look = "GuestMaskWorn",
 			overlay = "worn",
 		},
@@ -258,7 +258,7 @@ return {
 	},
 	Face = {
 		centre = { 0.0000, -0.0742, -0.1764 }, -- the mask's centre from the head's
-		eyes = { L = { -0.1126, 0.0768, -0.1894 }, R = { 0.1126, 0.0768, -0.1894 } },
+		eyes = { L = { -0.1256, 0.0822, -0.2258 }, R = { 0.1256, 0.0822, -0.2258 } },
 		eyeRadius = 0.085,
 		columns = {
 			{ theta = -1.3553, up = { -0.3618, 0.9307, 0.0533 }, out = { 0.9568, 0.1521, -0.2478 } },

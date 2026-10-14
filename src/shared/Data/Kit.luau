@@ -1027,34 +1027,34 @@ return {
 			floor = -0.4,
 		},
 	},
-	-- The Guest (V5, the Guest remodelled; tools/blender/guest.py): his skinned
-	-- pieces, which Stalker/GuestSkin dresses his rig in once every one is
-	-- in (Data/GuestRig says where each goes and what it looks like; the
-	-- looks are assets/kit/GuestBody, GuestMask, GuestMaskWorn and
-	-- GuestMaskBroken).
+	-- The Guest (V5, the Guest remodelled; tools/blender/guest.py, imported
+	-- 2026-10-14): his skinned pieces, which Stalker/GuestSkin dresses his rig
+	-- in once every one is in (Data/GuestRig says where each goes and what it
+	-- looks like; the looks are assets/kit/GuestBody, GuestMask, GuestMaskWorn
+	-- and GuestMaskBroken).
 	Guest = {
-		GuestHead = { mesh = "GuestHead" },
-		GuestLeftHand = { mesh = "GuestLeftHand" },
-		GuestLeftLowerSleeve = { mesh = "GuestLeftLowerSleeve" },
-		GuestLeftShin = { mesh = "GuestLeftShin" },
-		GuestLeftSkirt = { mesh = "GuestLeftSkirt" },
-		GuestLeftTatters = { mesh = "GuestLeftTatters" },
-		GuestLeftThigh = { mesh = "GuestLeftThigh" },
-		GuestLeftUpperSleeve = { mesh = "GuestLeftUpperSleeve" },
-		GuestMask = { mesh = "GuestMask" },
-		GuestMaskBroken = { mesh = "GuestMaskBroken" },
-		GuestMaskVoid = { mesh = "GuestMaskVoid" },
-		GuestMaskWorn = { mesh = "GuestMaskWorn" },
-		GuestRightHand = { mesh = "GuestRightHand" },
-		GuestRightLowerSleeve = { mesh = "GuestRightLowerSleeve" },
-		GuestRightShin = { mesh = "GuestRightShin" },
-		GuestRightSkirt = { mesh = "GuestRightSkirt" },
-		GuestRightTatters = { mesh = "GuestRightTatters" },
-		GuestRightThigh = { mesh = "GuestRightThigh" },
-		GuestRightUpperSleeve = { mesh = "GuestRightUpperSleeve" },
-		GuestShardA = { mesh = "GuestShardA" },
-		GuestShardB = { mesh = "GuestShardB" },
-		GuestShardC = { mesh = "GuestShardC" },
-		GuestTorso = { mesh = "GuestTorso" },
+		GuestHead = { mesh = "GuestHead", id = 116464708084706 },
+		GuestLeftHand = { mesh = "GuestLeftHand", id = 125633572685797 },
+		GuestLeftLowerSleeve = { mesh = "GuestLeftLowerSleeve", id = 137034571852377 },
+		GuestLeftShin = { mesh = "GuestLeftShin", id = 98935851798141 },
+		GuestLeftSkirt = { mesh = "GuestLeftSkirt", id = 109765121139336 },
+		GuestLeftTatters = { mesh = "GuestLeftTatters", id = 111789135661730 },
+		GuestLeftThigh = { mesh = "GuestLeftThigh", id = 114857352052029 },
+		GuestLeftUpperSleeve = { mesh = "GuestLeftUpperSleeve", id = 112478629883862 },
+		GuestMask = { mesh = "GuestMask", id = 106585964550771 },
+		GuestMaskBroken = { mesh = "GuestMaskBroken", id = 89138912418773 },
+		GuestMaskVoid = { mesh = "GuestMaskVoid", id = 77142676741337 },
+		GuestMaskWorn = { mesh = "GuestMaskWorn", id = 76708660426120 },
+		GuestRightHand = { mesh = "GuestRightHand", id = 108105103868111 },
+		GuestRightLowerSleeve = { mesh = "GuestRightLowerSleeve", id = 128531317848533 },
+		GuestRightShin = { mesh = "GuestRightShin", id = 120434625202377 },
+		GuestRightSkirt = { mesh = "GuestRightSkirt", id = 82539605710468 },
+		GuestRightTatters = { mesh = "GuestRightTatters", id = 136964689550940 },
+		GuestRightThigh = { mesh = "GuestRightThigh", id = 127672261399745 },
+		GuestRightUpperSleeve = { mesh = "GuestRightUpperSleeve", id = 93719928384649 },
+		GuestShardA = { mesh = "GuestShardA", id = 84659231066436 },
+		GuestShardB = { mesh = "GuestShardB", id = 130187619749870 },
+		GuestShardC = { mesh = "GuestShardC", id = 100941709935476 },
+		GuestTorso = { mesh = "GuestTorso", id = 105058749637350 },
 	},
 }

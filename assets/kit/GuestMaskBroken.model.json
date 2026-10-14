@@ -1,0 +1,9 @@
+{
+  "className": "SurfaceAppearance",
+  "properties": {
+    "ColorMap": "rbxassetid://105297916277786",
+    "AlphaMode": {
+      "Enum": 1
+    }
+  }
+}

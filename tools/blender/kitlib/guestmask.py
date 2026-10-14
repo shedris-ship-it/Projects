@@ -507,11 +507,13 @@ def columns():
 
 
 def eye_pins():
-    """Where each eye's pin of light sits at rest: deep in the hole."""
+    """Where each eye's pin of light sits at rest: in the hole, a hair in
+    front of its edge (the black head is right behind the mask there: a pin
+    set deeper was inside it and never showed, 2026-10-14)."""
     out = {}
     for side in ("L", "R"):
         th, ph = EYES[side]
-        out[side] = pos(th, ph) - base_normal(th, ph) * 0.035
+        out[side] = pos(th, ph) + base_normal(th, ph) * 0.004
     return out
 
 
@@ -1058,7 +1060,7 @@ def mask_materials(paint_rgb, height):
         porcelain(paint_rgb, height),  # 0 the glaze
         _plain("GuestBisqueInner", (196, 186, 170), 0.85, dark=(176, 166, 150)),  # 1 its back
         _plain("GuestBisqueEdge", (210, 200, 184), 0.7, dark=(190, 180, 164)),  # 2 its broken edges
-        _plain("GuestTeeth", (172, 160, 126), 0.32, dark=(140, 124, 92), noise_scale=120.0),  # 3
+        _plain("GuestTeeth", (192, 180, 144), 0.3, dark=(160, 144, 108), noise_scale=120.0),  # 3
         _plain("GuestVoid", (0, 0, 0), 1.0),  # 4 the dark behind
         _plain("GuestStrap", (46, 32, 24), 0.62, dark=(30, 22, 18), noise_scale=60.0),  # 5
         materials.brass("GuestBuckle"),  # 6
@@ -1144,7 +1146,9 @@ def build(rng):
         fronts.append(obj)
     # The shells: copies of the glaze lifted off it, without the shards.
     shells = {}
-    for name, lift in (("GuestMaskWorn", 0.0016), ("GuestMaskBroken", 0.0032)):
+    # (Lifted well clear of the glaze: in Roblox a shell only 0.002 off it
+    # lost to it and never showed, 2026-10-14.)
+    for name, lift in (("GuestMaskWorn", 0.007), ("GuestMaskBroken", 0.012)):
         copies = []
         for obj in fronts:
             c = obj.copy()
