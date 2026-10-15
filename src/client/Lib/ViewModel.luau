@@ -16,12 +16,14 @@ ViewModel.tool = ToolModel.tool
 -- Your own arm (the owner, 2026-10-12: "make sure ... your arm is actually your
 -- arm and matches your avatar instead of just being a default hand"): copies
 -- of your character's upper arm, forearm and hand on `side` ("Left" or
--- "Right"), with whatever they wear (their colours, meshes and look, and the
--- shirt's clothing through a Humanoid of their own), sized by `scale` and
--- slimmed by `thickness` across. The parts keep their names (a shirt maps onto
--- them by name). Returns the model and its { upper, lower, hand }. Controllers/ViewModelController
--- bends them from an off-screen shoulder to what the hand holds. Nil if the
--- character has no such arm.
+-- "Right"), with whatever they wear (their colours, meshes and look, the
+-- shirt's clothing through a Humanoid of their own, and the wardrobe's
+-- sleeves on them: World/Kit.wear), sized by `scale` and slimmed by
+-- `thickness` across. The parts keep their names (a shirt maps onto
+-- them by name). Returns the model, its { upper, lower, hand } and its
+-- sleeves ({ part, bone, offset }: ViewModel.carry puts each on its bone).
+-- Controllers/ViewModelController bends them from an off-screen shoulder to
+-- what the hand holds. Nil if the character has no such arm.
 function ViewModel.armFrom(character: Model, side: string, scale: number, thickness: number)
 	local sources = {
 		upper = character:FindFirstChild(side .. "UpperArm"),
@@ -36,10 +38,12 @@ function ViewModel.armFrom(character: Model, side: string, scale: number, thickn
 	local model = Instance.new("Model")
 	model.Name = side .. "Arm"
 	local bones = {}
+	local sleeves = {}
 	for key, source in sources do
 		local copy = (source :: BasePart):Clone()
 		for _, child in copy:GetChildren() do
-			-- Only what it looks like: no joints, attachments, welds or scripts.
+			-- Only what it looks like: no joints, attachments, welds or scripts
+			-- (its sleeves are copied on below, at its new size).
 			if not (child:IsA("SurfaceAppearance") or child:IsA("DataModelMesh") or child:IsA("Decal")) then
 				child:Destroy()
 			end
@@ -55,6 +59,34 @@ function ViewModel.armFrom(character: Model, side: string, scale: number, thickn
 		local size = (source :: BasePart).Size
 		copy.Size = Vector3.new(size.X * scale * thickness, size.Y * scale, size.Z * scale * thickness)
 		copy.Parent = model
+		-- The sleeve on it: stretched and placed as the part is, and carried
+		-- with the bone each frame (ViewModel.carry). (Not welded: the arm
+		-- lives under the camera, where nothing is simulated, so a weld never
+		-- moved it and the sleeves hung where the arm was made, 2026-10-15.)
+		local k = Vector3.new(scale * thickness, scale, scale * thickness)
+		for _, wear in (source :: BasePart):GetChildren() do
+			if wear:IsA("BasePart") and wear:GetAttribute("Wear") then
+				local sleeve = wear:Clone()
+				for _, child in sleeve:GetChildren() do
+					if not child:IsA("SurfaceAppearance") then
+						child:Destroy()
+					end
+				end
+				local rel = (source :: BasePart).CFrame:ToObjectSpace(wear.CFrame)
+				local offset = CFrame.new(rel.Position * k) * rel.Rotation
+				sleeve.Size = wear.Size * k
+				sleeve.CFrame = copy.CFrame * offset
+				sleeve.Anchored = true
+				sleeve.CanCollide = false
+				sleeve.CanQuery = false
+				sleeve.CanTouch = false
+				sleeve.CastShadow = false
+				sleeve.Massless = true
+				sleeve.LocalTransparencyModifier = 0
+				sleeve.Parent = model
+				table.insert(sleeves, { part = sleeve, bone = copy, offset = offset })
+			end
+		end
 	end
 	-- A shirt or a skin tone the character wears as clothing draws on its
 	-- arm only inside a Humanoid's model.
@@ -74,7 +106,14 @@ function ViewModel.armFrom(character: Model, side: string, scale: number, thickn
 		end
 	end
 	model.PrimaryPart = bones.hand
-	return model, bones
+	return model, bones, sleeves
+end
+
+-- Puts each sleeve on its bone, once the bones are posed.
+function ViewModel.carry(sleeves)
+	for _, sleeve in sleeves do
+		sleeve.part.CFrame = sleeve.bone.CFrame * sleeve.offset
+	end
 end
 
 -- What the copied arm was made from, to tell when it needs making again (the
@@ -85,6 +124,12 @@ function ViewModel.armLook(character: Model, side: string): string
 		local p = character:FindFirstChild(side .. name)
 		if p and p:IsA("BasePart") then
 			table.insert(parts, p.Color:ToHex() .. tostring(p.Size))
+			-- (A sleeve put on or changed after the copy was made.)
+			for _, wear in p:GetChildren() do
+				if wear:GetAttribute("Wear") then
+					table.insert(parts, tostring(wear:GetAttribute("Wear")))
+				end
+			end
 		end
 	end
 	return table.concat(parts, "|")

@@ -172,6 +172,16 @@ There's **no crosshair**. Whatever you're close to and looking at gets a small m
 - **Accessibility:** a "Centre dot (aiming aid)" toggle in Settings, off by default.
 - **Hub bloom:** the hub uses a higher bloom threshold than the house, because it's brightly lit.
 
+## The squad: bodies and clothes
+
+**V6, 2026-10-14/15; `docs/progress/2026-10-14-visual-v6/`.** Everyone is the classic ROBLOX Boy or Girl (their pick, in Settings), in one of four 1988 outfits, so a squad reads as four people at a glance:
+- a red flannel shirt tucked into stonewashed jeans with a brown belt, white sneakers;
+- a green varsity jacket, cream leather sleeves, a chenille "C";
+- a teal windbreaker with a purple and white chevron, tan cords;
+- a mustard knit cardigan with suede elbow patches, cords, brown penny loafers.
+
+The clothes are modelled in Blender (`tools/blender/kitlib/wardrobe.py`) as fitted pieces on each body part, round both bodies' measured shapes, every layer clear of the one under it; each has an inside, since Roblox draws a face from the front only. Trouser hems rest on the shoes; no funnels. More garments for the lobby shop go in `Data/Wardrobe`. In first person your own sleeves are on your arms and your hand closes round what it holds.
+
 ## The Guest
 
 **Concept:** a dinner guest who stayed far too long. Polite, patient and wrong.

@@ -14,6 +14,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
 local Progression = require(Shared.Logic.Progression)
+local Signal = require(Shared.Lib.Signal)
+local Wardrobe = require(Shared.Data.Wardrobe)
 
 local STORE_NAME = "ConsensusProfiles_v1"
 local LOCK_SECONDS = 300
@@ -33,6 +35,10 @@ local TEMPLATE = {
 }
 
 local DataService = {}
+
+-- (player, settings) after a player's settings are saved: OutfitService
+-- dresses them again when their body changes.
+DataService.SettingsSaved = Signal.new()
 
 local profiles: { [Player]: any } = {}
 local loaded: { [Player]: boolean } = {}
@@ -204,7 +210,12 @@ function DataService:Start()
 				clean[key] = value
 			end
 		end
+		-- The body you chose (V6): one of the wardrobe's, by name.
+		if type(settings.body) == "string" and Wardrobe.Bodies[settings.body] then
+			clean.body = settings.body
+		end
 		data.Settings = clean
+		self.SettingsSaved:Fire(player, clean)
 	end)
 end
 

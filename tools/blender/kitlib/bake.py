@@ -142,11 +142,27 @@ def _save(image, path):
     image.save()
 
 
-def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24):
+def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24, solo=False):
     """Bakes obj's maps to out_dir/<name>_{color,normal,roughness,metalness}.png
     and swaps its materials for one plain material wired to them (what the
     exporter writes and Roblox's importer turns into a SurfaceAppearance).
-    Returns the four paths."""
+    Returns the four paths. `solo`: everything else hidden while it bakes, so
+    its creases come only from itself (the wardrobe builds every garment on
+    the same body: each was shaded as if the others covered it, 2026-10-15)."""
+    hidden = []
+    if solo:
+        for other in bpy.context.scene.objects:
+            if other is not obj and not other.hide_render:
+                other.hide_render = True
+                hidden.append(other)
+    try:
+        return _bake_piece(obj, out_dir, size, ao_strength, samples)
+    finally:
+        for other in hidden:
+            other.hide_render = False
+
+
+def _bake_piece(obj, out_dir, size, ao_strength, samples):
     _setup_cycles(samples)
     name = obj.name
     os.makedirs(out_dir, exist_ok=True)
@@ -231,6 +247,27 @@ def bake_piece(obj, out_dir, size=1024, ao_strength=0.7, samples=24):
     _rewire(obj, color, normal, rough, metal, emissive)
     keep_bake_uv(obj)
     return paths
+
+
+def reuse_piece(obj, out_dir):
+    """Wires a piece to maps baked before (out_dir/<name>_*.png) instead of
+    baking it again: its UVs must be laid out as they were (unwrap() is
+    repeatable for the same mesh). Returns False if any map is missing."""
+    paths = {}
+    for key in ("color", "normal", "roughness", "metalness"):
+        path = os.path.join(out_dir, "%s_%s.png" % (obj.name, key))
+        if not os.path.exists(path):
+            return False
+        paths[key] = path
+    emissive_path = os.path.join(out_dir, "%s_emissive.png" % obj.name)
+
+    def load(path):
+        return bpy.data.images.load(path, check_existing=True)
+
+    emissive = load(emissive_path) if os.path.exists(emissive_path) else None
+    _rewire(obj, load(paths["color"]), load(paths["normal"]), load(paths["roughness"]), load(paths["metalness"]), emissive)
+    keep_bake_uv(obj)
+    return True
 
 
 def _rewire(obj, color, normal, rough, metal, emissive=None):

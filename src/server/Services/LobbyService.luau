@@ -143,7 +143,7 @@ function LobbyService:Start()
 			humanoid.Died:Connect(function()
 				task.wait(2)
 				if player.Parent then
-					player:LoadCharacter()
+					self.services.OutfitService:LoadCharacter(player)
 				end
 			end)
 		end)
@@ -152,7 +152,7 @@ function LobbyService:Start()
 			data:WaitForProfile(player, 8)
 		end
 		if player.Parent then
-			player:LoadCharacter()
+			self.services.OutfitService:LoadCharacter(player)
 		end
 		self:Broadcast()
 	end

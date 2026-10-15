@@ -44,7 +44,10 @@ end
 function BodyController:_set(character: Model, legs: boolean)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
-			local want = (legs and SHOW[d.Name]) and 0 or 1
+			-- (A wardrobe piece shows with the part it's worn on: your trousers
+			-- and shoes on your legs, World/Kit.wear.)
+			local shown = SHOW[d.Name] or (d:GetAttribute("Wear") ~= nil and d.Parent ~= nil and SHOW[d.Parent.Name])
+			local want = (legs and shown) and 0 or 1
 			if d.LocalTransparencyModifier ~= want then
 				d.LocalTransparencyModifier = want
 			end

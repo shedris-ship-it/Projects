@@ -90,7 +90,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 | Say something aloud (he hears it) | **Enter** or **/** | | |
 | Jump (a low, slow hop: not while crouched, winded or just landed; it costs breath) / hold breath when hidden / leave a hiding spot | **Space** / **Space** / **E** | A / A / B | buttons |
 | Leave a puzzle screen or the note reader | **E** (or the Step back button) | B | |
-| Settings and how to play | **F1** | | Lobby button |
+| Settings (your body, Boy or Girl, asked the first time you play; graphics; meters) and how to play | **F1** | | Lobby button |
 | Debug overlay and console | **F2** (Studio) | | |
 
 ## How a run plays
@@ -144,6 +144,7 @@ house (why this house: the search's scores, the scorecard, the wings, every room
 locks · unlock <seam|all> (all: every shutter latched up too) · try <seam> · give <token> (a key, an heirloom, tool:Crowbar, valuable:1) · items · valuables · leads [go <token> [note]]
 puzzle [kind] (stand at a station and open it) · hide [bed|table|desk|curtain|bathtub] (into the nearest place you hide in by E) · solve [puzzle]
 ui map|journal|note|dossier|settings|title|toasts|close (open a screen, with made-up contents where it needs them) · seen all (every room on the map)
+outfit <n> (wear squad member n's clothes) · outfit lineup|clear (both bodies in every outfit in a row in front of you, to judge the clothes)
 switch [list] · crank [go|up] · barricade [here|squeeze|shove|burst] · piece [id|show]
 grab [id] · throwat [case] · stun [seconds] · lure [radius] · fling <room> <room> <speed>
 push <dx> <dz> [people] [seconds] · drag <right> <away> · door <room> <room> <angle 0-100|use> · doors [open]

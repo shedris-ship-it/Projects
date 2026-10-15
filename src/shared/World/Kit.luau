@@ -17,6 +17,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local KitData = require(script.Parent.Parent.Data.Kit)
+local KitWear = require(script.Parent.Parent.Data.KitWear)
 
 local Kit = {}
 
@@ -53,6 +54,8 @@ local function entriesWithIds()
 			KitData.Landmarks or {},
 			KitData.Outside or {},
 			KitData.Guest or {},
+			KitData.Wear or {},
+			KitData.Tools or {},
 		}
 	do
 		for _, entry in group do
@@ -141,8 +144,54 @@ function Kit.template(name: string): MeshPart?
 		return loaded[name]
 	end
 	local folder = Kit.folder()
+	-- (The meshes the server shares, Kit.share; the folder's own children are
+	-- looks, SurfaceAppearances by the same names.)
+	local meshes = folder and folder:FindFirstChild("Meshes")
+	local shared = meshes and meshes:FindFirstChild(name)
+	if shared and shared:IsA("MeshPart") then
+		return shared
+	end
 	local found = folder and folder:FindFirstChild(name, true)
 	return found and found:IsA("MeshPart") and found or nil
+end
+
+-- Hands a few loaded meshes to every client (server): what a client builds
+-- for itself (the torch and tools in your hand, Lib/ViewModel) needs its
+-- mesh there, and only the server can make one from an id. They wait in
+-- ReplicatedStorage.Kit.Meshes, where Kit.template finds them.
+function Kit.share(names: { string })
+	local folder = Kit.folder()
+	if not folder then
+		return
+	end
+	local shared = folder:FindFirstChild("Meshes")
+	if not shared then
+		shared = Instance.new("Folder")
+		shared.Name = "Meshes"
+		shared.Parent = folder
+	end
+	for _, name in names do
+		local template = loaded[name]
+		if template and not shared:FindFirstChild(name) then
+			local copy = template:Clone()
+			copy.Anchored = true
+			copy.CanCollide = false
+			copy.CanQuery = false
+			copy.CanTouch = false
+			copy.Parent = shared
+		end
+	end
+end
+
+-- The tools' meshes (Data/Kit `Tools`), for Kit.share.
+function Kit.toolNames(): { string }
+	local names = {}
+	for _, entry in KitData.Tools or {} do
+		if entry.id then
+			table.insert(names, entry.mesh)
+		end
+	end
+	return names
 end
 
 -- Studio's 3D importer turns a model's front from glTF's (+Z, where kit.py
@@ -645,6 +694,89 @@ function Kit.placeOutside(parent: Instance, name: string, cf: CFrame, scale: Vec
 	mesh.Name = "Kit" .. name
 	mesh.CastShadow = entry.shadow ~= false
 	mesh.Parent = parent
+	return mesh
+end
+
+-- Puts a wardrobe piece on a body part (V6; Data/Wardrobe, Data/KitWear):
+-- stretched from the part's size it was built at to this one's, axis by
+-- axis (it was built round both classic bodies, so it fits either), its
+-- middle where it sat on the part, welded on (it turns with the part, as
+-- the body's own part does), never colliding, never catching a ray (sight
+-- and the hands see the body inside it), under the part (a copy of the arm
+-- for first person takes its sleeve along: Lib/ViewModel). Returns it, or
+-- nil when the piece isn't in.
+function Kit.wear(part: BasePart, name: string): MeshPart?
+	local fit = KitWear.Wear[name]
+	local entry = KitData.Wear and KitData.Wear[name]
+	local template = entry and fit and Kit.template(entry.mesh)
+	if not template then
+		return nil
+	end
+	local base = fit.base
+	local k = Vector3.new(part.Size.X / base[1], part.Size.Y / base[2], part.Size.Z / base[3])
+	local mesh = template:Clone()
+	mesh.Name = "Wear" .. name
+	mesh.Anchored = false
+	mesh.CanCollide = false
+	mesh.CanQuery = false
+	mesh.CanTouch = false
+	mesh.Massless = true
+	mesh.CastShadow = true
+	mesh.Size = Vector3.new(fit.size[1] * k.X, fit.size[2] * k.Y, fit.size[3] * k.Z)
+	mesh.CFrame = part.CFrame * CFrame.new(fit.at[1] * k.X, fit.at[2] * k.Y, fit.at[3] * k.Z) * IMPORT_TURN
+	mesh:SetAttribute("Wear", name)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = part
+	weld.Part1 = mesh
+	weld.Parent = mesh
+	mesh.Parent = part
+	return mesh
+end
+
+-- Whether every piece of a garment is in (Data/Wardrobe pieces).
+function Kit.hasWear(pieces: { [string]: string }): boolean
+	for _, name in pieces do
+		local entry = KitData.Wear and KitData.Wear[name]
+		if not (entry and KitWear.Wear[name] and Kit.template(entry.mesh)) then
+			return false
+		end
+	end
+	return true
+end
+
+-- Dresses a tool model (World/ToolModel: its grey-box points down -Z, its
+-- middle at its pivot) in its modelled mesh (Data/Kit `Tools`): the grey-box
+-- hidden but for `keep` (the torch's lens and switch, which glow; the
+-- lantern's glass and flame), the mesh anchored in the model so it moves with
+-- it (the hand's model is moved whole, the table's never). Returns the mesh.
+function Kit.dressTool(model: Model, name: string, keep: { string }?): MeshPart?
+	local entry = KitData.Tools and KitData.Tools[name]
+	local fit = KitWear.Tools[name]
+	local template = entry and fit and Kit.template(entry.mesh)
+	local pivot = model.PrimaryPart
+	if not (template and pivot) then
+		return nil
+	end
+	local kept = {}
+	for _, n in keep or {} do
+		kept[n] = true
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part ~= pivot and not kept[part.Name] then
+			hide(part)
+		end
+	end
+	local mesh = template:Clone()
+	mesh.Name = "KitTool"
+	mesh.Anchored = true
+	mesh.CanCollide = false
+	mesh.CanQuery = false
+	mesh.CanTouch = false
+	mesh.CastShadow = false
+	mesh.Massless = true
+	mesh.Size = Vector3.new(fit.size[1], fit.size[2], fit.size[3])
+	mesh.CFrame = pivot.CFrame * CFrame.new(fit.at[1], fit.at[2], fit.at[3]) * IMPORT_TURN
+	mesh.Parent = model
 	return mesh
 end
 

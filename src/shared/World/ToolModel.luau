@@ -7,6 +7,7 @@
 -- points down -Z (away from the viewer) with its middle at the pivot.
 
 local Config = require(script.Parent.Parent.Config)
+local Kit = require(script.Parent.Kit)
 
 local ToolModel = {}
 local VM = Config.ViewModel
@@ -102,6 +103,9 @@ function ToolModel.torch(): (Model, BasePart)
 	-- Where the beam leaves: a hair in front of the lens, not rotated, so a
 	-- SpotLight's front face looks straight down the torch (ViewModelController).
 	part(model, root, "Muzzle", Vector3.new(0.1, 0.1, 0.1), CFrame.new(0, 0, -0.8), { Transparency = 1 })
+	-- Its modelled body (V6, Data/Kit Tools), round the lens and switch that
+	-- glow (open in the mesh, so they show).
+	Kit.dressTool(model, "ToolTorch", { "Lens", "Switch", "Muzzle" })
 	return model, lens
 end
 
@@ -285,9 +289,24 @@ end
 
 local BUILDERS = { Lantern = lantern, Radio = radio, Crowbar = crowbar, BoltCutters = boltCutters, Salts = salts }
 
+-- Each tool's modelled body (V6, Data/Kit Tools) and the grey-box parts it
+-- keeps showing (the lantern's glass and its flame, which glows).
+local DRESS = {
+	Lantern = { "ToolLantern", { "Glass", "Core" } },
+	Radio = { "ToolRadio", {} },
+	Crowbar = { "ToolCrowbar", {} },
+	BoltCutters = { "ToolBoltCutters", {} },
+	Salts = { "ToolSalts", {} },
+}
+
 function ToolModel.tool(id: string): Model?
 	local builder = BUILDERS[id]
-	return builder and builder() or nil
+	local model = builder and builder() or nil
+	local dress = DRESS[id]
+	if model and dress then
+		Kit.dressTool(model, dress[1], dress[2])
+	end
+	return model
 end
 
 -- How each tool lies on a tabletop, as a turn applied to the model before it is

@@ -570,6 +570,25 @@ function DebugService:Run(player: Player, text: string)
 		-- `seen all`: the whole house on the map, as if someone had been
 		-- everywhere (Services/MapService:DebugSeeAll).
 		reply(player, services.MapService:DebugSeeAll() .. " rooms marked seen")
+	elseif command == "outfit" then
+		-- `outfit <n>`: wear squad member n's clothes; `outfit lineup`: both
+		-- bodies in every outfit in a row in front of you; `outfit clear`
+		-- (Services/OutfitService).
+		local outfits = services.OutfitService
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if args[2] == "lineup" and root then
+			-- (Level, where you stand: their roots at your root's height.)
+			local look = root.CFrame.LookVector
+			local at = CFrame.lookAt(root.Position, root.Position + Vector3.new(look.X, 0, look.Z))
+			reply(player, outfits:DebugLineup(at) .. " dressed in a row")
+		elseif args[2] == "clear" then
+			outfits:DebugLineup(nil)
+			reply(player, "lineup cleared")
+		elseif tonumber(args[2]) then
+			reply(player, "wearing " .. outfits:DebugWear(player, tonumber(args[2]) :: number))
+		else
+			reply(player, "usage: outfit <n> | lineup | clear")
+		end
 	elseif command == "ui" then
 		-- Open a screen on your client: `ui map|journal|note|dossier|settings|
 		-- title|toasts|close` (Controllers/UIController:_debugUi).

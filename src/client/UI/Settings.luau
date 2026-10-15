@@ -10,6 +10,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Ui = require(script.Parent.Parent.Lib.Ui)
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local GraphicsPreset = require(ReplicatedStorage:WaitForChild("Shared").Logic.GraphicsPreset)
+local Wardrobe = require(ReplicatedStorage:WaitForChild("Shared").Data.Wardrobe)
+
+-- The next body in the wardrobe's order (V6: Boy, Girl).
+local function nextBody(current: string?): string
+	local order = Wardrobe.BodyOrder
+	local at = table.find(order, current or Wardrobe.DefaultBody) or 0
+	return order[at % #order + 1]
+end
 
 -- The real keys, as Controllers/ActionController binds them (WP9: the
 -- outside playtest found the bolt on the torch's key and no list anywhere).
@@ -164,6 +172,8 @@ function Settings.new(ctx)
 	self.choices = {}
 	for i, option in
 		{
+			-- Your body, asked on the first launch too (V6).
+			{ key = "body", label = "Body", next = nextBody },
 			{ key = "graphics", label = "Graphics", next = GraphicsPreset.nextSetting },
 			{ key = "grain", label = "Film grain", next = GraphicsPreset.nextGrain },
 		}
@@ -293,6 +303,9 @@ function Settings:Render()
 		if key == "graphics" then
 			local chosen = GraphicsPreset.Order[settings.graphics or 0]
 			value = chosen or ("Auto (" .. preset .. ")")
+		elseif key == "body" then
+			local body = Wardrobe.Bodies[settings.body or Wardrobe.DefaultBody]
+			value = body and body.name or Wardrobe.DefaultBody
 		else
 			value = GraphicsPreset.GrainNames[settings.grain or 2] or "Film"
 		end

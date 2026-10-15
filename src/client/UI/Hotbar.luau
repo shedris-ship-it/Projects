@@ -209,6 +209,22 @@ function Hotbar:Update(dt: number)
 		return
 	end
 
+	-- The tools' modelled meshes arrive from the server a moment after start
+	-- (World/Kit.share): the pictures are drawn again when they do.
+	local kit = ReplicatedStorage:FindFirstChild("Kit")
+	local meshes = kit and kit:FindFirstChild("Meshes")
+	local count = meshes and #meshes:GetChildren() or 0
+	if count ~= self.meshCount then
+		self.meshCount = count
+		if self.torch.icon then
+			self.torch.icon:Destroy()
+		end
+		self.torch.icon = icon(self.torch.button, Inventory.TORCH)
+		for slot in self.slots do
+			self.shown[slot] = nil
+		end
+	end
+
 	-- The torch: up or not, its battery, and lit, clipped (at a tool lock) or dead.
 	local actions = self.ctx.controllers and self.ctx.controllers.ActionController
 	local up = actions ~= nil and actions:TorchWanted()

@@ -83,6 +83,22 @@ function ViewModelController:Init(controllers)
 	self.rayParams = nil
 end
 
+-- The torch again, wearing its modelled body: the server hands the tools'
+-- meshes over a moment after start (World/Kit.share), often after the torch
+-- was first built.
+function ViewModelController:_rebuildTorch()
+	if not self.torch then
+		return
+	end
+	ViewModel.destroy(self.torch)
+	self.torch = ViewModel.torch()
+	self.torch:ScaleTo(SCALE)
+	addFill(self.torch)
+	if self.itemId then
+		self:_swapItem(self.itemId)
+	end
+end
+
 function ViewModelController:_build()
 	local camera = Workspace.CurrentCamera
 	local character = player.Character
@@ -118,8 +134,8 @@ function ViewModelController:_arm(side: string)
 		ViewModel.destroy(arm.model)
 	end
 	local A = VM.Arm
-	local model, bones = ViewModel.armFrom(character, side, A.Scale, A.Thickness)
-	arm = model and { model = model, bones = bones, look = look } or nil
+	local model, bones, sleeves = ViewModel.armFrom(character, side, A.Scale, A.Thickness)
+	arm = model and { model = model, bones = bones, sleeves = sleeves, look = look } or nil
 	self.arms[side] = arm
 	return arm
 end
@@ -139,10 +155,35 @@ local function bone(from: Vector3, to: Vector3, facing: Vector3): CFrame
 	return CFrame.fromMatrix((from + to) / 2, x, y, x:Cross(y))
 end
 
+-- The hand closed round what it holds (a pose's `grip`): the fist's middle at
+-- `grip.at` on the thing (its own frame), the thing running through the fist
+-- along `grip.through` (out past the little finger, as a Roblox hand holds a
+-- tool), its wrist side turned toward your shoulder. Returns the hand's
+-- CFrame and where its wrist is. (The hand used to lie along the forearm,
+-- so it slid down the torch's barrel instead of holding it: the owner,
+-- 2026-10-15, "the hand is going through the flashlight".)
+local function fist(item: CFrame, grip, shoulder: Vector3, hand: BasePart): (CFrame, Vector3)
+	local at = (item * CFrame.new(grip.at[1], grip.at[2], grip.at[3])).Position
+	local z = item:VectorToWorldSpace(Vector3.new(grip.through[1], grip.through[2], grip.through[3])).Unit
+	local toward = shoulder - at
+	local y = toward - z * toward:Dot(z)
+	y = if y.Magnitude > 1e-4 then y.Unit else -item.UpVector
+	local half = hand.Size.Y * 0.5
+	local cf = CFrame.fromMatrix(at + y * half * (grip.shift or 0), y:Cross(z), y, z)
+	return cf, cf.Position + y * half
+end
+
 -- Bend your arm on `side` (1 right, -1 left) from its shoulder (held to your
--- eye) to `wrist`, the hand beyond it along the forearm, the way the hand holds
--- the thing.
-function ViewModelController:_poseArm(sideName: string, side: number, eye: CFrame, wrist: Vector3, camera: Camera)
+-- eye) to `wrist`, the hand beyond it along the forearm; or, given `hold`
+-- (the thing's CFrame and its pose's grip), with the hand closed round it.
+function ViewModelController:_poseArm(
+	sideName: string,
+	side: number,
+	eye: CFrame,
+	wrist: Vector3,
+	camera: Camera,
+	hold: { item: CFrame, grip: any }?
+)
 	local arm = self:_arm(sideName)
 	if not arm then
 		return
@@ -151,6 +192,10 @@ function ViewModelController:_poseArm(sideName: string, side: number, eye: CFram
 	local bones = arm.bones
 	local s = A.Shoulder
 	local shoulder = (eye * CFrame.new(s[1] * side, s[2], s[3])).Position
+	local held
+	if hold then
+		held, wrist = fist(hold.item, hold.grip, shoulder, bones.hand)
+	end
 	local pole = eye:VectorToWorldSpace(Vector3.new(A.Pole[1] * side, A.Pole[2], A.Pole[3]))
 	-- The bones overlap a little at the elbow, as a Roblox arm's do.
 	local upper, lower = bones.upper.Size.Y * 0.94, bones.lower.Size.Y * 0.94
@@ -165,9 +210,14 @@ function ViewModelController:_poseArm(sideName: string, side: number, eye: CFram
 	local facing = -camera.CFrame.LookVector
 	bones.upper.CFrame = bone(elbow, top, facing)
 	bones.lower.CFrame = bone(wrist, elbow, facing)
-	local along = (wrist - elbow).Unit
-	local tip = wrist + along * bones.hand.Size.Y * 0.9
-	bones.hand.CFrame = bone(tip, wrist, facing)
+	if held then
+		bones.hand.CFrame = held
+	else
+		local along = (wrist - elbow).Unit
+		local tip = wrist + along * bones.hand.Size.Y * 0.9
+		bones.hand.CFrame = bone(tip, wrist, facing)
+	end
+	ViewModel.carry(arm.sleeves)
 	arm.model.Parent = camera
 end
 
@@ -338,9 +388,11 @@ function ViewModelController:_update(dt: number)
 		local at = pose.at
 		local offset = Vector3.new(at[1], at[2], -at[3]) + pulled + Vector3.new(0, -self.lower * 0.9, 0)
 		local base = eye * CFrame.new(offset) * self:_workMotion(dt)
-		self.item:PivotTo(base * angles(pose.turn))
+		local item = base * angles(pose.turn)
+		self.item:PivotTo(item)
 		local wrist = pose.wrist
-		self:_poseArm("Right", 1, eye, (base * CFrame.new(wrist[1], wrist[2], wrist[3])).Position, camera)
+		local hold = pose.grip and { item = item, grip = pose.grip } or nil
+		self:_poseArm("Right", 1, eye, (base * CFrame.new(wrist[1], wrist[2], wrist[3])).Position, camera, hold)
 		self.item.Parent = camera
 	else
 		hide(self.item)
@@ -368,7 +420,15 @@ function ViewModelController:_update(dt: number)
 		-- The hand keeps hold of it all the way: the wrist turns with the torch.
 		local wrist = torchPose.wrist
 		local carried = angles(turn) * angles(torchPose.turn):Inverse()
-		self:_poseArm("Left", -1, eye, (base * carried * CFrame.new(wrist[1], wrist[2], wrist[3])).Position, camera)
+		local hold = torchPose.grip and { item = base * angles(turn), grip = torchPose.grip } or nil
+		self:_poseArm(
+			"Left",
+			-1,
+			eye,
+			(base * carried * CFrame.new(wrist[1], wrist[2], wrist[3])).Position,
+			camera,
+			hold
+		)
 		self.torch.Parent = camera
 		ViewModel.setTorchOn(self.torch, torchOn)
 		setFill(self.torch, not torchOn)
@@ -400,6 +460,20 @@ function ViewModelController:_update(dt: number)
 end
 
 function ViewModelController:Start()
+	-- The tools' meshes arrive from the server (World/Kit.share): the torch
+	-- and what's in your hand put on their modelled bodies then.
+	task.spawn(function()
+		local kit = ReplicatedStorage:WaitForChild("Kit", 30)
+		local meshes = kit and kit:WaitForChild("Meshes", 120)
+		if meshes then
+			meshes.ChildAdded:Connect(function()
+				task.defer(self._rebuildTorch, self)
+			end)
+			if #meshes:GetChildren() > 0 then
+				self:_rebuildTorch()
+			end
+		end
+	end)
 	-- After the camera script and the roll sway, so the models sit on the final camera.
 	RunService:BindToRenderStep("ConsensusViewModel", Enum.RenderPriority.Camera.Value + 3, function(dt)
 		local ok, err = pcall(self._update, self, dt)

@@ -1,14 +1,26 @@
 -- Everyone in the house wears period clothes (owner, 2026-10-03): faded
 -- shirts and jeans instead of modern avatars, so the squad looks like one
 -- group of investigators in 1988. LoadCharacterAppearance is off, so
--- characters spawn as the plain R15 body and this paints it (Logic/Outfit).
--- Flat colours for now; textured shirts can come later.
+-- characters spawn in the body this gives them and this dresses them.
+--
+-- The body (V6, the owner's pick, 2026-10-14): ROBLOX Boy or Girl, chosen at
+-- first play and in Settings (`body`, Data/Wardrobe), spawned with
+-- LoadCharacterWithHumanoidDescription and changed in place when you pick
+-- the other.
+--
+-- The clothes (V6): each squad member's outfit (Logic/Outfit.wear: a top,
+-- trousers and shoes from Data/Wardrobe), its modelled pieces welded on the
+-- body's parts (World/Kit.wear), over skin. Until a garment's meshes are in
+-- (Data/Kit Wear) the body is painted in its colours instead
+-- (Logic/Outfit.palette), as before.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Kit = require(Shared.World.Kit)
 local Outfit = require(Shared.Logic.Outfit)
+local Wardrobe = require(Shared.Data.Wardrobe)
 
 local OutfitService = {}
 
@@ -19,12 +31,103 @@ local SHOES = { "LeftFoot", "RightFoot" }
 local STRAY = { "Accessory", "Shirt", "Pants", "ShirtGraphic", "BodyColors", "CharacterMesh" }
 
 local joined = {} -- player -> squad slot, in the order they arrived
+local bodyOf = {} -- player -> the body their character was dressed in
+local watched = setmetatable({}, { __mode = "k" }) -- character -> its look, once its new parts are dressed as they come
 
 local function colour(t: { number }): Color3
 	return Color3.fromRGB(t[1], t[2], t[3])
 end
 
--- Paints a character in slot `index`.
+function OutfitService:Init(services)
+	self.Data = services.DataService
+end
+
+-- The body a player chose (or the default).
+function OutfitService:BodyOf(player: Player): string
+	local data = self.Data and self.Data:Get(player)
+	local body = data and data.Settings and data.Settings.body
+	return Wardrobe.Bodies[body] and body or Wardrobe.DefaultBody
+end
+
+-- A description of the player's body, in their skin tone.
+function OutfitService:Description(player: Player): HumanoidDescription
+	local body = Wardrobe.Bodies[self:BodyOf(player)]
+	local desc = Instance.new("HumanoidDescription")
+	for key, id in body.parts do
+		(desc :: any)[key] = id
+	end
+	local skin = colour(Outfit.palette(joined[player] or 1).skin)
+	for _, key in { "HeadColor", "TorsoColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor" } do
+		(desc :: any)[key] = skin
+	end
+	return desc
+end
+
+-- Spawn a player in their body (LobbyService, in place of LoadCharacter).
+function OutfitService:LoadCharacter(player: Player)
+	bodyOf[player] = self:BodyOf(player)
+	local ok, err = pcall(function()
+		player:LoadCharacterWithHumanoidDescription(self:Description(player))
+	end)
+	if not ok then
+		-- (The body's parts couldn't load: the plain body, still dressed.)
+		warn("[Consensus] body for " .. player.Name .. " failed: " .. tostring(err))
+		player:LoadCharacter()
+	end
+end
+
+-- What a character in slot `index` wears: for each body part, its colour
+-- and the wardrobe pieces on it (those whose garment is wholly in).
+function OutfitService:Look(index: number)
+	local palette = Outfit.palette(index)
+	local outfit = Outfit.wear(index)
+	local look = { colours = {}, pieces = {} }
+	local dressed = {}
+	for _, slot in Wardrobe.Slots do
+		local garment = Wardrobe.Garments[outfit[slot]]
+		if garment and Kit.hasWear(garment.pieces) then
+			for part, mesh in garment.pieces do
+				look.pieces[part] = look.pieces[part] or {}
+				table.insert(look.pieces[part], mesh)
+			end
+			dressed[slot] = true
+		end
+	end
+	-- Under clothes, skin (a gap at a wrist shows a wrist); where a garment
+	-- isn't in yet, its colour painted on as before.
+	local skin = palette.skin
+	local function paint(names, rgb)
+		for _, name in names do
+			look.colours[name] = colour(rgb)
+		end
+	end
+	paint(SKIN, skin)
+	paint(SHIRT, dressed.Top and skin or palette.shirt)
+	paint(PANTS, dressed.Bottom and skin or palette.pants)
+	paint(SHOES, dressed.Shoes and skin or palette.shoes)
+	if dressed.Bottom then
+		look.colours.LowerTorso = colour(skin)
+	end
+	return look
+end
+
+-- Dresses one body part: its colour, and its pieces (any it wore before go).
+local function dressPart(part: BasePart, look)
+	local c = look.colours[part.Name]
+	if c then
+		part.Color = c
+	end
+	for _, child in part:GetChildren() do
+		if child:GetAttribute("Wear") then
+			child:Destroy()
+		end
+	end
+	for _, mesh in look.pieces[part.Name] or {} do
+		Kit.wear(part, mesh)
+	end
+end
+
+-- Dresses a character in slot `index`.
 function OutfitService:Apply(character: Model, index: number)
 	for _, child in character:GetChildren() do
 		for _, class in STRAY do
@@ -34,22 +137,117 @@ function OutfitService:Apply(character: Model, index: number)
 			end
 		end
 	end
-	local palette = Outfit.palette(index)
-	local function paint(names: { string }, rgb: { number })
-		for _, name in names do
-			local part = character:FindFirstChild(name)
-			if part and part:IsA("BasePart") then
-				part.Color = colour(rgb)
+	local look = self:Look(index)
+	for _, child in character:GetChildren() do
+		if child:IsA("BasePart") and (look.colours[child.Name] or look.pieces[child.Name]) then
+			dressPart(child, look)
+		end
+	end
+	-- A body's parts arrive after the character does (a description's
+	-- meshes swap in, and again when you change body): dress each as it
+	-- comes. (Seen in Studio, 2026-10-14: painted at spawn, every part was
+	-- then replaced, grey.)
+	local first = watched[character] == nil
+	watched[character] = look
+	if first then
+		character.ChildAdded:Connect(function(child)
+			local current = watched[character]
+			if current and child:IsA("BasePart") and (current.colours[child.Name] or current.pieces[child.Name]) then
+				task.defer(function()
+					if child.Parent == character then
+						dressPart(child, current)
+					end
+				end)
+			end
+		end)
+	end
+end
+
+-- They picked the other body: change it on the character they have.
+function OutfitService:_redress(player: Player)
+	local body = self:BodyOf(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if body == bodyOf[player] or not humanoid then
+		return
+	end
+	bodyOf[player] = body
+	local ok, err = pcall(function()
+		humanoid:ApplyDescription(self:Description(player))
+	end)
+	if not ok then
+		warn("[Consensus] new body for " .. player.Name .. " failed: " .. tostring(err))
+	end
+	if character.Parent then
+		self:Apply(character, joined[player])
+	end
+end
+
+-- F2 `outfit <n>`: dress yourself as squad member n (DebugService).
+function OutfitService:DebugWear(player: Player, index: number): string
+	joined[player] = math.max(1, math.floor(index))
+	if player.Character then
+		self:Apply(player.Character, joined[player])
+	end
+	local outfit = Outfit.wear(joined[player])
+	return table.concat({ outfit.Top, outfit.Bottom, outfit.Shoes }, ", ")
+end
+
+-- F2 `outfit lineup`: both bodies in every outfit, standing in one row in
+-- front of `at` (facing it), to judge the clothes from the front;
+-- `outfit clear` takes them away.
+function OutfitService:DebugLineup(at: CFrame?): number
+	local old = workspace:FindFirstChild("DebugLineup")
+	if old then
+		old:Destroy()
+	end
+	if not at then
+		return 0
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "DebugLineup"
+	folder.Parent = workspace
+	local count = 0
+	for row, bodyName in Wardrobe.BodyOrder do
+		for index = 1, #Wardrobe.Outfits do
+			local desc = Instance.new("HumanoidDescription")
+			for key, id in Wardrobe.Bodies[bodyName].parts do
+				(desc :: any)[key] = id
+			end
+			local ok, model = pcall(function()
+				return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+			end)
+			if ok and model then
+				model.Name = bodyName .. index
+				local across = (row - 1) * #Wardrobe.Outfits + index
+				local total = #Wardrobe.BodyOrder * #Wardrobe.Outfits
+				local spot = at * CFrame.new((across - (total + 1) / 2) * 3.2, 0, -8) * CFrame.Angles(0, math.pi, 0)
+				model:PivotTo(spot)
+				local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root then
+					root.Anchored = true
+				end
+				model.Parent = folder
+				self:Apply(model, index)
+				count += 1
 			end
 		end
 	end
-	paint(SKIN, palette.skin)
-	paint(SHIRT, palette.shirt)
-	paint(PANTS, palette.pants)
-	paint(SHOES, palette.shoes)
+	return count
 end
 
 function OutfitService:Start()
+	-- (The clothes are kit meshes: the server builds them once from their ids.
+	-- Until they're in, characters are painted; then everyone is dressed.)
+	task.spawn(function()
+		Kit.preload()
+		Kit.share(Kit.toolNames())
+		for player, slot in joined do
+			if player.Character then
+				self:Apply(player.Character, slot)
+			end
+		end
+	end)
 	local function track(player: Player)
 		if not joined[player] then
 			local slot = 0
@@ -63,6 +261,13 @@ function OutfitService:Start()
 				self:Apply(character, joined[player])
 			end
 		end)
+		-- (The body's own colours land after CharacterAdded: dress again once
+		-- its appearance has loaded.)
+		player.CharacterAppearanceLoaded:Connect(function(character)
+			if character.Parent then
+				self:Apply(character, joined[player])
+			end
+		end)
 		if player.Character then
 			self:Apply(player.Character, joined[player])
 		end
@@ -73,7 +278,13 @@ function OutfitService:Start()
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		joined[player] = nil
+		bodyOf[player] = nil
 	end)
+	if self.Data then
+		self.Data.SettingsSaved:Connect(function(player)
+			task.spawn(self._redress, self, player)
+		end)
+	end
 end
 
 return OutfitService

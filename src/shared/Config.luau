@@ -2475,23 +2475,30 @@ Config.ViewModel = {
 	--   yaw    = how far the forearm swings out to the right (left hand: to the left)
 	--   tilt   = how steeply the forearm rises towards the hand
 	--   hand   = "left" for something held in the left hand (the torch); else the right
+	--   grip   = the fist closed round it (ViewModelController fist()): its middle
+	--            `at` (studs, the thing's own frame), the thing running through it
+	--            along `through` (out past the little finger); the wrist then hangs
+	--            off the fist toward your shoulder (`wrist` is unused)
 	Poses = {
 		-- The torch has the left hand to itself (section 20), so a tool in the
-		-- right can be out with it.
+		-- right can be out with it. The fist closes just behind its switch.
 		Flashlight = {
-			at = { -0.5, -0.33, 1.3 },
+			at = { -0.46, -0.36, 1.45 },
 			turn = { 3, 4, 0 },
 			wrist = { -0.03, -0.22, 0.3 },
 			yaw = 14,
 			tilt = 24,
 			hand = "left",
+			grip = { at = { 0, 0, 0.24 }, through = { 0, 0, -1 } },
 		},
+		-- By its bail, the fist on top, the lantern hanging under it.
 		Lantern = {
 			at = { 0.42, -0.45, 1.25 },
 			turn = { 0, 0, 0 },
 			wrist = { 0, 0.3, 0.3 },
 			yaw = 28,
 			tilt = 30,
+			grip = { at = { 0, 0.47, 0 }, through = { 1, 0, 0 } },
 		},
 		Radio = {
 			at = { 0.3, -0.3, 1.25 },
@@ -2499,6 +2506,7 @@ Config.ViewModel = {
 			wrist = { 0.12, -0.28, 0.22 },
 			yaw = 22,
 			tilt = 26,
+			grip = { at = { 0, 0.33, 0 }, through = { -1, 0, 0 } }, -- by its strap
 		},
 		Salts = {
 			at = { 0.34, -0.3, 1.2 },
@@ -2506,6 +2514,7 @@ Config.ViewModel = {
 			wrist = { 0.1, -0.26, 0.24 },
 			yaw = 20,
 			tilt = 24,
+			grip = { at = { 0, -0.04, 0 }, through = { 0, -1, 0 } }, -- upright, the thumb under its cap
 		},
 		-- The tools for tool locks (docs/plans/level-design.md section 11, L3.3).
 		Crowbar = {
@@ -2514,6 +2523,7 @@ Config.ViewModel = {
 			wrist = { 0.03, -0.2, 0.3 },
 			yaw = 14,
 			tilt = 24,
+			grip = { at = { 0, 0, 0.32 }, through = { 0, 0, -1 } }, -- the shaft, toward its chisel end
 		},
 		BoltCutters = {
 			at = { 0.46, -0.3, 1.3 },
@@ -2521,18 +2531,20 @@ Config.ViewModel = {
 			wrist = { 0.03, -0.2, 0.32 },
 			yaw = 14,
 			tilt = 24,
+			grip = { at = { 0, 0, 0.49 }, through = { 0, 0, -1 } }, -- both handles, at their grips
 		},
 	},
 	ArmHandForward = 0.18, -- the hand's middle sits this far (unscaled) in front of the wrist
 	-- Your arms are your character's own (section 20; the owner, 2026-10-12:
 	-- "your arm is actually your arm and matches your avatar"): copies of its
 	-- upper arm, forearm and hand (Lib/ViewModel.armFrom), `Scale` of their
-	-- size and `Thickness` of that across (a Roblox arm is twice a real one's
-	-- girth for its length, and this close it filled the screen), bent by
-	-- Logic/ArmReach from a shoulder just off the screen (camera frame studs:
-	-- right, up, back; mirrored for the left) to each pose's `wrist`, the elbow
-	-- out towards `Pole`.
-	Arm = { Scale = 0.5, Thickness = 0.62, Shoulder = { 0.62, -0.78, -0.12 }, Pole = { 1, -1, 0.3 } },
+	-- size and `Thickness` of that across, bent by Logic/ArmReach from a
+	-- shoulder just off the screen (camera frame studs: right, up, back;
+	-- mirrored for the left) to each pose's `wrist`, the elbow out towards
+	-- `Pole`. (Thickness was 0.62 for the block arms, which were twice a real
+	-- arm's girth; the classic body's shaped hand slimmed like that became a
+	-- thin curved strip, so it's whole since V6, 2026-10-15.)
+	Arm = { Scale = 0.5, Thickness = 1, Shoulder = { 0.62, -0.78, -0.12 }, Pole = { 1, -1, 0.3 } },
 	-- F (section 20): the torch swings up from your hip into the pose above,
 	-- or drops back to it. Put away it hangs this far from its pose (studs in
 	-- the camera's frame) and turned this much (degrees: pitch, yaw, roll):

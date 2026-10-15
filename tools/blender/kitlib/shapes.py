@@ -9,6 +9,7 @@ import math
 import bmesh
 import bpy
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 
 def _object(name, bm):
@@ -369,3 +370,91 @@ __all__ = [
     "rotate",
     "Matrix",
 ]
+
+
+# Insides for open surfaces (Roblox draws a face from the front only).
+
+
+def _components(bm):
+    """The mesh's connected pieces of surface, as lists of faces."""
+    seen, out = set(), []
+    for f in bm.faces:
+        if f.index in seen:
+            continue
+        seen.add(f.index)
+        stack, faces = [f], []
+        while stack:
+            g = stack.pop()
+            faces.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen:
+                        seen.add(h.index)
+                        stack.append(h)
+        out.append(faces)
+    return out
+
+
+def _line_surface(bm, outer, boundary, thickness, index, uvs):
+    """One open surface's lining and rims (line_open())."""
+    # (In a fixed order, so the same mesh unwraps the same every run.)
+    verts = list(dict.fromkeys(v for f in outer for v in f.verts))
+    # (Across a narrow fold an even offset comes out through the fold's other
+    # side, a speck of lining showing: each lining point stops halfway to
+    # wherever the way in from its outside point meets the surface again,
+    # 2026-10-15.)
+    order = {v: i for i, v in enumerate(verts)}
+    shell = BVHTree.FromPolygons([v.co.copy() for v in verts], [[order[v] for v in f.verts] for f in outer])
+    inner = {}
+    for v in verts:
+        n = v.normal
+        depth = thickness
+        hit, _, _, dist = shell.ray_cast(v.co - n * 1e-4, -n, thickness)
+        if hit is not None:
+            depth = max((dist + 1e-4) * 0.5, 1e-4)
+        inner[v] = bm.verts.new(v.co - n * depth)
+    for f in outer:
+        loops = list(reversed(f.loops))
+        nf = bm.faces.new([inner[l.vert] for l in loops])
+        nf.material_index = f.material_index if index is None else index
+        nf.smooth = f.smooth
+        for nl, l in zip(nf.loops, loops):
+            for layer in uvs:
+                nl[layer].uv = l[layer].uv
+    for e in boundary:
+        loop = e.link_loops[0]
+        a, b = loop.vert, loop.link_loop_next.vert
+        rim = bm.faces.new((b, a, inner[a], inner[b]))
+        rim.material_index = loop.face.material_index
+        rim.smooth = False
+        uv_of = {a: loop, b: loop.link_loop_next}
+        for rl, v in zip(rim.loops, (b, a, a, b)):
+            for layer in uvs:
+                rl[layer].uv = uv_of[v][layer].uv
+
+
+def line_open(obj, thickness, index=None):
+    """Gives every open surface of obj an inside: a copy `thickness` in,
+    facing in (material `index`, or each face's own), and a rim round each
+    open edge. Closed solids are left alone. Roblox draws a face from the
+    front only, so an open shell (a sleeve's cuff, a torch's head) showed
+    straight through from inside (2026-10-15)."""
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    # (In triangles first: a quad that isn't flat can be split along either
+    # diagonal, and where the inside's copy was split the other way it
+    # bulged out between its corners, 2026-10-15.)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bm.normal_update()
+    bm.faces.ensure_lookup_table()
+    uvs = list(bm.loops.layers.uv.values())
+    for outer in _components(bm):
+        edges = dict.fromkeys(e for f in outer for e in f.edges)
+        boundary = [e for e in edges if e.is_boundary]
+        if boundary:
+            _line_surface(bm, outer, boundary, thickness, index, uvs)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    return obj

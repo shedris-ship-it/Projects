@@ -1,7 +1,11 @@
 -- Period clothes for the squad (owner, 2026-10-03): everyone in a faded 1980s
 -- shirt and jeans, no hats, no modern avatars. Each squad member gets a
 -- different shirt so they read as one group but stay tellable apart.
--- Pure; Services/OutfitService paints it.
+-- Pure; Services/OutfitService paints it, and since V6 dresses each in the
+-- modelled clothes (Data/Wardrobe) when they're in: the colours stay as
+-- what's painted underneath, and while the clothes aren't.
+
+local Wardrobe = require(script.Parent.Parent.Data.Wardrobe)
 
 local Outfit = {}
 
@@ -33,6 +37,14 @@ local SKINS = {
 local SHOES = { 38, 34, 32 }
 
 Outfit.ShirtCount = #SHIRTS
+
+-- The garments squad member `index` wears (Data/Wardrobe.Outfits, in turn):
+-- { Top, Bottom, Shoes } garment ids.
+function Outfit.wear(index: number)
+	local looks = Wardrobe.Outfits
+	local i = math.max(math.floor(index), 1) - 1
+	return looks[i % #looks + 1]
+end
 
 -- index is 1 for the first player, 2 for the next.
 -- Colours are { r, g, b } in 0..255.
