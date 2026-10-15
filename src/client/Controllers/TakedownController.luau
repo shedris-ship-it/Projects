@@ -324,6 +324,17 @@ function TakedownController:_step()
 			self:_dust(active.stage * Vector3.new(L[1], 0.1, L[2]))
 		end
 	end
+	-- At Breaking, a little blood where you fell (the owner's pick: light,
+	-- only seen from a distance; Moderate).
+	if (active.spec.form or 0) >= 2 and not active.bled then
+		local at = active.spec.kind == "taking" and active.marks.slam or active.marks.wake
+		if at and t >= at then
+			active.bled = true
+			if t - at < 1 then
+				self:_bleed()
+			end
+		end
+	end
 	-- What's heard.
 	local audio = self.controllers.AudioController
 	while active.cues[active.nextCue] and active.cues[active.nextCue][1] <= t do
@@ -355,6 +366,46 @@ function TakedownController:_step()
 					end
 				end)
 			end
+		end
+	end
+end
+
+-- A few dark drops on the floor (every client the same: seeded by where it
+-- happened): by your shoulder where he bit, or where your head hit the floor.
+function TakedownController:_bleed()
+	local spec, stage = active.spec, active.stage
+	local centre
+	if spec.kind == "taking" then
+		local layout = Takedown.layout(spec)
+		centre = stage * Vector3.new(layout.L[1] + layout.u1[1] * 2.1, 0, layout.L[2] + layout.u1[2] * 2.1)
+	else
+		local points = Takedown.victimPoints(spec.rest, PlayerPose.prone(0, 0))
+		centre = stage * Vector3.new(points.shoulder[1], 0, points.shoulder[3])
+	end
+	local level = Workspace:FindFirstChild("ConsensusLevel") or Workspace
+	local random = Random.new(math.floor(centre.X * 7.3 + centre.Z * 13.1) % 100000)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { level }
+	params.RespectCanCollide = true
+	for _ = 1, random:NextInteger(C.Blood.drops[1], C.Blood.drops[2]) do
+		local angle = random:NextNumber(0, math.pi * 2)
+		local out = random:NextNumber(0, C.Blood.spread)
+		local where = centre + Vector3.new(math.cos(angle) * out, 0, math.sin(angle) * out)
+		local hit = Workspace:Raycast(where + Vector3.new(0, 2, 0), Vector3.new(0, -3.5, 0), params)
+		if hit then
+			local size = random:NextNumber(C.Blood.size[1], C.Blood.size[2])
+			local drop = Instance.new("Part")
+			drop.Name = "TakedownDrop"
+			drop.Shape = Enum.PartType.Cylinder
+			drop.Size = Vector3.new(0.02, size, size * random:NextNumber(0.8, 1.2))
+			drop.CFrame = CFrame.new(hit.Position + Vector3.new(0, 0.012, 0)) * CFrame.Angles(0, angle, math.pi / 2)
+			drop.Color = Color3.fromRGB(C.Blood.color[1], C.Blood.color[2], C.Blood.color[3])
+			drop.Material = Enum.Material.SmoothPlastic
+			drop.Reflectance = 0.06
+			drop.Anchored, drop.CanCollide, drop.CanQuery, drop.CanTouch = true, false, false, false
+			drop.CastShadow = false
+			drop.Parent = level
 		end
 	end
 end

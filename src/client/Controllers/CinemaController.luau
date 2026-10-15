@@ -46,6 +46,7 @@ function CinemaController:Init(controllers)
 	self.bars = 0
 	self.faded = {} -- part -> true (hidden for the shot)
 	self.hidden = {} -- ScreenGui -> true (the HUD, put away)
+	self.keep = {} -- ScreenGui name -> true (left up for this one: the night's title card)
 end
 
 function CinemaController:Start()
@@ -91,14 +92,19 @@ function CinemaController:Active(): boolean
 	return self.owner ~= nil
 end
 
--- Take the camera for `owner` (a name, so only its owner gives it back).
-function CinemaController:Begin(owner: string)
+-- Take the camera for `owner` (a name, so only its owner gives it back);
+-- `keep` names screens left up (the night's title card over the arrival).
+function CinemaController:Begin(owner: string, keep: { string }?)
 	if self.owner and self.owner ~= owner then
 		self:End(self.owner)
 	end
 	self.owner = owner
 	self.want = nil
 	self.black = 0
+	table.clear(self.keep)
+	for _, name in keep or {} do
+		self.keep[name] = true
+	end
 end
 
 -- Where the camera is this frame.
@@ -157,7 +163,13 @@ function CinemaController:_frame(dt: number)
 	local playerGui = player:FindFirstChild("PlayerGui")
 	if playerGui then
 		for _, gui in playerGui:GetChildren() do
-			if gui:IsA("ScreenGui") and gui ~= self.gui and gui.Enabled and not gui:GetAttribute("CinemaKeep") then
+			if
+				gui:IsA("ScreenGui")
+				and gui ~= self.gui
+				and gui.Enabled
+				and not gui:GetAttribute("CinemaKeep")
+				and not self.keep[gui.Name]
+			then
 				gui.Enabled = false
 				self.hidden[gui] = true
 			end
@@ -253,8 +265,9 @@ local function crosses(part: BasePart, a: Vector3, b: Vector3, margin: number): 
 end
 
 -- Hide the small things between the camera at `from` and each of `targets`
--- (and any the camera stands in), for this shot.
-function CinemaController:FadeFor(from: Vector3, targets: { Vector3 })
+-- (and any the camera stands in), for this shot; never what's in `keep` (the
+-- thing the shot is of: the front door).
+function CinemaController:FadeFor(from: Vector3, targets: { Vector3 }, keep: { Instance }?)
 	self:Unfade()
 	local level = Workspace:FindFirstChild("ConsensusLevel")
 	if not level then
@@ -269,7 +282,19 @@ function CinemaController:FadeFor(from: Vector3, targets: { Vector3 })
 		if d:IsA("BasePart") and d.Transparency < 1 and not STRUCTURE[d.Name] then
 			local size = d.Size
 			local big = math.max(size.X, size.Y, size.Z)
-			if big < 12 and (d.Position - from).Magnitude < reach + big and not (guest and d:IsDescendantOf(guest)) then
+			local kept = false
+			for _, k in keep or {} do
+				if d == k or d:IsDescendantOf(k) then
+					kept = true
+					break
+				end
+			end
+			if
+				not kept
+				and big < 12
+				and (d.Position - from).Magnitude < reach + big
+				and not (guest and d:IsDescendantOf(guest))
+			then
 				local hide = crosses(d, from, from, C.FadeMargin)
 				if not hide then
 					for _, target in targets do

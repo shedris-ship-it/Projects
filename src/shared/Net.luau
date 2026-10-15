@@ -52,6 +52,7 @@ local DEFINITIONS = {
 	PerceptionProfile = "RemoteEvent",
 	StalkerVisibility = "RemoteEvent",
 	GuestEvent = "RemoteEvent", -- server -> client: knock, tell, lunge, catch (Controllers/GuestController)
+	Cutscene = "RemoteEvent", -- S->C ({ kind, ... }): a cutscene to play (Controllers/CutsceneController, Logic/Cutscene)
 	Pinged = "RemoteEvent",
 	CalloutHeard = "RemoteEvent",
 	Notify = "RemoteEvent",

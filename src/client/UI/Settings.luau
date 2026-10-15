@@ -196,6 +196,7 @@ function Settings.new(ctx)
 			{ key = "tips", label = "Show tips in the house" },
 			{ key = "crouchToggle", label = "Ctrl toggles crouch (off: hold)" },
 			{ key = "hideBody", label = "Hide your own body (first person)" },
+			{ key = "skipCutscenes", label = "Skip cutscenes" },
 		}
 	do
 		local button = line(option.label, i, function()

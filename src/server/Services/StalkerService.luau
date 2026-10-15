@@ -540,6 +540,7 @@ function StalkerService:StartFinalHunt()
 		return
 	end
 	self.final = true
+	self.seatedUntil = nil
 	self.director:Disarm(true)
 	self:_beginTelegraph(5, "final")
 end
@@ -761,10 +762,12 @@ end
 
 -- The dinner (Services/FinaleService): he's simply there, at the head of the
 -- table, looking down it.
-function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?)
+function StalkerService:PlaceAt(position: Vector3, lookAt: Vector3?, seated: number?)
 	if not self.active or not self.bodyCtl then
 		return
 	end
+	-- (The dinner: in his chair for this long, or till the final hunt.)
+	self.seatedUntil = seated and os.clock() + seated or nil
 	-- Already waiting there (Stalk's WaitAtTable errand): he just stays.
 	local here = self.bodyCtl.root.Position
 	if (Vector3.new(here.X, 0, here.Z) - Vector3.new(position.X, 0, position.Z)).Magnitude > 2 or self.parked then
@@ -1065,8 +1068,9 @@ end
 -- Who should see him now: nobody at tier 0, only his target at tier 1 (and
 -- nobody while he relocates), everyone from tier 2 and in hunts.
 function StalkerService:_wantVisible(player: Player, now: number): boolean
-	-- Taking someone down, he's there for whoever can see it.
-	if self.takedown then
+	-- Taking someone down, or in his chair at the dinner (everyone watches
+	-- it, Controllers/CutsceneController), he's there for whoever can see it.
+	if self.takedown or (self.seatedUntil and now < self.seatedUntil) then
 		return true
 	end
 	if not self.arrived or self.parked then
@@ -1361,6 +1365,15 @@ function StalkerService:_update(dt: number)
 	local now = os.clock()
 	local body = self.bodyCtl
 	self.sight:NewTick()
+	-- Seated at the head of the table (the dinner, FinaleService:Serve): dead
+	-- still in his chair till the final hunt calls him up.
+	if self.seatedUntil and now < self.seatedUntil then
+		body:SetPose(Poses.Sit)
+		body:Hold()
+		body:Update(now, playerPosition(self.services))
+		self:_updateVisibility(now)
+		return
+	end
 	-- Taking someone down: nothing else moves him till it's done.
 	local takedown = self.takedown
 	if takedown then

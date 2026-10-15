@@ -91,6 +91,7 @@ GuestPose.Poses = {
 	Listen = "Listen", -- hunting, standing still: head cocked far over, listening
 	Crawl = "Crawl", -- Breaking or the final hunt, prowling: on all fours, knees up, head twisted over
 	Reach = "Reach", -- coming for whoever tailed him: walking at them, both hands out to grab them
+	Sit = "Sit", -- the dinner: in his chair at the head of the table, his hands laid on it
 }
 
 -- How quickly each pose is reached (1/s). Fast ones snap; the rest ease.
@@ -112,6 +113,7 @@ local RATE = {
 	Listen = 4,
 	Crawl = 9,
 	Reach = 3, -- the arm comes up slowly
+	Sit = 3.5, -- lowering himself into the chair
 }
 
 -- Steps: studs travelled per step, swing amplitude, knee bend and lift.
@@ -451,6 +453,21 @@ function GuestPose.target(ctx)
 		add(t, "LeftKnee", d(-100))
 		add(t, "RightKnee", d(-100))
 		legs(t, ctx.phase, GAIT.Crawl)
+	elseif pose == P.Sit then
+		-- In his chair at the head of the table, too tall for it: his knees
+		-- up under the edge, upright, his long hands laid flat on the cloth.
+		add(t, "Root", 0, 0, 0, 0, -2.0, 0.35)
+		add(t, "LeftHip", d(92))
+		add(t, "RightHip", d(88))
+		add(t, "LeftKnee", d(-92))
+		add(t, "RightKnee", d(-88))
+		add(t, "Waist", d(-3) + d(0.8) * sin(ctx.breath * TAU))
+		add(t, "LeftShoulder", d(62), 0, d(-5))
+		add(t, "RightShoulder", d(62), 0, d(5))
+		add(t, "LeftElbow", d(20))
+		add(t, "RightElbow", d(20))
+		add(t, "LeftWrist", d(-20))
+		add(t, "RightWrist", d(-20))
 	elseif pose == P.Lunge then
 		add(t, "Root", 0, 0, 0, 0, -0.35, -0.6)
 		add(t, "Waist", d(-34))
@@ -532,7 +549,7 @@ GuestPose.Spring = SPRING
 
 -- Poses whose legs the pose draws itself; every other pose stands on the
 -- feet Logic/GuestGait plants.
-local KEYED_LEGS = { Zoom = true, Lunge = true, Stagger = true, Duck = true, Crawl = true }
+local KEYED_LEGS = { Zoom = true, Lunge = true, Stagger = true, Duck = true, Crawl = true, Sit = true }
 GuestPose.KeyedLegs = KEYED_LEGS
 
 -- The gait each moving pose walks with; a standing pose that has to move

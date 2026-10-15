@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -336,6 +337,41 @@ function DebugService:Run(player: Player, text: string)
 			reply(player, "next run: a " .. name .. " night")
 		else
 			reply(player, "usage: night full|short")
+		end
+	elseif command == "cutscene" then
+		-- Plays one of the three cutscenes to you (Logic/Cutscene), without what
+		-- goes with it in the run: `cutscene arrival|dinner|escape`. The
+		-- dinner seats him at the head of the table. Pin a moment for stills
+		-- with the player attribute DebugCutsceneAt.
+		local world = services.WorldService.World
+		local exit = world and world.exit
+		local finale = services.FinaleService
+		local kind = args[2] or "arrival"
+		local now = Workspace:GetServerTimeNow()
+		if (kind == "arrival" or kind == "escape") and exit and exit.outward then
+			Net.get("Cutscene"):FireClient(player, {
+				kind = kind,
+				start = now,
+				door = exit.door,
+				doorway = exit.zone.Position - exit.outward * 3.5,
+				outward = exit.outward,
+				hall = services.WorldService:Room(world.layout.start).center,
+			})
+			reply(player, "cutscene: " .. kind)
+		elseif kind == "dinner" and finale.tableFrame and finale.head then
+			Net.get("Cutscene"):FireClient(player, {
+				kind = "dinner",
+				start = now,
+				table = finale.tableFrame,
+				head = finale.head,
+				tableModel = world and world.deliberationTable,
+			})
+			task.delay(1.4, function()
+				services.StalkerService:PlaceAt(finale.head, finale.tableFrame.Position, 4)
+			end)
+			reply(player, "cutscene: dinner")
+		else
+			reply(player, "no run, or no " .. tostring(kind) .. " here")
 		end
 	elseif command == "takedown" then
 		-- The Guest's takedown on you (Logic/Takedown), without the down:

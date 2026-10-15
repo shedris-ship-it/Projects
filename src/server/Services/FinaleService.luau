@@ -836,6 +836,13 @@ function FinaleService:Begin(plan)
 	end
 	local head = layout.head * sign
 	self.head = frame:PointToWorldSpace(long and Vector3.new(0, 0, head) or Vector3.new(head, 0, 0))
+	-- His chair at the head of the table, empty all night (the V8 dinner:
+	-- he takes his seat in it). It never collides, like every chair.
+	local centre = Vector3.new(frame.Position.X, self.head.Y, frame.Position.Z)
+	if (centre - self.head).Magnitude > 0.5 then
+		local chair = CFrame.lookAt(self.head, centre) * CFrame.Angles(0, math.pi, 0)
+		PropFactory.build("Chair", chair, folder, { name = "chairHead" })
+	end
 	self:_frontExit(world)
 	self.facts = { places = count, placesLeft = count, stations = {} }
 	self.seenStations = {}
@@ -1010,7 +1017,18 @@ function FinaleService:Serve()
 		end
 	end
 	local world = self.World.World
-	-- The lights die.
+	-- The lights die as he takes his seat: every client watches it at the
+	-- table (Controllers/CutsceneController), unless a hunt is on.
+	if not self.services.StalkerService:IsHunting() then
+		Net.get("Cutscene"):FireAllClients({
+			kind = "dinner",
+			start = Workspace:GetServerTimeNow(),
+			table = self.tableFrame,
+			size = self.tableSize,
+			head = self.head,
+			tableModel = world.deliberationTable,
+		})
+	end
 	for _, id in self.World:RoomIds() do
 		self.World:SetLightCause(id, "dinner", true)
 	end
@@ -1022,7 +1040,7 @@ function FinaleService:Serve()
 		end
 		-- A chair scrapes at the head of the table.
 		Sfx.play("CreakAlt", self.head, 0.9, 0.45)
-		self.services.StalkerService:PlaceAt(self.head, self.tableFrame.Position)
+		self.services.StalkerService:PlaceAt(self.head, self.tableFrame.Position, 2.4)
 		notifyAll("A chair scrapes back. Someone has taken a seat at the table.", "danger")
 	end)
 	task.delay(3.4, function()

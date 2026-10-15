@@ -192,6 +192,7 @@ function DataService:Start()
 				"crouchToggle",
 				"hideBody",
 				"showMeters", -- (V7: the stamina and torch meters, for accessibility)
+				"skipCutscenes", -- (V8)
 				"centerDot",
 				"fov",
 				"cameraMotion",

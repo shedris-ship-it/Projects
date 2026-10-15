@@ -9,6 +9,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -328,6 +329,19 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 	self.run.started = os.clock()
 	services.RunLogService:Begin()
 	self:_setPhase(Phases.Arrival, Config.Run.ArrivalSeconds)
+	-- The front door slams and locks behind the squad (the V8 cutscene).
+	local exit = world.exit
+	if exit and exit.outward then
+		Net.get("Cutscene"):FireAllClients({
+			kind = "arrival",
+			start = Workspace:GetServerTimeNow(),
+			door = exit.door,
+			-- (The doorway itself: the door may be standing open.)
+			doorway = exit.zone.Position - exit.outward * 3.5,
+			outward = exit.outward,
+			hall = services.WorldService:Room(world.layout.start).center,
+		})
+	end
 	Net.get("Notify"):FireAllClients("The front door locks behind you. The table is laid for a guest.", "phase")
 	local plan = world.layout.progression
 	services.Telemetry:Log("RunStarted", {
@@ -361,18 +375,42 @@ function RunOrchestrator:_onExtracted(player: Player)
 	end
 	run.extracted[player] = true
 	self.services.RunLogService:Extracted()
-	local character = player.Character
-	self.services.PlayerStateService:MarkTeleport(player)
-	if character then
-		character:PivotTo(self.services.LobbyService:SpawnCFrame(1))
+	-- The last shot (the V8 cutscene): out of the front door into the storm,
+	-- then the hub. Their run is over (Extracted: he has no business with
+	-- them); the squad's end waits for it.
+	local exit = self.services.WorldService.World.exit
+	local seconds = 0
+	if exit and exit.outward then
+		seconds = Config.Cinema.EscapeSeconds
+		Net.get("Cutscene"):FireClient(player, {
+			kind = "escape",
+			start = Workspace:GetServerTimeNow(),
+			door = exit.door,
+			-- (The doorway itself: the door may be standing open.)
+			doorway = exit.zone.Position - exit.outward * 3.5,
+			outward = exit.outward,
+		})
 	end
-	self:_checkSquad()
+	run.leaving = (run.leaving or 0) + 1
+	task.delay(seconds, function()
+		run.leaving -= 1
+		local character = player.Character
+		if character and player.Parent and self.run == run then
+			self.services.PlayerStateService:MarkTeleport(player)
+			character:PivotTo(self.services.LobbyService:SpawnCFrame(1))
+		end
+		self:_checkSquad()
+	end)
 end
 
 -- End the run when nobody is left in the house.
 function RunOrchestrator:_checkSquad()
 	local run = self.run
 	if not run or run.ending then
+		return
+	end
+	-- (Someone still on their way out of the door: the end waits for them.)
+	if (run.leaving or 0) > 0 then
 		return
 	end
 	if self.phase == Phases.Generating or self.phase == Phases.Lobby then

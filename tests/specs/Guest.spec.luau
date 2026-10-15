@@ -96,8 +96,9 @@ return function(test, check, Shared, require)
 						check.atMost(math.abs(value[axis]), limit, pose .. " " .. joint .. " axis " .. axis)
 					end
 					for axis = 4, 6 do
-						-- (On all fours his whole body drops and shifts back.)
-						local most = (pose == "Crawl" and joint == "Root") and 2 or 1.2
+						-- (On all fours, or seated (plus a stoop), his whole body drops and shifts back.)
+						local most = joint ~= "Root" and 1.2
+							or (pose == "Crawl" and 2 or (pose == "Sit" and 2.4 or 1.2))
 						check.atMost(math.abs(value[axis]), most, pose .. " " .. joint .. " offset")
 					end
 				end

@@ -91,6 +91,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 | Jump (a low, slow hop: not while crouched, winded or just landed; it costs breath) / hold breath when hidden / leave a hiding spot | **Space** / **Space** / **E** | A / A / B | buttons |
 | Leave a puzzle screen or the note reader | **E** (or the Step back button) | B | |
 | Settings (your body, Boy or Girl, asked the first time you play; graphics; meters) and how to play | **F1** | | Lobby button |
+| Skip a cutscene (or turn them all off: Settings, Skip cutscenes) | any key or click | any button | tap |
 | Debug overlay and console | **F2** (Studio) | | |
 
 ## How a run plays
@@ -124,7 +125,7 @@ In the hub, set the contract's difficulty and the night's length (**Night: Short
 4. **The dinner.** Set the last heirloom (each place's card names the one it wants; carry it up to the table and it's set): the lights die, he takes his seat, the way from the dining room to the hall seals, every other lock springs open and the front door opens. Run out the long way while he hunts you.
 5. **Debrief.** The Dossier says who opened what, who carried what, the closest call, and what he learned about you.
 
-Getting caught downs you: a teammate can revive you within 30 seconds (look at you and hold E for 4 seconds; you both see the bar fill), or you crawl into a lit Lantern room or to a hiding place's mouth and get up by yourself (alone too, 30 seconds). Smelling salts in a slot bring you round in 3 seconds. Just up, he leaves you alone for 8 seconds: run. A hunt that caught someone is never "survived". Three downs (two on Hard) and you're **Lost**: you play on as an **Echo** who can talk, ping one hint a minute (the ping knocks on the nearest shut door, and he hears it) and drift through doors (but not locked ones). Drift rises with time, noise and splitting up, faster when you stall; progress lowers it. At Drift 100 the house has had enough: **the Reckoning**, a hunt that never ends, in which no room protects anyone and the front door opens only for the dinner. The run ends when everyone is out, or everyone is Lost.
+Getting caught downs you, and you watch it happen in the third person: his hand over your face, lifted off your feet, his grin tearing open, the bite, and black. You come to on the floor. A teammate can revive you within 30 seconds (look at you and hold E for 4 seconds; you both see the bar fill), or you crawl into a lit Lantern room or to a hiding place's mouth and get up by yourself (alone too, 30 seconds). Smelling salts in a slot bring you round in 3 seconds. Just up, he leaves you alone for 8 seconds: run. A hunt that caught someone is never "survived". Three downs (two on Hard) and you're **Lost**: he takes you by the ankle, slams you down and drags you off through the house into the dark, and you play on as an **Echo** who can talk, ping one hint a minute (the ping knocks on the nearest shut door, and he hears it) and drift through doors (but not locked ones). Drift rises with time, noise and splitting up, faster when you stall; progress lowers it. At Drift 100 the house has had enough: **the Reckoning**, a hunt that never ends, in which no room protects anyone and the front door opens only for the dinner. The run ends when everyone is out, or everyone is Lost.
 
 ---
 
@@ -154,6 +155,8 @@ beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (hi
 botrun [fast] [flee|hide] (the bot plays the run with your character and reports the numbers; again stops it) · botrun plan
 inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach)
 down [name] · revive [name] · steps · clip · find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, Cassette, Candle, Spool)
+takedown [taste|taking] [front|behind|hiding] [hold] · takedown stop (his takedown on you, without the down; hold keeps it for stills, with the player attribute DebugTakedownAt)
+cutscene arrival|dinner|escape (play one of the three cutscenes to you; the player attribute DebugCutsceneAt holds a moment)
 guest here [studs] · guest walk · guest reel [beat|stop] (every way he moves, near you, captioned; or one beat over and over) · guest pose <name> · guest form <0-2> · guest smile <0-1>
 guest lean <-1..1> · guest move <name> · guest peeks · guest arrive · guest window · guest scare [quiet|rush] · guest reach [studs] (he comes for you as if you'd pestered him after a warning; it can down you) · guest off
 guest mood [id|off] (his mood: Curious, Stalking, Host, Playful, Patient, Irritated) · guest temperament [id] (Patient, Restless, Playful, Hungry)

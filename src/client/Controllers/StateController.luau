@@ -53,6 +53,7 @@ local StateController = {
 		-- The 1988 interface shows stamina by your breath and the edges of your
 		-- sight, and the torch's charge on its beam (V7); this shows the meters too.
 		showMeters = false,
+		skipCutscenes = false, -- the night's three short cutscenes (V8; any key skips one too)
 		body = "Boy", -- your body (Data/Wardrobe, the owner's pick: ROBLOX Boy or Girl)
 		seenIntro = false,
 	},

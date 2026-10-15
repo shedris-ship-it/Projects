@@ -328,7 +328,10 @@ function Hud:Update()
 	local state = self.state
 	local inRun = state:InRun()
 	local phase = state:Phase()
-	self.gui.Enabled = inRun
+	-- (Put away while a cutscene or a takedown has the camera: the cinema's
+	-- bars and nothing else, Controllers/CinemaController.)
+	local cinema = self.ctx.controllers and self.ctx.controllers.CinemaController
+	self.gui.Enabled = inRun and not (cinema and cinema:Active())
 	if not inRun then
 		self.slipKey = nil
 		self.slip.GroupTransparency = 1

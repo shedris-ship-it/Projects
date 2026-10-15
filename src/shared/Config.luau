@@ -2460,6 +2460,13 @@ Config.Cinema = {
 	Floor = { radii = { 8, 9.5, 6.5 }, heights = { 1.6, 2.3 }, angles = 20 },
 	Slam = { radii = { 9, 7.5, 6 }, heights = { 2.0, 3.0 }, angles = 24, side = 0.5, fov = 68 },
 	Drag = { radii = { 5, 6, 4 }, heights = { 1.0, 1.8 }, angles = 16 },
+	-- At Breaking, a little blood where you fell (the owner's pick, 2026-10-15:
+	-- light, only seen from a distance; Moderate): this many drops, this
+	-- wide (studs), within this of the spot, old-blood dark.
+	Blood = { drops = { 3, 6 }, size = { 0.1, 0.32 }, spread = 0.9, color = { 58, 10, 9 } },
+	-- The three cutscenes (Logic/Cutscene): skippable on any key, never in a
+	-- hunt; the last shot keeps an escaping player this long before the hub.
+	EscapeSeconds = 3.6,
 	Track = 6, -- how fast the camera's aim follows what it films (1/s)
 	Handheld = 0.035, -- studs of slow drift on a shot (scaled by Settings' Camera motion)
 }
