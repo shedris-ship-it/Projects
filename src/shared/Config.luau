@@ -2679,6 +2679,13 @@ Config.Body = {
 	WallGap = 0.6,
 }
 
+-- Saved data (Services/DataService).
+Config.Data = {
+	-- Studio's play tests save to stores of their own, never the live game's
+	-- (docs/plans/lobby-rework.md, LB0): DataService.StoreName.
+	StudioSuffix = "_Studio",
+}
+
 Config.Debug = {
 	AllowInStudio = true,
 	SkipIntroInStudio = true, -- the first-launch settings dialog never blocks a Studio test

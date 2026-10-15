@@ -2,6 +2,8 @@
 -- session lock on top of DataStoreService: a profile is only loaded when no
 -- other live server holds it, and every save renews the lock. When DataStores
 -- are unavailable (Studio without API access) profiles live in memory only.
+-- Studio's play tests use stores of their own (StoreName), so a test never
+-- touches a live profile.
 --
 -- Swap this for ProfileStore once the project uses Wally; the API here
 -- (WaitForProfile, Get, GrantRunRewards) is all the rest of the game needs.
@@ -10,8 +12,10 @@ local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Net = require(Shared.Net)
 local Progression = require(Shared.Logic.Progression)
 local Signal = require(Shared.Lib.Signal)
@@ -44,13 +48,24 @@ local profiles: { [Player]: any } = {}
 local loaded: { [Player]: boolean } = {}
 local sessionId = HttpService:GenerateGUID(false)
 
+-- The name every store the game opens goes by. Since the owner turned on
+-- Studio's API access (2026-10-15), a play test would otherwise write the
+-- live game's profiles, and a live server's lock would hold the owner's
+-- (docs/plans/lobby-rework.md, LB0).
+function DataService.StoreName(base: string): string
+	return base .. (RunService:IsStudio() and Config.Data.StudioSuffix or "")
+end
+
 function DataService:Init()
+	local name = DataService.StoreName(STORE_NAME)
 	local ok, store = pcall(function()
-		return DataStoreService:GetDataStore(STORE_NAME)
+		return DataStoreService:GetDataStore(name)
 	end)
 	self.store = ok and store or nil
 	if not ok then
 		warn("[Consensus] DataStores unavailable; progress won't be saved this session.")
+	elseif RunService:IsStudio() then
+		print("[Consensus] profiles: " .. name)
 	end
 end
 

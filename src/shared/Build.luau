@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-15.198",
-	note = "V8: the three cutscenes (the door locks behind you, he takes his seat, the last shot), light blood at Breaking",
+	id = "2026-10-15.199",
+	note = "LB0: Studio play tests save to their own DataStores, never the live game's",
 }

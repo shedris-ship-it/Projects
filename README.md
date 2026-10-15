@@ -46,7 +46,7 @@ Then stop `rojo serve` and start it again, press **Connect** (or **Okay → Conn
 
 In **Game Settings** (after publishing the place once):
 
-- **Security → Enable Studio Access to API Services** so progress saves. Without it the game still runs, with memory-only profiles.
+- **Security → Enable Studio Access to API Services** so progress saves. Without it the game still runs, with memory-only profiles. Studio's play tests save to stores of their own (`ConsensusProfiles_v1_Studio`), so testing never touches a live player's profile, yours included.
 - **Communication → enable voice chat** if you want proximity voice. Text-only play is fully supported through pings, callouts and the say box.
 
 ### 4. Play it
