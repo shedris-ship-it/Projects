@@ -566,8 +566,13 @@ function DebugService:Run(player: Player, text: string)
 		table.sort(lines)
 		print("[debug] items:\n  " .. table.concat(lines, "\n  "))
 		reply(player, #lines .. " items (listed in Output)")
+	elseif command == "seen" then
+		-- `seen all`: the whole house on the map, as if someone had been
+		-- everywhere (Services/MapService:DebugSeeAll).
+		reply(player, services.MapService:DebugSeeAll() .. " rooms marked seen")
 	elseif command == "ui" then
-		-- Open a screen on your client: `ui map`, `ui journal`, `ui close`.
+		-- Open a screen on your client: `ui map|journal|note|dossier|settings|
+		-- title|toasts|close` (Controllers/UIController:_debugUi).
 		player:SetAttribute("DebugUi", (args[2] or "map") .. ":" .. os.clock())
 		reply(player, "ui " .. (args[2] or "map"))
 	elseif command == "leads" then

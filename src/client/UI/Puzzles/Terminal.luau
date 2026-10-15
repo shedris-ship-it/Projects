@@ -1,12 +1,19 @@
 -- The home computer's screen (Logic/Puzzles/Terminal): a memory dump of
 -- words and brackets; click a word to try it as the password, a matched
 -- bracket pair to remove a dud or get your tries back. UI/Puzzle hosts it.
+-- In the 1988 interface (V7) it's the set itself: a beige plastic bezel round
+-- a curved green screen, phosphor type that glows, scanlines over it.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Assets = require(ReplicatedStorage:WaitForChild("Shared").Assets)
 local Ui = require(script.Parent.Parent.Parent.Lib.Ui)
 
 local GREEN = Color3.fromRGB(110, 255, 140)
 local DIM = Color3.fromRGB(60, 150, 80)
 local SCREEN = Color3.fromRGB(8, 18, 11)
+local PLASTIC = Color3.fromRGB(206, 196, 172)
+local GLOW = 0.84 -- the phosphor's soft halo round each letter (a stroke of its own green)
 local CELL_W, CELL_H = 11, 22
 local COLUMN_CHARS = 7 + 12 -- "0xF4F0 " and twelve characters
 
@@ -20,8 +27,10 @@ local function cell(parent, x: number, y: number, text: string)
 		BackgroundTransparency = 1,
 		Text = text,
 		TextColor3 = GREEN,
-		Font = Enum.Font.Code,
-		TextSize = 18,
+		TextStrokeColor3 = GREEN,
+		TextStrokeTransparency = GLOW,
+		FontFace = Ui.Fonts.crt,
+		TextSize = 19,
 		Parent = parent,
 	})
 end
@@ -30,15 +39,72 @@ function Screen.build(host, open)
 	local view = open.view
 	local rows = #view.lines // 2
 	local dumpWidth = 2 * COLUMN_CHARS * CELL_W + 24
-	local panel = Ui.new("Frame", {
+	local width, height = dumpWidth + 300, rows * CELL_H + 150
+	-- The set: a beige plastic bezel, its badge and a lit LED.
+	local bezel = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(dumpWidth + 300, rows * CELL_H + 150),
-		BackgroundColor3 = SCREEN,
+		Size = UDim2.fromOffset(width + 76, height + 96),
+		BackgroundColor3 = PLASTIC,
 		Parent = host.gui,
-	}, { Ui.corner(14), Ui.stroke(Color3.fromRGB(196, 186, 162), 8, 0), Ui.padding(18) })
-	Ui.modal(panel)
-	open.panel = panel
+	}, {
+		Ui.corner(22),
+		Ui.stroke(Color3.fromRGB(120, 112, 96), 2, 0.2),
+		Ui.new("UIGradient", {
+			Rotation = 90,
+			Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(196, 192, 182)),
+		}),
+	})
+	Ui.modal(bezel)
+	open.panel = bezel
+	Ui.label("HOMEWARE 64", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 44, 1, -20),
+		Size = UDim2.fromOffset(240, 18),
+		TextSize = 14,
+		TextColor3 = Color3.fromRGB(104, 96, 82),
+		Parent = bezel,
+	})
+	Ui.new("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -48, 1, -26),
+		Size = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = Color3.fromRGB(120, 255, 120),
+		Parent = bezel,
+	}, { Ui.corner(4), Ui.stroke(Color3.fromRGB(60, 120, 60), 1, 0.3) })
+	-- The glass, curved at its corners; the dump and log on it.
+	local glass = Ui.new("Frame", {
+		Position = UDim2.fromOffset(38, 30),
+		Size = UDim2.fromOffset(width, height),
+		BackgroundColor3 = SCREEN,
+		ClipsDescendants = true,
+		Parent = bezel,
+	}, { Ui.corner(28), Ui.stroke(Color3.fromRGB(64, 60, 52), 6, 0) })
+	local panel = Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = glass,
+	}, { Ui.padding(20) })
+	-- Over everything on the glass: the scanlines, then the tube's dark edges.
+	Ui.new("ImageLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Image = Assets.Paper.Scanlines.image,
+		ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(Assets.Paper.Scanlines.tile, Assets.Paper.Scanlines.tile),
+		ImageTransparency = 0.2,
+		ZIndex = 10,
+		Parent = glass,
+	}, { Ui.corner(28) })
+	Ui.new("ImageLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Image = Assets.Lens.Vignette,
+		ImageColor3 = Color3.new(0, 0, 0),
+		ImageTransparency = 0.25,
+		ZIndex = 11,
+		Parent = glass,
+	}, { Ui.corner(28) })
 	local function line(y: number, text: string)
 		return Ui.new("TextLabel", {
 			Position = UDim2.fromOffset(0, y),
@@ -46,8 +112,10 @@ function Screen.build(host, open)
 			BackgroundTransparency = 1,
 			Text = text,
 			TextColor3 = GREEN,
-			Font = Enum.Font.Code,
-			TextSize = 18,
+			TextStrokeColor3 = GREEN,
+			TextStrokeTransparency = GLOW,
+			FontFace = Ui.Fonts.crt,
+			TextSize = 19,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = panel,
 		})
@@ -72,8 +140,8 @@ function Screen.build(host, open)
 			BackgroundTransparency = 1,
 			Text = row.address,
 			TextColor3 = DIM,
-			Font = Enum.Font.Code,
-			TextSize = 18,
+			FontFace = Ui.Fonts.crt,
+			TextSize = 19,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = dump,
 		})
@@ -153,8 +221,10 @@ function Screen.build(host, open)
 		BackgroundTransparency = 1,
 		Text = "",
 		TextColor3 = GREEN,
-		Font = Enum.Font.Code,
-		TextSize = 18,
+		TextStrokeColor3 = GREEN,
+		TextStrokeTransparency = GLOW,
+		FontFace = Ui.Fonts.crt,
+		TextSize = 19,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Bottom,
 		TextWrapped = true,
@@ -166,18 +236,24 @@ function Screen.build(host, open)
 		BackgroundTransparency = 1,
 		Text = ">",
 		TextColor3 = GREEN,
-		Font = Enum.Font.Code,
-		TextSize = 18,
+		TextStrokeColor3 = GREEN,
+		TextStrokeTransparency = GLOW,
+		FontFace = Ui.Fonts.crt,
+		TextSize = 19,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
 	})
-	Ui.button(host:BackText(), {
+	Ui.button("[" .. host:BackText() .. "]", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.fromScale(1, 1),
-		Size = UDim2.fromOffset(130, 34),
+		Size = UDim2.fromOffset(170, 30),
+		Plain = true,
 		BackgroundColor3 = SCREEN,
 		TextColor3 = GREEN,
-		Font = Enum.Font.Code,
+		TextStrokeColor3 = GREEN,
+		TextStrokeTransparency = GLOW,
+		FontFace = Ui.Fonts.crt,
+		TextSize = 19,
 		Parent = panel,
 	}, function()
 		host:Hide(true)

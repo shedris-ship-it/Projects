@@ -50,6 +50,9 @@ local StateController = {
 		tips = true, -- teaching in the house (UI/Tips)
 		crouchToggle = false, -- Ctrl toggles a crouch instead of holding it
 		hideBody = false, -- your legs and feet stay hidden in first person (Controllers/BodyController)
+		-- The 1988 interface shows stamina by your breath and the edges of your
+		-- sight, and the torch's charge on its beam (V7); this shows the meters too.
+		showMeters = false,
 		seenIntro = false,
 	},
 }

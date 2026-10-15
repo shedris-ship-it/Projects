@@ -1,6 +1,8 @@
 -- First-launch screen and settings (doc section 8, "UI and accessibility"):
 -- graphics presets, film grain, reduce flicker, lens flares, subtitles,
--- colour-blind-safe pings, FOV and volume. Also explains how to play.
+-- colour-blind-safe pings, the meters, FOV and volume. Also explains how to
+-- play. In the 1988 interface (V7): two typed sheets, the how-to and a form
+-- you tick.
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,68 +39,127 @@ local HOW_TO = table.concat({
 	"   Caught, you're down: a friend has 30 seconds to hold E on you. Talk: Tab is the map, G pings.",
 }, "\n")
 
+-- Laid out at this size; Ui.fit shrinks it on a small screen.
+local WIDTH, HEIGHT = 980, 690
+local ROW = 25
+local INSET = 34 -- the paper's worn edge
+
 function Settings.new(ctx)
 	local self = setmetatable({ ctx = ctx }, Settings)
 	local gui = Ui.screen("ConsensusSettings", 70, ctx.playerGui)
 	gui.Enabled = false
 	self.gui = gui
-	local panel = Ui.new("Frame", {
+	Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.35,
+		Parent = gui,
+	})
+	local root = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(860, 640),
-		BackgroundColor3 = Ui.Theme.panel,
-		Parent = gui,
-	}, { Ui.corner(10), Ui.stroke(Ui.Theme.accent, 1, 0.4), Ui.padding(20) })
-	Ui.modal(panel)
-	Ui.label("BEFORE YOU GO IN", {
-		Size = UDim2.new(1, 0, 0, 32),
-		Font = Ui.Theme.fontType,
-		TextSize = 28,
-		TextColor3 = Ui.Theme.accent,
-		Parent = panel,
-	})
-	Ui.label(HOW_TO, {
-		Position = UDim2.fromOffset(0, 40),
-		Size = UDim2.new(0.55, -10, 0, 300),
-		TextSize = 14,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Parent = panel,
-	})
-	Ui.label("CONTROLS", {
-		Position = UDim2.fromOffset(0, 346),
-		Size = UDim2.new(0.55, -10, 0, 22),
-		Font = Ui.Theme.fontType,
-		TextSize = 18,
-		TextColor3 = Ui.Theme.accent,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = panel,
-	})
-	Ui.label(CONTROLS, {
-		Position = UDim2.fromOffset(0, 370),
-		Size = UDim2.new(0.55, -10, 1, -420),
-		TextSize = 12,
-		TextWrapped = true,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		TextColor3 = Ui.Theme.textDim,
-		Parent = panel,
-	})
-	Ui.label('Photosensitivity: this game uses flickering lights. Turn on "Reduce flicker" if you need to.', {
-		Position = UDim2.new(0, 0, 1, -44),
-		Size = UDim2.new(0.55, -10, 0, 40),
-		TextSize = 12,
-		TextColor3 = Ui.Theme.warn,
-		Parent = panel,
-	})
-	local column = Ui.new("Frame", {
-		Position = UDim2.new(0.55, 10, 0, 40),
-		Size = UDim2.new(0.45, -10, 1, -40),
+		Size = UDim2.fromOffset(WIDTH, HEIGHT),
 		BackgroundTransparency = 1,
-		Parent = panel,
-	}, { Ui.list(5) })
-	-- Every row this tall, so two choices, nine toggles, six sliders and Done
-	-- fit the panel (2026-10-12: with "Hide your own body" the column ran off
-	-- its foot; then the graphics presets came).
-	local ROW = 25
+		Parent = gui,
+	})
+	Ui.fit(root, WIDTH, HEIGHT)
+	Ui.modal(root)
+
+	-- The left sheet: how to play and the keys, typed.
+	local _, how = Ui.paper("Sheet", {
+		Size = UDim2.fromOffset(540, HEIGHT),
+		Rotation = -0.8,
+		Parent = root,
+	})
+	local page = Ui.new("Frame", {
+		Position = UDim2.fromOffset(INSET, INSET - 6),
+		Size = UDim2.new(1, -INSET * 2, 1, -INSET * 2 + 6),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = how,
+	})
+	Ui.title("Before you go in", { Size = UDim2.new(1, 0, 0, 40), TextSize = 34, ZIndex = 3, Parent = page })
+	Ui.rule(page, 42, Ui.Theme.type, 0.6).ZIndex = 3
+	self.howTo = Ui.typed(HOW_TO, {
+		Position = UDim2.fromOffset(0, 52),
+		Size = UDim2.new(1, 0, 0, 372),
+		TextSize = 15,
+		LineHeight = 1.05,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
+		Parent = page,
+	})
+	Ui.typed("THE KEYS", {
+		Position = UDim2.fromOffset(0, 432),
+		Size = UDim2.new(1, 0, 0, 20),
+		TextSize = 16,
+		ZIndex = 3,
+		Parent = page,
+	})
+	self.controls = Ui.typed(CONTROLS, {
+		Position = UDim2.fromOffset(0, 456),
+		Size = UDim2.new(1, 0, 0, 132),
+		TextSize = 12,
+		TextColor3 = Ui.Theme.typeDim,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
+		Parent = page,
+	})
+	-- (A note in red pencil in the margin.)
+	Ui.hand('Photosensitivity: this game uses flickering lights. Turn on "Reduce flicker" if you need to.', {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 44),
+		TextSize = 21,
+		LineHeight = 0.9,
+		TextColor3 = Ui.Theme.red,
+		ZIndex = 3,
+		Parent = page,
+	})
+
+	-- The right sheet: a typed form, ticked.
+	local _, form = Ui.paper("Sheet", {
+		Position = UDim2.fromOffset(556, 4),
+		Size = UDim2.fromOffset(WIDTH - 556, HEIGHT - 8),
+		Rotation = 0.9,
+		Parent = root,
+	})
+	local sheet = Ui.new("Frame", {
+		Position = UDim2.fromOffset(INSET - 4, INSET - 8),
+		Size = UDim2.new(1, -INSET * 2 + 8, 1, -INSET * 2 + 8),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = form,
+	})
+	Ui.title("Settings", { Size = UDim2.new(1, 0, 0, 40), TextSize = 34, ZIndex = 3, Parent = sheet })
+	Ui.typed("FORM 88-2  ·  tick what you need", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 16),
+		Size = UDim2.fromOffset(220, 16),
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Ui.Theme.typeDim,
+		ZIndex = 3,
+		Parent = sheet,
+	})
+	Ui.rule(sheet, 42, Ui.Theme.type, 0.6).ZIndex = 3
+	local column = Ui.new("Frame", {
+		Position = UDim2.fromOffset(0, 50),
+		Size = UDim2.new(1, 0, 1, -50),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = sheet,
+	}, { Ui.list(3) })
+	local function line(text: string, order: number, onClick)
+		return Ui.paperButton(text, {
+			LayoutOrder = order,
+			Size = UDim2.new(1, 0, 0, ROW),
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 3,
+			Parent = column,
+		}, onClick)
+	end
 	-- Choices cycle on a click (the visual rework: Logic/GraphicsPreset).
 	self.choices = {}
 	for i, option in
@@ -107,14 +168,10 @@ function Settings.new(ctx)
 			{ key = "grain", label = "Film grain", next = GraphicsPreset.nextGrain },
 		}
 	do
-		local button = Ui.button(
-			"",
-			{ LayoutOrder = -10 + i, Size = UDim2.new(1, 0, 0, ROW), TextSize = 14, Parent = column },
-			function()
-				ctx.state:SetSetting(option.key, option.next(ctx.state.settings[option.key]))
-				self:Render()
-			end
-		)
+		local button = line("", -10 + i, function()
+			ctx.state:SetSetting(option.key, option.next(ctx.state.settings[option.key]))
+			self:Render()
+		end)
 		self.choices[option.key] = { button = button, label = option.label }
 	end
 	self.toggles = {}
@@ -125,20 +182,29 @@ function Settings.new(ctx)
 			{ key = "subtitles", label = "Subtitles for sound cues" },
 			{ key = "colorblind", label = "Colour-blind-safe pings" },
 			{ key = "centerDot", label = "Centre dot (aiming aid)" },
+			{ key = "showMeters", label = "Show meters (stamina, torch, tools)" },
 			{ key = "tips", label = "Show tips in the house" },
 			{ key = "crouchToggle", label = "Ctrl toggles crouch (off: hold)" },
 			{ key = "hideBody", label = "Hide your own body (first person)" },
 		}
 	do
-		local button = Ui.button(
-			"",
-			{ LayoutOrder = i, Size = UDim2.new(1, 0, 0, ROW), TextSize = 14, Parent = column },
-			function()
-				ctx.state:SetSetting(option.key, not ctx.state.settings[option.key])
-				self:Render()
-			end
-		)
-		self.toggles[option.key] = { button = button, label = option.label }
+		local button = line(option.label, i, function()
+			ctx.state:SetSetting(option.key, not ctx.state.settings[option.key])
+			self:Render()
+		end)
+		-- A box typed on the form, an X typed in it (its own column, so the
+		-- words line up ticked or not).
+		Ui.new("UIPadding", { PaddingLeft = UDim.new(0, 36), Parent = button })
+		local box = Ui.typed("", {
+			Position = UDim2.fromOffset(-36, 0),
+			Size = UDim2.fromOffset(30, ROW),
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 3,
+			Parent = button,
+		})
+		self.toggles[option.key] = { button = button, box = box }
 	end
 	self.sliders = {}
 	for i, option in
@@ -151,11 +217,20 @@ function Settings.new(ctx)
 			{ key = "musicVolume", label = "Music volume", min = 0, max = 1, step = 0.1 },
 		}
 	do
-		local row = Ui.new(
-			"Frame",
-			{ LayoutOrder = 10 + i, Size = UDim2.new(1, 0, 0, ROW), BackgroundTransparency = 1, Parent = column }
-		)
-		local label = Ui.label("", { Size = UDim2.new(1, -90, 1, 0), TextSize = 14, Parent = row })
+		local row = Ui.new("Frame", {
+			LayoutOrder = 10 + i,
+			Size = UDim2.new(1, 0, 0, ROW),
+			BackgroundTransparency = 1,
+			ZIndex = 3,
+			Parent = column,
+		})
+		local label = Ui.typed("", {
+			Size = UDim2.new(1, -76, 1, 0),
+			TextSize = 15,
+			TextYAlignment = Enum.TextYAlignment.Center,
+			ZIndex = 3,
+			Parent = row,
+		})
 		local function nudge(direction)
 			local value = ctx.state.settings[option.key] or option.min
 			value = math.clamp(
@@ -166,29 +241,35 @@ function Settings.new(ctx)
 			ctx.state:SetSetting(option.key, value)
 			self:Render()
 		end
-		Ui.button("−", {
+		Ui.paperButton("[-]", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -46, 0, 0),
-			Size = UDim2.fromOffset(40, ROW),
+			Position = UDim2.new(1, -38, 0, 0),
+			Size = UDim2.fromOffset(36, ROW),
+			TextSize = 15,
+			ZIndex = 3,
 			Parent = row,
 		}, function()
 			nudge(-1)
 		end)
-		Ui.button("+", {
+		Ui.paperButton("[+]", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, 0, 0, 0),
-			Size = UDim2.fromOffset(40, ROW),
+			Size = UDim2.fromOffset(36, ROW),
+			TextSize = 15,
+			ZIndex = 3,
 			Parent = row,
 		}, function()
 			nudge(1)
 		end)
 		self.sliders[option.key] = { label = label, text = option.label }
 	end
-	Ui.button("Done", {
-		LayoutOrder = 99,
-		Size = UDim2.new(1, 0, 0, 36),
-		BackgroundColor3 = Color3.fromRGB(70, 56, 36),
-		Parent = column,
+	Ui.paperButton("Done", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, 0, 1, 2),
+		Size = UDim2.fromOffset(110, 34),
+		TextSize = 22,
+		ZIndex = 3,
+		Parent = sheet,
 	}, function()
 		self:Close()
 	end)
@@ -215,17 +296,15 @@ function Settings:Render()
 		else
 			value = GraphicsPreset.GrainNames[settings.grain or 2] or "Film"
 		end
-		choice.button.Text = choice.label .. ":  " .. value
-		choice.button.BackgroundColor3 = Ui.Theme.panelLight
+		choice.button.Text = choice.label .. ":  " .. value .. "  >"
 	end
 	for key, toggle in self.toggles do
-		toggle.button.Text = toggle.label .. ":  " .. (settings[key] and "ON" or "off")
-		toggle.button.BackgroundColor3 = settings[key] and Color3.fromRGB(70, 90, 70) or Ui.Theme.panelLight
+		toggle.box.Text = settings[key] and "[X]" or "[  ]"
 	end
 	for key, slider in self.sliders do
 		local value = settings[key]
 		slider.label.Text = string.format(
-			"%s: %s",
+			"%s:  %s",
 			slider.text,
 			key == "fov" and tostring(value) or (math.floor((value or 0) * 100 + 0.5) .. "%")
 		)

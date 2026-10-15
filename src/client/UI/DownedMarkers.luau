@@ -46,7 +46,9 @@ function DownedMarkers:_build(other: Player)
 		BackgroundColor3 = Ui.Theme.danger,
 		Parent = frame,
 	}, { Ui.stroke(Color3.new(0, 0, 0), 1, 0.3) })
+	-- (The arrow keeps a face that has it: the typed one may not.)
 	local arrow = Ui.label("▲", {
+		Font = Enum.Font.GothamMedium,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.22),
 		Size = UDim2.fromOffset(30, 30),

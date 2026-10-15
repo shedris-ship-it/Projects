@@ -126,6 +126,7 @@ function Screen.build(host, open)
 	for k = 1, view.keys do
 		local key = Ui.button(tostring(k), {
 			Size = UDim2.fromOffset(62, 178),
+			Plain = true,
 			BackgroundColor3 = IVORY,
 			TextColor3 = Color3.fromRGB(110, 100, 86),
 			TextSize = 20,

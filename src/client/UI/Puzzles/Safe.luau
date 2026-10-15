@@ -29,7 +29,6 @@ function Screen.build(host, open)
 	open.panel = panel
 	Ui.label("WALL SAFE", {
 		Size = UDim2.new(1, 0, 0, 26),
-		Font = Ui.Theme.fontType,
 		TextSize = 24,
 		TextColor3 = FACE,
 		Parent = panel,
@@ -62,7 +61,6 @@ function Screen.build(host, open)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.new(0.5, math.sin(angle) * 96, 0.5, -math.cos(angle) * 96),
 			Size = UDim2.fromOffset(30, 20),
-			Font = Enum.Font.Code,
 			TextSize = 16,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = INK,
@@ -82,7 +80,6 @@ function Screen.build(host, open)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(80, 50),
-		Font = Enum.Font.Code,
 		TextSize = 40,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		TextColor3 = INK,
@@ -105,12 +102,12 @@ function Screen.build(host, open)
 			open.nextTurn = 0
 		end
 	end
-	local left = Ui.button("◀  Left", {
+	local left = Ui.button("<  Left", {
 		Position = UDim2.fromOffset(0, 344),
 		Size = UDim2.new(0.33, -6, 0, 44),
 		Parent = panel,
 	})
-	local right = Ui.button("Right  ▶", {
+	local right = Ui.button("Right  >", {
 		Position = UDim2.new(0.33, 3, 0, 344),
 		Size = UDim2.new(0.34, -6, 0, 44),
 		Parent = panel,

@@ -11,6 +11,12 @@
 -- pencil tick on a room with nothing the run needs left in it, a ring round
 -- what's been seen and not yet done, the rooms of a floor whose house plans
 -- someone has read (outlined, named), and who carries what.
+--
+-- The 1988 interface (V7): the map is a plan pencilled on graph paper (rooms
+-- outlined in graphite and named by hand, locks and marks in coloured
+-- pencil, where you stand in red, the room you're in highlighted), the
+-- journal a page of a ring-bound notebook in ballpoint. The objective's slip
+-- is taped to the header.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,6 +24,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared.Constants)
+local Assets = require(Shared.Assets)
 local GuestMood = require(Shared.Logic.GuestMood)
 local Net = require(Shared.Net)
 local Ui = require(script.Parent.Parent.Lib.Ui)
@@ -34,36 +41,41 @@ local MIN_ROOM_PIXELS = 56 -- the smallest room on the map, across its shorter s
 
 local STOREY_NAMES = { [-1] = "Cellar", [0] = "Ground floor", [1] = "Upper floor", [2] = "Attic" }
 
+-- Coloured pencils on graph paper (V7): dark enough to read on it.
+local PENCIL = Ui.Theme.pencil
+local RED = Ui.Theme.red
 local DOORS = {
-	door = { color = Color3.fromRGB(150, 140, 120) },
-	unknown = { color = Color3.fromRGB(150, 140, 120) },
-	key = { color = Color3.fromRGB(196, 74, 60), tag = "KEY" },
-	double = { color = Color3.fromRGB(196, 74, 60), tag = "2 KEYS" },
-	padlock = { color = Color3.fromRGB(214, 150, 60), tag = "CODE" },
-	bolt = { color = Color3.fromRGB(120, 140, 190), tag = "BOLT" },
-	power = { color = Color3.fromRGB(230, 200, 70), tag = "POWER" },
-	crank = { color = Color3.fromRGB(180, 150, 120), tag = "CRANK" },
-	levers = { color = Color3.fromRGB(210, 170, 90), tag = "2 LEVERS" },
+	door = { color = PENCIL },
+	unknown = { color = PENCIL },
+	key = { color = RED, tag = "KEY" },
+	double = { color = RED, tag = "2 KEYS" },
+	padlock = { color = Color3.fromRGB(180, 92, 18), tag = "CODE" },
+	bolt = { color = Ui.Theme.pen, tag = "BOLT" },
+	power = { color = Color3.fromRGB(150, 116, 0), tag = "POWER" },
+	crank = { color = Color3.fromRGB(110, 78, 46), tag = "CRANK" },
+	levers = { color = Color3.fromRGB(150, 104, 24), tag = "2 LEVERS" },
 	-- Tool locks (docs/plans/level-design.md section 11, L3.3).
-	boards = { color = Color3.fromRGB(150, 110, 70), tag = "BOARDS" },
-	chain = { color = Color3.fromRGB(160, 160, 170), tag = "CHAIN" },
+	boards = { color = Color3.fromRGB(116, 70, 36), tag = "BOARDS" },
+	chain = { color = Color3.fromRGB(80, 84, 96), tag = "CHAIN" },
 }
 local MARKS = {
-	terminal = { text = "PC", color = Color3.fromRGB(120, 200, 150) },
-	display = { text = "CASE", color = Color3.fromRGB(170, 200, 220) },
-	breaker = { text = "FUSES", color = Color3.fromRGB(230, 200, 70) },
-	safe = { text = "SAFE", color = Color3.fromRGB(200, 200, 210) },
-	musicbox = { text = "PIANO", color = Color3.fromRGB(220, 190, 230) },
-	tunebox = { text = "MUSIC BOX", color = Color3.fromRGB(220, 190, 230) },
-	crank = { text = "CRANK", color = Color3.fromRGB(180, 150, 120) },
-	levers = { text = "LEVER", color = Color3.fromRGB(210, 170, 90) },
-	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(190, 170, 140) },
+	terminal = { text = "PC", color = Color3.fromRGB(30, 110, 70) },
+	display = { text = "CASE", color = Color3.fromRGB(40, 88, 130) },
+	breaker = { text = "FUSES", color = Color3.fromRGB(150, 116, 0) },
+	safe = { text = "SAFE", color = Color3.fromRGB(70, 72, 84) },
+	musicbox = { text = "PIANO", color = Color3.fromRGB(112, 58, 130) },
+	tunebox = { text = "MUSIC BOX", color = Color3.fromRGB(112, 58, 130) },
+	crank = { text = "CRANK", color = Color3.fromRGB(110, 78, 46) },
+	levers = { text = "LEVER", color = Color3.fromRGB(150, 104, 24) },
+	dumbwaiter = { text = "LIFT", color = Color3.fromRGB(110, 88, 58) },
 	-- A step's chest or fridge, chained or nailed shut (its label says which).
-	piece = { text = "SHUT", color = Color3.fromRGB(170, 160, 150) },
+	piece = { text = "SHUT", color = Color3.fromRGB(96, 88, 80) },
 	-- A corridor's landmark (its label is its name: "Stag's head").
-	landmark = { text = "LANDMARK", color = Color3.fromRGB(200, 186, 150) },
+	landmark = { text = "LANDMARK", color = Color3.fromRGB(96, 86, 66) },
 }
-local TICK = Color3.fromRGB(150, 205, 150)
+local TICK = Ui.Theme.goodInk
+local GOLD = Color3.fromRGB(160, 112, 14) -- the table, the heirlooms
+local HIGHLIGHT = Color3.fromRGB(250, 236, 92) -- a highlighter on the room you're in
 
 function Map.new(ctx)
 	-- `floor`: the storey on show (the squad playtest, 2026-10-10: one floor
@@ -72,75 +84,107 @@ function Map.new(ctx)
 	local gui = Ui.screen("ConsensusMap", 40, ctx.playerGui)
 	gui.Enabled = false
 	self.gui = gui
-	local panel = Ui.new("Frame", {
+	Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.4,
+		Parent = gui,
+	})
+	-- The paper: graph paper for the map, a notebook page for the journal
+	-- (Map:Render swaps it).
+	local holder, sheet = Ui.paper("Graph", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(0.86, 0, 0.82, 0),
-		BackgroundColor3 = Ui.Theme.panel,
-		BackgroundTransparency = 0.05,
+		-- (Square: a turned frame stops clipping its scrolling body.)
 		Parent = gui,
-	}, {
-		Ui.corner(10),
-		Ui.stroke(Ui.Theme.accent, 1, 0.5),
-		Ui.new("UISizeConstraint", { MaxSize = Vector2.new(1100, 720) }),
 	})
-	Ui.modal(panel)
-	self.title = Ui.label("MAP", {
-		Position = UDim2.fromOffset(20, 12),
-		Size = UDim2.fromOffset(300, 28),
-		Font = Ui.Theme.fontType,
-		TextSize = 26,
-		TextColor3 = Ui.Theme.accent,
+	Ui.new("UISizeConstraint", { MaxSize = Vector2.new(1100, 720), Parent = holder })
+	self.sheet = sheet
+	Ui.modal(holder)
+	local panel = Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = sheet,
+	})
+	self.title = Ui.title("Map", {
+		Position = UDim2.fromOffset(24, 8),
+		Size = UDim2.fromOffset(300, 36),
+		TextSize = 32,
 		Parent = panel,
 	})
-	self.summary = Ui.label("", {
-		Position = UDim2.new(0, 20, 0, 42),
-		Size = UDim2.new(1, -300, 0, 20),
+	self.summary = Ui.typed("", {
+		Position = UDim2.new(0, 24, 0, 46),
+		Size = UDim2.new(0.5, -40, 0, 18),
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		TextSize = 14,
-		TextColor3 = Ui.Theme.textDim,
+		TextSize = 13,
+		TextColor3 = Ui.Theme.typeDim,
 		Parent = panel,
 	})
+	-- The objective's slip, taped to the header.
+	local slipHolder, slip = Ui.paper("Slip", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -236, 0, 8),
+		Size = UDim2.fromOffset(330, 62),
+		Rotation = 1.2,
+		Parent = panel,
+	}, false)
+	self.objective = Ui.hand("", {
+		Position = UDim2.fromOffset(16, 6),
+		Size = UDim2.new(1, -28, 1, -12),
+		TextScaled = true,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 3,
+		Parent = slip,
+	})
+	Ui.new("UITextSizeConstraint", { MaxTextSize = 23, MinTextSize = 13, Parent = self.objective })
+	Ui.tape(slipHolder, UDim2.new(0, 10, 0, 6), -30, 56)
+	self.objectiveSlip = slipHolder
 	local tabs = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -20, 0, 14),
-		Size = UDim2.fromOffset(360, 32),
+		Position = UDim2.new(1, -20, 0, 10),
+		Size = UDim2.fromOffset(200, 30),
 		BackgroundTransparency = 1,
 		Parent = panel,
-	}, { Ui.list(8, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
+	}, { Ui.list(6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
+	self.tabButtons = {}
 	for _, name in { "Map", "Journal" } do
-		Ui.button(name, { Size = UDim2.fromOffset(100, 30), TextSize = 14, Parent = tabs }, function()
-			self.tab = name
-			self:Render()
-		end)
+		self.tabButtons[name] = Ui.paperButton(
+			name,
+			{ Size = UDim2.fromOffset(94, 30), TextSize = 19, Parent = tabs },
+			function()
+				self.tab = name
+				self:Render()
+			end
+		)
 	end
 	-- Up and down a floor (also the arrow keys, or the shoulder buttons).
 	self.floorBar = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -20, 0, 44),
-		Size = UDim2.fromOffset(250, 22),
+		Size = UDim2.fromOffset(220, 24),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = panel,
-	}, { Ui.list(6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
-	self.floorDown = Ui.button(
-		"Down",
-		{ Size = UDim2.fromOffset(56, 22), TextSize = 12, LayoutOrder = 1, Parent = self.floorBar },
+	}, { Ui.list(4, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
+	self.floorDown = Ui.paperButton(
+		"< down",
+		{ Size = UDim2.fromOffset(60, 24), TextSize = 14, LayoutOrder = 1, Parent = self.floorBar },
 		function()
 			self:Flip(-1)
 		end
 	)
-	self.floorName = Ui.label("", {
-		Size = UDim2.fromOffset(120, 22),
-		TextSize = 14,
-		Font = Ui.Theme.fontBold,
+	self.floorName = Ui.hand("", {
+		Size = UDim2.fromOffset(110, 24),
+		TextSize = 23,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		LayoutOrder = 2,
 		Parent = self.floorBar,
 	})
-	self.floorUp = Ui.button(
-		"Up",
-		{ Size = UDim2.fromOffset(56, 22), TextSize = 12, LayoutOrder = 3, Parent = self.floorBar },
+	self.floorUp = Ui.paperButton(
+		"up >",
+		{ Size = UDim2.fromOffset(50, 24), TextSize = 14, LayoutOrder = 3, Parent = self.floorBar },
 		function()
 			self:Flip(1)
 		end
@@ -157,10 +201,12 @@ function Map.new(ctx)
 		end
 	end)
 	self.body = Ui.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(20, 72),
-		Size = UDim2.new(1, -40, 1, -92),
+		Position = UDim2.fromOffset(24, 78),
+		Size = UDim2.new(1, -48, 1, -98),
 		BackgroundTransparency = 1,
-		ScrollBarThickness = 6,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = Ui.Theme.type,
+		ScrollBarImageTransparency = 0.5,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.XY,
 		Parent = panel,
@@ -217,8 +263,30 @@ end
 
 function Map:Render()
 	self:_clear()
-	self.title.Text = string.upper(self.tab)
+	self.title.Text = self.tab
 	self.floorBar.Visible = false
+	-- The paper for the tab, and the tab you're on underlined in red.
+	local journal = self.tab == "Journal"
+	local paper = Assets.Paper[journal and "Notebook" or "Graph"]
+	self.sheet.Image = paper.image
+	self.sheet.ScaleType = journal and Enum.ScaleType.Stretch or Enum.ScaleType.Tile
+	if not journal then
+		self.sheet.TileSize = UDim2.fromOffset(paper.tile, paper.tile)
+	end
+	for name, button in self.tabButtons do
+		button.TextColor3 = name == self.tab and Ui.Theme.red or Ui.Theme.type
+	end
+	-- (On the notebook the writing starts right of its red margin, drawn at
+	-- 110 of its 768 pixels.)
+	local left = journal and UDim.new(110 / 768, 16) or UDim.new(0, 24)
+	self.title.Position = UDim2.new(left, UDim.new(0, 8))
+	self.summary.Position = UDim2.new(left, UDim.new(0, 46))
+	self.summary.Size = UDim2.new(UDim.new(0.5 - left.Scale, -left.Offset - 34), UDim.new(0, 18))
+	self.body.Position = UDim2.new(left, UDim.new(0, 78))
+	self.body.Size = UDim2.new(UDim.new(1 - left.Scale, -left.Offset - 24), UDim.new(1, -98))
+	local objective = self.ctx.state:Run(Constants.RunState.Objective) or ""
+	self.objective.Text = objective
+	self.objectiveSlip.Visible = objective ~= ""
 	if self.tab == "Journal" then
 		self:_renderJournal()
 	else
@@ -251,7 +319,7 @@ function Map:_renderMap()
 	local state = self.state
 	self.summary.Text = self:_summary(state)
 	if not layout or not state then
-		Ui.label("No map yet.", { Size = UDim2.fromOffset(300, 20), Parent = self.body })
+		Ui.hand("No map yet.", { Size = UDim2.fromOffset(300, 24), Parent = self.body })
 		return
 	end
 	local ox, oz = layout.origin[1], layout.origin[3]
@@ -302,7 +370,7 @@ function Map:_renderMap()
 		table.insert(shown, byId[id])
 	end
 	if #shown == 0 then
-		Ui.label("Nowhere yet.", { Size = UDim2.fromOffset(300, 20), Parent = self.body })
+		Ui.hand("Nowhere yet.", { Size = UDim2.fromOffset(300, 24), Parent = self.body })
 		return
 	end
 	-- The rooms on the map set the scale (the outside playtest's map clipped
@@ -415,14 +483,7 @@ function Map:_renderMap()
 	end
 	if tableX and tableY then
 		local x, y = tableX, tableY
-		self:_dot(
-			canvas,
-			x,
-			y,
-			14,
-			Color3.fromRGB(230, 200, 120),
-			string.format("table %d/%d", state.table.set, state.table.places)
-		)
+		self:_dot(canvas, x, y, 14, GOLD, string.format("table %d/%d", state.table.set, state.table.places))
 	end
 	for _, door in state.doors do
 		local look = DOORS[door.kind] or DOORS.door
@@ -444,13 +505,15 @@ function Map:_renderMap()
 			Parent = canvas,
 		})
 		if look.tag then
-			Ui.label(look.tag .. (door.label and (" " .. door.label) or ""), {
+			Ui.hand(look.tag .. (door.label and (" " .. door.label) or ""), {
 				AnchorPoint = Vector2.new(0.5, 0),
 				Position = UDim2.fromOffset(x, y + 6),
-				Size = UDim2.fromOffset(120, 12),
-				TextSize = 10,
+				Size = UDim2.fromOffset(150, 19),
+				FontFace = Ui.Fonts.handBold,
+				TextSize = 17,
 				TextXAlignment = Enum.TextXAlignment.Center,
 				TextColor3 = look.color,
+				ZIndex = 4,
 				Parent = canvas,
 			})
 		end
@@ -460,16 +523,16 @@ function Map:_renderMap()
 		if not x or not y then
 			continue
 		end
-		self:_dot(canvas, x, y, 8, Color3.fromRGB(230, 222, 196), "note")
+		self:_dot(canvas, x, y, 8, Ui.Theme.pen, "note")
 	end
 	for _, item in state.items do
 		local x, y = toMap(item.x, item.z, item.floor)
 		if not x or not y then
 			continue
 		end
-		local color = item.kind == "heirloom" and Color3.fromRGB(230, 200, 120)
-			or item.kind == "valuable" and Color3.fromRGB(196, 204, 216)
-			or Color3.fromRGB(214, 180, 90)
+		local color = item.kind == "heirloom" and GOLD
+			or item.kind == "valuable" and Color3.fromRGB(70, 84, 110)
+			or Color3.fromRGB(136, 96, 16)
 		self:_dot(canvas, x, y, 8, color, item.label)
 	end
 	for _, mark in state.marks do
@@ -479,7 +542,7 @@ function Map:_renderMap()
 		if not x or not y then
 			continue
 		end
-		local color = mark.done and Ui.Theme.textDim or look.color
+		local color = mark.done and Ui.Theme.typeDim or look.color
 		if not mark.done and mark.kind ~= "landmark" then
 			self:_ring(canvas, x, y, 18, color)
 		end
@@ -489,7 +552,7 @@ function Map:_renderMap()
 	for _, down in state.downed do
 		local x, y = toMap(down.x, down.z, down.floor)
 		if x and y then
-			self:_dot(canvas, x, y, 12, Color3.fromRGB(220, 60, 50), down.name .. " is down")
+			self:_dot(canvas, x, y, 12, RED, down.name .. " is down")
 		else
 			local where = STOREY_NAMES[down.floor or 0] or "another floor"
 			table.insert(elsewhere, down.name .. " is down (" .. string.lower(where) .. ")")
@@ -514,25 +577,25 @@ function Map:_renderMap()
 			Ui.new("Frame", {
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = UDim2.fromOffset(x + facing.X * 7, y + facing.Y * 7),
-				Size = UDim2.fromOffset(12, 3),
-				BackgroundColor3 = Ui.Theme.accent,
+				Size = UDim2.fromOffset(13, 3),
+				BackgroundColor3 = RED,
 				BorderSizePixel = 0,
 				Rotation = math.deg(math.atan2(facing.Y, facing.X)),
+				ZIndex = 4,
 				Parent = canvas,
 			})
 		end
-		self:_dot(canvas, x, y, 10, Ui.Theme.accent, "you")
+		self:_dot(canvas, x, y, 11, RED, "you")
 	end
-	Ui.label(
+	Ui.typed(
 		"Diamonds: doorways; a ring: seen, not done yet.  A tick: nothing left there.  note: read here.  At the table: places set.",
 		{
 			Position = UDim2.fromOffset(0, rowPixels * rows + 4),
 			-- (A small floor, the attic's, is narrower than the line: it wraps.)
 			Size = UDim2.fromOffset(math.max(width * scale, 360), 18),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			TextWrapped = true,
 			TextSize = 12,
-			TextColor3 = Ui.Theme.textDim,
+			TextColor3 = Ui.Theme.typeDim,
 			Parent = canvas,
 		}
 	)
@@ -541,10 +604,14 @@ end
 function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, minX, minZ, left, top, o)
 	local x0, z0 = left + (room.x - minX) * scale, top + (room.z - minZ) * scale
 	local isHere = here and here.id == room.id
-	local color = isHere and Ui.Theme.accent or (room.lantern and Color3.fromRGB(90, 70, 40) or Ui.Theme.panelLight)
+	-- Pencilled on the graph paper: an outline in graphite, the room you're in
+	-- gone over with a highlighter, a lantern's room shaded, a done room's
+	-- outline lighter.
+	local fill = isHere and HIGHLIGHT or PENCIL
+	local fillAlpha = isHere and 0.78 or (room.lantern and 0.84 or 0.94)
 	if not entered then
 		-- Glimpsed through a doorway: there's a room, nobody knows what. From
-		-- the house plans: its outline and its name, faint.
+		-- the house plans: its outline in blue pencil and its name, faint.
 		Ui.new("TextLabel", {
 			Position = UDim2.fromOffset(x0 + 2, z0 + 2),
 			Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
@@ -552,16 +619,16 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 			Text = o.planned and room.name or "",
 			TextWrapped = true,
 			TextScaled = room.w * scale < 70,
-			TextSize = 11,
+			TextSize = 17,
 			TextYAlignment = Enum.TextYAlignment.Top,
-			Font = Ui.Theme.font,
-			TextColor3 = Ui.Theme.textDim,
-			TextTransparency = 0.35,
+			FontFace = Ui.Fonts.hand,
+			TextColor3 = o.planned and Ui.Theme.pen or PENCIL,
+			TextTransparency = 0.3,
 			Parent = canvas,
 		}, {
-			Ui.corner(4),
-			Ui.stroke(o.planned and Color3.fromRGB(120, 150, 200) or Ui.Theme.textDim, 1, 0.6),
-			Ui.new("UITextSizeConstraint", { MaxTextSize = 11, MinTextSize = 7 }),
+			Ui.corner(2),
+			Ui.stroke(o.planned and Ui.Theme.pen or PENCIL, 1, o.planned and 0.45 or 0.65),
+			Ui.new("UITextSizeConstraint", { MaxTextSize = 17, MinTextSize = 10 }),
 			Ui.padding(3),
 		})
 		return
@@ -580,9 +647,10 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 			Ui.new("Frame", {
 				Position = UDim2.fromOffset(x0 + strip[1] + 2, z0 + strip[2] + 2),
 				Size = UDim2.fromOffset(math.max(1, strip[3] - 4), math.max(1, strip[4] - 4)),
-				BackgroundColor3 = color,
+				BackgroundColor3 = fill,
+				BackgroundTransparency = fillAlpha,
 				Parent = canvas,
-			}, { Ui.corner(3) })
+			}, { Ui.stroke(PENCIL, 1.5, 0.2) })
 		end
 		return
 	end
@@ -597,24 +665,30 @@ function Map:_room(canvas, room, floor: number, entered: boolean, here, scale, m
 	Ui.new("TextLabel", {
 		Position = UDim2.fromOffset(x0 + 2, z0 + 2),
 		Size = UDim2.fromOffset(room.w * scale - 4, room.d * scale - 4),
-		BackgroundColor3 = color,
-		BackgroundTransparency = (o.done and not isHere) and 0.45 or 0.15,
+		BackgroundColor3 = fill,
+		BackgroundTransparency = fillAlpha,
 		Text = room.name .. tag,
 		TextWrapped = true,
-		TextSize = 11,
+		TextSize = 20,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextYAlignment = Enum.TextYAlignment.Top,
-		Font = Ui.Theme.font,
-		TextColor3 = isHere and Ui.Theme.ink or Ui.Theme.text,
+		FontFace = Ui.Fonts.hand,
+		LineHeight = 0.9,
+		TextColor3 = PENCIL,
+		TextTransparency = (o.done and not isHere) and 0.35 or 0,
 		Parent = canvas,
-	}, { Ui.corner(4), Ui.new("UITextSizeConstraint", { MaxTextSize = 12, MinTextSize = 7 }), Ui.padding(3) })
+	}, {
+		Ui.stroke(PENCIL, 1.5, (o.done and not isHere) and 0.55 or 0.15),
+		Ui.new("UITextSizeConstraint", { MaxTextSize = 20, MinTextSize = 11 }),
+		Ui.padding(4),
+	})
 	if o.done then
 		-- Bottom right, clear of the name.
 		self:_tick(canvas, x0 + room.w * scale - 16, z0 + room.d * scale - 10)
 	end
 	if o.hint then
 		-- Stuck-assist: the room the objective line points at.
-		self:_ring(canvas, x0 + room.w * scale / 2, z0 + room.d * scale / 2, 30, Ui.Theme.accent)
+		self:_ring(canvas, x0 + room.w * scale / 2, z0 + room.d * scale / 2, 30, RED)
 	end
 end
 
@@ -628,6 +702,7 @@ function Map:_tick(canvas, x: number, y: number)
 			BackgroundColor3 = TICK,
 			BorderSizePixel = 0,
 			Rotation = stroke[4],
+			ZIndex = 4,
 			Parent = canvas,
 		})
 	end
@@ -640,8 +715,9 @@ function Map:_ring(canvas, x: number, y: number, size: number, color: Color3)
 		Position = UDim2.fromOffset(x, y),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,
+		ZIndex = 4,
 		Parent = canvas,
-	}, { Ui.corner(size), Ui.stroke(color, 1.5, 0.2) })
+	}, { Ui.corner(size), Ui.stroke(color, 1.5, 0.15) })
 end
 
 -- A small round mark with a word under it.
@@ -651,41 +727,71 @@ function Map:_dot(canvas, x: number, y: number, size: number, color: Color3, tex
 		Position = UDim2.fromOffset(x, y),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundColor3 = color,
+		ZIndex = 4,
 		Parent = canvas,
 	}, { Ui.corner(size) })
 	if text then
-		-- On a dark backing, above the room it stands in, so it reads anywhere.
-		Ui.label(text, {
+		-- On a scrap of the paper's own colour, above the room it stands in, so
+		-- it reads over the pencil lines.
+		Ui.hand(text, {
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.fromOffset(x, y + size / 2 + 1),
-			Size = UDim2.fromOffset(12 + 6 * #text, 13),
-			BackgroundColor3 = Color3.fromRGB(14, 12, 12),
-			BackgroundTransparency = 0.25,
-			TextSize = 10,
+			Position = UDim2.fromOffset(x, y + size / 2),
+			Size = UDim2.fromOffset(16 + 8 * #text, 19),
+			BackgroundColor3 = Color3.fromRGB(238, 236, 224),
+			BackgroundTransparency = 0.1,
+			FontFace = Ui.Fonts.handBold,
+			TextSize = 17,
+			TextWrapped = false,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			TextColor3 = color,
 			ZIndex = 5,
 			Parent = canvas,
-		}, { Ui.corner(3) })
+		})
 	end
 end
 
 -- The journal -----------------------------------------------------------------------
 
 function Map:_renderJournal()
-	self.summary.Text = "What you've read, the keys you carry, who carries what, and his moods."
+	self.summary.Text = "Your keys, who carries what, his moods, notes read."
 	local list = Ui.new("Frame", {
 		Size = UDim2.new(1, -10, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Parent = self.body,
-	}, { Ui.list(10) })
+	}, { Ui.list(6) })
+	-- Written in ballpoint: headings gone over twice and underlined.
 	local function heading(text: string, order: number)
-		Ui.label(text, {
-			Size = UDim2.new(1, 0, 0, 24),
-			Font = Ui.Theme.fontType,
-			TextSize = 18,
-			TextColor3 = Ui.Theme.accent,
+		local label = Ui.hand(text, {
+			Size = UDim2.new(1, 0, 0, 36),
+			FontFace = Ui.Fonts.handBold,
+			TextSize = 29,
+			TextColor3 = Ui.Theme.pen,
+			TextYAlignment = Enum.TextYAlignment.Bottom,
+			LayoutOrder = order,
+			Parent = list,
+		})
+		local underline = Ui.new("Frame", {
+			Position = UDim2.new(0, 0, 1, -2),
+			Size = UDim2.fromOffset(0, 2),
+			BackgroundColor3 = Ui.Theme.pen,
+			BackgroundTransparency = 0.25,
+			Rotation = -0.6,
+			Parent = label,
+		})
+		-- (As long as the words, once they're drawn.)
+		task.defer(function()
+			underline.Size = UDim2.fromOffset(label.TextBounds.X + 8, 2)
+		end)
+	end
+	local function line(text: string, order: number, dim: boolean?)
+		return Ui.hand(text, {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextSize = 24,
+			LineHeight = 0.9,
+			TextColor3 = dim and Ui.Theme.pencil or Ui.Theme.pen,
+			TextTransparency = dim and 0.15 or 0,
 			LayoutOrder = order,
 			Parent = list,
 		})
@@ -694,43 +800,38 @@ function Map:_renderJournal()
 	local ring = player:GetAttribute(PA.KeyRing)
 	local order = 2
 	if typeof(ring) ~= "string" or ring == "" then
-		Ui.label("None. A key you find goes on your ring; a locked door takes it.", {
-			Size = UDim2.new(1, 0, 0, 20),
-			TextSize = 14,
-			TextColor3 = Ui.Theme.textDim,
-			LayoutOrder = order,
-			Parent = list,
-		})
+		line("None. A key you find goes on your ring; a locked door takes it.", order, true)
 		order += 1
 	else
-		for line in string.gmatch(ring, "[^\n]+") do
+		for entry in string.gmatch(ring, "[^\n]+") do
 			-- token=label=where its door is (empty until someone has seen it).
-			local token, label, place = string.match(line, "^([^=]+)=([^=]*)=?(.*)$")
+			local token, label, place = string.match(entry, "^([^=]+)=([^=]*)=?(.*)$")
 			if token then
 				local row = Ui.new("Frame", {
-					Size = UDim2.new(1, 0, 0, 40),
+					Size = UDim2.new(1, 0, 0, 44),
 					BackgroundTransparency = 1,
 					LayoutOrder = order,
 					Parent = list,
 				})
 				order += 1
-				Ui.label(label, {
-					Size = UDim2.new(1, -150, 0, 22),
-					TextSize = 15,
+				Ui.hand(label, {
+					Size = UDim2.new(1, -170, 0, 26),
+					TextSize = 25,
+					TextColor3 = Ui.Theme.pen,
 					Parent = row,
 				})
-				Ui.label((place and place ~= "") and ("Its door: in " .. place) or "Its door: not found yet", {
-					Position = UDim2.fromOffset(0, 22),
-					Size = UDim2.new(1, -150, 0, 16),
-					TextSize = 13,
-					TextColor3 = Ui.Theme.textDim,
+				Ui.hand((place and place ~= "") and ("its door: in " .. place) or "its door: not found yet", {
+					Position = UDim2.fromOffset(14, 24),
+					Size = UDim2.new(1, -184, 0, 20),
+					TextSize = 21,
+					TextColor3 = Ui.Theme.pencil,
 					Parent = row,
 				})
-				Ui.button("Leave it here", {
+				Ui.paperButton("Leave it here", {
 					AnchorPoint = Vector2.new(1, 0),
-					Position = UDim2.new(1, 0, 0, 0),
-					Size = UDim2.fromOffset(140, 28),
-					TextSize = 13,
+					Position = UDim2.new(1, 0, 0, 2),
+					Size = UDim2.fromOffset(160, 28),
+					TextSize = 15,
 					Parent = row,
 				}, function()
 					Net.get("DropKey"):FireServer(token)
@@ -742,21 +843,10 @@ function Map:_renderJournal()
 	heading("Who carries what", 60)
 	local carried = self.state and self.state.carried or {}
 	if #carried == 0 then
-		Ui.label("Nobody carries a key or a tool for a lock yet.", {
-			Size = UDim2.new(1, 0, 0, 20),
-			TextSize = 14,
-			TextColor3 = Ui.Theme.textDim,
-			LayoutOrder = 61,
-			Parent = list,
-		})
+		line("Nobody carries a key or a tool for a lock yet.", 61, true)
 	end
 	for i, entry in carried do
-		Ui.label(entry.name .. ": " .. table.concat(entry.what, ", "), {
-			Size = UDim2.new(1, 0, 0, 20),
-			TextSize = 14,
-			LayoutOrder = 61 + i,
-			Parent = list,
-		})
+		line(entry.name .. ": " .. table.concat(entry.what, ", "), 61 + i)
 	end
 	-- His moods you've seen ("a Guest you can read", 2026-10-11): a field
 	-- guide, each with its tell and what to do (Logic/GuestMood.lesson).
@@ -764,53 +854,50 @@ function Map:_renderJournal()
 	local guest = self.ctx.controllers.GuestController
 	local moods = guest and guest:MoodsSeen() or {}
 	if #moods == 0 then
-		Ui.label("None yet. Watch him a moment when he stands still: how he holds himself says what he's about.", {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			TextWrapped = true,
-			TextSize = 14,
-			TextColor3 = Ui.Theme.textDim,
-			LayoutOrder = 81,
-			Parent = list,
-		})
+		line("None yet. Watch him a moment when he stands still: how he holds himself says what he's about.", 81, true)
 	end
 	for i, id in moods do
-		Ui.label(GuestMood.lesson(id) or id, {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			TextWrapped = true,
-			TextSize = 14,
-			LayoutOrder = 81 + i,
-			Parent = list,
-		})
+		line(GuestMood.lesson(id) or id, 81 + i)
 	end
 	heading("Notes you've read", 100)
 	local reader = self.ctx.ui.components.Reader
 	local notes = reader and reader:Read() or {}
 	if #notes == 0 then
-		Ui.label("None yet.", {
-			Size = UDim2.new(1, 0, 0, 20),
-			TextSize = 14,
-			TextColor3 = Ui.Theme.textDim,
-			LayoutOrder = 101,
-			Parent = list,
-		})
+		line("None yet.", 101, true)
 	end
 	for i, note in notes do
-		Ui.new("TextLabel", {
-			Size = UDim2.new(1, 0, 0, 0),
+		-- The note itself, taped into the notebook.
+		local pasted = Ui.new("Frame", {
+			Size = UDim2.new(1, -40, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = Color3.fromRGB(236, 228, 202),
-			Text = note.text,
-			TextWrapped = true,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Top,
-			Font = Enum.Font.IndieFlower,
-			TextSize = 20,
-			TextColor3 = Color3.fromRGB(38, 44, 84),
+			BackgroundTransparency = 1,
 			LayoutOrder = 101 + i,
 			Parent = list,
-		}, { Ui.corner(3), Ui.padding(10) })
+		}, { Ui.new("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 4) }) })
+		local paper = Ui.new("ImageLabel", {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundTransparency = 1,
+			Image = Assets.Paper.Sheet.image,
+			ScaleType = Enum.ScaleType.Stretch,
+			Parent = pasted,
+		}, {
+			Ui.new("UIPadding", {
+				PaddingTop = UDim.new(0, 12),
+				PaddingBottom = UDim.new(0, 12),
+				PaddingLeft = UDim.new(0, 16),
+				PaddingRight = UDim.new(0, 16),
+			}),
+		})
+		Ui.hand(note.text, {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextSize = 24,
+			LineHeight = 0.9,
+			TextColor3 = Ui.Theme.pen,
+			Parent = paper,
+		})
+		Ui.tape(pasted, UDim2.new(0, 24, 0, 8), -20, 64)
 	end
 end
 

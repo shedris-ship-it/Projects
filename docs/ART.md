@@ -154,12 +154,19 @@ The real cure for "clinical" is still geometry and materials: bevelled trim, wor
 
 ## Interface
 
+**The 1988 interface (V7, 2026-10-14; `docs/progress/2026-10-14-visual-v7/`).** The screen is nearly empty and every menu is a thing from 1988 (`Lib/Ui`):
+- **Faces:** Special Elite typed, Kalam handwriting (pencil, blue ballpoint), Accanthis titles, Merriweather italic for film subtitles, Inconsolata on the computer. Kalam draws small for its size: set handwriting about 1.3 times the typed size.
+- **Ink:** typewriter ribbon `#282424`, graphite `#424040`, blue ballpoint `#222E62`, red pencil and stamps `#982820`. The purple "ritual" colour is retired. Brass `#C4965C` stays the accent for what matters.
+- **Paper** (`tools/paper.py`, `Assets.Paper`): typing paper, a torn notepad slip, a manila folder, graph paper, a notebook page, tape, a soft shadow, CRT scanlines. Stretched whole, never nine-sliced (sliced, a seam showed); a sheet turned a degree or so, except one holding a scrolling list (a turned frame doesn't clip).
+- **Over the world:** the objective on a taped slip that comes when it changes and goes 14 s later; captions as film subtitles; notices as pale typed lines; stamina at the edges of your sight; the torch's charge on its beam; "Show meters" brings the meters back.
+- **Screens:** a title card each night; the lobby a case folder; notes on ruled notepaper; the map pencilled on graph paper; the journal a notebook; settings typed forms; the Dossier a police case file; the puzzles look like the things (a CRT, a steel fuse box, a brass padlock).
+
 There's **no crosshair**. Whatever you're close to and looking at gets a small marker attached to the object itself (`UI/FocusMarkers`), so the screen stays clear and the house does the talking.
 
-- **What a marker shows:** a thin brass ring on the object, its name in the typewriter font, and keycap hints for what you can do: `[E] Open`, `[Q] Witness`.
+- **What a marker shows:** a thin brass ring on the object, its name in small typed capitals over a brass hairline, and keys in thin brass outlines: `[E] Open`.
 - **One marker per object:** a door's Open, Brace and Witness share one marker.
 - **When it appears:** Witnessable objects show their marker within 14 studs when you look at them; holding Q shows it at any range. Prompts (doors, hiding spots, revives) show when Roblox says they're in reach, at full strength when you look straight at them and faint at the edge of view.
-- **Hold progress** is a hairline under the actions.
+- **Hold progress:** the brass hairline under the name fills.
 - **Input:** keys match your input (keyboard, gamepad glyphs), and on touch the action rows are tappable.
 - **Cursor:** the mouse cursor is hidden in first person; menus that free the mouse bring it back.
 - **Accessibility:** a "Centre dot (aiming aid)" toggle in Settings, off by default.

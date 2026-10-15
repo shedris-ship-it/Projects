@@ -181,6 +181,22 @@ Assets.Lens = {
 	Dirt = "rbxassetid://139050197609707", -- smudges and specks on the lens
 }
 
+-- The interface's paper (V7, the diegetic 1988 interface), drawn by
+-- tools/paper.py (sources in assets/paper/) and uploaded with the owner's OK
+-- on 2026-10-14. Lib/Ui lays them out: `slice` is the nine-slice margin in
+-- pixels (the corners and torn edges keep their shape), `tile` the size a
+-- tiled one is drawn at.
+Assets.Paper = {
+	Sheet = { image = "rbxassetid://129215802709384", size = { 768, 1024 }, slice = 48 }, -- typing paper
+	Slip = { image = "rbxassetid://93891500076081", size = { 768, 256 }, slice = 40 }, -- torn off a notepad
+	Folder = { image = "rbxassetid://75368764681170", size = { 1024, 768 }, slice = 64 }, -- manila case folder
+	Graph = { image = "rbxassetid://105302061922117", size = { 512, 512 }, tile = 256 }, -- the map's
+	Notebook = { image = "rbxassetid://117768510809064", size = { 768, 1024 }, slice = 48 }, -- the journal's
+	Tape = { image = "rbxassetid://76700521185652", size = { 320, 96 } },
+	Shadow = { image = "rbxassetid://113681928800155", size = { 160, 160 }, slice = 40 },
+	Scanlines = { image = "rbxassetid://106584581093865", size = { 256, 256 }, tile = 128 },
+}
+
 -- Soft round blob for the dust drifting in lamp light (ships with the client).
 -- It has no alpha, so it's drawn additively: black adds nothing.
 Assets.DustTexture = "rbxasset://textures/shadowblurmask.png"

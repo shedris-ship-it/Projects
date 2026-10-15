@@ -1,5 +1,7 @@
 -- The end-of-run Dossier (doc section 2): what happened, what the house was,
--- and what the stalker learned about you.
+-- and what the stalker learned about you. In the 1988 interface (V7): a
+-- police case file, the report typed on a sheet laid in a manila folder, a
+-- rubber stamp across it, the night in numbers pencilled on a slip.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
@@ -20,56 +22,128 @@ local REASONS = {
 	Debug = "Ended from the debug console.",
 }
 
+-- Laid out at this size (Ui.fit shrinks it on a small screen).
+local WIDTH, HEIGHT = 940, 650
+
 function Dossier.new(ctx)
 	local self = setmetatable({ ctx = ctx }, Dossier)
 	local gui = Ui.screen("ConsensusDossier", 60, ctx.playerGui)
 	gui.Enabled = false
 	self.gui = gui
-	local panel = Ui.new("Frame", {
+	Ui.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.35,
+		Parent = gui,
+	})
+	local root = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(760, 560),
-		BackgroundColor3 = Ui.Theme.paper,
-		Parent = gui,
-	}, { Ui.corner(6), Ui.padding(22) })
-	Ui.modal(panel)
-	self.title = Ui.label("", {
-		Size = UDim2.new(1, 0, 0, 36),
-		Font = Ui.Theme.fontType,
-		TextSize = 32,
-		TextColor3 = Ui.Theme.ink,
-		Parent = panel,
-	})
-	self.subtitle = Ui.label("", {
-		Position = UDim2.fromOffset(0, 38),
-		Size = UDim2.new(1, 0, 0, 40),
-		TextSize = 14,
-		TextColor3 = Color3.fromRGB(90, 70, 50),
-		Parent = panel,
-	})
-	local scroll = Ui.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, 84),
-		Size = UDim2.new(1, 0, 1, -140),
+		Size = UDim2.fromOffset(WIDTH, HEIGHT),
 		BackgroundTransparency = 1,
-		ScrollBarThickness = 6,
+		Parent = gui,
+	})
+	Ui.fit(root, WIDTH, HEIGHT)
+	Ui.modal(root)
+	-- The folder, open.
+	Ui.paper("Folder", {
+		Size = UDim2.fromScale(1, 1),
+		Rotation = -0.6,
+		ZIndex = 1,
+		Parent = root,
+	})
+	-- The report, typed on a sheet laid in it.
+	local _, sheet = Ui.paper("Sheet", {
+		Position = UDim2.fromOffset(34, 18),
+		Size = UDim2.fromOffset(560, HEIGHT - 36),
+		-- (Square: a turned frame stops clipping its scrolling body.)
+		ZIndex = 2,
+		Parent = root,
+	})
+	local panel = Ui.new("Frame", {
+		Position = UDim2.fromOffset(36, 30),
+		Size = UDim2.new(1, -66, 1, -62),
+		BackgroundTransparency = 1,
+		ZIndex = 3,
+		Parent = sheet,
+	})
+	Ui.typed("INCIDENT REPORT  ·  CASE 88-0412", {
+		Size = UDim2.new(1, 0, 0, 16),
+		TextSize = 12,
+		TextColor3 = Ui.Theme.typeDim,
+		ZIndex = 3,
+		Parent = panel,
+	})
+	self.title = Ui.typed("", {
+		Position = UDim2.fromOffset(0, 18),
+		Size = UDim2.new(1, 0, 0, 36),
+		TextSize = 30,
+		ZIndex = 3,
+		Parent = panel,
+	})
+	self.subtitle = Ui.typed("", {
+		Position = UDim2.fromOffset(0, 56),
+		Size = UDim2.new(1, 0, 0, 34),
+		TextSize = 13,
+		TextColor3 = Ui.Theme.typeDim,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
+		Parent = panel,
+	})
+	Ui.rule(panel, 94, Ui.Theme.type, 0.55).ZIndex = 3
+	local scroll = Ui.new("ScrollingFrame", {
+		Position = UDim2.fromOffset(0, 102),
+		Size = UDim2.new(1, 0, 1, -102),
+		BackgroundTransparency = 1,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = Ui.Theme.type,
+		ScrollBarImageTransparency = 0.5,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
+		ZIndex = 3,
 		Parent = panel,
 	})
-	self.body = Ui.label("", {
+	self.body = Ui.typed("", {
 		Size = UDim2.new(1, -10, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Font = Ui.Theme.fontType,
-		TextSize = 16,
-		TextColor3 = Ui.Theme.ink,
+		TextSize = 15,
 		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
 		Parent = scroll,
 	})
-	Ui.button("Close", {
+	-- The night in numbers, pencilled on a slip clipped to the folder.
+	local slipHolder, slip = Ui.paper("Slip", {
+		Position = UDim2.fromOffset(618, 150),
+		Size = UDim2.fromOffset(290, 150),
+		Rotation = -2.2,
+		ZIndex = 2,
+		Parent = root,
+	})
+	self.notes = Ui.hand("", {
+		Position = UDim2.fromOffset(20, 14),
+		Size = UDim2.new(1, -36, 1, -24),
+		TextSize = 25,
+		LineHeight = 0.95,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 3,
+		Parent = slip,
+	})
+	Ui.tape(slipHolder, UDim2.new(0.5, 0, 0, 0), 4, 90)
+	-- The stamp, across the top of the folder.
+	self.stamp = Ui.stamp("", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(764, 80),
+		Rotation = -8,
+		TextSize = 34,
+		Parent = root,
+	})
+	Ui.paperButton("Close the file", {
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, 0, 1, 0),
-		Size = UDim2.fromOffset(140, 40),
-		Parent = panel,
+		Position = UDim2.new(1, -34, 1, -28),
+		Size = UDim2.fromOffset(200, 36),
+		TextSize = 20,
+		ZIndex = 3,
+		Parent = root,
 	}, function()
 		gui.Enabled = false
 	end)
@@ -83,10 +157,17 @@ function Dossier:Show(data)
 	local s = data.summary
 	local d = data.dossier
 	self.title.Text = s.won and "YOU GOT OUT" or "THE HOUSE KEPT YOU"
+	self.stamp.Text = s.won and "CLOSED: GOT OUT" or "MISSING"
 	self.subtitle.Text = string.format(
-		"%s  ·  %s  ·  %dm %02ds  ·  final Drift %d  ·  seed %s (%s)",
+		"%s  ·  %s",
 		REASONS[s.reason] or s.reason,
-		s.resolved and "The dinner was served" or "The table was never set",
+		s.resolved and "The dinner was served." or "The table was never set."
+	)
+	-- (Pencilled on the slip.)
+	self.notes.Text = string.format(
+		"+%d Marks%s\n%dm %02ds in the house\nfinal Drift %d\nseed %s, %s",
+		data.marks or 0,
+		data.extracted and ", got out" or "",
 		s.minutes,
 		s.seconds,
 		s.drift,
@@ -94,10 +175,8 @@ function Dossier:Show(data)
 		s.difficulty or "Normal"
 	)
 	local lines = {}
-	table.insert(lines, string.format("+%d Marks%s", data.marks or 0, data.extracted and " (got out)" or ""))
 	local escape = s.escape
 	if escape then
-		table.insert(lines, "")
 		table.insert(lines, "THE HOUSE")
 		table.insert(lines, string.format("  Places set at the table: %d of %d", escape.placesSet, escape.places))
 		table.insert(lines, string.format("  Locked doors opened: %d of %d", escape.locksOpened, escape.locks))
@@ -201,7 +280,8 @@ function Dossier:_fit()
 	if width <= 0 then
 		return
 	end
-	local bounds = TextService:GetTextSize(body.Text, body.TextSize, body.Font, Vector2.new(width, math.huge))
+	local bounds =
+		TextService:GetTextSize(body.Text, body.TextSize, Enum.Font.SpecialElite, Vector2.new(width, math.huge))
 	body.AutomaticSize = Enum.AutomaticSize.None
 	body.Size = UDim2.new(1, -10, 0, bounds.Y + 8)
 end

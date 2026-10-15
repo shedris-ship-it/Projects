@@ -2,6 +2,9 @@
 -- player who reads it (Services/ItemService, the NoteText remote), and this
 -- shows it on a sheet of notepaper. E, Escape or a click puts it down. What
 -- you've read is kept for the journal (UI/Map).
+--
+-- The 1988 interface (V7): a real sheet (tools/paper.py), ruled, a margin in
+-- red, taped down, written in blue ballpoint.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,8 +18,8 @@ local _player = Players.LocalPlayer
 local Reader = {}
 Reader.__index = Reader
 
-local PAPER = Color3.fromRGB(236, 228, 202)
-local INK = Color3.fromRGB(38, 44, 84)
+local RULE = 32 -- px between ruled lines: one line of writing to each
+local TOP = 58
 
 function Reader.new(ctx)
 	local self = setmetatable({ ctx = ctx, open = false, read = {}, order = {}, closedAt = 0 }, Reader)
@@ -26,65 +29,66 @@ function Reader.new(ctx)
 	Ui.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.45,
+		BackgroundTransparency = 0.4,
 		Parent = gui,
 	})
-	local sheet = Ui.new("Frame", {
+	local holder, sheet = Ui.paper("Sheet", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.48),
-		Size = UDim2.fromOffset(440, 540),
-		BackgroundColor3 = PAPER,
+		Size = UDim2.fromOffset(440, 560),
 		Rotation = -1.5,
 		Parent = gui,
-	}, {
-		Ui.corner(3),
-		Ui.stroke(Color3.fromRGB(150, 140, 110), 1, 0.4),
-		Ui.new("UISizeConstraint", { MaxSize = Vector2.new(440, 540), MinSize = Vector2.new(280, 340) }),
-		Ui.new("UIAspectRatioConstraint", { AspectRatio = 440 / 540 }),
 	})
-	Ui.modal(sheet)
-	-- Faint ruled lines, like a page torn from a pad.
+	Ui.new("UISizeConstraint", { MaxSize = Vector2.new(440, 560), MinSize = Vector2.new(280, 356), Parent = holder })
+	Ui.new("UIAspectRatioConstraint", { AspectRatio = 440 / 560, Parent = holder })
+	Ui.modal(holder)
+	-- Ruled like a page from a pad, a red margin down the left.
 	for i = 1, 14 do
 		Ui.new("Frame", {
-			Position = UDim2.new(0, 24, 0, 40 + i * 32),
-			Size = UDim2.new(1, -48, 0, 1),
-			BackgroundColor3 = Color3.fromRGB(150, 170, 200),
-			BackgroundTransparency = 0.55,
-			BorderSizePixel = 0,
+			Position = UDim2.new(0, 18, 0, TOP + i * RULE),
+			Size = UDim2.new(1, -36, 0, 1),
+			BackgroundColor3 = Color3.fromRGB(128, 156, 204),
+			BackgroundTransparency = 0.5,
+			ZIndex = 3,
 			Parent = sheet,
 		})
 	end
-	-- One line of writing to each ruled line (32 px apart).
-	self.text = Ui.new("TextLabel", {
-		Position = UDim2.fromOffset(34, 44),
-		Size = UDim2.new(1, -68, 1, -102),
-		BackgroundTransparency = 1,
-		Font = Enum.Font.IndieFlower,
-		TextSize = 26,
-		LineHeight = 32 / 26,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		TextColor3 = INK,
-		Text = "",
+	Ui.new("Frame", {
+		Position = UDim2.new(0, 46, 0, 18),
+		Size = UDim2.new(0, 1, 1, -36),
+		BackgroundColor3 = Color3.fromRGB(206, 104, 100),
+		BackgroundTransparency = 0.35,
+		ZIndex = 3,
 		Parent = sheet,
 	})
-	Ui.button("Put it down", {
+	Ui.tape(holder, UDim2.new(0.5, 0, 0, 2), 3, 120)
+	-- One line of writing to each ruled line, in blue ballpoint.
+	self.text = Ui.hand("", {
+		Position = UDim2.fromOffset(56, TOP + 4),
+		Size = UDim2.new(1, -84, 1, -TOP - 70),
+		TextSize = 30,
+		LineHeight = RULE / 30,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextColor3 = Ui.Theme.pen,
+		ZIndex = 4,
+		Parent = sheet,
+	})
+	Ui.paperButton("Put it down", {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -16),
-		Size = UDim2.fromOffset(160, 34),
-		TextSize = 15,
+		Position = UDim2.new(0.5, 0, 1, -18),
+		Size = UDim2.fromOffset(170, 32),
+		TextSize = 17,
+		ZIndex = 4,
 		Parent = sheet,
 	}, function()
 		self:Close()
 	end)
-	Ui.label("E or a click to put it down", {
+	Ui.subtitle("E or a click to put it down", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.5, 290),
-		Size = UDim2.fromOffset(300, 20),
-		TextSize = 13,
+		Position = UDim2.new(0.5, 0, 0.5, 300),
+		Size = UDim2.fromOffset(400, 22),
+		TextSize = 16,
 		TextColor3 = Ui.Theme.textDim,
-		TextXAlignment = Enum.TextXAlignment.Center,
 		Parent = gui,
 	})
 

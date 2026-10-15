@@ -14,6 +14,10 @@
 -- with words, saying what a tap and a hold of E do; other things you could
 -- use close by get a faint ring and nothing else. Gamepad and touch keep a
 -- marker per prompt Roblox shows (touch taps their rows).
+--
+-- The 1988 interface (V7): a brass ring on the thing, its name in small
+-- typed capitals over a brass hairline (the hairline fills as you hold),
+-- the keys in thin brass outlines.
 
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -161,20 +165,21 @@ function FocusMarkers:_row(parent: Instance, order: number, key: string?, action
 			AutomaticSize = Enum.AutomaticSize.X,
 			Size = UDim2.fromOffset(16, 16),
 			BackgroundColor3 = Ui.Theme.ink,
-			BackgroundTransparency = 0.45,
+			BackgroundTransparency = 0.7,
 			Parent = row,
 		}, {
-			Ui.corner(3),
-			Ui.stroke(Ui.Theme.accent, 1, 0.35),
+			Ui.corner(2),
+			Ui.stroke(Ui.Theme.accent, 1, 0.2),
 			Ui.new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) }),
 		})
 		Ui.label(key, {
+			-- (A pad's arrows in a face that has them.)
+			Font = string.find(key, "[\128-\255]") and Enum.Font.GothamMedium or nil,
 			AutomaticSize = Enum.AutomaticSize.X,
 			Size = UDim2.fromOffset(0, 16),
-			Font = Ui.Theme.fontBold,
-			TextSize = 11,
+			TextSize = 13,
 			TextWrapped = false,
-			TextColor3 = Ui.Theme.paper,
+			TextColor3 = Ui.Theme.accent,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			Parent = cap,
 		})
@@ -183,10 +188,10 @@ function FocusMarkers:_row(parent: Instance, order: number, key: string?, action
 		LayoutOrder = 2,
 		AutomaticSize = Enum.AutomaticSize.X,
 		Size = UDim2.fromOffset(0, 16),
-		TextSize = 12,
+		TextSize = 13,
 		TextWrapped = false,
-		TextColor3 = Ui.Theme.textDim,
-		TextStrokeTransparency = 0.7,
+		TextColor3 = Ui.Theme.text,
+		TextStrokeTransparency = 0.6,
 		Parent = row,
 	})
 	row.InputBegan:Connect(function(input)
@@ -247,19 +252,27 @@ function FocusMarkers:_build(marker)
 		return
 	end
 	if marker.name then
-		Ui.label(marker.name, {
+		-- Small capitals, typed.
+		Ui.label(string.upper(marker.name), {
 			LayoutOrder = 2,
-			Size = UDim2.new(1, 0, 0, 18),
-			Font = Ui.Theme.fontType,
-			TextSize = 15,
+			Size = UDim2.new(1, 0, 0, 16),
+			TextSize = 14,
 			TextColor3 = Ui.Theme.paper,
-			TextStrokeTransparency = 0.6,
+			TextStrokeTransparency = 0.55,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			Parent = holder,
 		})
 	end
-	local actions = Ui.new("Frame", {
+	-- The brass hairline under the name: it fills as you hold.
+	local track = Ui.new("Frame", {
 		LayoutOrder = 3,
+		Size = UDim2.fromOffset(90, 1),
+		BackgroundColor3 = Ui.Theme.accent,
+		BackgroundTransparency = 0.55,
+		Parent = holder,
+	})
+	local actions = Ui.new("Frame", {
+		LayoutOrder = 4,
 		Size = UDim2.new(1, 0, 0, 18),
 		BackgroundTransparency = 1,
 		Parent = holder,
@@ -267,14 +280,6 @@ function FocusMarkers:_build(marker)
 	for i, row in marker.rows do
 		self:_row(actions, i, row.key, row.text, row.press or function() end, row.release or function() end)
 	end
-	-- Hold progress: a hairline that fills under the actions.
-	local track = Ui.new("Frame", {
-		LayoutOrder = 4,
-		Size = UDim2.fromOffset(90, 1),
-		BackgroundColor3 = Ui.Theme.textDim,
-		BackgroundTransparency = 0.7,
-		Parent = holder,
-	})
 	marker.fill = Ui.new("Frame", {
 		Size = UDim2.fromScale(0, 1),
 		BackgroundColor3 = Ui.Theme.accent,

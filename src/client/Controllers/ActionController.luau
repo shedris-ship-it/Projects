@@ -38,6 +38,9 @@ local ActionController = {}
 local sprintHeld = false
 local stamina = P.StaminaMax
 local exhausted = false
+-- Your torch's beam and its hot core (warmer as the battery runs down).
+local BEAM = Color3.fromRGB(255, 244, 220)
+local CORE = Color3.fromRGB(255, 240, 212)
 local cameraLight: SpotLight? = nil
 local coreLight: SpotLight? = nil -- the beam's hot core (Config.Torch.Core)
 local lightPart: BasePart? = nil
@@ -775,7 +778,7 @@ function ActionController:_updateFlashlight(dt: number)
 		cameraLight.Angle = Config.Torch.Angle
 		cameraLight.Range = Config.Torch.Range
 		cameraLight.Brightness = Config.Torch.Brightness
-		cameraLight.Color = Color3.fromRGB(255, 244, 220)
+		cameraLight.Color = BEAM
 		cameraLight.Shadows = true
 		cameraLight.Face = Enum.NormalId.Front
 		cameraLight.Parent = lightPart
@@ -784,7 +787,7 @@ function ActionController:_updateFlashlight(dt: number)
 		coreLight.Angle = Config.Torch.Core.Angle
 		coreLight.Range = Config.Torch.Core.Range
 		coreLight.Brightness = Config.Torch.Core.Brightness
-		coreLight.Color = Color3.fromRGB(255, 240, 212)
+		coreLight.Color = CORE
 		coreLight.Face = Enum.NormalId.Front
 		coreLight.Parent = lightPart
 	end
@@ -832,6 +835,21 @@ function ActionController:_updateFlashlight(dt: number)
 			core *= k
 		end
 	end
+	-- The torch's charge shows on its beam (V7, Config.Torch.Low): low, it
+	-- dims and yellows; at the very end it dips now and then.
+	local low = Config.Torch.Low
+	local charge = player:GetAttribute(PA.Battery) or 1
+	local spent = math.clamp(1 - charge / low.Below, 0, 1)
+	if spent > 0 then
+		local dim = 1 - (1 - low.Dim) * spent
+		if charge < low.Sputter and math.noise(os.clock() * 2.3, 7.1) > 0.28 then
+			dim *= self.state.settings.reduceFlicker and 0.7 or 0.3
+		end
+		cameraLight.Brightness *= dim
+		core *= dim
+	end
+	local warm = Color3.fromRGB(low.Warm[1], low.Warm[2], low.Warm[3])
+	cameraLight.Color = BEAM:Lerp(warm, spent)
 	cameraLight.Enabled = on
 	local _, graphics = self.state:Graphics()
 	cameraLight.Shadows = graphics.torchShadows
@@ -839,6 +857,7 @@ function ActionController:_updateFlashlight(dt: number)
 		-- The hot core: only from the lens in your hand (not clipped).
 		coreLight.Enabled = on and not clipped
 		coreLight.Brightness = core
+		coreLight.Color = CORE:Lerp(warm, spent)
 		coreLight.Shadows = graphics.torchShadows
 	end
 	local head = character and character:FindFirstChild("Head")

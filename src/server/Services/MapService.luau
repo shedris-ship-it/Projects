@@ -134,6 +134,26 @@ function MapService:RevealStorey(storey: number): boolean
 	return true
 end
 
+-- F2 `seen all` (Services/DebugService): every room and doorway as if
+-- someone had been everywhere, for tests and shots of the map.
+function MapService:DebugSeeAll(): number
+	local world = self.World.World
+	local count = 0
+	for _, room in world and world.layout and world.layout.rooms or {} do
+		if not self.rooms[room.id] then
+			self.rooms[room.id] = true
+			count += 1
+		end
+	end
+	for id, seam in world and world.seams or {} do
+		if seam.connected and not seam.hidden then
+			self:_seeDoor(id, false, true)
+		end
+	end
+	self:_publish(true)
+	return count
+end
+
 -- Rooms someone has been in with nothing the run needs left in them: what
 -- was kept there taken (a tool too), its puzzles and cases done, its chests
 -- open. Junk in drawers, notes and decoys don't count.

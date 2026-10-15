@@ -9,11 +9,16 @@
 --
 -- Each icon is the real model in a small ViewportFrame (World/ToolModel), so
 -- what you see on the bar is what you find on the table.
+--
+-- The 1988 interface (V7): the bar shows while you switch (or pick up, or
+-- raise the torch) and fades a moment later (Config.Interface.HotbarHold);
+-- with "Show meters" on it stays.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Tools = require(Shared.Data.Tools)
@@ -70,14 +75,13 @@ local function cell(parent: Instance, x: number, key: string, onTap: () -> ())
 		BackgroundColor3 = Ui.Theme.ink,
 		BackgroundTransparency = 0.35,
 		Parent = parent,
-	}, { Ui.corner(8) })
+	}, { Ui.corner(3) })
 	local stroke = Ui.stroke(Ui.Theme.accent, 1, 0.75)
 	stroke.Parent = button
-	Ui.label(key, {
+	local keyLabel = Ui.label(key, {
 		Position = UDim2.fromOffset(6, 3),
 		Size = UDim2.fromOffset(14, 14),
-		Font = Ui.Theme.fontBold,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = Ui.Theme.textDim,
 		ZIndex = 3,
 		Parent = button,
@@ -85,43 +89,58 @@ local function cell(parent: Instance, x: number, key: string, onTap: () -> ())
 	local extra = Ui.label("", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -5, 0, 3),
-		Size = UDim2.fromOffset(34, 14),
+		Size = UDim2.fromOffset(40, 14),
 		TextXAlignment = Enum.TextXAlignment.Right,
-		Font = Ui.Theme.fontBold,
-		TextSize = 12,
+		TextSize = 13,
 		TextColor3 = Ui.Theme.accent,
 		ZIndex = 3,
 		Parent = button,
 	})
 	local meter = Ui.new("Frame", {
-		Position = UDim2.new(0, 6, 1, -8),
-		Size = UDim2.new(1, -12, 0, 3),
+		Position = UDim2.new(0, 6, 1, -7),
+		Size = UDim2.new(1, -12, 0, 2),
 		BackgroundColor3 = Ui.Theme.panelLight,
 		Visible = false,
 		ZIndex = 3,
 		Parent = button,
-	}, { Ui.corner(2) })
+	})
 	local meterFill = Ui.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(255, 230, 160),
 		ZIndex = 3,
 		Parent = meter,
-	}, { Ui.corner(2) })
+	})
 	button.Activated:Connect(onTap)
-	return { button = button, stroke = stroke, extra = extra, meter = meter, meterFill = meterFill, icon = nil }
+	return {
+		button = button,
+		stroke = stroke,
+		key = keyLabel,
+		extra = extra,
+		meter = meter,
+		meterFill = meterFill,
+		icon = nil,
+	}
 end
 
-local function lightUp(entry, on: boolean)
-	entry.button.BackgroundTransparency = on and 0.1 or 0.45
-	entry.stroke.Transparency = on and 0 or 0.8
+-- `alpha`: how far the bar has faded in (0 gone, 1 shown).
+local function lightUp(entry, on: boolean, alpha: number)
+	local function fade(rest: number): number
+		return 1 - (1 - rest) * alpha
+	end
+	entry.button.BackgroundTransparency = fade(on and 0.15 or 0.5)
+	entry.stroke.Transparency = fade(on and 0 or 0.8)
 	entry.stroke.Thickness = on and 2 or 1
+	entry.key.TextTransparency = fade(0)
+	entry.extra.TextTransparency = fade(0)
+	entry.meter.BackgroundTransparency = fade(0)
+	entry.meterFill.BackgroundTransparency = fade(0)
 	if entry.icon and entry.icon:IsA("ViewportFrame") then
-		entry.icon.ImageTransparency = on and 0 or 0.35
+		entry.icon.ImageTransparency = fade(on and 0 or 0.35)
 	end
 end
 
 function Hotbar.new(ctx)
-	local self = setmetatable({ ctx = ctx, slots = {}, shown = {} }, Hotbar)
+	local self = setmetatable({ ctx = ctx, slots = {}, shown = {}, alpha = 0, shownAt = -math.huge }, Hotbar)
 	for slot = 1, Inventory.SLOTS do
 		self.shown[slot] = ""
 	end
@@ -157,8 +176,8 @@ function Hotbar.new(ctx)
 		Position = UDim2.new(0, SLOT + TORCH_GAP + slotsWidth / 2, 0, SLOT + 2),
 		Size = UDim2.fromOffset(slotsWidth + 80, 14),
 		TextXAlignment = Enum.TextXAlignment.Center,
-		TextSize = 12,
-		TextColor3 = Ui.Theme.textDim,
+		TextSize = 14,
+		TextColor3 = Ui.Theme.text,
 		TextStrokeTransparency = 0.7,
 		Parent = self.root,
 	})
@@ -179,12 +198,14 @@ local function nameOf(id: string): string
 	return info and info.name or id
 end
 
-function Hotbar:Update()
+function Hotbar:Update(dt: number)
 	local state = self.ctx.state
 	-- (Hidden anywhere, the breath bar sits here.)
 	local visible = state:InRun() and state:PlayerState() == PS.Active and not state:IsHidden()
-	self.root.Visible = visible
 	if not visible then
+		self.root.Visible = false
+		self.signature = nil
+		self.alpha = 0
 		return
 	end
 
@@ -192,7 +213,30 @@ function Hotbar:Update()
 	local actions = self.ctx.controllers and self.ctx.controllers.ActionController
 	local up = actions ~= nil and actions:TorchWanted()
 	local battery = player:GetAttribute(PA.Battery) or 1
-	lightUp(self.torch, up)
+	local ids = self:_ids()
+	local active = player:GetAttribute(PA.ActiveSlot) or Inventory.FREE
+
+	-- Shown while something on it changes, then it fades (V7).
+	local signature = table.concat(ids, ",")
+		.. "|"
+		.. tostring(active)
+		.. "|"
+		.. tostring(up)
+		.. "|"
+		.. tostring(battery <= 0)
+	if signature ~= self.signature then
+		self.signature = signature
+		self.shownAt = os.clock()
+	end
+	local keep = state.settings.showMeters == true or os.clock() - self.shownAt < Config.Interface.HotbarHold
+	self.alpha += ((keep and 1 or 0) - self.alpha) * math.clamp((dt or 0) * (keep and 12 or 3), 0, 1)
+	local alpha = self.alpha
+	self.root.Visible = alpha > 0.01
+	if alpha <= 0.01 then
+		return
+	end
+
+	lightUp(self.torch, up, alpha)
 	self.torch.meterFill.Size = UDim2.fromScale(battery, 1)
 	if battery <= 0 then
 		self.torch.extra.Text = "dead"
@@ -202,8 +246,6 @@ function Hotbar:Update()
 		self.torch.extra.Text = ""
 	end
 
-	local ids = self:_ids()
-	local active = player:GetAttribute(PA.ActiveSlot) or Inventory.FREE
 	for slot, entry in self.slots do
 		local id = ids[slot]
 		if self.shown[slot] ~= id then
@@ -216,11 +258,13 @@ function Hotbar:Update()
 				entry.icon = icon(entry.button, id)
 			end
 		end
-		lightUp(entry, slot == active)
+		lightUp(entry, slot == active, alpha)
 		-- A small fact in the corner: a lit Lantern.
 		entry.extra.Text = (id == "Lantern" and slot == active and player:GetAttribute("LanternOn")) and "lit" or ""
 	end
 	self.name.Text = (ids[active] and ids[active] ~= "") and nameOf(ids[active]) or ""
+	self.name.TextTransparency = 1 - alpha
+	self.name.TextStrokeTransparency = 1 - 0.3 * alpha
 end
 
 return Hotbar

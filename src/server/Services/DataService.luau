@@ -185,6 +185,7 @@ function DataService:Start()
 				"lensFlares",
 				"crouchToggle",
 				"hideBody",
+				"showMeters", -- (V7: the stamina and torch meters, for accessibility)
 				"centerDot",
 				"fov",
 				"cameraMotion",

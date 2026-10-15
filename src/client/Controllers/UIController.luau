@@ -85,22 +85,80 @@ function UIController:Start()
 	net.get("Notify").OnClientEvent:Connect(function(text, kind)
 		self:Toast(text, kind)
 	end)
-	-- F2 `ui map|journal` (Services/DebugService): open a screen as if its
-	-- key were pressed (for tests that can't press Tab).
+	-- F2 `ui <screen>` (Services/DebugService): open a screen as if its key
+	-- were pressed, or with made-up contents (for tests and the shots of the
+	-- interface: map, journal, note, dossier, settings, title, toasts, close).
 	player:GetAttributeChangedSignal("DebugUi"):Connect(function()
 		local what = string.match(tostring(player:GetAttribute("DebugUi")), "^(%a+)")
-		local map = self.components.Map
-		if map and (what == "map" or what == "journal") then
-			map.tab = what == "journal" and "Journal" or "Map"
-			if not map.open then
-				map:Toggle()
-			else
-				map:Render()
-			end
-		elseif map and what == "close" and map.open then
+		self:_debugUi(what)
+	end)
+end
+
+function UIController:_debugUi(what: string?)
+	local c = self.components
+	local map = c.Map
+	if map and (what == "map" or what == "journal") then
+		map.tab = what == "journal" and "Journal" or "Map"
+		if not map.open then
+			map:Toggle()
+		else
+			map:Render()
+		end
+	elseif what == "note" and c.Reader then
+		c.Reader:Show({
+			id = "debug",
+			text = "Honey,\nI moved the Study key to the top drawer of the dresser in the Master Bedroom so the kids stay out.\n\nLove, Mom",
+		})
+	elseif what == "dossier" and c.Dossier then
+		c.Dossier:Show({
+			marks = 120,
+			extracted = true,
+			summary = {
+				won = true,
+				reason = "Extracted",
+				resolved = true,
+				minutes = 14,
+				seconds = 32,
+				drift = 61,
+				seed = 1800820264,
+				difficulty = "Normal",
+				escape = { placesSet = 4, places = 4, locksOpened = 5, locks = 6, puzzles = 2, puzzlesSolved = 2 },
+				haul = { carried = { { label = "silver candlesticks", by = player.DisplayName } }, left = 2, each = 40 },
+				stats = { "Hunts: 2, broken 2", "Stares held: 7", "Doors slammed in his face: 1" },
+				moods = { { id = "Curious", count = 3 }, { id = "Stalking", count = 1 } },
+			},
+			dossier = {
+				habits = { "You hide under beds.", "You run when you hear him." },
+				favouriteSpot = "under the bed in the Master Bedroom",
+				closeCalls = { { name = player.DisplayName, distance = 4.2 } },
+				catches = {},
+				tactics = { { description = "Waited behind a door you'd closed", count = 2 } },
+				totals = { hides = 6, pings = 3 },
+			},
+		})
+	elseif what == "settings" and c.Settings then
+		c.Settings:Open()
+	elseif what == "title" and c.Overlays and c.Overlays.TitleCard then
+		c.Overlays:TitleCard()
+	elseif what == "toasts" and c.Toasts then
+		c.Toasts:Push("You found the Study key.", "good")
+		c.Toasts:Push("The door is locked. It wants a key with a moth on it.", "info")
+		c.Toasts:Push("He's hunting.", "danger")
+		c.Toasts:Caption("[a door creaks upstairs]")
+	elseif what == "close" then
+		if map and map.open then
 			map:Toggle()
 		end
-	end)
+		if c.Reader then
+			c.Reader:Close()
+		end
+		if c.Settings then
+			c.Settings:Close()
+		end
+		if c.Dossier then
+			c.Dossier.gui.Enabled = false
+		end
+	end
 end
 
 function UIController:Toast(text: string, kind: string?)

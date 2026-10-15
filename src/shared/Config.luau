@@ -131,6 +131,11 @@ Config.Torch = {
 	-- (Controllers/ViewModelController).
 	RaiseSeconds = 0.24,
 	LowerSeconds = 0.24,
+	-- The torch's charge shows on the torch (V7, the 1988 interface has no
+	-- meter unless you ask for one): under `Below` of a full battery your beam
+	-- dims toward `Dim` of itself and warms toward `Warm`; under `Sputter` it
+	-- dips now and then. Looks only: the rules' beam is the server's.
+	Low = { Below = 0.3, Dim = 0.45, Warm = { 255, 200, 128 }, Sputter = 0.08 },
 }
 
 Config.Stare = {
@@ -870,6 +875,21 @@ Config.Focus = {
 	NearCone = 3.5, -- over furniture, only a prompt this close takes it (a note lying on a table)
 	RingRange = 10, -- other things you could use this close get a faint ring, no words
 	RingAlpha = 0.45,
+}
+
+-- The 1988 interface (V7; docs/ART.md, client/Lib/Ui): a nearly empty
+-- screen, so the HUD's few things come when something changes, then go.
+Config.Interface = {
+	SlipHold = 14, -- seconds the objective's slip stays after it changes, then it fades
+	SlipFadeIn = 0.7,
+	SlipFadeOut = 1.8,
+	SlipWidth = 470,
+	HotbarHold = 2.4, -- seconds the tool slots stay after you switch
+	HelpSeconds = 180, -- the key hints, at the start of a run (and in Settings, F1)
+	-- Stamina is read off the edges of your sight: below `StaminaFrom` they
+	-- close in, to `StaminaVignette` dark at none (and your breath, AudioController).
+	StaminaFrom = 0.45,
+	StaminaVignette = 0.6,
 }
 
 -- Post-processing and atmosphere on the client (docs/ART.md, "Softening the
