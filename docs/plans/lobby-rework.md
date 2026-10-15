@@ -23,11 +23,18 @@ Their answers to the draft's open questions (later on 2026-10-15):
 - **The boutique opens with a small first paid line:** about six garments, and three torch looks in electronics, "so Marks and the Marks packs have a point". The owner first leaned towards free outfits only, with more clothes after launch "to see if the game catches on", and took Claude's recommendation (the boutique below). More clothes come after launch.
 - **The weekly arcade prize is undecided** until more customisation is planned. For now the prize counter is in the arcade, visible but clearly closed down.
 - **Studio's API access is on** (the owner).
+- **Runs pay about half the Marks, to make Marks worth more** (the owner; the shape below is Claude's, which they took):
+  - about 150 for a strong escape, with the run's sums scaled down rather than capped;
+  - Clearance XP kept at today's pace;
+  - 10 Marks a Robux, with clothing pieces around 1,000 Marks (about 100 Robux) as the baseline;
+  - a cheap first rung in the boutique, double Marks on your first escape of the day, and 100 Marks for an arcade play.
+
+  The formula is retuned at LB3 with the bot's numbers.
 
 ## What's there today
 
 - One place holds the hub and the run (`Services/LobbyService`, `Services/RunOrchestrator`). The hub is a 56 x 56 stud room: a contract table toggles the difficulty, everyone presses Ready, and a majority starts after 30 s (`Logic/LobbyRules`). Its screen is a case folder (`UI/Lobby`).
-- Marks are earned every run, win or lose (`Logic/Progression.marksForRun`): about 100 for a lost run that got somewhere, about 300 for a good win. Every Mark earned also adds Clearance XP (`DataService`). Nothing spends Marks yet.
+- Marks are earned every run, win or lose (`Logic/Progression.marksForRun`): about 100 for a lost run that got somewhere, about 300 for a good win, roughly 400 or more with every valuable carried out. Every Mark earned also adds Clearance XP (`DataService`). Nothing spends Marks yet. LB3 halves the Marks (see Money).
 - The wardrobe (`Data/Wardrobe`, `Services/OutfitService`): eight garments (four tops, two bottoms, two shoes), and outfits are handed out by the order players arrive, so a squad always looks different at a glance. No prices, no ownership.
 - No purchases, game passes or teleports exist anywhere in the code.
 - Studio's API access is on since 2026-10-15 (the owner), so DataStores should work in Studio play tests now. Before that they failed with 403. Studio's play tests then share the live game's stores, so LB0 gives Studio its own.
@@ -129,7 +136,7 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 - **Machines you walk up to:** press E and the camera settles on the screen. Others can watch over your shoulder.
 - **A play costs a credit.** The owner's prices: **5 Robux a play** and a **250 Robux unlimited arcade game pass**, plus a 10-play bundle for 40 Robux.
 - **One free play a day** for everyone (the owner's yes), shown on each machine ("1 free play today"). It resets at midnight UTC.
-- **Plays for Marks, priced to make Robux the better deal:** Claude suggests **75 Marks a play**, to tune. At the small pack's rate a 5 Robux play is worth 25 Marks, so 75 is three times that: supporting the game is clearly cheaper, yet a lost run (about 100 Marks) still earns a play and a good win (about 300) about four.
+- **Plays for Marks, priced to make Robux the better deal: 100 Marks a play** (the owner). At 10 Marks a Robux a 5 Robux play is worth 50 Marks, so 100 is twice that. Supporting the game is clearly cheaper, but it isn't steep: a strong escape (about 150 Marks) buys a play with some left over.
 - **High scores on every machine,** all-time and weekly, across all players, shown on the cabinet's attract screen under Roblox display names (typed initials would need Roblox's text filter). A weekly prize waits until more customisation is planned (the owner).
 - **The prize counter is there but closed down** (the owner): grille down, a "closed" sign, a dust sheet over the prizes. No tickets are given until it opens, so nothing piles up for a design that may change. When it opens, scores earn tickets for silly cosmetic prizes, and tickets are never sold.
 - **The games are original,** never clones (the big names are trademarked). The first: **HOUSE CALL**, a maze where the Guest freezes while you face him, the game's first rule as an arcade game. Later: **NIGHT DRIVE**, a road dodger in the rain. Each machine is a small game of its own to build, so one comes first.
@@ -163,22 +170,31 @@ The fountain, benches, the mall directory ("you are here", which doubles as the 
 - **One currency for cosmetics.** Marks are earned in runs and sold for Robux. Clothes, torch looks and car bits are priced in Marks, so free players can reach almost everything, and payers get there sooner.
 - **Bought Marks never add Clearance XP.** Clearance unlocks contracts, and selling it would be selling progress. Today `DataService` adds a run's Marks to XP; a purchase adds Marks only.
 
+**What a run pays** (the owner, 2026-10-15: about half of today, "to make marks more valuable"):
+- **About 150 for a strong escape,** and a lost run that got somewhere still about 20 to 60: every run pays something, win or lose (design doc section 9).
+- **Scaled down, never capped.** Every sum in `Progression.marksForRun` comes down, so a strong escape lands near 150 on its own. A cap would make the family's valuables worthless once a squad reached it, breaking the push-your-luck choice (2026-10-11), so valuables stay a share you'd notice.
+- **Clearance XP keeps today's pace.** XP gets its own sum (today's formula, as `Progression.xpForRun`), and only the Marks shrink. Halving both would quietly halve how fast players level and unlock contracts.
+- **Double Marks on your first escape of the day** (midnight UTC, like the free arcade play): a reason to come back daily that doesn't raise what runs pay.
+- **Retuned at LB3 with real runs:** F2 `botrun` plays a whole run and `summary` prints its numbers. The weights are set from those, against the 150 target and the 20 to 60 for a loss, before the shop opens. Nothing spends Marks until then, so nothing is lost by waiting.
+
+**What that means for a piece:** at about 150 an escape, a 1,000-Mark piece is about 7 escapes in a row. A player who escapes about half the time makes about 95 a run, so 10 to 11 runs, or about 3 to 4 hours of play. That's on the long side for a baseline piece, but fair, and it makes Robux an obvious shortcut without being a wall. The cheap first rung (shoes at about 500) brings the first purchase into the first couple of hours, the moment a player decides the game rewards them.
+
 ### What's sold
 
 Starting prices to test, not settled: the owner sets the final ones.
 
 | Thing | Kind | Starting price | Notes |
 | --- | --- | --- | --- |
-| Marks, small | Developer product | 100 R for 500 Marks | About three runs' worth |
-| Marks, medium | Developer product | 400 R for 2,200 Marks | 10% bonus |
-| Marks, large | Developer product | 1,000 R for 6,000 Marks | 20% bonus |
-| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | Shown once, after your first run; the jacket is from the first paid line |
-| Arcade play | Developer product, or Marks | **5 R**, or 75 Marks (to tune) | The owner's price; one free play a day |
+| Marks, small | Developer product | 100 R for 1,000 Marks | 10 Marks a Robux (the owner): a baseline clothing piece |
+| Marks, medium | Developer product | 400 R for 4,400 Marks | 10% bonus |
+| Marks, large | Developer product | 1,000 R for 12,000 Marks | 20% bonus |
+| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | About 250 R of value; shown once, after your first run; the jacket is from the first paid line |
+| Arcade play | Developer product, or Marks | **5 R**, or **100 Marks** | The owner's prices; one free play a day |
 | Arcade, 10 plays | Developer product | 40 R | |
 | Arcade unlimited | Game pass | **250 R** | The owner's price |
-| Clothes | Marks | Shoes 300-600, bottoms 500-900, tops 800-1,500, jackets 1,500-2,500 | |
-| Torch looks | Marks | 500-1,500 | The design doc's 100-300 R, in Marks |
-| Car bits | Marks | 200-1,000 | |
+| Clothes | Marks | Shoes 500-700, bottoms 800-1,000, tops 1,000, jackets 1,500-2,000 | Round the owner's baseline of about 1,000 (about 100 R); shoes are the cheap first rung |
+| Torch looks | Marks | 1,000-2,000 | |
+| Car bits | Marks | 300-1,000 | |
 | Photo booth frames | Developer product | 50-200 R | Design doc: hub decor |
 | Gifts | Any Robux item, bought for a friend in the same lobby | Same price | Delivered as a wrapped box they open |
 | Supporter pack | Game pass | 500-1,000 R | Design doc: a cosmetic bundle and a name in the credits |
@@ -265,7 +281,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
 - **LB0, foundations.** Studio's API access (on since 2026-10-15): checked in a play test that a profile saves and loads. Studio given its own DataStores (`DataService`'s store name with a Studio suffix), so play tests never touch live profiles. The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
 - **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
-- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: six garments, picked by the owner from sketches, in one wardrobe batch.
+- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: six garments, picked by the owner from sketches, in one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (a Blender batch), the car bits on the pegboard.
 - **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's records of the fastest and longest escapes.
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
@@ -285,8 +301,7 @@ LB0 comes first because purchases and teleports both depend on it, and they can 
 
 ## Open questions
 
-1. **A play's price in Marks:** 75 is Claude's suggestion.
-2. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
-3. **Which six garments and three torch looks** make the first paid line (sketches first, at LB3 and LB4).
+1. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
+2. **Which six garments and three torch looks** make the first paid line (sketches first, at LB3 and LB4).
 
-Settled (the owner, 2026-10-15): the boutique opens with a small first paid line. For later: what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
+Settled (the owner, 2026-10-15): the boutique opens with a small first paid line; the new Marks economy (Money) with 100 Marks an arcade play. For later: what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
