@@ -20,7 +20,7 @@ Their answers to the draft's open questions (later on 2026-10-15):
 - **Electronics is the fourth shop.** And an **80s diner** at the end of the hall, on the unused wall beside the boutique's front and the electronics store, with leaderboards: **the fastest completed runs and the longest completed runs**.
 - **The shutter stays closed** until the owner decides what to do with it.
 - **No name for the mall** for now: "I just wanna focus on the atmosphere".
-- **The boutique could open with just the free outfits,** with more clothes after launch "to see if the game catches on", unless Claude recommends otherwise (it does: see the boutique below).
+- **The boutique opens with a small first paid line:** about six garments, and three torch looks in electronics, "so Marks and the Marks packs have a point". The owner first leaned towards free outfits only, with more clothes after launch "to see if the game catches on", and took Claude's recommendation (the boutique below). More clothes come after launch.
 - **The weekly arcade prize is undecided** until more customisation is planned. For now the prize counter is in the arcade, visible but clearly closed down.
 - **Studio's API access is on** (the owner).
 
@@ -113,10 +113,10 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 - **The changing booth:** step in and the camera turns to face you. Flip through what you own and what's on the racks, see it on you, and buy it right there for Marks. Nothing you haven't bought leaves the shop on you.
 - **What you wear is yours in the run too,** in first person and to your squad. His disguise clones a friend's character (`GuestController:_disguise`), so bought clothes carry over to it.
 - **Today's eight garments become the free starter set:** four tops, two bottoms and two shoes mix into 16 looks. New players still get a squad-distinct outfit by arrival order until they choose their own.
-- **What it opens with (to settle).** The owner leans towards opening with only the free garments and adding paid clothes after launch, once the game catches on. **Claude recommends a small first paid line instead:** about six pieces (two jackets, two tops, a pair of bottoms, a pair of shoes), plus the torch's first three looks in electronics.
-  - **Why:** with nothing to buy, Marks only buy arcade plays. The Marks packs then sell a currency with almost no use, the starter pack has no jacket to give, and the boutique is a changing room with tills. Players notice a shop with nothing in it, and the first weeks are when a new game earns its reputation.
-  - **The cost** is one wardrobe batch, as V6's eight garments were (`tools/blender/wardrobe.py`, `kitlib/wardrobe`, built round both bodies and checked with `wardrobe_visibility.py`), and one small batch of torches. That is small next to LB0 to LB5.
-  - **If the owner still prefers free only:** the boutique opens for mixing the free pieces; the Marks packs and the starter pack wait for the first paid line. Launch money is then the arcade, private servers and the photo booth's frames.
+- **It opens with a small first paid line** (the owner, 2026-10-15): about six garments (two jackets, two tops, a pair of bottoms, a pair of shoes), plus the torch's first three looks in electronics. More clothes come after launch.
+  - **Why** (Claude's recommendation, which the owner took): with nothing to buy, Marks would only buy arcade plays. The Marks packs would sell a currency with almost no use, the starter pack would have no jacket to give, and the boutique would be a changing room with tills. Players notice a shop with nothing in it, and the first weeks are when a new game earns its reputation.
+  - **The cost** is one wardrobe batch, as V6's eight garments were (`tools/blender/wardrobe.py`, `kitlib/wardrobe`, built round both bodies and checked with `wardrobe_visibility.py`), and one small batch of torches.
+  - **Which six:** the 80s looks the free set doesn't cover yet, proposed with sketches before the batch is built (the owner picks, as with V3's golden area). The starter pack's jacket is one of the two jackets.
 
 ### Electronics: the torch's looks
 
@@ -169,10 +169,10 @@ Starting prices to test, not settled: the owner sets the final ones.
 
 | Thing | Kind | Starting price | Notes |
 | --- | --- | --- | --- |
-| Marks, small | Developer product | 100 R for 500 Marks | About three runs' worth; waits for paid clothes if the boutique opens free only |
+| Marks, small | Developer product | 100 R for 500 Marks | About three runs' worth |
 | Marks, medium | Developer product | 400 R for 2,200 Marks | 10% bonus |
 | Marks, large | Developer product | 1,000 R for 6,000 Marks | 20% bonus |
-| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | Shown once, after your first run; needs the first paid line |
+| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | Shown once, after your first run; the jacket is from the first paid line |
 | Arcade play | Developer product, or Marks | **5 R**, or 75 Marks (to tune) | The owner's price; one free play a day |
 | Arcade, 10 plays | Developer product | 40 R | |
 | Arcade unlimited | Game pass | **250 R** | The owner's price |
@@ -265,8 +265,8 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
 - **LB0, foundations.** Studio's API access (on since 2026-10-15): checked in a play test that a profile saves and loads. Studio given its own DataStores (`DataService`'s store name with a Studio suffix), so play tests never touch live profiles. The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
 - **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
-- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts. If the first paid line ships: its garments' batch, the Marks packs and the starter pack.
-- **LB4, electronics and the car bits.** The torch's looks (a Blender batch), the car bits on the pegboard.
+- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: six garments, picked by the owner from sketches, in one wardrobe batch.
+- **LB4, electronics and the car bits.** The torch's first three looks (a Blender batch), the car bits on the pegboard.
 - **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's records of the fastest and longest escapes.
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
 - **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
@@ -285,8 +285,8 @@ LB0 comes first because purchases and teleports both depend on it, and they can 
 
 ## Open questions
 
-1. **What the boutique opens with:** only the free garments (the owner's lean), or a small first paid line of about six pieces and three torch looks (Claude's recommendation; the boutique section has why).
-2. **A play's price in Marks:** 75 is Claude's suggestion.
-3. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
+1. **A play's price in Marks:** 75 is Claude's suggestion.
+2. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
+3. **Which six garments and three torch looks** make the first paid line (sketches first, at LB3 and LB4).
 
-Settled for now, to come back to later (the owner, 2026-10-15): what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
+Settled (the owner, 2026-10-15): the boutique opens with a small first paid line. For later: what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
