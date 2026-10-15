@@ -120,6 +120,15 @@ Config.Torch = {
 	Spill = 1.9,
 	Core = { Angle = 30, Brightness = 1.6, Range = 36 },
 	OthersBrightness = 2.4, -- the one on your head that the squad sees
+	-- Another player's torch in the air (Controllers/TorchHazeController, the
+	-- V2 finish): haze and dust in a box ahead of their head, out to this
+	-- share of the torch's Range or the first wall, lit by their torch so only
+	-- its cone glows (as Config.Window.MoonBeam.Shaft; set by eye in Studio).
+	Haze = {
+		Reach = 0.75,
+		Haze = { Rate = 30, Lifetime = { 3, 5 }, Size = { 3, 4 }, Transparency = 0.955 },
+		Dust = { Rate = 18, Lifetime = { 3, 5 }, Size = 0.05 },
+	},
 	-- Clipped to your shirt while both hands work a tool lock (section 20).
 	-- `Ahead` keeps your own copy in front of your chest, not inside it.
 	Clip = { Range = 16, Angle = 80, Brightness = 0.8, Height = 1.2, Ahead = 0.7 },
@@ -737,6 +746,19 @@ Config.Window = {
 		Reach = 30, -- and on into the room
 		Angle = 50, -- degrees: wide enough for the whole opening from Out
 		Brightness = 1.1,
+		-- The light you see in the air (the V2 finish; EffectsController): a
+		-- faint haze and dust in a box along the moonlight from the glass
+		-- (`Box` of the opening across, `Length` of the way to the floor),
+		-- lit by the moonlight, so only what it reaches glows. Particles: how
+		-- many a second, how long each lives, how big, how clear at their
+		-- strongest. Set by eye in Studio: 0.9 was a glowing fog, 0.965 too
+		-- faint to see.
+		Shaft = {
+			Box = 0.7,
+			Length = 0.85,
+			Haze = { Rate = 10, Lifetime = { 8, 12 }, Size = { 1.8, 2.4 }, Transparency = 0.94 },
+			Dust = { Rate = 14, Lifetime = { 6, 10 }, Size = 0.05 },
+		},
 	},
 	Openings = {
 		Y = 6, -- the window's centre above its floor (as the templates have it)
@@ -1013,8 +1035,8 @@ Config.Exterior = {
 	Sodium = { 255, 168, 88 }, -- a sodium streetlamp's orange
 	-- The house's outside: weathered painted clapboard over every outer wall
 	-- (World/MansionBuilder), seen across a courtyard from a window and from
-	-- the porch at the end. A kit material later (the visual rework V4a).
-	Facade = { material = "WoodPlanks", color = { 92, 98, 92 }, Thickness = 0.12 },
+	-- the porch at the end (Data/Materials Clapboard, the visual rework V4a).
+	Facade = { material = "Clapboard", color = { 92, 98, 92 }, Thickness = 0.12 },
 }
 
 -- The storm that builds (the visual rework V2; Logic/Storm, Services/

@@ -141,6 +141,67 @@ local function dustEmitter(glow: number, rate: number): ParticleEmitter
 	return emitter
 end
 
+-- The moonlight you see in the air through a window (World/PropFactory's
+-- ShaftTop and ShaftFoot, the V2 finish): a faint haze of big soft blobs and
+-- fine dust drifting in a box along the light's way from the glass, lit by
+-- the scene, so they only glow where the moonlight reaches them. No card or
+-- ribbon: it takes the light's own shape from any angle. Client only, by the
+-- preset's dust switch.
+local function addShaft(top: Instance)
+	local pane = top.Parent
+	local foot = pane and pane:FindFirstChild("ShaftFoot")
+	if not (top:IsA("Attachment") and foot and foot:IsA("Attachment")) or pane:FindFirstChild("Shaft") then
+		return
+	end
+	local S = Config.Window.MoonBeam.Shaft
+	local from, to = top.WorldPosition, foot.WorldPosition
+	local across = (top:GetAttribute("Opening") or 3) * S.Box
+	local length = (to - from).Magnitude * S.Length
+	local box = Instance.new("Part")
+	box.Name = "Shaft"
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Transparency = 1
+	box.Size = Vector3.new(across, across, length)
+	box.CFrame = CFrame.lookAt(from + (to - from).Unit * (length / 2 + 0.3), to)
+	local H = S.Haze
+	local haze = dustEmitter(1, H.Rate)
+	haze.Name = "Haze"
+	haze.Lifetime = NumberRange.new(H.Lifetime[1], H.Lifetime[2])
+	haze.Speed = NumberRange.new(0.02, 0.08)
+	haze.Rotation = NumberRange.new(0, 360)
+	haze.RotSpeed = NumberRange.new(-5, 5)
+	haze.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, H.Size[1], 0.5),
+		NumberSequenceKeypoint.new(1, H.Size[2], 0.5),
+	})
+	haze.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, H.Transparency),
+		NumberSequenceKeypoint.new(0.7, H.Transparency),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	haze.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	haze.Parent = box
+	local D = S.Dust
+	local motes = dustEmitter(1, D.Rate)
+	motes.Lifetime = NumberRange.new(D.Lifetime[1], D.Lifetime[2])
+	motes.Size = NumberSequence.new(D.Size, D.Size * 0.5)
+	motes.Color = ColorSequence.new(Color3.fromRGB(230, 236, 255))
+	motes.Parent = box
+	box.Parent = pane
+	-- (Already there when you look, not filling up as you watch.)
+	if preset.dust then
+		haze:Emit(math.floor(H.Rate * H.Lifetime[1] * 0.8))
+		motes:Emit(math.floor(D.Rate * D.Lifetime[1] * 0.8))
+	end
+	dust[haze] = math.random() * 10 -- (cosmetic: client timing only)
+	dust[motes] = dust[haze]
+end
+
 local function addDust(part: Instance)
 	local light = part:FindFirstChild("KeyLight")
 	if not light then
@@ -319,6 +380,12 @@ function EffectsController:Start()
 				beam.Shadows = preset.lightShadows
 			end
 		end)
+	end)
+	for _, top in CollectionService:GetTagged("ConsensusMoonShaft") do
+		addShaft(top)
+	end
+	CollectionService:GetInstanceAddedSignal("ConsensusMoonShaft"):Connect(function(top)
+		task.defer(addShaft, top)
 	end)
 	for _, card in CollectionService:GetTagged(Constants.Tags.Photo) do
 		trackPhoto(card)

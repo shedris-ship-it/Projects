@@ -2769,6 +2769,30 @@ function PropFactory.buildDecor(
 				beam.Parent = source
 				CollectionService:AddTag(source, "ConsensusMoonLight")
 				beamed = true
+				-- The light you see in the air (the V2 finish; the owner,
+				-- 2026-10-15: "more natural, and scatter as real moonlight
+				-- would", then "planks of light"): no card or ribbon, which
+				-- reads as a plank from most angles, but a faint haze and dust
+				-- in the air along the moonlight's way down from the opening,
+				-- lit by the moonlight itself, so it takes the light's own shape
+				-- from any angle and the lightning brightens it with the rest.
+				-- Each client makes it (EffectsController, by the graphics
+				-- preset): here only where it runs, from the glass to the floor,
+				-- and how wide the opening is.
+				local down = -d
+				local fall = Config.Window.Openings.Y - 0.2
+				local length = if down.Y < -0.05 then math.min(fall / -down.Y, M.Reach) else M.Reach
+				local inside = centre + cf.LookVector * 0.4
+				local a0 = Instance.new("Attachment")
+				a0.Name = "ShaftTop"
+				a0.Parent = pane
+				a0.WorldPosition = inside
+				local a1 = Instance.new("Attachment")
+				a1.Name = "ShaftFoot"
+				a1.Parent = pane
+				a1.WorldPosition = inside + down * length
+				a0:SetAttribute("Opening", math.min(iw, ih))
+				CollectionService:AddTag(a0, "ConsensusMoonShaft")
 			end
 		end
 		-- Moonlight spilling in from a window that looks at the moon: a faint,

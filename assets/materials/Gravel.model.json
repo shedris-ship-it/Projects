@@ -1,0 +1,11 @@
+{
+  "className": "MaterialVariant",
+  "properties": {
+    "BaseMaterial": "Pebble",
+    "ColorMap": "rbxassetid://99849356467908",
+    "MaterialPattern": "Organic",
+    "NormalMap": "rbxassetid://83756498519809",
+    "RoughnessMap": "rbxassetid://110774701402121",
+    "StudsPerTile": 6
+  }
+}

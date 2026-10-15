@@ -200,8 +200,9 @@ function WeatherController:Start()
 	end)
 end
 
--- What lights up in a flash: the moon beams through the windows and the sky
--- ring, at their built brightness.
+-- What lights up in a flash: the moon beams through the windows (and so the
+-- haze and dust they light in the air) and the sky ring, at their built
+-- brightness.
 local beamBase = {}
 local function flashTargets()
 	local beams = {}

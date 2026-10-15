@@ -2,10 +2,10 @@
   "className": "MaterialVariant",
   "properties": {
     "BaseMaterial": "Carpet",
-    "ColorMap": "rbxassetid://105120771211069",
+    "ColorMap": "rbxassetid://122198871332189",
     "MaterialPattern": "Organic",
-    "NormalMap": "rbxassetid://76115866578536",
-    "RoughnessMap": "rbxassetid://106957634858063",
-    "StudsPerTile": 8
+    "NormalMap": "rbxassetid://126189991063037",
+    "RoughnessMap": "rbxassetid://130530997059584",
+    "StudsPerTile": 3
   }
 }

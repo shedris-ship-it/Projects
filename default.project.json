@@ -60,7 +60,7 @@
         "GlobalShadows": true,
         "ShadowSoftness": 0.6,
         "EnvironmentDiffuseScale": 0.15,
-        "EnvironmentSpecularScale": 0.4,
+        "EnvironmentSpecularScale": 0.8,
         "ExposureCompensation": 0
       },
       "Atmosphere": {

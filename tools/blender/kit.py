@@ -132,6 +132,10 @@ BATCHES = {
     # hall's chandelier, the rooms' pendant and the sconces; and the
     # golden area's surfaces as swatches (kitlib/swatches).
     "golden2": architecture.GOLDEN2 + swatches.GOLDEN,
+    # The house's surfaces rebuilt for PBR, the new ones and the light shaft
+    # (the visual rework V4a; tools/surfaces.py, kitlib/swatches).
+    "surfaces": swatches.SURFACES,
+    "surfaces2": swatches.SURFACES2,
     # The kit's first rollout batch (V4): the trim every room has (baseboard,
     # crown, casing, dado rail), the stair's steps, the doors and their knob,
     # the sash window; the halls' paintings, mirror and plant; the chest of

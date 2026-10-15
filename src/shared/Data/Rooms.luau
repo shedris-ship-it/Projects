@@ -322,7 +322,7 @@ local Rooms = {
 		weight = 2,
 		max = 1,
 		floor = { material = "HexTile", color = { 212, 216, 214 } },
-		wall = { material = "CeramicTiles", color = { 160, 176, 172 } },
+		wall = { material = "BathTile", color = { 160, 176, 172 } },
 		reverb = "Bathroom",
 		light = { brightness = 1, range = 22 },
 		props = {
@@ -425,7 +425,7 @@ local Rooms = {
 		weight = 0,
 		max = 1,
 		roles = { exit = true },
-		floor = { material = "Slate", color = { 80, 80, 78 } },
+		floor = { material = "Flagstone", color = { 92, 90, 86 } },
 		wall = { material = "Panelling", color = { 112, 88, 64 } },
 		reverb = "Room",
 		props = {
@@ -451,7 +451,7 @@ local Rooms = {
 		family = "windows",
 		weight = 1,
 		max = 1,
-		floor = { material = "CeramicTiles", color = { 150, 130, 110 } },
+		floor = { material = "QuarryTile", color = { 228, 220, 212 } }, -- terracotta (in colour)
 		wall = { material = "OldPlaster", color = { 178, 174, 154 } },
 		reverb = "Room",
 		props = {
@@ -504,7 +504,7 @@ local Rooms = {
 		family = "utility",
 		weight = 1,
 		max = 1,
-		floor = { material = "Slate", color = { 90, 86, 80 } },
+		floor = { material = "Flagstone", color = { 100, 96, 90 } },
 		wall = { material = "OldPlaster", color = { 152, 142, 118 } },
 		reverb = "Room",
 		light = { brightness = 0.8, range = 22 },
@@ -702,8 +702,8 @@ local CellarRooms = {
 		fixture = "bulb",
 		joists = true,
 		floor = { material = "StainedConcrete", color = { 98, 96, 92 } },
-		wall = { material = "Brick", color = { 150, 138, 120 } },
-		ceiling = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		wall = { material = "CellarBrick", color = { 205, 198, 188 } }, -- old red brick (in colour)
+		ceiling = { material = "RoughBoards", color = { 84, 66, 50 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1.1, range = 26, color = { 232, 194, 126 } },
 		props = {
@@ -726,9 +726,9 @@ local CellarRooms = {
 		family = "utility",
 		fixture = "bulb",
 		joists = true,
-		floor = { material = "Slate", color = { 82, 78, 74 } },
-		wall = { material = "Brick", color = { 128, 104, 88 } },
-		ceiling = { material = "WoodPlanks", color = { 78, 60, 46 } },
+		floor = { material = "Flagstone", color = { 92, 88, 84 } },
+		wall = { material = "CellarBrick", color = { 176, 164, 154 } },
+		ceiling = { material = "RoughBoards", color = { 78, 60, 46 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
 		props = {
@@ -755,7 +755,7 @@ local CellarRooms = {
 		joists = true,
 		floor = { material = "StainedConcrete", color = { 108, 104, 98 } },
 		wall = { material = "OldPlaster", color = { 168, 164, 150 } },
-		ceiling = { material = "WoodPlanks", color = { 88, 70, 54 } },
+		ceiling = { material = "RoughBoards", color = { 88, 70, 54 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1.05, range = 26, color = { 232, 194, 126 } },
 		props = {
@@ -781,8 +781,8 @@ local CellarRooms = {
 		fixture = "bulb",
 		joists = true,
 		floor = { material = "StainedConcrete", color = { 100, 98, 94 } },
-		wall = { material = "Brick", color = { 140, 132, 118 } },
-		ceiling = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		wall = { material = "CellarBrick", color = { 200, 194, 186 } },
+		ceiling = { material = "RoughBoards", color = { 84, 66, 50 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1.15, range = 26, color = { 232, 194, 126 } },
 		props = {
@@ -807,7 +807,7 @@ local CellarRooms = {
 		joists = true,
 		floor = { material = "StainedConcrete", color = { 116, 118, 116 } },
 		wall = { material = "OldPlaster", color = { 176, 180, 176 } },
-		ceiling = { material = "WoodPlanks", color = { 88, 70, 54 } },
+		ceiling = { material = "RoughBoards", color = { 88, 70, 54 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1, range = 24 },
 		props = {
@@ -840,9 +840,9 @@ local AtticRooms = {
 		fixture = "bulb",
 		rafters = true,
 		creaks = 1.5,
-		floor = { material = "WoodPlanks", color = { 96, 76, 58 } },
+		floor = { material = "RoughBoards", color = { 96, 76, 58 } },
 		wall = { material = "OldPlaster", color = { 146, 136, 118 } },
-		ceiling = { material = "WoodPlanks", color = { 82, 64, 48 } },
+		ceiling = { material = "RoughBoards", color = { 82, 64, 48 } },
 		reverb = "Room",
 		light = { brightness = 1.05, range = 26, color = { 232, 194, 126 } },
 		props = {
@@ -869,9 +869,9 @@ local AtticRooms = {
 		fixture = "bulb",
 		rafters = true,
 		creaks = 1.5,
-		floor = { material = "WoodPlanks", color = { 100, 80, 60 } },
+		floor = { material = "RoughBoards", color = { 100, 80, 60 } },
 		wall = { material = "Wallpaper", color = { 132, 120, 104 } },
-		ceiling = { material = "WoodPlanks", color = { 86, 68, 50 } },
+		ceiling = { material = "RoughBoards", color = { 86, 68, 50 } },
 		reverb = "Room",
 		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
 		props = {
@@ -896,9 +896,9 @@ local AtticRooms = {
 		fixture = "bulb",
 		rafters = true,
 		creaks = 1.5,
-		floor = { material = "WoodPlanks", color = { 90, 72, 56 } },
+		floor = { material = "RoughBoards", color = { 90, 72, 56 } },
 		wall = { material = "OldPlaster", color = { 156, 150, 134 } },
-		ceiling = { material = "WoodPlanks", color = { 80, 62, 46 } },
+		ceiling = { material = "RoughBoards", color = { 80, 62, 46 } },
 		reverb = "Room",
 		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
 		props = {
@@ -921,9 +921,9 @@ local AtticRooms = {
 		fixture = "bulb",
 		rafters = true,
 		creaks = 1.5,
-		floor = { material = "WoodPlanks", color = { 94, 74, 56 } },
+		floor = { material = "RoughBoards", color = { 94, 74, 56 } },
 		wall = { material = "OldPlaster", color = { 140, 132, 116 } },
-		ceiling = { material = "WoodPlanks", color = { 80, 62, 46 } },
+		ceiling = { material = "RoughBoards", color = { 80, 62, 46 } },
 		reverb = "Room",
 		light = { brightness = 1, range = 24, color = { 232, 194, 126 } },
 		props = {
@@ -1028,7 +1028,7 @@ local MansionExtras = {
 		-- A dog-leg down from a door off the kitchen side to the cellar; its
 		-- doorway on both storeys is in the south wall.
 		floor = { material = "OakFloor", color = { 82, 62, 46 } },
-		wall = { material = "Brick", color = { 146, 136, 118 } },
+		wall = { material = "CellarBrick", color = { 205, 198, 190 } },
 		reverb = "StoneRoom",
 		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
 		props = {},
@@ -1056,7 +1056,7 @@ local MansionExtras = {
 		fixture = "bulb",
 		-- A dog-leg up from a door off the upper floor to the attic; its
 		-- doorway on both storeys is in the south wall.
-		floor = { material = "WoodPlanks", color = { 92, 72, 54 } },
+		floor = { material = "RoughBoards", color = { 92, 72, 54 } },
 		wall = { material = "OldPlaster", color = { 150, 140, 122 } },
 		reverb = "Hallway",
 		light = { brightness = 1, range = 22, color = { 232, 194, 126 } },
@@ -1108,7 +1108,7 @@ local MansionExtras = {
 		fixture = "bulb",
 		-- A narrow way behind the walls (docs/plans/level-design.md section
 		-- 10.4), entered only by hidden doors; the generator sizes it.
-		floor = { material = "WoodPlanks", color = { 84, 66, 50 } },
+		floor = { material = "RoughBoards", color = { 84, 66, 50 } },
 		wall = { material = "OldPlaster", color = { 126, 118, 104 } },
 		reverb = "Hallway",
 		light = { brightness = 0.75, range = 18, color = { 232, 194, 126 } },

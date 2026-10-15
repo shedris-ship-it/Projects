@@ -29,6 +29,28 @@ return function(test, check, Shared, require)
 		check.equal(next(files), nil, "a model file has no entry in Data/Materials")
 	end)
 
+	-- The visual rework V4a: every surface catches light its own way (a waxed
+	-- floor duller where people walk, a tile's glaze, damp brick), never one
+	-- flat value for the whole surface, and none shares another's maps.
+	test("every material has its own colour, normal and roughness maps", function()
+		local seen = {}
+		for _, m in Materials.List do
+			for _, key in { "color", "normal", "rough" } do
+				local id = m.maps[key]
+				check.truthy(id and string.match(id, "^rbxassetid://%d+$"), m.name .. " has no " .. key .. " map")
+			end
+			check.equal(m.rough, m.maps.rough, m.name .. " wears its own roughness map")
+			if m.name ~= "CoatWool" then -- (the Guest's fallback coat borrows the carpet's pile)
+				check.equal(
+					seen[m.maps.color],
+					nil,
+					m.name .. " shares " .. tostring(seen[m.maps.color]) .. "'s colour map"
+				)
+				seen[m.maps.color] = m.name
+			end
+		end
+	end)
+
 	test("the project syncs the material files into MaterialService", function()
 		local project = serde.decode("json", fs.readFile("default.project.json"))
 		local service = project.tree.MaterialService

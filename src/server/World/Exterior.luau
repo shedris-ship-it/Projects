@@ -522,7 +522,7 @@ function Exterior.build(layout, folder: Instance, origin: Vector3, rng, moon)
 		driveFrom = door
 		local length = E.DriveLength
 		local centre = door + driveDir * (length / 2 + 6)
-		scenery(
+		local drive = scenery(
 			model,
 			"Drive",
 			onX and Vector3.new(E.DriveWidth, 0.2, length) or Vector3.new(length, 0.2, E.DriveWidth),
@@ -531,6 +531,11 @@ function Exterior.build(layout, folder: Instance, origin: Vector3, rng, moon)
 			"Pebble",
 			{ castShadow = false, collide = true, query = true }
 		)
+		-- (Its gravel: Data/Materials, the visual rework V4a.)
+		local _, gravel = PropFactory.surface("Gravel")
+		if gravel then
+			drive.MaterialVariant = gravel
+		end
 		local side = Vector3.new(-driveDir.Z, 0, driveDir.X)
 		streetlamp(model, door + driveDir * (length + 4) + side * (E.DriveWidth / 2 + 2), -side)
 	end

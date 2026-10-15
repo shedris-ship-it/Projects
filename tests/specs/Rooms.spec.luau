@@ -330,6 +330,7 @@ return function(test, check, Shared, require)
 			Carpet = true,
 			Plastic = true,
 			Brick = true,
+			Pebble = true, -- (the drive's gravel, outside)
 		}
 		local function known(name)
 			return Materials.ByName[name] ~= nil or builtIn[name] == true

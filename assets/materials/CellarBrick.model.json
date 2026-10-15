@@ -1,0 +1,11 @@
+{
+  "className": "MaterialVariant",
+  "properties": {
+    "BaseMaterial": "Brick",
+    "ColorMap": "rbxassetid://85353285415307",
+    "MaterialPattern": "Regular",
+    "NormalMap": "rbxassetid://93343049000370",
+    "RoughnessMap": "rbxassetid://79319155697674",
+    "StudsPerTile": 8
+  }
+}

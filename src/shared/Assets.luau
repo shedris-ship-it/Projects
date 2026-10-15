@@ -206,16 +206,100 @@ Assets.DustTexture = "rbxasset://textures/shadowblurmask.png"
 -- account on 2026-10-02. Greyscale and seamless: the part's Color tints them.
 -- Data/Materials turns them into MaterialVariants.
 Assets.Textures = {
-	WallpaperSprig = { color = "rbxassetid://122400107467062", normal = "rbxassetid://72310186404605" },
-	WallpaperStripe = { color = "rbxassetid://128681149883555", normal = "rbxassetid://139959827277558" },
-	Plaster = { color = "rbxassetid://103639715760016", normal = "rbxassetid://139387863577845" },
-	Popcorn = { color = "rbxassetid://111220994454967", normal = "rbxassetid://106713356000616" },
-	WoodFloor = { color = "rbxassetid://131264369009367", normal = "rbxassetid://74016382701051" },
-	WoodPanel = { color = "rbxassetid://93586193315738", normal = "rbxassetid://118515640314780" },
-	Carpet = { color = "rbxassetid://105120771211069", normal = "rbxassetid://76115866578536" },
-	Linoleum = { color = "rbxassetid://138425394516162", normal = "rbxassetid://86453271657573" },
-	HexTile = { color = "rbxassetid://89596429873713", normal = "rbxassetid://121778616853454" },
-	Concrete = { color = "rbxassetid://93657982194767", normal = "rbxassetid://130961398154099" },
+	-- The house's surfaces (tools/surfaces.py, the visual rework V4a), each with
+	-- a roughness map of its own, uploaded by the owner's import of kit.py
+	-- surfaces (on its swatches), 2026-10-15. The first ten rebuilt, then the
+	-- new ones for what the house drew in Roblox's own materials.
+	WallpaperSprig = {
+		color = "rbxassetid://73463151140217",
+		normal = "rbxassetid://113250405469031",
+		rough = "rbxassetid://107502940991982",
+	},
+	WallpaperStripe = {
+		color = "rbxassetid://111519075424092",
+		normal = "rbxassetid://75547032593809",
+		rough = "rbxassetid://130307778925160",
+	},
+	Plaster = {
+		color = "rbxassetid://83812514924417",
+		normal = "rbxassetid://72779224611917",
+		rough = "rbxassetid://98518007156261",
+	},
+	Popcorn = {
+		color = "rbxassetid://110029150557925",
+		normal = "rbxassetid://81107933428469",
+		rough = "rbxassetid://139997466857773",
+	},
+	WoodFloor = {
+		color = "rbxassetid://114683402288401",
+		normal = "rbxassetid://85593359580066",
+		rough = "rbxassetid://124075294565472",
+	},
+	WoodPanel = {
+		color = "rbxassetid://104166371749038",
+		normal = "rbxassetid://111201923957070",
+		rough = "rbxassetid://75180545532960",
+	},
+	Carpet = {
+		color = "rbxassetid://122198871332189",
+		normal = "rbxassetid://126189991063037",
+		rough = "rbxassetid://130530997059584",
+	},
+	Linoleum = {
+		color = "rbxassetid://104910921783241",
+		normal = "rbxassetid://136495732888784",
+		rough = "rbxassetid://111297776043868",
+	},
+	HexTile = {
+		color = "rbxassetid://136549469775197",
+		normal = "rbxassetid://139082524317929",
+		rough = "rbxassetid://87287121441953",
+	},
+	Concrete = {
+		color = "rbxassetid://84827151910253",
+		normal = "rbxassetid://74118763493686",
+		rough = "rbxassetid://132050042091744",
+	},
+	-- New in V4a: the cellar's brick, rough boards (attic floors, cellar and attic
+	-- ceilings), bathroom wall tile, flagstones, quarry tile, the clapboard
+	-- outside, the drive's gravel.
+	Brick = {
+		color = "rbxassetid://85353285415307",
+		normal = "rbxassetid://93343049000370",
+		rough = "rbxassetid://79319155697674",
+	},
+	RoughBoards = {
+		color = "rbxassetid://140260182940873",
+		normal = "rbxassetid://87863503248156",
+		rough = "rbxassetid://136857957936167",
+	},
+	BathTile = {
+		color = "rbxassetid://112947527965000",
+		normal = "rbxassetid://97666152951757",
+		rough = "rbxassetid://90910202302060",
+	},
+	Flagstone = {
+		color = "rbxassetid://99937968686550",
+		normal = "rbxassetid://74362245319520",
+		rough = "rbxassetid://116028594845275",
+	},
+	QuarryTile = {
+		color = "rbxassetid://84955444444785",
+		normal = "rbxassetid://83232043240335",
+		rough = "rbxassetid://99405401577688",
+	},
+	-- (Redrawn and uploaded again 2026-10-15, its peeling paint scattered
+	-- evenly: one big patch repeated tile by tile read as a stamp.)
+	Clapboard = {
+		color = "rbxassetid://73823839011190",
+		normal = "rbxassetid://113742807893355",
+		rough = "rbxassetid://89591082180907",
+	},
+	Gravel = {
+		color = "rbxassetid://99849356467908",
+		normal = "rbxassetid://83756498519809",
+		rough = "rbxassetid://110774701402121",
+	},
 	-- The golden area's surfaces (the visual rework V3; tools/textures.py, ONLY=golden),
 	-- uploaded by the owner's import of kit.py golden2 (on its swatches), each with a
 	-- roughness map of its own.
@@ -234,13 +318,6 @@ Assets.Textures = {
 		normal = "rbxassetid://132229840322224",
 		rough = "rbxassetid://80419864582955",
 	},
-}
-
--- Uniform roughness maps (8 px): matte for paper, plaster and carpet, satin
--- for wood, linoleum and tile.
-Assets.Roughness = {
-	Matte = "rbxassetid://106957634858063",
-	Satin = "rbxassetid://122371022318068",
 }
 
 -- Grime decals, one shared set so the whole house ages the same way.
