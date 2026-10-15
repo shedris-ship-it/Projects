@@ -40,6 +40,7 @@ Constants.Attributes = {
 	Category = "Category",
 	Lit = "Lit",
 	LampGlow = "LampGlow", -- a glowing part of a light fixture; dims and reddens with its light
+	CeilingGlow = "CeilingGlow", -- on a pendant's lamp under a plaster rose: the ceiling's height (Config.Lighting.CeilingGlow)
 }
 
 -- Attributes on the ReplicatedStorage.RunState folder.

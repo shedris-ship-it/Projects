@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, atmosphere, bake, decor, devices, fittings, furniture, house, living, materials, shapes, swatches, things, trim  # noqa: E402
+from kitlib import architecture, atmosphere, bake, decor, devices, fittings, furniture, house, living, materials, ornament, shapes, swatches, things, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -163,6 +163,9 @@ BATCHES = {
     # light switch, the safe room's batteries, the trees, bushes and the
     # streetlamp outside (kitlib/atmosphere).
     "kit9": atmosphere.ATMOSPHERE,
+    # The last of the architecture (the visual rework V4b): ceiling roses,
+    # coffer beams and bosses, radiators, the archways' pocket doors.
+    "kit10": ornament.V4B,
 }
 
 

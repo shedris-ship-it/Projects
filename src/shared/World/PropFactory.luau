@@ -14,6 +14,7 @@ local Config = require(script.Parent.Parent.Config)
 local Constants = require(script.Parent.Parent.Constants)
 local Joint = require(script.Parent.Parent.Lib.Joint)
 local Kit = require(script.Parent.Kit)
+local KitData = require(script.Parent.Parent.Data.Kit)
 local Materials = require(script.Parent.Parent.Data.Materials)
 local Props = require(script.Parent.Parent.Data.Props)
 local ClockTimes = require(script.Parent.Parent.Data.ClockTimes)
@@ -2737,6 +2738,26 @@ function PropFactory.buildDecor(
 			PropFactory.material("SmoothPlastic"),
 			{ collide = false, query = false, castShadow = false, transparency = 1 }
 		)
+		-- A cast-iron radiator under it (the visual rework V4b; `radiatorFloor`,
+		-- World/LevelBuilder), standing on the floor against the wall: solid,
+		-- as the furniture is, but it never catches the hands' aim. Only with
+		-- its mesh (Data/Kit Radiator): no grey-box stand-in.
+		local floorY = opts and opts.radiatorFloor
+		local radiator = KitData.Parts.Radiator
+		if floorY and Kit.template(radiator.mesh) then
+			local size = Vector3.new(radiator.size[1], radiator.size[2], radiator.size[3])
+			local up = floorY + size.Y / 2 - cf.Position.Y
+			local body = part(
+				model,
+				"Radiator",
+				size,
+				cf * CFrame.new(0, up, -(size.Z / 2 + 0.06)),
+				Color3.fromRGB(184, 176, 156),
+				PropFactory.material("Metal"),
+				{ collide = true, query = false, castShadow = true }
+			)
+			Kit.dressPart(body, "Radiator")
+		end
 		-- Moonlight through a real opening (the visual rework V2): a spotlight
 		-- outside, along the way to the run's moon, aimed in through the hole,
 		-- so the frame, the muntins and the covering throw their shadows on

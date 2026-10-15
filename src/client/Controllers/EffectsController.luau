@@ -318,6 +318,27 @@ local function trackLight(part: Instance)
 	if not preset.lightShadows then
 		light.Shadows = false
 	end
+	-- A pendant under a plaster rose lights the rose and the ceiling round it
+	-- too (Config.Lighting.CeilingGlow): a light of this client's own, set
+	-- from this one every frame.
+	local ceiling = part:GetAttribute(Constants.Attributes.CeilingGlow)
+	if typeof(ceiling) == "number" and part:IsA("BasePart") and not part:FindFirstChild("CeilingGlow") then
+		local glow = Config.Lighting.CeilingGlow
+		local at = Instance.new("Attachment")
+		at.Name = "CeilingGlow"
+		at.Parent = part
+		at.WorldCFrame = CFrame.new(part.Position.X, ceiling - glow.Below, part.Position.Z)
+		local up = Instance.new("SpotLight")
+		up.Face = Enum.NormalId.Top
+		up.Angle = glow.Angle
+		up.Range = glow.Range
+		up.Brightness = 0
+		up.Color = light.Color
+		up.Shadows = light.Shadows
+		up.Enabled = false
+		up.Parent = at
+		lights[light].up = up
+	end
 	task.spawn(addDust, part)
 end
 
@@ -713,6 +734,20 @@ function EffectsController:_update(dt: number)
 			for surface, color in info.surfaces do
 				surface.EmissiveTint = color:Lerp(HUNT_RED, red)
 				surface.EmissiveStrength = Config.Kit.ShadeGlow * level
+			end
+			-- The glow on its ceiling (Config.Lighting.CeilingGlow): as bright as
+			-- the lamp, in its colour, with its shadows; none without them.
+			local up = info.up
+			if up then
+				local on = light.Enabled and preset.lightShadows
+				if up.Enabled ~= on then
+					up.Enabled = on
+				end
+				if up.Shadows ~= light.Shadows then
+					up.Shadows = light.Shadows
+				end
+				up.Brightness = Config.Lighting.CeilingGlow.Brightness * light.Brightness / math.max(info.base, 0.01)
+				up.Color = light.Color
 			end
 		end
 	end

@@ -21,6 +21,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Kit = require(Shared.World.Kit)
+local KitData = require(Shared.Data.Kit)
 local PropFactory = require(Shared.World.PropFactory)
 
 local Attr = Constants.Attributes
@@ -498,6 +499,30 @@ function Trim.seam(seam, faces, midpoint: Vector3, through: Vector3)
 			NO_BLOCK
 		)
 	)
+	-- An archway's pocket doors (the visual rework V4b; the owner's pick,
+	-- 2026-10-15): a pair of walnut leaves slid into the wall, each edge and
+	-- its brass pull showing a hand's width out of its jamb, the dark slot
+	-- round it. Shown while the seam is a doorway, like the lining. Only with
+	-- the kit's mesh (Data/Kit PocketDoor); it never collides (it stands in
+	-- the jamb's edge, outside the doorway's lanes).
+	if seam.arch then
+		local entry = KitData.Parts.PocketDoor
+		local size = Vector3.new(entry.size[1], entry.size[2], entry.size[3])
+		for _, side in { -1, 1 } do
+			-- (The leaf's box reaches 0.12 into the wall from the lining's face;
+			-- its edge toward the opening's middle.)
+			local face = side * (width / 2 - l)
+			local cf = frame * CFrame.new(face - side * (size.X / 2 - 0.12), size.Y / 2 + 0.01, 0)
+			if side > 0 then
+				cf *= CFrame.Angles(0, math.pi, 0)
+			end
+			local leaf = PropFactory.part(faces[1].parent, "PocketDoor", size, cf, color, material, NO_BLOCK)
+			asDoor(leaf)
+			if Kit.swap(leaf, "PocketDoor") == leaf then
+				leaf:Destroy()
+			end
+		end
+	end
 end
 
 return Trim

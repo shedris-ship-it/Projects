@@ -607,6 +607,12 @@ Config.Mansion = {
 	Sconce = { range = 18, brightness = 1.1, height = 6.2 },
 	-- Joists under a cellar's ceiling (templates with `joists`).
 	Joists = { every = 4, width = 0.6, depth = 0.7 },
+	-- A formal room's coffered ceiling (templates with `coffers`, "wood" or
+	-- "paint"; the visual rework V4b): beams both ways every `every` studs,
+	-- wall to wall, the room's ceiling light hanging in the middle of a coffer,
+	-- a boss where two cross; kept `margin` studs off the walls. Not in a
+	-- double-height room. Kit meshes only (Data/Kit CofferBeam*, CofferBoss*).
+	Coffers = { every = 6, margin = 1.5 },
 	-- The attic's roof (templates with `rafters`): it slopes from `knee` studs
 	-- up on the long walls to the ceiling at the ridge.
 	Rafters = { knee = 7, every = 4, width = 0.5, depth = 0.6 },
@@ -669,6 +675,17 @@ Config.Lighting = {
 	-- other ceiling. Set CeilingSpot to false to get the old point lights back.
 	CeilingSpot = true,
 	CeilingSpotAngle = 175, -- degrees; 180 is a full hemisphere, a hair less keeps clear of the limit
+	-- A pendant or the chandelier under a plaster rose also lights the rose and
+	-- the ceiling round it, as a shade's open top does (the visual rework V4b:
+	-- with only the downward cone a coffered ceiling was black). Drawn on each
+	-- client from the lamp (EffectsController): it dims, flickers, reddens and
+	-- goes out with it, and never counts as light for the rules. It sits
+	-- `Below` the ceiling, not at the shade: a light just under a surface lit
+	-- it in a hard square (above). From here a plain ceiling gets a round halo
+	-- fading out, and a coffered one lights the coffers round the lamp's too,
+	-- the beams' shadows between them, never one bright square. Only on
+	-- presets where room lights cast shadows, which keep it off the floor above.
+	CeilingGlow = { Below = 4, Angle = 170, Range = 16, Brightness = 1 },
 	-- A room lit only by a window or TV gets a soft bounce light in front of
 	-- it, standing in for light off the walls. It casts shadows so it can't
 	-- leak through into the next room.

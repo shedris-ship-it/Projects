@@ -127,6 +127,10 @@ local Rooms = {
 		max = 1,
 		floor = { material = "PileCarpet", color = { 112, 96, 72 } },
 		wall = { material = "FloralStripe", color = { 204, 190, 168 } }, -- faded 80s floral, aged (a warm tint over its colours)
+		-- A coffered ceiling over smooth plaster (the visual rework V4b;
+		-- World/MansionBuilder, Config.Mansion.Coffers).
+		coffers = "paint",
+		ceiling = { material = "OldPlaster", color = { 204, 196, 178 } },
 		reverb = "LivingRoom",
 		props = {
 			{ id = "sofa", kind = "Sofa", x = 11, z = -17.5 },
@@ -185,6 +189,10 @@ local Rooms = {
 		roles = { deliberation = true },
 		floor = { material = "OakFloor", color = { 98, 68, 50 } },
 		wall = { material = "Damask", color = { 122, 60, 58 } }, -- oxblood damask
+		-- A coffered ceiling over smooth plaster (the visual rework V4b;
+		-- World/MansionBuilder, Config.Mansion.Coffers).
+		coffers = "wood",
+		ceiling = { material = "OldPlaster", color = { 196, 188, 170 } },
 		wainscot = true,
 		reverb = "LivingRoom",
 		-- The table at the room's heart, lit from above, its candles a beacon
@@ -346,6 +354,10 @@ local Rooms = {
 		max = 1,
 		floor = { material = "OakFloor", color = { 84, 60, 44 } },
 		wall = { material = "WallpaperStripe", color = { 112, 122, 102 } },
+		-- A coffered ceiling over smooth plaster (the visual rework V4b;
+		-- World/MansionBuilder, Config.Mansion.Coffers).
+		coffers = "wood",
+		ceiling = { material = "OldPlaster", color = { 190, 182, 164 } },
 		wainscot = true,
 		reverb = "Room",
 		props = {
@@ -615,6 +627,10 @@ local Rooms = {
 		max = 1,
 		floor = { material = "OakFloor", color = { 96, 64, 46 } },
 		wall = { material = "WallpaperStripe", color = { 94, 102, 126 } },
+		-- A coffered ceiling over smooth plaster (the visual rework V4b;
+		-- World/MansionBuilder, Config.Mansion.Coffers).
+		coffers = "paint",
+		ceiling = { material = "OldPlaster", color = { 200, 192, 174 } },
 		wainscot = true,
 		reverb = "LivingRoom",
 		props = {

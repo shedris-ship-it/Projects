@@ -561,6 +561,50 @@ return {
 			at = { 0, 0.002, 0 },
 		},
 		BatteryBox = { mesh = "BatteryBox", id = 111372886674297, size = { 0.91, 0.45, 0.6 } },
+		-- kit.py kit10 (kitlib/ornament, the visual rework V4b): the last of the
+		-- architecture. A plaster rose over each pendant and the hall's
+		-- chandelier (World/LevelBuilder's fixture); a coffered ceiling's beams,
+		-- stretched along each run, and the bosses where they cross
+		-- (World/MansionBuilder); a cast-iron radiator under a window
+		-- (World/PropFactory); a pocket door in each jamb of an archway, which
+		-- flips with the seam (World/Trim). The ceiling pieces are placed at the
+		-- ceiling, their `at` hanging them under it. Nothing is placed without
+		-- its mesh, so no grey-box stands in for them.
+		CeilingRose = { mesh = "CeilingRose", id = 137240723249751, size = { 2.6, 0.32, 2.6 }, at = { 0, -0.16, 0 } },
+		CeilingRoseLarge = {
+			mesh = "CeilingRoseLarge",
+			id = 118632789769919,
+			size = { 4.8, 0.4, 4.8 },
+			at = { 0, -0.2, 0 },
+		},
+		CofferBeamWood = {
+			mesh = "CofferBeamWood",
+			id = 135785825088795,
+			size = { 4, 0.64, 0.83 },
+			fit = true,
+			at = { 0, -0.32, 0 },
+		},
+		CofferBeamPaint = {
+			mesh = "CofferBeamPaint",
+			id = 140344180525822,
+			size = { 4, 0.64, 0.83 },
+			fit = true,
+			at = { 0, -0.32, 0 },
+		},
+		CofferBossWood = {
+			mesh = "CofferBossWood",
+			id = 110498620009624,
+			size = { 0.87, 0.82, 0.87 },
+			at = { 0, -0.41, 0 },
+		},
+		CofferBossPaint = {
+			mesh = "CofferBossPaint",
+			id = 98887705130058,
+			size = { 0.87, 0.82, 0.87 },
+			at = { 0, -0.41, 0 },
+		},
+		Radiator = { mesh = "Radiator", id = 132998574857921, size = { 4.01, 2.55, 0.6 } },
+		PocketDoor = { mesh = "PocketDoor", id = 70798688994636, size = { 0.43, 7.9, 0.26 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that

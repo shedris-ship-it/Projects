@@ -572,6 +572,61 @@ local function buildStairwell(model, roomCF: CFrame, roomId: number, inner, surf
 end
 
 -- The locked front door: the squad came in through it, and it shut.
+-- A formal room's coffered ceiling (the visual rework V4b; a template's
+-- `coffers`, "wood" or "paint"): beams both ways under the ceiling at
+-- `ceilingY`, wall to wall across the room's `span` (x, z: inside its walls
+-- round `centre`), every Config.Mansion.Coffers.every studs from `light` (the
+-- ceiling light's x and z), so the light hangs in the middle of a coffer;
+-- a boss where two cross. Kit meshes only: nothing without them. Returns how
+-- many pieces it placed.
+local function coffers(model, style: string, centre: Vector3, span: Vector2, ceilingY: number, light: Vector3): number
+	local C = Config.Mansion.Coffers
+	local suffix = style == "wood" and "Wood" or "Paint"
+	local folder = Instance.new("Folder")
+	folder.Name = "Coffers"
+	local function lines(mid: number, lightAt: number, half: number): { number }
+		local out = {}
+		local lo, hi = mid - half + C.margin, mid + half - C.margin
+		local start = lightAt - C.every / 2 - math.floor((lightAt - C.every / 2 - lo) / C.every) * C.every
+		local at = start
+		while at <= hi do
+			if at >= lo then
+				table.insert(out, at)
+			end
+			at += C.every
+		end
+		return out
+	end
+	local xs = lines(centre.X, light.X, span.X / 2)
+	local zs = lines(centre.Z, light.Z, span.Y / 2)
+	local placed = 0
+	local beam = "CofferBeam" .. suffix
+	for _, x in xs do
+		local cf = CFrame.new(x, ceilingY, centre.Z) * CFrame.Angles(0, math.pi / 2, 0)
+		if Kit.place(folder, beam, cf, Vector3.new(span.Y, 0.64, 0.83)) then
+			placed += 1
+		end
+	end
+	for _, z in zs do
+		if Kit.place(folder, beam, CFrame.new(centre.X, ceilingY, z), Vector3.new(span.X, 0.64, 0.83)) then
+			placed += 1
+		end
+	end
+	for _, x in xs do
+		for _, z in zs do
+			if Kit.place(folder, "CofferBoss" .. suffix, CFrame.new(x, ceilingY, z)) then
+				placed += 1
+			end
+		end
+	end
+	if placed > 0 then
+		folder.Parent = model
+	else
+		folder:Destroy()
+	end
+	return placed
+end
+
 local function frontDoor(model, point: Vector3, dir: Vector3)
 	local face = point - dir * WALL
 	Trim.exitCasing(model, CFrame.lookAt(face, face - dir))
@@ -1093,6 +1148,20 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			end,
 		})
 
+		-- A formal room's coffered ceiling, round its ceiling light (a dining
+		-- table pulls that light over itself: LevelBuilder.furnish).
+		if template.coffers and not room.tall then
+			local light = record.lightKind == "ceiling" and record.lightPart and record.lightPart.Position or center
+			coffers(
+				model,
+				template.coffers,
+				center,
+				Vector2.new(room.w - 2 * WALL, room.d - 2 * WALL),
+				floorY + (top - room.floor) * PITCH + HEIGHT,
+				light
+			)
+		end
+
 		-- A long corridor gets more lights than the one in its middle: a pair
 		-- every 22 studs out from it, dimmed and blacked out with the room's own
 		-- (WorldService:SetRoomLight). Pools of light with dark between, like
@@ -1103,7 +1172,8 @@ function MansionBuilder.build(layout, templatesById, folder: Instance, rng)
 			for k = 1, math.floor((long / 2 - 8) / 22) do
 				for _, sign in { -1, 1 } do
 					local point = center + axis * sign * 22 * k
-					local diffuser = LevelBuilder.ceilingFixture(model, point, template.fixture or template.family)
+					local diffuser =
+						LevelBuilder.ceilingFixture(model, point, template.fixture or template.family, true)
 					local light = LevelBuilder.lightFor("ceiling", diffuser, template)
 					diffuser:SetAttribute(Attr.RoomId, room.id)
 					diffuser:SetAttribute(Attr.Lit, true)

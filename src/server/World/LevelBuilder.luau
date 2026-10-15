@@ -210,8 +210,10 @@ end
 -- where the template asks for one (`fixture = "bulb"`: the cellar), a
 -- hanging drum pendant everywhere else. The pendant's shade stops at 8.6 studs so The
 -- Guest (8.4) passes under it. Returns the glowing diffuser that carries the
--- room's key light.
-local function ceilingFixture(parent, center: Vector3, family: string?): BasePart
+-- room's key light. `rose`: a plaster rose on the ceiling over a pendant or
+-- the chandelier (the visual rework V4b; not under the attic's rafters or the
+-- cellar's joists).
+local function ceilingFixture(parent, center: Vector3, family: string?, rose: boolean?): BasePart
 	local fixture = Instance.new("Model")
 	fixture.Name = "CeilingFixture"
 	local glow = function(p: BasePart)
@@ -336,6 +338,15 @@ local function ceilingFixture(parent, center: Vector3, family: string?): BasePar
 		if entry then
 			local top = ((entry.floor or 0) + entry.size[2]) * (entry.scale or 1)
 			Kit.dressFixture(fixture, name, CFrame.new(center + Vector3.new(0, HEIGHT - top, 0)))
+		end
+		-- (After the dressing, which hides every part the fixture has.)
+		if rose then
+			local roseName = family == "chandelier" and "CeilingRoseLarge" or "CeilingRose"
+			if Kit.place(fixture, roseName, CFrame.new(center + Vector3.new(0, HEIGHT, 0))) then
+				-- Its lamp lights the rose and the ceiling round it too, on each
+				-- client (Config.Lighting.CeilingGlow, EffectsController).
+				diffuser:SetAttribute(Attr.CeilingGlow, center.Y + HEIGHT)
+			end
 		end
 	end
 	fixture.Parent = parent
@@ -537,6 +548,15 @@ function LevelBuilder.furnish(world, ctx)
 				decorOptions = {
 					key = decor.key == true,
 					open = ctx.openWindows == true,
+					-- A cast-iron radiator under it (the visual rework V4b): the
+					-- floor's height, in the mansion's heated storeys (never under
+					-- the attic's roof). Logic/Windows keeps furniture 3 studs off
+					-- the wall under a window, so it has room.
+					radiatorFloor = if ctx.openWindows == true
+							and (room.floor or 0) <= 1
+							and not template.rafters
+						then center.Y
+						else nil,
 					moonDir = world.moon and Vector3.new(WindowView.direction(world.moon)),
 					view = WindowView.view(
 						rng:Fork("window:" .. room.id .. ":" .. decor.id),
@@ -570,7 +590,12 @@ function LevelBuilder.furnish(world, ctx)
 
 	-- Key light: one motivated source per room (doc section 8).
 	if not keyLightPart then
-		keyLightPart = ceilingFixture(model, fixtureAt or center, template.fixture or template.family)
+		keyLightPart = ceilingFixture(
+			model,
+			fixtureAt or center,
+			template.fixture or template.family,
+			not (template.rafters or template.joists)
+		)
 		keyLightKind = "ceiling"
 	end
 	local light = keyLightPart:FindFirstChildWhichIsA("Light")
