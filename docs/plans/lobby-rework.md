@@ -123,11 +123,33 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 - **It opens with a small first paid line** (the owner, 2026-10-15): about six garments (two jackets, two tops, a pair of bottoms, a pair of shoes), plus the torch's first three looks in electronics. More clothes come after launch.
   - **Why** (Claude's recommendation, which the owner took): with nothing to buy, Marks would only buy arcade plays. The Marks packs would sell a currency with almost no use, the starter pack would have no jacket to give, and the boutique would be a changing room with tills. Players notice a shop with nothing in it, and the first weeks are when a new game earns its reputation.
   - **The cost** is one wardrobe batch, as V6's eight garments were (`tools/blender/wardrobe.py`, `kitlib/wardrobe`, built round both bodies and checked with `wardrobe_visibility.py`), and one small batch of torches.
-  - **Which six:** the 80s looks the free set doesn't cover yet, proposed with sketches before the batch is built (the owner picks, as with V3's golden area). The starter pack's jacket is one of the two jackets.
+  - **Which six** (the owner, 2026-10-15, from Claude's picks): 80s at a glance, and different in silhouette from the free varsity jacket, windbreaker, flannel and cardigan. No logos, band names or brand stripes.
+
+    | Piece | Slot | Price | Why |
+    | --- | --- | --- | --- |
+    | High-top sneakers | Shoes | 500 Marks | The cheap first rung; the most 80s shoe there is |
+    | Ringer tee | Top | 800 Marks | A cheaper top, with contrast trim at the collar and cuffs |
+    | Parachute pants | Bottom | 900 Marks | Iconic, and nothing like jeans or cords |
+    | Colour-block sweatshirt | Top | 1,000 Marks | Big 80s colour against the muted free set |
+    | Acid-wash denim jacket | Top | 1,500 Marks | The starter pack's jacket (the pack: about 250 R of value for 99 R) |
+    | Leather biker jacket | Top | 2,000 Marks | The one people want, and see on others |
+
+  - **Sketches first, at LB3:** a quick sheet of the six on both bodies for the owner to swap any before the batch is modelled.
+  - **A jacket is a top** in today's wardrobe (`Data/Wardrobe` slots: Top, Bottom, Shoes), so it's worn instead of a shirt, not over one. Jackets over shirts would need a fourth slot, its pieces built over each top's: worth doing after launch, not for it.
 
 ### Electronics: the torch's looks
 
-- **The torch is the one tool that's always yours** (on F, with your own arms), so its looks sell first: a chrome torch, a camping lantern, a rubber work light. The found tools (lantern, radio, crowbar, bolt cutters...) pass between hands in a run, so their looks would swap owners; they wait.
+- **The torch is the one tool that's always yours** (on F, with your own arms), so its looks sell first. The found tools (lantern, radio, crowbar, bolt cutters...) pass between hands in a run, so their looks would swap owners; they wait.
+- **The first three** (the owner, 2026-10-15, from Claude's picks):
+
+  | Look | Price | Why |
+  | --- | --- | --- |
+  | Yellow rubber work torch | 1,000 Marks | Chunky and practical |
+  | Brass torch | 1,500 Marks | An old torch from someone's grandfather's drawer; suits the family house |
+  | Long chrome torch | 2,000 Marks | Sleek metal; the one you show off |
+
+- **Looks only:** every torch keeps the beam, its brightness and range, and the hand's grip (`Config.ViewModel.Poses` `grip`) exactly as today, and the squad sees it. Nothing that glows or changes the light's shape (a lantern): teammates would read it as a different tool, and a glowing body would light you up in the dark.
+- **Sketches first, at LB4,** for the owner to swap any before they're modelled.
 - **Later:** the ping and callout looks (design doc section 9).
 - **The TV wall in the shop window** is where the video ads go (see Ads).
 
@@ -147,15 +169,18 @@ The cars, the payphone, and a pegboard of car bits (wood panelling, paint, fuzzy
 
 ### The diner: the run records
 
-An 80s diner at the hall's end: booths, a counter with stools, neon in the window, the place a squad sits between runs. Its menu board holds the records (the owner's two):
+An 80s diner at the hall's end: booths, a counter with stools, neon in the window, the place a squad sits between runs. It holds the records (the owner's two):
 - **The fastest completed runs,** from the arrival to the run out of the front door.
 - **The longest completed runs:** the squads that held on longest and still got out. Stalling can't farm it, because a run that drags on reaches Drift 100 and the Reckoning, a hunt that never ends.
 
-Each entry shows the squad's names, its size and the time. The time comes from the server, which already measures every run (`RunOrchestrator`, `run.started`), so these boards need no cheat check.
+**Two boards, as a diner has them** (the owner, 2026-10-15):
+- **The menu board over the counter is Normal; the specials board beside it is Hard.**
+- **Each board holds four lists, top five each:** the fastest solo, the fastest squad, the longest solo and the longest squad. Each entry shows the names, the squad's size and the time.
+- **Solo is split from squads from day one.** The house grows with the squad (`Logic/HouseSize`), so solo houses are smaller and solo runs would top a mixed fastest list, pushing squads off the board, and squads are what the game is built for.
+- **Short night only to start** (the default, `Config.Run.Night`), labelled on both boards. Full-night records can get a third board later if people play it (`Config.Mansion.Profiles`).
+- **Only real runs count:** never one from Studio, and never one where an F2 debug command was used. Otherwise test runs would hold every record.
 
-The house changes with the night (short or full: `Config.Mansion.Profiles`), the difficulty and the squad's size, so one list would compare different races. Claude suggests:
-- lists for each difficulty on the default short night first, with the full night later;
-- solo split from squads if solos turn out to dominate.
+The time comes from the server, which already measures every run (`RunOrchestrator`, `run.started`), so the boards need no other cheat check.
 
 The daily contract, when it comes, is the fairest race of all (one house for everyone).
 
@@ -281,9 +306,9 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
 - **LB0, foundations.** Studio's API access (on since 2026-10-15): checked in a play test that a profile saves and loads. Studio given its own DataStores (`DataService`'s store name with a Studio suffix), so play tests never touch live profiles. The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
 - **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
-- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: six garments, picked by the owner from sketches, in one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
-- **LB4, electronics and the car bits.** The torch's first three looks (a Blender batch), the car bits on the pegboard.
-- **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's records of the fastest and longest escapes.
+- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
+- **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.
+- **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's two boards (Normal and Hard; fastest and longest; solo and squad; short night; real runs only).
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
 - **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
 
@@ -301,7 +326,6 @@ LB0 comes first because purchases and teleports both depend on it, and they can 
 
 ## Open questions
 
-1. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
-2. **Which six garments and three torch looks** make the first paid line (sketches first, at LB3 and LB4).
+None left before LB0. The sketches at LB3 and LB4 are the next choices the owner makes.
 
-Settled (the owner, 2026-10-15): the boutique opens with a small first paid line; the new Marks economy (Money) with 100 Marks an arcade play. For later: what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
+Settled (the owner, 2026-10-15): the boutique opens with a small first paid line (the six garments and three torch looks in their tables); the new Marks economy (Money) with 100 Marks an arcade play; the diner's two boards. For later: what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
