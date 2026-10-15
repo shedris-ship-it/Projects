@@ -1,7 +1,8 @@
 -- The hub (doc section 2, "Briefing"): a lit safehouse where the squad picks
--- a contract and difficulty, chooses a tool and readies up. A single place
--- holds both the hub and the run for the vertical slice; split them into two
--- places with TeleportService when matchmaking arrives (doc section 7).
+-- a contract and difficulty, chooses a tool and readies up. In a live lobby
+-- the squad that readies goes to a reserved server of its own for the run
+-- (Services/PlaceService, docs/plans/lobby-rework.md); in Studio, and with
+-- Config.Places.ReservedRuns off, the run is played in this server.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -248,6 +249,12 @@ function LobbyService:_checkStart()
 	if not self:InLobby() then
 		return
 	end
+	-- A run server starts only the run its contract asks for
+	-- (Services/PlaceService); its hub is the squad's waiting room.
+	local places = self.services.PlaceService
+	if places and places:IsRun() then
+		return
+	end
 	local runState = ReplicatedStorage.RunState
 	local players = self:LobbyPlayers()
 	local ready, waiting = self:_readiness()
@@ -305,7 +312,31 @@ function LobbyService:_checkStart()
 			while #squad > Config.Run.MaxPlayers do
 				table.remove(squad)
 			end
-			self.services.RunOrchestrator:StartRun(squad, self.difficulty, self.location)
+			local places = self.services.PlaceService
+			if places and places:IsLobby() then
+				-- A lobby sends the squad to a reserved server of its own
+				-- (Services/PlaceService); they're no longer ready here, so the
+				-- hub doesn't count them again while they go.
+				for _, player in squad do
+					player:SetAttribute(PA.Ready, false)
+				end
+				self:Broadcast()
+				local sent = places:SendSquad(squad, {
+					difficulty = self.difficulty,
+					location = self.location,
+					night = self.services.RunOrchestrator:Night(),
+				})
+				if not sent then
+					for _, player in squad do
+						if player.Parent then
+							Net.get("Notify")
+								:FireClient(player, "The car wouldn't start. Ready up to try again.", "info")
+						end
+					end
+				end
+			else
+				self.services.RunOrchestrator:StartRun(squad, self.difficulty, self.location)
+			end
 		end)
 	elseif not how and self.countdownThread then
 		runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)

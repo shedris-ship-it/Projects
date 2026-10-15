@@ -138,6 +138,7 @@ help · overlay on|off · drift <0-100> · tier <0-4|off> · hunt · perf · lig
 watch (the stare right now: watchers, lit, dark, beam, the room, the hold) · summary (the run in numbers, to Output)
 event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)
 seed <n> · layout cells|mansion|default · squad <1-4|auto> · night short|full   (apply to the next run; short is the default)
+role (this server's job: lobby, run or both; set ServerStorage's DebugRole attribute to lobby or run before a Studio play test to try one)
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy
 storm 0|1|2|auto|strike (hold the storm's stage, or strike now) · goto <room> | goto <x> <y> <z> · look <spot> | look save <name> (the visual rework's fixed shots, Data/LookSpots) · plan (the house plan to Output) · where · chute [here] (down the laundry chute)

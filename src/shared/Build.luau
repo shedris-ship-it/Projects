@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-15.199",
-	note = "LB0: Studio play tests save to their own DataStores, never the live game's",
+	id = "2026-10-15.200",
+	note = "LB0: runs in reserved servers of the one place (PlaceService), profile v2, purchases granted once (MonetizationService)",
 }

@@ -639,6 +639,11 @@ function RunOrchestrator:_returnToLobby()
 	end
 	services.LobbyService:Return(alive)
 	self:_setPhase(Phases.Lobby)
+	-- A run server sends the squad back to a lobby once the Dossier has had
+	-- its time (Services/PlaceService).
+	if services.PlaceService and services.PlaceService:IsRun() then
+		services.PlaceService:ReturnSquad(alive)
+	end
 end
 
 -- Bring a (re)loading client up to date.

@@ -249,25 +249,28 @@ The design doc's section 9 list stands: no extra lives or revives, nothing that 
 
 ## Under the hood
 
-### Two places
+### One place, runs in reserved servers
 
-A 50-player lobby can't hold runs: each run builds its own house. So the universe gets two places:
-- **The lobby** (the start place, 50 players).
-- **The run** (4 players, reserved servers).
+A 50-player lobby can't hold runs: each run builds its own house. Runs go to **reserved servers of the same place** (the owner, 2026-10-15, over a second place):
+- **Public servers are lobbies** (the place allows 60 players; the plan's 50 fits).
+- **A reserved server is a run:** a private copy of the place that only the squad sent to it can enter.
+- **A paid private server** (Roblox's own) **is a lobby** for its owner's friends, and its runs go to reserved servers too.
+- **In Studio** a server is both, as today, so Studio play tests keep working (teleports don't work in Studio).
 
-Both are published from the same Rojo build. Each server knows its role from `game.PlaceId` (`Config.Places`), and in Studio, or under an unknown place id, it plays both roles in one server as today, so Studio play tests keep working (teleports don't work in Studio).
+Why one place: one place to publish and one Rojo sync. With two, every update must be published to both, and a forgotten one runs old code: the "is it on the new build?" problem. The cost is small: one set of place settings and analytics for both, and a run server also holds the lobby's map (it serves as the squad's waiting room while they arrive).
 
 - **Lobby to run:**
-  - When the car leaves, `TeleportService:ReserveServer` reserves a run server.
-  - The contract (location, difficulty, night, the squad's user ids) goes into a MemoryStore hash keyed by that server's private server id, and `TeleportService:TeleportAsync` sends the squad.
+  - When the car leaves, `TeleportService:ReserveServer(game.PlaceId)` reserves a server.
+  - The contract (location, difficulty, night, the squad's user ids) goes into a MemoryStore hash map keyed by that server's private server id, and `TeleportService:TeleportAsync` sends the squad with its access code.
   - Teleport data passes through the client, so it's never trusted for the contract.
-  - The run server waits for its squad (about 30 s, then starts with whoever came) and calls `RunOrchestrator:StartRun` as today.
-- **Run to lobby:** the squad is teleported back together. A returning group lands in one lobby server (to be confirmed in a live test) and is given a car.
-- **Failures:** a teleport that fails is retried, then the squad is put back in its car with a note.
-- **Profiles:** both places share the universe's DataStores. `DataService`'s session lock has to hand over cleanly on a teleport (save and release on leaving; wait for it on arrival).
-- **Roblox settings:** the lobby place at 50 players, with a few slots left for friends joining (the place's server-fill setting); the run place at 4.
+  - The run server reads its contract by `game.PrivateServerId`, waits for its squad (about 30 s, then starts with whoever came), and calls `RunOrchestrator:StartRun` as today.
+- **Run to lobby:** the squad is teleported back to a public server together. A group teleport should land in one server (to be confirmed in the live test); it's then given a car.
+- **Failures:** a teleport that fails is retried, then the squad is put back in its car with a note (today: back in the hub).
+- **Profiles:** every server shares the same DataStores. `DataService` hands a profile over before a teleport: it saves, releases the session lock and stops saving that player, so the arriving server can lock it at once.
+- **Roblox settings:** none to change; the place allows 60 players and a reserved server only ever receives its squad.
+- **A switch:** `Config.Places.ReservedRuns` turns it off, so a live problem can go back to runs in the lobby's own server without a code change.
 
-This is CLAUDE.md's Next item 7 (the hub place, reserved servers), brought forward. MemoryStore matchmaking across lobbies isn't needed at first: 50 players in a lobby fill cars on their own.
+This is CLAUDE.md's Next item 7 (the hub, reserved servers), brought forward. MemoryStore matchmaking across lobbies isn't needed at first: 50 players in a lobby fill cars on their own.
 
 ### Data (profile version 2)
 
@@ -303,7 +306,19 @@ This is CLAUDE.md's Next item 7 (the hub place, reserved servers), brought forwa
 
 Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/`, a section here, TCs at the end of `docs/TESTING.md`.
 
-- **LB0, foundations.** *Done (2026-10-15, build .199):* Studio's API access checked. Studio given its own DataStores: `DataService.StoreName` adds `Config.Data.StudioSuffix` in Studio, and every new store goes through it, so play tests never touch live profiles. Checked in play, with a marker of 1234 Marks put in the Studio profile beforehand: the hub showed it (load); stopping play saved and released the lock; an immediate restart loaded at once; the live profile was untouched (last written three days before). TC-303. *Still to do:* The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
+- **LB0, foundations.** *Done (2026-10-15, build .199):* Studio's API access checked. Studio given its own DataStores: `DataService.StoreName` adds `Config.Data.StudioSuffix` in Studio, and every new store goes through it, so play tests never touch live profiles. Checked in play, with a marker of 1234 Marks put in the Studio profile beforehand: the hub showed it (load); stopping play saved and released the lock; an immediate restart loaded at once; the live profile was untouched (last written three days before). TC-303. *Done (build .200):*
+  - **Server roles** in place of a second place (the owner, 2026-10-15): `Logic/ServerRole`, `Services/PlaceService`, `Config.Places` with the `ReservedRuns` switch.
+  - **The contract** through MemoryStore (`Logic/RunContract`).
+  - **Profiles handed over** for each teleport (`DataService:HandOff`, `TakeBack`).
+  - **Profile version 2** (`Logic/Profile`).
+  - **`MonetizationService`** with receipts (`Data/Products`, no ids yet).
+  - **F2 `role`,** and 14 new tests (671).
+  - **Checked in Studio** with ServerStorage's `DebugRole` attribute:
+    - the default role is `both` with no warnings, and the Studio profile upgraded to version 2;
+    - `lobby`: Ready, then "The car wouldn't start" (Studio can't reserve servers: HTTP 403), Ready off (TC-305);
+    - `run`: the contract left and read back, "1 of 1 of the squad here", the run started without Ready; after F2 `end` and the Dossier's 30 s the teleport back failed (none in Studio), and the server became a hub where Ready started a run in place; the profile was taken back and released on stop (TC-304).
+
+  *Still to do:* the live test (TC-306): a squad sent to its own server and back, together, with profiles intact. It needs the owner to publish build .200, because teleports and reserved servers only work live. Purchases can be tested once the products exist in Creator Hub.
 - **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
@@ -317,7 +332,7 @@ LB0 comes first because purchases and teleports both depend on it, and they can 
 ## What the owner will be asked
 
 - ~~Turn on Studio's access to API services~~ (done, 2026-10-15).
-- Make the second place in Creator Hub and publish to it; set the two places' player counts.
+- ~~Make a second place~~ (not needed: runs go to reserved servers of the one place, the owner's choice, 2026-10-15).
 - Create the developer products and game passes in Creator Hub and send Claude their ids.
 - Approve and import each Blender batch, as in the visual rework.
 - Set the final prices.

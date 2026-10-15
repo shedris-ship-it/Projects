@@ -66,6 +66,7 @@ local HELP = table.concat({
 	"event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overhead, doorAjar, knockInside, clockStrikes)",
 	"botrun [fast] [flee|hide] (the bot plays the run with your character; again stops it) · botrun plan (the steps, to Output)",
 	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
+	"role (this server's job: lobby, run or both; Services/PlaceService)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -164,6 +165,7 @@ local READ_ONLY = {
 	seed = true,
 	layout = true,
 	squad = true,
+	role = true,
 }
 
 local function short(value): string
@@ -1378,6 +1380,9 @@ function DebugService:Run(player: Player, text: string)
 			local parts, hash = PartDump.hash(level)
 			reply(player, string.format("parts %d, hash %d", parts, hash))
 		end
+	elseif command == "role" then
+		local places = services.PlaceService
+		reply(player, places and places:Describe() or "no PlaceService")
 	elseif command == "perf" then
 		reply(
 			player,

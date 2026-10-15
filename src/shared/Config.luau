@@ -2679,6 +2679,25 @@ Config.Body = {
 	WallGap = 0.6,
 }
 
+-- Where runs are played (Services/PlaceService; docs/plans/lobby-rework.md,
+-- "One place, runs in reserved servers"): a lobby sends each squad to a
+-- reserved server of the same place.
+Config.Places = {
+	-- false puts runs back in the lobby's own server, as before (a switch
+	-- for a live problem, no other change needed).
+	ReservedRuns = true,
+	-- The MemoryStore hash map lobbies leave contracts in (DataService.StoreName
+	-- adds Studio's suffix).
+	ContractMap = "ConsensusRunContracts",
+	ContractSeconds = 600, -- a contract outlives a slow teleport, then expires
+	ContractReads = 5, -- tries at reading it on arrival, a second apart
+	SquadWaitSeconds = 30, -- a run server waits this long for its whole squad, then starts with whoever came
+	TeleportTries = 3, -- a teleport request retried (2 s, then 4 s apart)
+	-- After a run, the Dossier's time before everyone goes back to a lobby
+	-- (as long as the debrief, Config.Run.DebriefSeconds).
+	ReturnSeconds = 30,
+}
+
 -- Saved data (Services/DataService).
 Config.Data = {
 	-- Studio's play tests save to stores of their own, never the live game's

@@ -3,7 +3,10 @@
 -- other live server holds it, and every save renews the lock. When DataStores
 -- are unavailable (Studio without API access) profiles live in memory only.
 -- Studio's play tests use stores of their own (StoreName), so a test never
--- touches a live profile.
+-- touches a live profile. Before a teleport (Services/PlaceService) a
+-- profile is handed off: saved, its lock released, and no longer saved
+-- here, so the server the player lands on can lock it at once. The
+-- profile's shape and upgrades are Logic/Profile.
 --
 -- Swap this for ProfileStore once the project uses Wally; the API here
 -- (WaitForProfile, Get, GrantRunRewards) is all the rest of the game needs.
@@ -17,6 +20,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Net = require(Shared.Net)
+local Profile = require(Shared.Logic.Profile)
 local Progression = require(Shared.Logic.Progression)
 local Signal = require(Shared.Lib.Signal)
 local Wardrobe = require(Shared.Data.Wardrobe)
@@ -24,19 +28,6 @@ local Wardrobe = require(Shared.Data.Wardrobe)
 local STORE_NAME = "ConsensusProfiles_v1"
 local LOCK_SECONDS = 300
 local AUTOSAVE_SECONDS = 90
-
-local CURRENT_VERSION = 1
-
-local TEMPLATE = {
-	Version = CURRENT_VERSION,
-	Marks = 0,
-	Xp = 0,
-	RunsPlayed = 0,
-	Wins = 0,
-	Extractions = 0,
-	Settings = {},
-	Dossier = {}, -- discovered anomaly and stalker entries
-}
 
 local DataService = {}
 
@@ -46,6 +37,7 @@ DataService.SettingsSaved = Signal.new()
 
 local profiles: { [Player]: any } = {}
 local loaded: { [Player]: boolean } = {}
+local handedOff: { [Player]: boolean } = {} -- saved and released for a teleport: not saved here again
 local sessionId = HttpService:GenerateGUID(false)
 
 -- The name every store the game opens goes by. Since the owner turned on
@@ -69,32 +61,6 @@ function DataService:Init()
 	end
 end
 
--- Versioned migrations: add a step here whenever the saved shape changes.
-local MIGRATIONS = {
-	-- [1] = function(data) ... return data end, -- upgrades version 1 -> 2
-}
-
-local function reconcile(data)
-	for key, value in TEMPLATE do
-		if data[key] == nil then
-			data[key] = type(value) == "table" and {} or value
-		end
-	end
-	local version = data.Version or CURRENT_VERSION
-	while version < CURRENT_VERSION do
-		local step = MIGRATIONS[version]
-		if step then
-			data = step(data)
-		end
-		version += 1
-	end
-	data.Version = CURRENT_VERSION
-	-- Clamp anything a bad write could have pushed out of range.
-	data.Marks = math.clamp(tonumber(data.Marks) or 0, 0, 1e9)
-	data.Xp = math.clamp(tonumber(data.Xp) or 0, 0, 1e9)
-	return data
-end
-
 function DataService:_load(player: Player)
 	local key = "player_" .. player.UserId
 	local data = nil
@@ -108,7 +74,7 @@ function DataService:_load(player: Player)
 						return nil -- held by another live server: don't overwrite
 					end
 					current.lock = { session = sessionId, time = os.time() }
-					current.data = reconcile(current.data or {})
+					current.data = Profile.reconcile(current.data or {})
 					return current
 				end)
 			end)
@@ -123,7 +89,7 @@ function DataService:_load(player: Player)
 		end
 	end
 	if not data then
-		data = reconcile({})
+		data = Profile.new()
 		self.memoryOnly = self.memoryOnly or not self.store
 	end
 	profiles[player] = data
@@ -131,31 +97,73 @@ function DataService:_load(player: Player)
 	self:Send(player)
 end
 
-function DataService:_save(player: Player, release: boolean)
+-- Whether the profile was written (false when another server holds its
+-- lock, when it was handed off for a teleport, or when every try failed).
+function DataService:_save(player: Player, release: boolean): boolean
 	local data = profiles[player]
-	if not data or not self.store then
-		return
+	if not data or not self.store or handedOff[player] then
+		return false
 	end
 	local key = "player_" .. player.UserId
 	-- Retry with exponential backoff; DataStore budgets throttle rather than
 	-- fail outright, so a short wait usually gets the write through.
 	for attempt = 1, 3 do
+		local wrote = false
 		local ok, err = pcall(function()
 			self.store:UpdateAsync(key, function(current)
 				current = current or {}
 				if current.lock and current.lock.session ~= sessionId then
+					wrote = false
 					return nil
 				end
 				current.data = data
 				current.lock = (not release) and { session = sessionId, time = os.time() } or nil
+				wrote = true
 				return current
 			end)
 		end)
 		if ok then
-			return
+			return wrote
 		end
 		warn(string.format("[Consensus] save for %s failed (attempt %d): %s", player.Name, attempt, tostring(err)))
 		task.wait(2 ^ attempt)
+	end
+	return false
+end
+
+-- Saves now, keeping the lock; for a purchase that must be kept before
+-- Roblox is told it's granted (Services/MonetizationService).
+function DataService:SaveNow(player: Player): boolean
+	return self:_save(player, false)
+end
+
+-- Before a teleport: saves the profile, releases its lock, and stops saving
+-- it here, so the server the player lands on can lock it at once. Returns
+-- whether the save went through (a teleport shouldn't go ahead without it).
+function DataService:HandOff(player: Player): boolean
+	if handedOff[player] then
+		return true
+	end
+	if not self.store or not profiles[player] then
+		-- Memory-only profiles have nothing to hand over.
+		handedOff[player] = true
+		return true
+	end
+	local ok = self:_save(player, true)
+	if ok then
+		handedOff[player] = true
+	end
+	return ok
+end
+
+-- A teleport that didn't happen: lock the profile here again.
+function DataService:TakeBack(player: Player)
+	if not handedOff[player] then
+		return
+	end
+	handedOff[player] = nil
+	if player.Parent then
+		self:_load(player)
 	end
 end
 
@@ -170,6 +178,7 @@ function DataService:Start()
 		self:_save(player, true)
 		profiles[player] = nil
 		loaded[player] = nil
+		handedOff[player] = nil
 	end)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
