@@ -2705,14 +2705,26 @@ Config.Mall = {
 	-- A shopfront this far from the fountain at most (studs: 4 s at the
 	-- hub's walking speed, Config.Player.LobbyWalkSpeed; Logic/MallLayout).
 	FrontReach = 52,
+	-- The owner, after the first grey box (2026-10-15): it should read as an
+	-- abandoned mall with a secret community of investigators in it, dark
+	-- but for the shops and the ads. So the mall's own lamps are dead (Data/
+	-- Mall `off`), and what's lit runs on the investigators' generator: the
+	-- shops (their light spilling out over the court), the old ad
+	-- lightboxes, their strings of bulbs and work lamps.
 	Lights = {
 		pendant = { color = { 255, 200, 150 }, range = 40, brightness = 1.6 },
 		fountain = { color = { 255, 214, 170 }, range = 18, brightness = 0.9 },
-		moon = { color = { 150, 170, 230 }, range = 34, brightness = 0.5, angle = 70 }, -- down through the skylight
+		moon = { color = { 150, 170, 230 }, range = 40, brightness = 0.9, angle = 70 }, -- down through the skylight
 		shop = { color = { 255, 214, 172 }, range = 28, brightness = 1.4 },
 		arcade = { color = { 200, 130, 255 }, range = 28, brightness = 1.3 },
 		warm = { color = { 255, 190, 140 }, range = 26, brightness = 1.4 },
-		strip = { color = { 222, 236, 226 }, range = 30, brightness = 1.1 }, -- the garage's fluorescents
+		spill = { color = { 255, 200, 150 }, range = 30, brightness = 1.2 }, -- a shop's light out over the court
+		spillArcade = { color = { 190, 120, 255 }, range = 30, brightness = 1.1 },
+		spillCool = { color = { 190, 220, 255 }, range = 28, brightness = 1 }, -- the TV wall's
+		bulb = { color = { 255, 196, 130 }, range = 12, brightness = 0.7 }, -- a string of bulbs, every few lit
+		work = { color = { 255, 214, 160 }, range = 30, brightness = 1.3 }, -- a work lamp on a stand
+		ad = { color = { 214, 210, 196 }, range = 16, brightness = 0.8 }, -- an ad lightbox's glow
+		strip = { color = { 222, 236, 226 }, range = 30, brightness = 0.7 }, -- the garage's fluorescents (the ones still working)
 		dim = { color = { 255, 120, 80 }, range = 20, brightness = 0.35 }, -- the dead mall's emergency lamps
 		street = { color = { 255, 170, 90 }, range = 34, brightness = 1 }, -- the lot's sodium lamp
 		sign = { range = 14, brightness = 0.8 }, -- a neon sign's glow, in its own colour

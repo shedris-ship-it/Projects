@@ -45,3 +45,44 @@ Nothing blocked the way, but the walker's first, straight route from the spawn t
 ## Since the screenshots
 
 The fountain's water sat just under the basin's rim and didn't show; it's lifted a little above it (build .201, not re-shot).
+
+## The story pass (build `2026-10-15.202`, screenshots in `story/`)
+
+The owner, on the first grey box: "it doesn't really read as an abandoned mall with a secret community of investigators in it ... dim the lights in there except from the stores and the ads, more environmental storytelling", for example "a generator to the garage ... that you can infer hooks up to the abandoned mall to provide power".
+
+**The story the mall now tells** (`Data/Mall`'s header has it in full): the mall died and its lamps with it. The investigators came in through the loading dock, now their garage, and run a generator there. Its cables run through the video store's back door and out over the court's floor to the few places they've reopened, and up the walls to the mall's old ad lightboxes. Those, their strings of bulbs and their work lamps are the only light. The rest is as the mall was left.
+
+- **The light** (`Config.Mall.Lights`):
+  - The mall's own pendants hang dead (`off`), and the fountain's light went with its water.
+  - Each lit shop throws its light out over the court (`spill`: warm, purple from the arcade, cool from the TV wall).
+  - Four ad lightboxes glow either side of the diner and of the shutter (`Mall.Ads`; LB6's immersive ads go on their faces, each 8.4-8.5 x 5 studs, within Roblox's 8 x 4.5 minimum).
+  - Strings of bulbs (`Mall.Strings`) hang over the video store's front, along the ways to the diner and the shutter end, down the video store's aisle and over the investigators' corner. Moonlight comes down through the skylight.
+  - In the garage two fluorescents of four still work, plus two work lamps on stands. That also settles the garage's "cool and plain" note: it's warm now.
+- **The generator's power** (`Mall.Cables`): the generator with its exhaust pipe up through the ceiling, fuel cans and a cable reel; a thick black cable to the power box, labelled "POWER TO THE MALL"; then orange and black runs:
+  - through the back door, along the video store's aisle, and out to a junction in front of the video store;
+  - from there to the boutique, the arcade, the diner and electronics, and up the walls to the ad boxes;
+  - taped down every few studs, under a yellow cable ramp where they cross the way to the video store.
+- **What the investigators left:**
+  - cardboard signs in marker under the old neon ("CASES & CARS — THIS WAY", "STILL OPEN", "THEY STILL WORK!", "BATTERIES · GEAR", "CANTEEN");
+  - tape on the floor pointing the way ("CASES & CARS ▲");
+  - the shutter taped off with a yellow X and "DO NOT ENTER";
+  - in the garage: cots and a sleeping bag, a folding table with coffee and thermoses, the whiteboard ("TONIGHT: THE HALFWAY HOUSE"), the case board with photos, red string and the house's plan, a desk with a CB radio, evidence boxes;
+  - in the diner: a coffee machine and a hot plate; in electronics, a torch on the counter and a charger; a TV on the video store's counter.
+- **What the mall left:**
+  - the dry fountain with leaves, coins and a can in it;
+  - benches under dust sheets, one knocked over; dead plants in the planters;
+  - fallen ceiling tiles and papers; a shopping cart;
+  - a bucket under a leak in the skylight, with a puddle;
+  - the main doors boarded outside ("NO TRESPASSING") and chained inside;
+  - "CLOSING DOWN — EVERYTHING MUST GO" on the dead shop; the arcade's prize counter under a dust sheet;
+  - behind the shutter, a fallen sign, tiles and a cart on its side.
+- **Cost:** 718 parts and 43 lights; no errors or warnings in play.
+
+| | |
+| --- | --- |
+| `story/1_from_the_spawn.jpg` | The court dark but for the shops, the bulbs and two ad boxes; the dead pendants; the dry fountain; the tape on the floor |
+| `story/2_west_to_the_diner.jpg` | The diner glowing at the hall's end between two ad boxes; the cables and the ramp on the floor |
+| `story/3_east_to_the_shutter.jpg` | The shutter taped off, the dead mall dim behind; "CLOSING DOWN" on the right |
+| `story/4_the_generator.jpg` | The generator, its exhaust, the cable reel, the fuel cans, the black cable to the power box, a work lamp, a dead fluorescent |
+| `story/5_the_investigators_corner.jpg` | Cots, coffee, the whiteboard, the case board with its red string, evidence boxes, bulbs |
+| `story/6_plan_from_above.jpg` | The layout from above, dark in the middle, lit at the edges |

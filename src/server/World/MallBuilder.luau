@@ -1,9 +1,11 @@
 -- Builds the lobby's mall from Data/Mall (docs/plans/lobby-rework.md, LB1a:
 -- the grey box, walked and judged before anything is modelled). Rooms are
 -- floors, walls cut by their doors (Logic/MallLayout) and ceilings; doors
--- get their grilles, glass or shutters; then the signs, the lights and the
--- stand-in blocks. A run server builds only the waiting room
--- (Mall.Waiting), with doors to rooms it doesn't build walled up.
+-- get their grilles, glass or shutters; then the signs, the lights, the
+-- stand-in blocks, and the story the investigators left: the generator's
+-- cables over the floor, strings of bulbs, the old ad lightboxes they
+-- powered again. A run server builds only the waiting room (Mall.Waiting),
+-- with doors to rooms it doesn't build walled up.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -32,10 +34,26 @@ local function rgb(t): Color3
 	return Color3.fromRGB(t[1], t[2], t[3])
 end
 
--- A frame at a floor-plan point, its front (-Z) looking `face`.
+-- A frame at a floor-plan point, its front (-Z) looking `face`; "UP" lies
+-- on the floor face up, reading from the south.
 local function facing(origin: Vector3, x: number, y: number, z: number, face: string): CFrame
 	local p = origin + Vector3.new(x, y, z)
+	if face == "UP" then
+		return CFrame.lookAt(p, p + Vector3.yAxis, Vector3.new(0, 0, -1))
+	end
 	return CFrame.lookAt(p, p + FACES[face])
+end
+
+local function v3(t): Vector3
+	return Vector3.new(t[1], t[2], t[3])
+end
+
+-- Degrees about X, Y and Z, for a block that tips, lies over or turns.
+local function turned(rot): CFrame
+	if not rot then
+		return CFrame.identity
+	end
+	return CFrame.Angles(math.rad(rot[1] or 0), math.rad(rot[2] or 0), math.rad(rot[3] or 0))
 end
 
 local function decor(folder: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material)
@@ -294,24 +312,30 @@ end
 
 local function buildSign(folder: Instance, origin: Vector3, sign)
 	local cf = facing(origin, sign.x, sign.y, sign.z, sign.face)
+	if sign.tilt then
+		cf *= CFrame.Angles(0, 0, math.rad(sign.tilt)) -- hung or taped up crooked
+	end
 	local color = rgb(sign.color)
+	-- A neon sign is only its letters; a board, a slip of card or tape on
+	-- the floor shows its `panel` colour (dark by default).
+	local panelColor = sign.panel and rgb(sign.panel) or Color3.fromRGB(28, 26, 24)
 	local panel = part(
 		folder,
 		"Sign",
-		Vector3.new(sign.w, sign.h, 0.2),
+		Vector3.new(sign.w, sign.h, sign.face == "UP" and 0.04 or 0.2),
 		cf,
-		Color3.fromRGB(28, 26, 24),
-		material("SmoothPlastic"),
+		panelColor,
+		material(sign.material or "SmoothPlastic"),
 		{
 			collide = false,
 			query = false,
 			castShadow = false,
-			transparency = sign.glow and 1 or 0,
+			transparency = (sign.glow and not sign.panel) and 1 or (sign.see or 0),
 		}
 	)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = sign.glow and 0 or 0.6
+	gui.LightInfluence = sign.glow and 0 or 1
 	-- The canvas follows the panel's size (the default fixed 800 x 600 canvas
 	-- squashed the words into a thin line).
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -354,8 +378,47 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 	local look = Config.Mall.Lights[l.kind] or Config.Mall.Lights.warm
 	local color = rgb(look.color)
 	local at = origin + Vector3.new(l.x, l.y, l.z)
+	if l.off then
+		-- The mall's own lamps: dead since it closed; only the generator's
+		-- circuits are lit.
+		local dead = Color3.fromRGB(64, 60, 56)
+		if l.cord then
+			local globe = decor(folder, "Pendant", Vector3.new(2.6, 2.6, 2.6), CFrame.new(at), dead, material("Glass"))
+			globe.Shape = Enum.PartType.Ball
+			decor(
+				folder,
+				"PendantCord",
+				Vector3.new(0.15, l.cord - l.y, 0.15),
+				CFrame.new(at + Vector3.new(0, (l.cord - l.y) / 2, 0)),
+				DARK_STEEL,
+				material("Metal")
+			)
+		else
+			local size = l.kind == "strip" and Vector3.new(8, 0.3, 1) or Vector3.new(3, 0.3, 3)
+			decor(folder, "Fixture", size, CFrame.new(at), dead, material("Glass"))
+		end
+		return
+	end
 	local holder
-	if l.kind == "strip" then
+	if l.stand then
+		-- A work lamp on a pole, its head turned down a little.
+		decor(
+			folder,
+			"LampStand",
+			Vector3.new(0.25, l.y - 0.5, 0.25),
+			CFrame.new(at - Vector3.new(0, (l.y + 0.5) / 2, 0)),
+			DARK_STEEL,
+			material("Metal")
+		)
+		holder = decor(
+			folder,
+			"WorkLamp",
+			Vector3.new(1.2, 0.9, 1.2),
+			CFrame.new(at) * CFrame.Angles(math.rad(-20), 0, 0),
+			color,
+			material("Neon")
+		)
+	elseif l.kind == "strip" then
 		holder = decor(folder, "Fixture", Vector3.new(8, 0.3, 1), CFrame.new(at), color, material("Neon"))
 	elseif l.fixture then
 		holder = decor(folder, "Fixture", Vector3.new(3, 0.3, 3), CFrame.new(at), color, material("Neon"))
@@ -390,18 +453,146 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 end
 
 local function buildBlock(folder: Instance, origin: Vector3, b)
-	local cf = CFrame.new(origin + Vector3.new(b.x, b.y, b.z))
+	local cf = CFrame.new(origin + Vector3.new(b.x, b.y, b.z)) * turned(b.rot)
 	if b.shape == "Cylinder" then
 		cf *= CFrame.Angles(0, 0, math.pi / 2) -- a cylinder's axis is its X: stood upright
 	end
 	local p =
 		part(folder, b.name, Vector3.new(b.size[1], b.size[2], b.size[3]), cf, rgb(b.color), material(b.material), {
 			collide = b.collide ~= false,
+			query = b.collide ~= false,
+			castShadow = b.shadow ~= false,
 			transparency = b.transparency,
 		})
 	if b.shape == "Cylinder" then
 		p.Shape = Enum.PartType.Cylinder
+	elseif b.shape == "Ball" then
+		p.Shape = Enum.PartType.Ball
 	end
+end
+
+-- A run of cable over the floor (and up a wall): a strand between each
+-- pair of points, a scrap of tape over it every few studs on the floor.
+local function buildCable(folder: Instance, origin: Vector3, cable)
+	local color = rgb(cable.color or { 230, 120, 30 })
+	local thick = cable.thick or 0.32
+	local tape = Color3.fromRGB(70, 70, 72)
+	for i = 1, #cable.points - 1 do
+		local a = origin + v3(cable.points[i])
+		local b = origin + v3(cable.points[i + 1])
+		local length = (b - a).Magnitude
+		if length > 0.01 then
+			local cf = CFrame.lookAt((a + b) / 2, b)
+			decor(folder, "Cable", Vector3.new(thick, thick, length + thick), cf, color, material("SmoothPlastic"))
+			if math.abs(a.Y - b.Y) < 0.05 and a.Y - origin.Y < 0.6 then
+				for s = 3, length - 1, 7 do
+					decor(
+						folder,
+						"Tape",
+						Vector3.new(1.1, thick + 0.06, 0.5),
+						cf * CFrame.new(0, 0, length / 2 - s),
+						tape,
+						material("Fabric")
+					)
+				end
+			end
+		end
+	end
+end
+
+-- A string of bulbs slung between two points, sagging in the middle;
+-- every `lit`-th bulb casts light (Config.Mall.Lights.bulb), the rest only glow.
+local function buildString(folder: Instance, origin: Vector3, s)
+	local a, b = origin + v3(s.from), origin + v3(s.to)
+	local look = Config.Mall.Lights.bulb
+	local color = rgb(look.color)
+	local n = s.bulbs or 12
+	local last = a
+	for i = 0, n do
+		local t = i / n
+		local p = a:Lerp(b, t) - Vector3.new(0, (s.sag or 2) * 4 * t * (1 - t), 0)
+		if i > 0 then
+			decor(
+				folder,
+				"BulbWire",
+				Vector3.new(0.08, 0.08, (p - last).Magnitude),
+				CFrame.lookAt((p + last) / 2, p),
+				DARK_STEEL,
+				material("SmoothPlastic")
+			)
+		end
+		last = p
+		if i > 0 and i < n then
+			local bulb = decor(
+				folder,
+				"Bulb",
+				Vector3.new(0.45, 0.45, 0.45),
+				CFrame.new(p - Vector3.new(0, 0.3, 0)),
+				color,
+				material("Neon")
+			)
+			bulb.Shape = Enum.PartType.Ball
+			if i % (s.lit or 4) == 0 then
+				local light = Instance.new("PointLight")
+				light.Color = color
+				light.Range = look.range
+				light.Brightness = look.brightness
+				light.Shadows = false
+				light.Parent = bulb
+			end
+		end
+	end
+end
+
+-- One of the mall's old backlit lightboxes, back on the generator: where
+-- Roblox's immersive ads go (docs/plans/lobby-rework.md, "Immersive ads";
+-- a billboard is 8 x 4.5 to 32 x 18 studs, nothing in front of it). LB6
+-- puts the AdGui on its face; until then it shows a plain placeholder.
+local function buildAd(folder: Instance, origin: Vector3, ad)
+	local cf = facing(origin, ad.x, ad.y, ad.z, ad.face)
+	local look = Config.Mall.Lights.ad
+	decor(
+		folder,
+		"AdFrame",
+		Vector3.new(ad.w + 0.6, ad.h + 0.6, 0.6),
+		cf * CFrame.new(0, 0, 0.3),
+		DARK_STEEL,
+		material("Metal")
+	)
+	local face = part(
+		folder,
+		"AdFace",
+		Vector3.new(ad.w, ad.h, 0.1),
+		cf * CFrame.new(0, 0, -0.05),
+		rgb(look.color),
+		material("Neon"),
+		{
+			collide = false,
+			castShadow = false,
+		}
+	)
+	face:SetAttribute("AdSlot", ad.slot or true)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 30
+	gui.Parent = face
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 0.3)
+	label.Position = UDim2.fromScale(0, 0.35)
+	label.BackgroundTransparency = 1
+	label.Text = "AD SPACE"
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(150, 140, 120)
+	label.Font = Enum.Font.SourceSansBold
+	label.Parent = gui
+	local light = Instance.new("PointLight")
+	light.Color = rgb(look.color)
+	light.Range = look.range
+	light.Brightness = look.brightness
+	light.Shadows = false
+	light.Parent = face
 end
 
 -- Builds the mall into `parent`, from `origin` (the court's floor middle).
@@ -444,6 +635,21 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 	for _, b in Mall.Blocks do
 		if built[b.room] then
 			buildBlock(dressing, origin, b)
+		end
+	end
+	for _, cable in Mall.Cables or {} do
+		if built[cable.room] then
+			buildCable(dressing, origin, cable)
+		end
+	end
+	for _, s in Mall.Strings or {} do
+		if built[s.room] then
+			buildString(dressing, origin, s)
+		end
+	end
+	for _, ad in Mall.Ads or {} do
+		if built[ad.room] then
+			buildAd(dressing, origin, ad)
 		end
 	end
 	local spawn = only and Mall.Waiting.spawn or Mall.Spawn
