@@ -1,0 +1,88 @@
+-- The lobby mall's layout (Logic/MallLayout over Data/Mall): walls cut by
+-- their doors, and the rules that keep the mall quick to get round.
+return function(test, check, Shared, require)
+	local MallLayout = require(Shared.Logic.MallLayout)
+	local Mall = require(Shared.Data.Mall)
+	local Config = require(Shared.Config)
+
+	test("a wall with a door is two pieces and a lintel", function()
+		local pieces = MallLayout.segments(0, 30, { { from = 10, to = 20, height = 12 } }, 26)
+		check.equal(#pieces, 3, "left, lintel, right")
+		check.equal(pieces[1].to, 10, "left stops at the door")
+		check.equal(pieces[2].bottom, 12, "the lintel starts at the door's head")
+		check.equal(pieces[2].top, 26, "and goes to the ceiling")
+		check.equal(pieces[3].from, 20, "right starts after it")
+	end)
+
+	test("a door as tall as the wall leaves no lintel, and one at a corner no stub", function()
+		local pieces = MallLayout.segments(0, 30, { { from = 0, to = 30, height = 22 } }, 22)
+		check.equal(#pieces, 0, "the whole wall is a doorway")
+		local edge = MallLayout.segments(0, 30, { { from = 0, to = 10, height = 13 } }, 14)
+		check.equal(#edge, 2, "the lintel and the rest")
+		check.equal(edge[1].bottom, 13, "the lintel first")
+	end)
+
+	test("a door cuts both of its rooms' walls", function()
+		local court = Mall.Rooms.court
+		local north
+		for _, side in MallLayout.sides(court.rect) do
+			if side.side == "N" then
+				north = side
+			end
+		end
+		local cuts = MallLayout.cutsFor("court", north, Mall.Doors)
+		check.equal(#cuts, 3, "the court's north wall: the boutique, the video store, the arcade")
+		local video
+		for _, side in MallLayout.sides(Mall.Rooms.video.rect) do
+			if side.side == "S" then
+				video = side
+			end
+		end
+		check.equal(#MallLayout.cutsFor("video", video, Mall.Doors), 1, "the video store's front")
+	end)
+
+	test("the mall's layout keeps its rules", function()
+		local problems = MallLayout.check(Mall, Config.Mall.FrontReach)
+		check.equal(#problems, 0, table.concat(problems, "; "))
+	end)
+
+	test("the garage is reached only through the video store", function()
+		local ways = MallLayout.neighbours(Mall, "garage")
+		check.equal(#ways, 1, "one way in")
+		check.equal(ways[1], "video", "through the back of the video store")
+	end)
+
+	test("the shutter and the diner close the hall's two ends", function()
+		local shutter, diner
+		for _, door in Mall.Doors do
+			if door.b == "concourse" then
+				shutter = door
+			elseif door.b == "diner" then
+				diner = door
+			end
+		end
+		check.truthy(shutter and shutter.grille == "giant", "the shutter is the giant grille")
+		check.equal(shutter.at, Mall.Rooms.court.rect[3], "on the court's east end")
+		check.equal(diner.at, Mall.Rooms.court.rect[1], "the diner on its west end")
+	end)
+
+	test("a broken layout is caught", function()
+		local broken = {
+			Rooms = {
+				court = { rect = { -10, -10, 10, 10 } },
+				shop = { rect = { 5, -30, 30, -10 } }, -- overlaps nothing, but its front is far
+				lost = { rect = { 100, 100, 110, 110 } },
+			},
+			Doors = {
+				{ a = "court", b = "shop", runs = "x", at = -10, from = 6, to = 9, height = 10, kind = "front" },
+			},
+			Fountain = { x = 0, z = 0 },
+			Spawn = { room = "court", x = 50, z = 0 },
+		}
+		local problems = MallLayout.check(broken, 5)
+		local text = table.concat(problems, "; ")
+		check.truthy(text:find("lost has no way in"), "an unreachable room: " .. text)
+		check.truthy(text:find("front is"), "a far front: " .. text)
+		check.truthy(text:find("spawn"), "the spawn outside: " .. text)
+	end)
+end

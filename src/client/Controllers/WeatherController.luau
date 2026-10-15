@@ -147,6 +147,10 @@ function WeatherController:Start()
 		local wet = inRun and stage >= 1
 		local k = stage >= 2 and 2 or 1
 		local bedTarget = wet and S.RainVolume.bed[k] or 0
+		if not inRun then
+			-- The hub: rain on the mall's skylight, softer (Config.Mall.Rain).
+			bedTarget = S.RainVolume.bed[1] * (Config.Mall.Rain or 0)
+		end
 		local glassTarget = wet and S.RainVolume.glass[k] or 0
 		local ease = math.clamp(dt * 0.5, 0, 1) -- the rain comes on over a few seconds
 		bed.Volume += (bedTarget - bed.Volume) * ease

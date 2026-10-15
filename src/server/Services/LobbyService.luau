@@ -14,7 +14,10 @@ local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Locations = require(Shared.Data.Locations)
 local LobbyRules = require(Shared.Logic.LobbyRules)
+local Mall = require(Shared.Data.Mall)
 local PropFactory = require(Shared.World.PropFactory)
+
+local MallBuilder = require(script.Parent.Parent.World.MallBuilder)
 
 local PA = Constants.PlayerAttributes
 
@@ -32,9 +35,15 @@ local function lobbyOrigin(): Vector3
 	return Vector3.new(o.x, o.y, o.z)
 end
 
+-- Where the index-th player stands when they come back from a run: the
+-- garage, by the cars (Data/Mall Returns; a run server's waiting room).
 function LobbyService:SpawnCFrame(index: number?): CFrame
-	local i = (index or 1) - 1
-	return CFrame.new(lobbyOrigin() + Vector3.new(-6 + (i % 4) * 4, 3, 14))
+	local spots = self.returns
+	if not spots or #spots == 0 then
+		local i = (index or 1) - 1
+		return CFrame.new(lobbyOrigin() + Vector3.new(-6 + (i % 4) * 4, 3, 14))
+	end
+	return spots[((index or 1) - 1) % #spots + 1]
 end
 
 function LobbyService:_build()
@@ -42,61 +51,18 @@ function LobbyService:_build()
 	folder.Name = "ConsensusLobby"
 	folder.Parent = Workspace
 	local o = lobbyOrigin()
-	local floorColor = Color3.fromRGB(96, 70, 52)
-	local wallColor = Color3.fromRGB(122, 104, 84)
-	local plaster = PropFactory.material("Plaster")
-	PropFactory.part(
-		folder,
-		"Floor",
-		Vector3.new(56, 1, 56),
-		CFrame.new(o - Vector3.new(0, 0.5, 0)),
-		floorColor,
-		PropFactory.material("WoodPlanks")
-	)
-	PropFactory.part(
-		folder,
-		"Ceiling",
-		Vector3.new(56, 1, 56),
-		CFrame.new(o + Vector3.new(0, 14.5, 0)),
-		Color3.fromRGB(80, 70, 60),
-		plaster
-	)
-	for _, wall in
-		{
-			{ Vector3.new(0, 7, -28), Vector3.new(56, 14, 1) },
-			{ Vector3.new(0, 7, 28), Vector3.new(56, 14, 1) },
-			{ Vector3.new(-28, 7, 0), Vector3.new(1, 14, 56) },
-			{ Vector3.new(28, 7, 0), Vector3.new(1, 14, 56) },
-		}
-	do
-		PropFactory.part(folder, "Wall", wall[2], CFrame.new(o + wall[1]), wallColor, plaster)
-	end
-	PropFactory.build("Rug", CFrame.new(o), folder)
-
-	-- Warm, safe lighting: the contrast with the house is the point.
-	for _, x in { -14, 14 } do
-		local lamp = PropFactory.part(
-			folder,
-			"Lamp",
-			Vector3.new(3, 0.6, 3),
-			CFrame.new(o + Vector3.new(x, 13.8, 0)),
-			Color3.fromRGB(255, 230, 190),
-			PropFactory.material("Neon"),
-			{ collide = false }
-		)
-		local light = Instance.new("PointLight")
-		light.Range = 40
-		light.Brightness = 1.6
-		light.Color = Color3.fromRGB(255, 214, 160)
-		light.Shadows = true
-		light.Parent = lamp
-	end
+	-- The dead mall's lit corner (Data/Mall, World/MallBuilder; LB1a's grey
+	-- box). A run server builds only the squad's waiting room.
+	local places = self.services.PlaceService
+	local waiting = places ~= nil and places:IsRun()
+	local built = MallBuilder.build(folder, o, waiting and Mall.Waiting.rooms or nil)
+	self.returns = built.returns
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(10, 1, 6)
-	spawn.CFrame = CFrame.new(o + Vector3.new(0, 0.05, 14))
+	spawn.CFrame = built.spawn + Vector3.new(0, 0.05, 0)
 	spawn.Transparency = 1
 	spawn.CanCollide = false
 	spawn.Neutral = true
@@ -107,8 +73,9 @@ function LobbyService:_build()
 		decal:Destroy()
 	end
 
-	-- Contract table: toggles difficulty.
-	local tableCF = CFrame.new(o + Vector3.new(20, 0, 0)) * CFrame.Angles(0, math.rad(-90), 0)
+	-- The contract table: toggles difficulty. In the garage until LB2's cars
+	-- take its place.
+	local tableCF = built.contract or built.spawn
 	local contract = PropFactory.build("Table", tableCF, folder, { name = "ContractTable" })
 	local paper = PropFactory.part(
 		folder,

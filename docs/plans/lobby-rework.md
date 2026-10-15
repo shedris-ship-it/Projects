@@ -319,7 +319,17 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     - `run`: the contract left and read back, "1 of 1 of the squad here", the run started without Ready; after F2 `end` and the Dossier's 30 s the teleport back failed (none in Studio), and the server became a hub where Ready started a run in place; the profile was taken back and released on stop (TC-304).
 
   **Live, solo (the owner, 2026-10-15, build .200 published): "the teleporting works".** Report: `docs/progress/2026-10-15-lobby-lb0/`. *Left:* the same with friends (TC-306 with two or three clients), and purchases once the products exist in Creator Hub.
-- **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
+- **LB1, the mall's shell,** in two steps (Claude's suggestion, the owner's go-ahead 2026-10-15):
+  - **LB1a, a walkable grey box,** *done* (build .201, `docs/progress/2026-10-15-lobby-lb1a/`):
+    - the layout as data (`Data/Mall`, `World/MallBuilder`, rules in `Logic/MallLayout`, spec'd);
+    - the court with its fountain and skylight, the four shopfronts with grilles and neon signs, the diner and the giant shutter at the hall's two ends, the chained glass doors, a dead shop;
+    - the garage through the video store, with the contract table until LB2;
+    - rough warm light, rain on the skylight;
+    - a run server builds only the garage, as its waiting room;
+    - walked in play: spawn to garage 7.9 s, the whole hall 9.6 s.
+
+    For the owner to judge (the report): the fountain on the way to the video store, the shutter as a grille, the garage's light, the court's size.
+  - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before; the lighting pass; the 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.

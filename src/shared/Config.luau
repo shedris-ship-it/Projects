@@ -2698,6 +2698,30 @@ Config.Places = {
 	ReturnSeconds = 30,
 }
 
+-- The lobby's mall (Data/Mall, World/MallBuilder; docs/plans/lobby-rework.md,
+-- LB1a's grey box): warm pools of light in a dark building, the one safe,
+-- lit place (docs/ART.md, Hub).
+Config.Mall = {
+	-- A shopfront this far from the fountain at most (studs: 4 s at the
+	-- hub's walking speed, Config.Player.LobbyWalkSpeed; Logic/MallLayout).
+	FrontReach = 52,
+	Lights = {
+		pendant = { color = { 255, 200, 150 }, range = 40, brightness = 1.6 },
+		fountain = { color = { 255, 214, 170 }, range = 18, brightness = 0.9 },
+		moon = { color = { 150, 170, 230 }, range = 34, brightness = 0.5, angle = 70 }, -- down through the skylight
+		shop = { color = { 255, 214, 172 }, range = 28, brightness = 1.4 },
+		arcade = { color = { 200, 130, 255 }, range = 28, brightness = 1.3 },
+		warm = { color = { 255, 190, 140 }, range = 26, brightness = 1.4 },
+		strip = { color = { 222, 236, 226 }, range = 30, brightness = 1.1 }, -- the garage's fluorescents
+		dim = { color = { 255, 120, 80 }, range = 20, brightness = 0.35 }, -- the dead mall's emergency lamps
+		street = { color = { 255, 170, 90 }, range = 34, brightness = 1 }, -- the lot's sodium lamp
+		sign = { range = 14, brightness = 0.8 }, -- a neon sign's glow, in its own colour
+	},
+	-- Rain drums on the skylight in the hub too (WeatherController), at this
+	-- share of the house's first stage.
+	Rain = 0.6,
+}
+
 -- Saved data (Services/DataService).
 Config.Data = {
 	-- Studio's play tests save to stores of their own, never the live game's
