@@ -1,6 +1,6 @@
 # The lobby rework (LB0 to LB6)
 
-A draft for the owner to review (2026-10-15), from the brainstorm of the same day. Nothing here is built yet. Where it disagrees with the design doc about the hub (section 2's "Briefing", section 7's places, section 9's catalogue) or with `docs/ART.md`'s Hub, this plan wins once the owner approves it. Section 9's rules still stand: sell looks, expression and social convenience; never sell safety from the Guest.
+A draft from the owner's brainstorm (2026-10-15), with their answers to its first open questions from later the same day. Nothing here is built yet. Where it disagrees with the design doc about the hub (section 2's "Briefing", section 7's places, section 9's catalogue) or with `docs/ART.md`'s Hub, this plan wins once the owner approves it. Section 9's rules still stand: sell looks, expression and social convenience; never sell safety from the Guest.
 
 ## The owner's choices (2026-10-15)
 
@@ -15,13 +15,22 @@ A draft for the owner to review (2026-10-15), from the brainstorm of the same da
 - **Ideas the owner liked:** a starter pack, arcade bundles, a prize counter, gifts, seasonal limited items, real Roblox avatar items later, and ads in the dead mall, as long as they're immersive: "ads in places you might actually see ads inside of a mall".
 - **Not for now:** a monthly membership, since the game has private servers too.
 
+Their answers to the draft's open questions (later on 2026-10-15):
+- **One free arcade play a day,** yes. **Plays for Marks too,** but "relatively expensive to encourage supporting the game, not a crazy amount though".
+- **Electronics is the fourth shop.** And an **80s diner** at the end of the hall, on the unused wall beside the boutique's front and the electronics store, with leaderboards: **the fastest completed runs and the longest completed runs**.
+- **The shutter stays closed** until the owner decides what to do with it.
+- **No name for the mall** for now: "I just wanna focus on the atmosphere".
+- **The boutique could open with just the free outfits,** with more clothes after launch "to see if the game catches on", unless Claude recommends otherwise (it does: see the boutique below).
+- **The weekly arcade prize is undecided** until more customisation is planned. For now the prize counter is in the arcade, visible but clearly closed down.
+- **Studio's API access is on** (the owner).
+
 ## What's there today
 
 - One place holds the hub and the run (`Services/LobbyService`, `Services/RunOrchestrator`). The hub is a 56 x 56 stud room: a contract table toggles the difficulty, everyone presses Ready, and a majority starts after 30 s (`Logic/LobbyRules`). Its screen is a case folder (`UI/Lobby`).
 - Marks are earned every run, win or lose (`Logic/Progression.marksForRun`): about 100 for a lost run that got somewhere, about 300 for a good win. Every Mark earned also adds Clearance XP (`DataService`). Nothing spends Marks yet.
 - The wardrobe (`Data/Wardrobe`, `Services/OutfitService`): eight garments (four tops, two bottoms, two shoes), and outfits are handed out by the order players arrive, so a squad always looks different at a glance. No prices, no ownership.
 - No purchases, game passes or teleports exist anywhere in the code.
-- DataStores fail with 403 in Studio play tests (Studio's API access is off), so nothing that saves can be tested in Studio yet.
+- Studio's API access is on since 2026-10-15 (the owner), so DataStores should work in Studio play tests now. Before that they failed with 403. Studio's play tests then share the live game's stores, so LB0 gives Studio its own.
 
 ## The place: a corner of a dead mall
 
@@ -30,27 +39,28 @@ A mall that closed down. The investigators have the power back on in one corner:
 ### Layout
 
 ```
-              (to the house)
-                    ^
-   +----------- GARAGE ------------+
-   |  cars, case board, Dossier,   |
-   |  payphone, car bits           |
-   +---------------+---------------+
-                   | wide back door
- +----------+ +----------+ +----------+
- | BOUTIQUE | |  VIDEO   | |  ARCADE  |
- |          | |  RENTAL  | |          |
- +----||----+ +----||----+ +----||----+
- |                                    |
- |   COURT: spawn, fountain, boards,  |
- |   photo booth, mall directory      |
- |                                    |
- +----||----+=========================+
- |ELECTRONICS|   GIANT SHUTTER         |
- +----------+  (the rest of the mall)  |
+                              (to the house)
+                                    ^
+                   +----------- GARAGE ------------+
+                   |  cars, case board, Dossier,   |
+                   |  payphone, car bits           |
+                   +---------------+---------------+
+                                   | wide back door
+               +----------+ +----------+ +----------+
+               | BOUTIQUE | |  VIDEO   | |  ARCADE  |
+               |          | |  RENTAL  | |          |
+  +----------+ +----||----+ +----||----+ +----||----+
+  |  DINER   |                                      |
+  |  booths, ==   COURT: spawn, fountain,           |
+  |  run     ==   photo booth, mall directory       |
+  |  records |                                      |
+  +----------+ +----||-----+========================+
+               |ELECTRONICS|  GIANT SHUTTER (closed)|
+               +-----------+  the rest of the mall  |
 ```
 
 - **The court** is where you arrive the first time. Every shopfront is in view from the fountain.
+- **The diner** closes the hall's far end, on the wall beside the boutique's front and the electronics store (the owner's place for it), so its neon faces you down the length of the court.
 - **The way to a run is one straight line:** court, video rental, garage, out of the garage door. The shops sit beside that line, never on it, but in view of it.
 - **Small:** players walk 12 studs a second (`Config.Player.LobbyWalkSpeed`), so every shopfront is within about 4 seconds of the fountain. The court is roughly 100 x 60 studs.
 
@@ -60,12 +70,13 @@ A mall that closed down. The investigators have the power back on in one corner:
 
   | Place | Its one job |
   | --- | --- |
-  | Court | Arrive, see everything, hang out, the boards |
+  | Court | Arrive, see everything, hang out |
+  | Diner | The run records (the fastest and longest escapes); booths to sit in with your squad |
   | Video rental | Pick *what* you play (the location, later the daily contract) |
   | Garage | Your squad and your car: get in, pick *how* you play (difficulty, night length), leave; Clearance and the Dossier |
   | Boutique | Clothes |
   | Electronics | The torch's looks |
-  | Arcade | Play, scores, prizes |
+  | Arcade | Play, each machine's scores |
 
 - **Each choice is made where the people it affects are.** One person picks the tape; the squad, sitting in the car together, settles the difficulty and the night.
 - **Going again takes about 10 seconds.** After a run the squad comes back in its car in the garage, with the tape still in it, so "same case again" needs nothing. A new case is one step into the video store. Shopping is always a choice, never on the way.
@@ -101,8 +112,11 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 - **Clothes by the piece** (a top, bottoms, shoes; later jackets and hats), so there's always something cheap to buy. Racks by slot.
 - **The changing booth:** step in and the camera turns to face you. Flip through what you own and what's on the racks, see it on you, and buy it right there for Marks. Nothing you haven't bought leaves the shop on you.
 - **What you wear is yours in the run too,** in first person and to your squad. His disguise clones a friend's character (`GuestController:_disguise`), so bought clothes carry over to it.
-- **Today's eight garments become the free starter set,** and the shop sells new ones. New players still get a squad-distinct outfit by arrival order until they choose their own.
-- **More garments are a Blender batch for the wardrobe** (`tools/blender/wardrobe.py`, `kitlib/wardrobe`), built round both bodies and checked with `wardrobe_visibility.py` as V6 was. The boutique needs enough to feel like a shop on day one: about 20 pieces is a guess to settle with the owner.
+- **Today's eight garments become the free starter set:** four tops, two bottoms and two shoes mix into 16 looks. New players still get a squad-distinct outfit by arrival order until they choose their own.
+- **What it opens with (to settle).** The owner leans towards opening with only the free garments and adding paid clothes after launch, once the game catches on. **Claude recommends a small first paid line instead:** about six pieces (two jackets, two tops, a pair of bottoms, a pair of shoes), plus the torch's first three looks in electronics.
+  - **Why:** with nothing to buy, Marks only buy arcade plays. The Marks packs then sell a currency with almost no use, the starter pack has no jacket to give, and the boutique is a changing room with tills. Players notice a shop with nothing in it, and the first weeks are when a new game earns its reputation.
+  - **The cost** is one wardrobe batch, as V6's eight garments were (`tools/blender/wardrobe.py`, `kitlib/wardrobe`, built round both bodies and checked with `wardrobe_visibility.py`), and one small batch of torches. That is small next to LB0 to LB5.
+  - **If the owner still prefers free only:** the boutique opens for mixing the free pieces; the Marks packs and the starter pack wait for the first paid line. Launch money is then the arcade, private servers and the photo booth's frames.
 
 ### Electronics: the torch's looks
 
@@ -114,17 +128,33 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 
 - **Machines you walk up to:** press E and the camera settles on the screen. Others can watch over your shoulder.
 - **A play costs a credit.** The owner's prices: **5 Robux a play** and a **250 Robux unlimited arcade game pass**, plus a 10-play bundle for 40 Robux.
-- **High scores on every machine,** all-time and weekly, across all players. They're shown on the cabinet's attract screen and, for the week's champions, on the court's board, under Roblox display names (typed initials would need Roblox's text filter). The week's top scorer on each machine gets a jacket patch nobody can buy.
-- **A prize counter:** scores earn tickets, and tickets buy silly cosmetic prizes (a pin, a cap, a plush on your back). Tickets are never sold.
+- **One free play a day** for everyone (the owner's yes), shown on each machine ("1 free play today"). It resets at midnight UTC.
+- **Plays for Marks, priced to make Robux the better deal:** Claude suggests **75 Marks a play**, to tune. At the small pack's rate a 5 Robux play is worth 25 Marks, so 75 is three times that: supporting the game is clearly cheaper, yet a lost run (about 100 Marks) still earns a play and a good win (about 300) about four.
+- **High scores on every machine,** all-time and weekly, across all players, shown on the cabinet's attract screen under Roblox display names (typed initials would need Roblox's text filter). A weekly prize waits until more customisation is planned (the owner).
+- **The prize counter is there but closed down** (the owner): grille down, a "closed" sign, a dust sheet over the prizes. No tickets are given until it opens, so nothing piles up for a design that may change. When it opens, scores earn tickets for silly cosmetic prizes, and tickets are never sold.
 - **The games are original,** never clones (the big names are trademarked). The first: **HOUSE CALL**, a maze where the Guest freezes while you face him, the game's first rule as an arcade game. Later: **NIGHT DRIVE**, a road dodger in the rain. Each machine is a small game of its own to build, so one comes first.
 
 ### The garage: the investigators' room
 
 The cars, the payphone, and a pegboard of car bits (wood panelling, paint, fuzzy dice, the radio station that plays), which the squad and the whole lobby see. The case board shows your Clearance and what it unlocks next; the Dossier sits on a desk. Later, a practice run starts here (Next item 6, the tutorial).
 
+### The diner: the run records
+
+An 80s diner at the hall's end: booths, a counter with stools, neon in the window, the place a squad sits between runs. Its menu board holds the records (the owner's two):
+- **The fastest completed runs,** from the arrival to the run out of the front door.
+- **The longest completed runs:** the squads that held on longest and still got out. Stalling can't farm it, because a run that drags on reaches Drift 100 and the Reckoning, a hunt that never ends.
+
+Each entry shows the squad's names, its size and the time. The time comes from the server, which already measures every run (`RunOrchestrator`, `run.started`), so these boards need no cheat check.
+
+The house changes with the night (short or full: `Config.Mansion.Profiles`), the difficulty and the squad's size, so one list would compare different races. Claude suggests:
+- lists for each difficulty on the default short night first, with the full night later;
+- solo split from squads if solos turn out to dominate.
+
+The daily contract, when it comes, is the fairest race of all (one house for everyone).
+
 ### The court
 
-The fountain, benches, the mall directory ("you are here", which doubles as the lobby's map), the week's arcade champions, and the photo booth. The booth takes a strip of your squad with ready-made frames and stickers, never drawing or typing: free-form player creation raises the minimum age (design doc section 9).
+The fountain, benches, the mall directory ("you are here", which doubles as the lobby's map), and the photo booth. The booth takes a strip of your squad with ready-made frames and stickers, never drawing or typing: free-form player creation raises the minimum age (design doc section 9).
 
 ## Money
 
@@ -139,11 +169,11 @@ Starting prices to test, not settled: the owner sets the final ones.
 
 | Thing | Kind | Starting price | Notes |
 | --- | --- | --- | --- |
-| Marks, small | Developer product | 100 R for 500 Marks | About three runs' worth |
+| Marks, small | Developer product | 100 R for 500 Marks | About three runs' worth; waits for paid clothes if the boutique opens free only |
 | Marks, medium | Developer product | 400 R for 2,200 Marks | 10% bonus |
 | Marks, large | Developer product | 1,000 R for 6,000 Marks | 20% bonus |
-| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | Shown once, after your first run |
-| Arcade play | Developer product | **5 R** | The owner's price |
+| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | Shown once, after your first run; needs the first paid line |
+| Arcade play | Developer product, or Marks | **5 R**, or 75 Marks (to tune) | The owner's price; one free play a day |
 | Arcade, 10 plays | Developer product | 40 R | |
 | Arcade unlimited | Game pass | **250 R** | The owner's price |
 | Clothes | Marks | Shoes 300-600, bottoms 500-900, tops 800-1,500, jackets 1,500-2,500 | |
@@ -153,7 +183,7 @@ Starting prices to test, not settled: the owner sets the final ones.
 | Gifts | Any Robux item, bought for a friend in the same lobby | Same price | Delivered as a wrapped box they open |
 | Supporter pack | Game pass | 500-1,000 R | Design doc: a cosmetic bundle and a name in the credits |
 | Private servers | Roblox's own | The owner's | Already on (the owner) |
-| Seasonal items | Marks or Robux | | Limited time; with the shutter, later |
+| Seasonal items | Marks or Robux | | Limited time; later, after launch |
 | Real Roblox avatar items | Avatar items sold in the game | | Later: needs Roblox's item-creator eligibility and upload fees |
 | Season pass ("Case Files") | Game pass | 400-800 R | Design doc: 2-3 months after launch |
 
@@ -232,20 +262,20 @@ This is CLAUDE.md's Next item 7 (the hub place, reserved servers), brought forwa
 
 Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/`, a section here, TCs at the end of `docs/TESTING.md`.
 
-- **LB0, foundations.** Studio's API access on (the owner). The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
-- **LB1, the mall's shell.** The court, the four shopfronts with grilles, the garage, the shutter (closed), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
+- **LB0, foundations.** Studio's API access (on since 2026-10-15): checked in a play test that a profile saves and loads. Studio given its own DataStores (`DataService`'s store name with a Studio suffix), so play tests never touch live profiles. The second place (the owner publishes it in Creator Hub; Claude walks them through). Place roles with Studio's one-place mode. Profile version 2. `MonetizationService` with receipts. The contract handoff and the group teleports out and back, checked in a live test.
+- **LB1, the mall's shell.** The court, the four shopfronts with grilles, the diner, the garage, the shutter (closed until the owner decides), the warm light and the rain on the skylight, the signs. A Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before. The 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
-- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, the Marks packs, the starter pack, gifts. The new garments' batch.
+- **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts. If the first paid line ships: its garments' batch, the Marks packs and the starter pack.
 - **LB4, electronics and the car bits.** The torch's looks (a Blender batch), the car bits on the pegboard.
-- **LB5, the arcade.** HOUSE CALL, credits, the pass, the bundle, the replay check, the boards, spectating, the weekly patch.
+- **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's records of the fastest and longest escapes.
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
-- **Later:** the prize counter, NIGHT DRIVE, seasonal pop-ups and whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
+- **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
 
 LB0 comes first because purchases and teleports both depend on it, and they can only be checked in the live game.
 
 ## What the owner will be asked
 
-- Turn on Studio's access to API services (Game Settings, Security).
+- ~~Turn on Studio's access to API services~~ (done, 2026-10-15).
 - Make the second place in Creator Hub and publish to it; set the two places' player counts.
 - Create the developer products and game passes in Creator Hub and send Claude their ids.
 - Approve and import each Blender batch, as in the visual rework.
@@ -255,9 +285,8 @@ LB0 comes first because purchases and teleports both depend on it, and they can 
 
 ## Open questions
 
-1. **Marks for arcade plays, and one free play a day?** Claude suggested 25 Marks a play (the same rate as the Marks packs) and a free daily play, so the arcade isn't empty and the boards aren't payers only. The owner's prices so far are 5 R and the 250 R pass.
-2. **Electronics as the fourth shop?** It was Claude's suggestion.
-3. **The shutter:** what's behind it and when it opens (later, with the owner).
-4. **The mall's name,** and why it closed.
-5. **How many garments the boutique opens with,** and whether today's eight stay free for everyone.
-6. **The weekly arcade prize:** a patch, or something else.
+1. **What the boutique opens with:** only the free garments (the owner's lean), or a small first paid line of about six pieces and three torch looks (Claude's recommendation; the boutique section has why).
+2. **A play's price in Marks:** 75 is Claude's suggestion.
+3. **How the run records split:** by difficulty on the short night first, and solo apart from squads? (Claude's suggestion; the diner section has why.)
+
+Settled for now, to come back to later (the owner, 2026-10-15): what the shutter becomes (closed until then), the mall's name (atmosphere first), the weekly arcade prize and the prize counter (closed until more customisation is planned).
