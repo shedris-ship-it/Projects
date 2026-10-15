@@ -337,6 +337,12 @@ function DebugService:Run(player: Player, text: string)
 		else
 			reply(player, "usage: night full|short")
 		end
+	elseif command == "takedown" then
+		-- The Guest's takedown on you (Logic/Takedown), without the down:
+		-- `takedown [taste|taking] [front|behind|hiding] [hold]`, `takedown
+		-- stop`. He's put in front of you (behind you; a few steps off, for a
+		-- hiding place's haul). `hold` keeps it going for stills.
+		reply(player, services.StalkerService:DebugTakedown(player, args[2], args[3], args[4]))
 	elseif command == "squad" then
 		-- The squad size the next mansion is built for (docs/plans/level-design.md
 		-- section 5.2), so a solo test can build a four-player house.

@@ -21,6 +21,7 @@ local Constants = require(Shared.Constants)
 local GuestPose = require(Shared.Logic.GuestPose)
 local Kinematics = require(Shared.Logic.Kinematics)
 local PlayerPose = require(Shared.Logic.PlayerPose)
+local Takedown = require(Shared.Logic.Takedown)
 local Net = require(Shared.Net)
 
 local GuestFace = require(script.Parent.Parent.Lib.GuestFace)
@@ -423,6 +424,15 @@ end
 function GuestController:_frame(dt: number)
 	local model, root = guest.model, guest.root
 	local position = self:_drawnRoot(dt)
+	-- Taking someone down (Controllers/TakedownController): drawn from its
+	-- timeline, wherever the server keeps his body meanwhile.
+	local takedownCtl = self.controllers.TakedownController
+	local takedown = takedownCtl and takedownCtl:GuestFrame()
+	if takedown and not takedown.handback and not takedown.live then
+		guest.anchor.CFrame = takedown.anchor
+		guest.drawnAt, guest.drawnVel = takedown.anchor.Position, Vector3.zero
+		position = takedown.anchor.Position
+	end
 	local drawn = guest.anchor.CFrame
 	guest.parked = root.Position.Y > 200
 	if guest.parked then
@@ -535,6 +545,13 @@ function GuestController:_frame(dt: number)
 		tremble = thin,
 		random = math.random,
 	}, dt)
+	if takedown and takedown.live then
+		-- (Dragging someone away: his own running, an arm back on the ankle.)
+		values = takedown.adjust(values, guest.anchor.CFrame)
+	elseif takedown then
+		-- (Handing back, his own pose fades in over the takedown's last.)
+		values = Takedown.blend(values, takedown.values, takedown.weight)
+	end
 
 	-- His coat's skirt hangs with its weight (the owner, 2026-10-11: "some
 	-- strange movement with the bottom of his coat when he ducks"): it
@@ -578,7 +595,7 @@ function GuestController:_frame(dt: number)
 			guest.nextBreakingBurst = now + every[1] + math.random() * (every[2] - every[1])
 			guest.burstUntil = math.max(guest.burstUntil or 0, now + G.StutterBurst)
 		end
-		if now < (guest.burstUntil or 0) then
+		if now < (guest.burstUntil or 0) and not takedown then
 			if now < (guest.nextStutter or 0) then
 				write = false
 			else
@@ -613,7 +630,12 @@ function GuestController:_frame(dt: number)
 		end
 		for side, hand in guest.hands do
 			local grip = (pose == "Peek" or pose == "FingersPeek") and ((lean >= 0) == (side == "Right"))
-			GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum, FINGER_SPREAD[pose])
+			if takedown and takedown.weight > 0.5 then
+				-- A face in one hand, a collar (or an ankle) in the other.
+				GuestFace.curlHand(hand, takedown.curl[side], dt, math.random, 0, takedown.spread[side])
+			else
+				GuestFace.curlHand(hand, grip and 1.35 or curl, dt, math.random, drum, FINGER_SPREAD[pose])
+			end
 		end
 		-- The face.
 		local distance = (guest.head.Position - camera.CFrame.Position).Magnitude
@@ -630,13 +652,21 @@ function GuestController:_frame(dt: number)
 		if form >= 1 and distance < G.GapeRange then
 			open = math.max(open, 0.6 + 0.4 * (1 - distance / G.GapeRange))
 		end
+		if takedown and takedown.weight > 0.5 then
+			-- His grin opening as he looks you over, then torn wide.
+			width, open = math.rad(62 + 46 * takedown.smile), takedown.open
+		end
 		guest.face:SetForm(form)
 		self:_grow(form)
 		guest.face:SetSmile(width, open)
 		self:_maskBetweenLooks(camera, form, distance, beam, dt)
 		if guest.kit then
 			-- The modelled face eases to all that (Lib/GuestMask).
-			guest.face:SetMood(mood, pose, guest.heldFor)
+			if takedown and takedown.catch then
+				guest.face:SetMood(nil, "Catch", 0)
+			else
+				guest.face:SetMood(mood, pose, guest.heldFor)
+			end
 			guest.face:Step(dt)
 		end
 		-- His eyes: caught in your torch, or a faint glow in the dark whenever
@@ -645,7 +675,7 @@ function GuestController:_frame(dt: number)
 		local facing = toFace.Magnitude > 0.5 and guest.head.CFrame.LookVector:Dot(-toFace.Unit) >= 0.3
 		local glow = G.EyeGlow[math.clamp(form, 0, 2) + 1]
 		guest.face:SetShine(self:_eyeShine(camera) and 1 or (facing and distance < G.EyeGlowRange and glow or 0))
-		guest.face:LookAt(camera.CFrame.Position)
+		guest.face:LookAt(takedown and takedown.weight > 0.5 and takedown.look or camera.CFrame.Position)
 	end
 
 	self:_glass(dt, camera, shown)

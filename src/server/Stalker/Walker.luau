@@ -96,6 +96,9 @@ function Walker.new(services, agent, rng)
 		canTeleport = nil, -- function() -> bool: nobody could see a nudge
 		onShove = nil, -- function(seamId): he shoved a barricade aside (his mood hears of it)
 		slamDoors = false, -- prowling in a hunt: doors bang open (Logic/HuntPhases)
+		-- Dragging someone away (StalkerService:_takedown): no slowing at
+		-- corners, and doors burst open as he reaches them.
+		rush = false,
 		keyPass = nil, -- { seconds(), jingle(door), open(door) -> bool, shut(door) }: his keys (Logic/GuestKeys)
 		keyDoor = nil, -- { door, seam, start, at }: a locked door open for him till he's through
 		allowNudge = true,
@@ -413,6 +416,9 @@ function Walker:_advanceGoal(now: number)
 		if door.state and door.state.target >= Config.Doors.PassAngle then
 			-- Already swinging open (after a barricade): a moment.
 			self.waitingUntil = now + 0.4
+		elseif self.rush and not door.locked then
+			-- (Dragging someone: it bursts open as he reaches it.)
+			self.waitingUntil = now
 		elseif self.agent.opensDoors == "stalker" and door.locked and door.guestKey and self.keyPass then
 			-- His keys (Logic/GuestKeys): heard first, then the lock turns.
 			self.keyPass.jingle(door)
@@ -587,7 +593,7 @@ function Walker:Step(now: number): boolean
 			local braced = self.agent.opensDoors == "stalker" and self.Doors:IsBraced(door)
 			-- (A player's body walked by the server, F2 `botrun`: the door
 			-- swings away from them like one opened with E, or it stops on them.)
-			self.Doors:SetOpen(door, true, self.agent.player, braced or self.slamDoors)
+			self.Doors:SetOpen(door, true, self.agent.player, braced or self.slamDoors or self.rush)
 			self.pendingDoor = nil
 		else
 			if
@@ -689,12 +695,13 @@ function Walker:Step(now: number): boolean
 		return self.index <= #self.goals
 	end
 
-	-- Speed: slower on stairs and into sharp turns.
+	-- Speed: slower on stairs and into sharp turns (not while he drags
+	-- someone away: then nothing slows him).
 	local speed = self.speed
-	if math.abs(point.Y - feet.Y) > 1 then
+	if math.abs(point.Y - feet.Y) > 1 and not self.rush then
 		speed *= 0.8
 	end
-	if goal.kind == "leg" and leg and leg.points then
+	if goal.kind == "leg" and leg and leg.points and not self.rush then
 		local after = leg.points[leg.index + 1]
 		if after then
 			local a, b = flat(point - feet), flat(after - point)

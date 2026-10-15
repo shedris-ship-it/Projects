@@ -100,6 +100,7 @@ Constants.PlayerAttributes = {
 	Grace = "Grace",
 	Hidden = "Hidden",
 	DownedUntil = "DownedUntil",
+	Takedown = "Takedown", -- server time the Guest's takedown of you ends (Logic/Takedown); nil when none
 	-- How long this down lasts (solo downs are longer): the bleed bar's scale.
 	DownedSeconds = "DownedSeconds",
 	Reviving = "Reviving", -- holding the revive prompt on a friend (they kneel)

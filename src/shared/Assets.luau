@@ -56,6 +56,17 @@ Assets.Sounds = {
 	GuestKeys = "rbxassetid://9113849492", -- PSE "Coins Or Keys Jingle 6": his key ring at a locked door
 	GuestCrack = "rbxassetid://9113542363", -- PSE "Bone Cracks 10" (dry): his knuckles, his neck tipping too far
 	GuestExhale = "rbxassetid://9113586144", -- PSE "Breath Exhale 17", pitched down: let go after a long stare
+	-- His takedown (the visual rework V8, Logic/Takedown): licensed Pro Sound
+	-- Effects library audio chosen by description, not yet heard by anyone:
+	-- swap by ear here. The bite is two layered: a squishy crunch and a dry
+	-- crack (Bone Cracks 15, 9113542645, the other candidate for the second).
+	TakedownBite = "rbxassetid://9113660777", -- PSE "Cactus Crunches 3": hits, crunches, squishes
+	TakedownCrunch = "rbxassetid://9113542694", -- PSE "Bone Cracks 16": short to medium, crackly, dry
+	-- The scream, cut off on the bite; by the body (Data/Wardrobe). Others:
+	-- male 9125652432, 9125652949; female 9114399356, 9114400180.
+	TakedownScreamMale = "rbxassetid://9125652466", -- PSE "Male Scream Short Yelling Bursts Death Cries 3"
+	TakedownScreamFemale = "rbxassetid://9114399323", -- PSE "Female Voices 2 Women Short Screams Yells 9"
+	TakedownDrag = "rbxassetid://9118767462", -- PSE "Sand Bag Slide 5": a heavy body dragged on boards (or 9118767717)
 	-- The storm (the visual rework V2, Controllers/WeatherController): licensed
 	-- Pro Sound Effects library audio, chosen by description, not yet heard by
 	-- the owner: swap by ear here.

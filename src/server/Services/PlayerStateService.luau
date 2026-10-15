@@ -360,6 +360,9 @@ function PlayerStateService:EndRun()
 			record.revivePrompt:Destroy()
 			record.revivePrompt = nil
 		end
+		if record.takedownUntil then
+			self:EndTakedown(player)
+		end
 		if record.state == States.Lost then
 			self:_clearEcho(player)
 		end
@@ -449,9 +452,11 @@ function PlayerStateService:Down(player: Player)
 	-- Alone, nobody is coming: a little longer to crawl (Config.Run.SoloDownedSeconds).
 	local solo = #self:RunPlayers() == 1
 	local seconds = solo and (Config.Run.SoloDownedSeconds or Config.Run.DownedSeconds) or Config.Run.DownedSeconds
-	record.downedUntil = os.clock() + seconds
+	-- (His takedown first: the bleeding starts once you're on the floor.)
+	local held = self:TakedownLeft(player)
+	record.downedUntil = os.clock() + held + seconds
 	self:_setState(player, States.Downed)
-	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + seconds)
+	player:SetAttribute(PA.DownedUntil, workspace:GetServerTimeNow() + held + seconds)
 	player:SetAttribute(PA.DownedSeconds, seconds)
 	-- Smelling salts (Data/Tools): spent now, before the tools fall, and you
 	-- come round in a moment (_tick).
@@ -474,6 +479,8 @@ function PlayerStateService:Down(player: Player)
 		prompt.HoldDuration = Config.Run.ReviveHoldSeconds
 		prompt.MaxActivationDistance = 8
 		prompt.RequiresLineOfSight = false
+		-- (Nobody pulls you up out of his hands: on once the takedown ends.)
+		prompt.Enabled = held <= 0
 		prompt.Parent = root
 		prompt.Triggered:Connect(function(rescuer)
 			rescuer:SetAttribute(PA.Reviving, nil)
@@ -638,6 +645,73 @@ function PlayerStateService:_clearEcho(player: Player)
 	end
 end
 
+-- Would a catch now make this player Lost (a catch while down, or the last
+-- of their downs)? The Guest's takedown picks the taking for it.
+function PlayerStateService:WillBeLost(player: Player): boolean
+	local record = records[player]
+	if not record or not record.inRun then
+		return false
+	end
+	if record.state == States.Downed then
+		return true
+	end
+	return record.state == States.Active and (record.downs or 0) + 1 >= self:DownsCap()
+end
+
+-- The Guest's takedown (Logic/Takedown, StalkerService:_takedown): for
+-- `seconds` you're his. Your root part is held still at `rest` (where your
+-- body ends up: every client draws the body from the takedown, wherever the
+-- root part is), the bleed-out and the revive prompt wait, and an Echo's
+-- look waits until the body has gone.
+function PlayerStateService:BeginTakedown(player: Player, seconds: number, rest: CFrame?)
+	local record = records[player]
+	if not record or not record.inRun then
+		return
+	end
+	record.takedownUntil = os.clock() + seconds
+	player:SetAttribute(PA.Takedown, workspace:GetServerTimeNow() + seconds)
+	local root = self:Root(player)
+	if root then
+		self:MarkTeleport(player)
+		root.Anchored = true
+		if rest then
+			root.CFrame = rest
+		end
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
+function PlayerStateService:TakedownLeft(player: Player): number
+	local record = records[player]
+	return record and math.max(0, (record.takedownUntil or 0) - os.clock()) or 0
+end
+
+-- The takedown is over: free to crawl (or wander, an Echo, from `at`:
+-- where the body was dragged), and to be helped.
+function PlayerStateService:EndTakedown(player: Player, at: CFrame?)
+	local record = records[player]
+	if not record then
+		return
+	end
+	record.takedownUntil = nil
+	player:SetAttribute(PA.Takedown, nil)
+	local root = self:Root(player)
+	if root and at then
+		self:MarkTeleport(player)
+		root.CFrame = at
+	end
+	if root and root.Anchored and not player:GetAttribute(PA.Hidden) then
+		self:MarkTeleport(player)
+		root.Anchored = false
+	end
+	if record.state == States.Lost then
+		self:_applyEcho(player)
+	end
+	if record.revivePrompt then
+		record.revivePrompt.Enabled = true
+	end
+end
+
 -- Lost Witnesses become Echoes: they keep talking and can ping a hint once
 -- a minute, so nobody sits in a dead lobby.
 function PlayerStateService:MakeLost(player: Player, reason: string?)
@@ -658,7 +732,18 @@ function PlayerStateService:MakeLost(player: Player, reason: string?)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
 	end
-	self:_applyEcho(player)
+	-- (Taken: the Echo's look comes once the body is out of sight.)
+	local held = self:TakedownLeft(player)
+	if held > 0 then
+		task.delay(held, function()
+			local now = records[player]
+			if now and now.state == States.Lost then
+				self:_applyEcho(player)
+			end
+		end)
+	else
+		self:_applyEcho(player)
+	end
 	notify(player, "You are Lost. As an Echo you can still talk, and ping one hint a minute.", "danger")
 	for _, other in self:RunPlayers() do
 		if other ~= player then

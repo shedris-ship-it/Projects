@@ -62,6 +62,20 @@ end
 
 function BodyController:_update()
 	local character = player.Character
+	-- A cutscene or the Guest's takedown (Controllers/CinemaController): the
+	-- camera is out of your head, and all of you is there to see.
+	local cinema = self.controllers.CinemaController
+	-- (F2 checks of a takedown seen as a bystander sees it show you whole too.)
+	local outside = player:GetAttribute("DebugTakedownOutside") == true
+	if character and ((cinema and cinema:Active()) or outside) then
+		for _, d in character:GetDescendants() do
+			if d:IsA("BasePart") and d.LocalTransparencyModifier ~= 0 then
+				d.LocalTransparencyModifier = 0
+			end
+		end
+		self.managing = character
+		return
+	end
 	-- (Tucked under a bed or behind a curtain the camera is ours, not Roblox's,
 	-- and nothing of you shows: everything stays hidden.)
 	local inHead = character ~= nil and self.state:InRun() and player.CameraMode == Enum.CameraMode.LockFirstPerson

@@ -582,6 +582,8 @@ local KNEE = { 0, -Rig.upperLeg, 0 }
 local ANKLE = { 0, -Rig.lowerLeg, 0 }
 GuestPose.HipOffset = HIP
 GuestPose.ShoulderOffset = SHOULDER
+GuestPose.WaistOffset = WAIST_JOINT
+GuestPose.NeckOffset = { 0, Rig.neckY - Rig.waistY, 0 }
 
 local LEG_JOINTS = {
 	"LeftHip",

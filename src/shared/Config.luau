@@ -1515,6 +1515,21 @@ Config.Guest = {
 	-- a hiding place (StalkerService:_catchStyle). "rush"/"quiet" force one.
 	Catch = "auto",
 	CatchFaceSeconds = 1, -- you looked at him this recently: face to face
+	-- The takedown (the visual rework V8; the owner, 2026-10-15): the catch
+	-- played out on both bodies, watched in the third person, in place of
+	-- the jumpscare above (Logic/Takedown, StalkerService:_takedown,
+	-- Controllers/TakedownController). A down is the taste; the last is the
+	-- taking, dragged out of the room by the ankle, at most TakedownDragMax
+	-- studs (Config.Cinema frames it). Off: the jumpscare.
+	Takedown = true,
+	TakedownDragMax = 16,
+	-- The taking's drag (the owner, 2026-10-15: "he's actually dragging you
+	-- away somewhere ... fast enough that other players can't chase"): his
+	-- own way through the house, faster than a sprint (19), to a room this
+	-- far off by his way (studs), for at most this long.
+	TakedownDragSpeed = 23,
+	TakedownDragAway = { 25, 55 },
+	TakedownDragSeconds = 6,
 	NeckYawMax = 160, -- his head keeps turning to watch you; a person manages about 80
 	SmileCloseRange = { 4, 18 }, -- the smile widens from 18 studs in to arm's length
 	EyeShineRange = Config.Torch.Range, -- your torch catches his eyes within its reach
@@ -2420,6 +2435,33 @@ Config.Camera = {
 	FirstPersonInRun = true,
 	LobbyMaxZoom = 14,
 	FieldOfView = 70,
+}
+
+-- Cutscenes and the Guest's takedown (the visual rework V8;
+-- Controllers/CinemaController, Logic/ShotPicker): letterbox bars (a share of
+-- the screen's height each), how fast they come and go, the lens, and the
+-- ball the camera sweeps along a line to call it clear (a wall, a closed door
+-- or a piece of furniture in the way rules a place out). Small things that
+-- still stand between the camera and what it films (a lamp, a plant) are
+-- hidden for the shot.
+Config.Cinema = {
+	Bars = 0.115,
+	BarSeconds = 0.35,
+	FieldOfView = 55,
+	ClearRadius = 0.35,
+	FadeMargin = 0.4, -- a small thing this close to the camera, or to its sightline, is hidden
+	-- The takedown's shots (Controllers/TakedownController): the two of you
+	-- from a few steps off, his face close (from in front of it), you down on
+	-- the floor with him over you (low and wide), the taking from the side
+	-- and low (all of it in frame, him towering: `Slam`), low as you're
+	-- dragged off.
+	Pair = { radii = { 7.5, 9, 6 }, rise = { 0.4, 1.4, -0.4 }, turn = 75, angles = 24 },
+	Face = { radii = { 2.2, 2.8, 1.8 }, rise = { -0.15, 0.2 }, turn = 35, angles = 16 },
+	Floor = { radii = { 8, 9.5, 6.5 }, heights = { 1.6, 2.3 }, angles = 20 },
+	Slam = { radii = { 9, 7.5, 6 }, heights = { 2.0, 3.0 }, angles = 24, side = 0.5, fov = 68 },
+	Drag = { radii = { 5, 6, 4 }, heights = { 1.0, 1.8 }, angles = 16 },
+	Track = 6, -- how fast the camera's aim follows what it films (1/s)
+	Handheld = 0.035, -- studs of slow drift on a shot (scaled by Settings' Camera motion)
 }
 
 -- Shadow-casting is the expensive part of a dark house of many lamps, so a

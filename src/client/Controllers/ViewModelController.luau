@@ -351,9 +351,12 @@ function ViewModelController:_update(dt: number)
 	local camera = Workspace.CurrentCamera
 	local character = player.Character
 	local firstPerson = player.CameraMode == Enum.CameraMode.LockFirstPerson
+	-- (No arms in front of a cutscene's camera: Controllers/CinemaController.)
+	local cinema = self.controllers.CinemaController
 	local active = camera
 		and character
 		and firstPerson
+		and not (cinema and cinema:Active())
 		and self.state:InRun()
 		and self.state:IsActive()
 		and not self.state:IsTucked()

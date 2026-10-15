@@ -22,6 +22,7 @@
 --
 -- Tiers: 0 Dormant, 1 Watching, 2 Closing, 3 Intruding, 4 Hunting.
 
+local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -42,6 +43,7 @@ local Scent = require(Shared.Logic.Scent)
 local Disguise = require(Shared.Logic.Disguise)
 local ScareBeats = require(Shared.Logic.ScareBeats)
 local StalkRules = require(Shared.Logic.StalkRules)
+local Takedown = require(Shared.Logic.Takedown)
 local Throw = require(Shared.Logic.Throw)
 
 local StalkerFolder = script.Parent.Parent:WaitForChild("Stalker")
@@ -1063,6 +1065,10 @@ end
 -- Who should see him now: nobody at tier 0, only his target at tier 1 (and
 -- nobody while he relocates), everyone from tier 2 and in hunts.
 function StalkerService:_wantVisible(player: Player, now: number): boolean
+	-- Taking someone down, he's there for whoever can see it.
+	if self.takedown then
+		return true
+	end
 	if not self.arrived or self.parked then
 		return false
 	end
@@ -1355,6 +1361,55 @@ function StalkerService:_update(dt: number)
 	local now = os.clock()
 	local body = self.bodyCtl
 	self.sight:NewTick()
+	-- Taking someone down: nothing else moves him till it's done.
+	local takedown = self.takedown
+	if takedown then
+		local dragging = takedown.dragAt and now >= takedown.dragAt
+		local done = now >= takedown.untilT or not takedown.player.Parent
+		if dragging and not done then
+			-- Away with you, his own way through the house, faster than anyone
+			-- can run: along the way planned for it (a steady run, no pause at
+			-- a room's edge for the next stretch to be worked out), or by his
+			-- walker if the plan isn't there.
+			if takedown.line then
+				done = self:_dragStep(takedown, dt)
+			elseif not takedown.running then
+				takedown.running = true
+				self.navigator.rush = true
+				self:_walkTo(takedown.dragTo, G.TakedownDragSpeed or 23)
+			elseif body:Arrived() or body:Unreachable() then
+				done = true
+			end
+		end
+		if not done then
+			if not dragging then
+				body:Hold()
+			end
+			body:Update(now, playerPosition(self.services))
+			self:_updateVisibility(now)
+			return
+		end
+		self.takedown = nil
+		self.navigator.rush = false
+		if takedown.gliding then
+			-- (Off the planned way: on his own legs again.)
+			local here = body.root.Position
+			local look = body.root.CFrame.LookVector
+			body:Place(here, here + Vector3.new(look.X, 0, look.Z))
+		end
+		-- Where the body ended up (behind him): an Echo stands up there.
+		local at = nil
+		if takedown.dragAt then
+			local look = body.root.CFrame.LookVector
+			local flat = Vector3.new(look.X, 0, look.Z)
+			local behind = body.root.Position - (flat.Magnitude > 0.1 and flat.Unit or Vector3.zero) * takedown.gap
+			local floorY = self.services.WorldService:FloorBase(body.root.Position.Y)
+			at = CFrame.new(Vector3.new(behind.X, floorY + 3, behind.Z))
+			body:Hold()
+		end
+		self.services.PlayerStateService:EndTakedown(takedown.player, at)
+		Net.get("GuestEvent"):FireAllClients({ kind = "takedownEnd", victim = takedown.player })
+	end
 	if self.debugHold then
 		body:Update(now, playerPosition(self.services))
 		return
@@ -2512,29 +2567,552 @@ function StalkerService:_catch(player: Player, now: number, how: string?, contac
 		services.Telemetry:Log("CheapDown", { how = how or "hunt", tier = self:TierNow() }, player)
 	end
 	services.RunLogService:Catch(player.DisplayName, how or "hunt", cheap)
+	-- He takes you down (Logic/Takedown): staged before the down, so the
+	-- bleeding and the revive wait for it to end. Without it, the jumpscare.
+	local seconds = self:_takedown(player, how)
 	services.PlayerStateService:Down(player)
-	Net.get("GuestEvent")
-		:FireClient(player, { kind = "catch", how = how or "hunt", catch = self:_catchStyle(player, how) })
+	if not seconds then
+		Net.get("GuestEvent")
+			:FireClient(player, { kind = "catch", how = how or "hunt", catch = self:_catchStyle(player, how) })
+	end
 	for _, other in services.PlayerStateService:RunPlayers() do
 		if other ~= player then
 			Net.get("GuestEvent"):FireClient(other, { kind = "caught", position = self.body.root.Position })
 		end
 	end
 	self.bodyCtl:Hold()
+	local held = seconds or 0
 	if self.mode == Modes.Hunting then
 		local data = self.data
 		data.catches = (data.catches or 0) + 1 -- a hunt with a catch is never "survived"
-		data.pauseUntil = now + ((self.final or self.reckoning) and 8 or 2.5)
+		data.pauseUntil = now + held + ((self.final or self.reckoning) and 8 or 2.5)
 		data.plan = nil
 		if not self.final and not self.reckoning then
-			data.endsAt = now + math.max(8, (data.endsAt - now) / 2)
+			data.endsAt = now + held + math.max(8, (data.endsAt - now) / 2)
 			-- Alone, nobody is coming to pull you up: he lets you go (the hunt
 			-- ends and he backs away) so the crawl to the light has a chance.
 			if #services.PlayerStateService:LivingPlayers() == 1 then
-				data.endsAt = math.min(data.endsAt, now + 4)
+				data.endsAt = math.min(data.endsAt, now + held + 4)
 			end
 		end
 	end
+end
+
+-- The takedown (the visual rework V8; the owner's picks, 2026-10-15): stage
+-- it, hold both of you still for it, and tell every client to play it
+-- (Controllers/TakedownController draws both bodies from Logic/Takedown).
+-- The stage's origin is where you'll lie (in front of him; out of a hiding
+-- place, a step out of it), its -Z towards him. Returns how long it runs, or
+-- nil when there's none (Config.Guest.Takedown off, or no body).
+function StalkerService:_takedown(player: Player, how: string?, force: string?): number?
+	if not G.Takedown then
+		return nil
+	end
+	local services = self.services
+	local ps = services.PlayerStateService
+	local root = ps:Root(player)
+	local guestRoot = self.body and self.body.root
+	if not root or not guestRoot or self.takedown then
+		return nil
+	end
+	local world = services.WorldService
+	local floorY = world:FloorBase(root.Position.Y)
+	local here = guestRoot.Position
+	local at = root.Position
+	local flatHere = Vector3.new(here.X, floorY, here.Z)
+	local flatAt = Vector3.new(at.X, floorY, at.Z)
+	local toGuest = flatHere - flatAt
+	if toGuest.Magnitude < 0.2 then
+		local ahead = root.CFrame.LookVector
+		toGuest = Vector3.new(ahead.X, 0, ahead.Z)
+	end
+	local dir = toGuest.Unit
+	local look = root.CFrame.LookVector
+	local facing = Vector3.new(look.X, 0, look.Z)
+	facing = facing.Magnitude > 0.1 and facing.Unit or dir
+	local opening = "front"
+	local origin = flatAt
+	if how == "inspect" and toGuest.Magnitude > Takedown.Hold.look + 0.6 then
+		-- Hauled out of the hiding place to a step in front of him.
+		opening = "hiding"
+		origin = flatHere - dir * Takedown.Hold.look
+	elseif facing:Dot(dir) < -0.25 then
+		opening = "behind"
+	end
+	local stage = CFrame.lookAt(origin, origin + dir)
+	local function toStage(p: Vector3)
+		local q = stage:PointToObjectSpace(p)
+		return { q.X, q.Z }
+	end
+	local localLook = stage:VectorToObjectSpace(facing)
+	local lost = ps:WillBeLost(player)
+	if force then
+		lost = force == "taking"
+	end
+	local spec = {
+		kind = lost and "taking" or "taste",
+		opening = opening,
+		guest = toStage(flatHere),
+		from = opening == "hiding" and toStage(flatAt) or nil,
+		yaw = math.atan2(-localLook.X, -localLook.Z),
+		form = self:_form(),
+	}
+	local dragTo = nil
+	if lost then
+		-- Dragged away (the owner, 2026-10-15: "he's actually dragging you
+		-- away somewhere", too fast to chase): by his own way through the
+		-- house to a dark room away from everyone (or, with nowhere to go,
+		-- out through the nearest doorway). He slams you down so he can turn
+		-- and go that way with you behind him, where there's floor for it.
+		dragTo = self:_dragDestination(origin, player)
+		local stand = origin + dir * Takedown.Slam.stand
+		local way = nil
+		if dragTo then
+			local route = world:Route(stand, dragTo, { who = "guest" })
+			for _, step in route and route.steps or {} do
+				local flat = Vector3.new(step.position.X - stand.X, 0, step.position.Z - stand.Z)
+				if flat.Magnitude > 1.5 then
+					way = flat.Unit
+					break
+				end
+			end
+			if not way then
+				local flat = Vector3.new(dragTo.X - stand.X, 0, dragTo.Z - stand.Z)
+				way = flat.Magnitude > 0.5 and flat.Unit or dir
+			end
+		else
+			local path = self:_takingPath(origin, dir)
+			local next = path[#path]
+			local flat = next and Vector3.new(next.X - stand.X, 0, next.Z - stand.Z)
+			way = flat and flat.Magnitude > 1.5 and flat.Unit or dir
+		end
+		local function toStageWay(v: Vector3)
+			local q = stage:VectorToObjectSpace(v)
+			return { q.X, q.Z }
+		end
+		spec.way = toStageWay(way)
+		spec.live = dragTo ~= nil
+		spec.slam = toStageWay(self:_slamWay(spec, stage, way, dir, floorY))
+	else
+		-- Held at arm's length where there's room for it (he steps back to
+		-- it, and in again to look): else as far as there is.
+		spec.hold = Takedown.Hold.look
+		for _, reachOut in { Takedown.Hold.distance, 3.6, 3.1 } do
+			if self.bodyCtl:Fits(origin + dir * reachOut) then
+				spec.hold = reachOut
+				break
+			end
+		end
+	end
+	spec = Takedown.fill(spec)
+	local seconds = Takedown.length(spec)
+	local final = Takedown.sample(spec, seconds)
+	-- Where your root part waits (and where you'll be after): facing him
+	-- where you'll lie; taken, where the body went (an Echo stands up there).
+	local rootHeight = at.Y - floorY
+	local g = final.guest.root
+	local guestEnd = stage:PointToWorldSpace(Vector3.new(g.x, 0, g.z))
+	local guestFace = stage:PointToWorldSpace(Vector3.new(g.x - math.sin(g.yaw), 0, g.z - math.cos(g.yaw)))
+	local rest
+	if lost then
+		local p = final.victim.pelvis.p
+		local endAt = stage:PointToWorldSpace(Vector3.new(p[1], 0, p[3]))
+		local away = Vector3.new(guestEnd.X - endAt.X, 0, guestEnd.Z - endAt.Z)
+		local standAt = endAt + Vector3.new(0, rootHeight, 0)
+		rest = CFrame.lookAt(standAt, standAt + (away.Magnitude > 0.1 and away.Unit or dir))
+	else
+		local standAt = origin + Vector3.new(0, rootHeight, 0)
+		rest = CFrame.lookAt(standAt, standAt + dir)
+	end
+	local dragSeconds = spec.live and (G.TakedownDragSeconds or 6) or 0
+	ps:BeginTakedown(player, seconds + dragSeconds, rest)
+	self.takedown = {
+		player = player,
+		untilT = os.clock() + seconds + dragSeconds,
+		dragAt = spec.live and os.clock() + seconds or nil,
+		dragTo = dragTo,
+		gap = Takedown.Drag.gap,
+	}
+	if spec.live and dragTo then
+		-- His way out, planned while he slams you down and takes your ankle.
+		local g = final.guest.root
+		self:_planDrag(self.takedown, stage:PointToWorldSpace(Vector3.new(g.x, 0, g.z)), dragTo)
+	end
+	-- His hands are on you: you see him, whatever kept him from you.
+	if self.visibleTo[player] ~= true then
+		self.visibleTo[player] = true
+		Net.get("StalkerVisibility"):FireClient(player, true)
+	end
+	local outfit = services.OutfitService
+	local bodyKind = outfit and outfit.BodyOf and outfit:BodyOf(player)
+	Net.get("GuestEvent"):FireAllClients({
+		kind = "takedown",
+		victim = player,
+		start = workspace:GetServerTimeNow(),
+		stage = stage,
+		rest = rest,
+		voice = bodyKind == "Girl" and "Female" or "Male",
+		spec = {
+			kind = spec.kind,
+			opening = spec.opening,
+			guest = spec.guest,
+			from = spec.from,
+			yaw = spec.yaw,
+			form = spec.form,
+			hold = spec.hold,
+			slam = spec.slam,
+			way = spec.way,
+			live = spec.live,
+		},
+	})
+	-- His body waits where the takedown leaves him (every client draws him
+	-- from it until then).
+	self.bodyCtl:Place(guestEnd, guestFace)
+	services.Telemetry:Log("Takedown", { kind = spec.kind, opening = opening, seconds = seconds }, player)
+	return seconds + dragSeconds
+end
+
+-- Which way he slams you down (world, flat): so that he can turn round and
+-- go `way` with you behind him (best), or as near that as there's room for:
+-- every candidate is tried against the room (from his chest out to where
+-- your body swings and lands, and floor under where it lands); with no room
+-- anywhere, straight on.
+function StalkerService:_slamWay(spec, stage: CFrame, way: Vector3, dir: Vector3, floorY: number): Vector3
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = { self.body.model }
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(ignore, other.Character)
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	params.RespectCanCollide = true
+	local function world(p)
+		return stage:PointToWorldSpace(Vector3.new(p[1], p[2], p[3]))
+	end
+	local candidates = {}
+	for _, degrees in { 0, 30, -30, 60, -60, 90, -90, 135, -135, 180 } do
+		local u = CFrame.Angles(0, math.rad(degrees), 0):VectorToWorldSpace(-way)
+		table.insert(candidates, { u = u, score = 2 * u:Dot(-way) + 0.8 * u:Dot(-dir) })
+	end
+	table.sort(candidates, function(a, b)
+		return a.score > b.score
+	end)
+	for _, candidate in candidates do
+		local q = stage:VectorToObjectSpace(candidate.u)
+		local trial = table.clone(spec)
+		trial.slam = { q.X, q.Z }
+		local checks, landing = Takedown.slamChecks(trial)
+		local ok = true
+		for _, check in checks do
+			local a, b = world(check[1]), world(check[2])
+			if (b - a).Magnitude > 0.05 and workspace:Spherecast(a, check[3], b - a, params) then
+				ok = false
+				break
+			end
+		end
+		for _, p in landing do
+			if not ok then
+				break
+			end
+			local at = world(p)
+			local hit = workspace:Raycast(at + Vector3.new(0, 2, 0), Vector3.new(0, -3.5, 0), params)
+			ok = hit ~= nil and math.abs(hit.Position.Y - floorY) < 0.7
+		end
+		if ok then
+			return candidate.u
+		end
+	end
+	return -dir
+end
+
+-- The drag's way: the house's route to the room (Stalker/Walker's graph),
+-- each stretch through a room worked out by Roblox's pathfinding (which sees
+-- every piece of furniture), as one line of floor points; the doors on it.
+-- Worked out in the background: `takedown.line` is set once it's ready.
+function StalkerService:_planDrag(takedown, from: Vector3, to: Vector3)
+	local world = self.services.WorldService
+	task.spawn(function()
+		local route = world:Route(from, to, { who = "guest" })
+		if not route then
+			return
+		end
+		local marks, doorAt, through = { from }, {}, {}
+		for _, step in route.steps do
+			table.insert(marks, step.position)
+			if step.door then
+				doorAt[#marks] = step.door
+			end
+			-- (A link across a doorway or up a stair: straight through it. The
+			-- pathfinder would go round a shut door by another way.)
+			through[#marks] = step.seam ~= nil or step.stair ~= nil
+		end
+		table.insert(marks, to)
+		-- (F2 `inspect StalkerService.lastDragPlan`: the way it took.)
+		local seen = {}
+		for _, step in route.steps do
+			table.insert(
+				seen,
+				string.format(
+					"%s r%s (%.0f,%.0f,%.0f)",
+					tostring(step.kind),
+					tostring(step.room),
+					step.position.X,
+					step.position.Y,
+					step.position.Z
+				)
+			)
+		end
+		self.lastDragPlan =
+			{ from = tostring(from), to = tostring(to), cost = route.cost, steps = table.concat(seen, " | ") }
+		local line, doors = { from }, {}
+		for i = 2, #marks do
+			local path = PathfindingService:CreatePath(Walker.GuestPath)
+			local ok = not through[i] and pcall(function()
+				path:ComputeAsync(marks[i - 1], marks[i])
+			end)
+			if ok and path.Status == Enum.PathStatus.Success then
+				for k, waypoint in path:GetWaypoints() do
+					if k > 1 then
+						table.insert(line, waypoint.Position)
+					end
+				end
+			else
+				table.insert(line, marks[i])
+			end
+			if doorAt[i] then
+				table.insert(doors, { index = #line, door = doorAt[i] })
+			end
+		end
+		local along, total = { 0 }, 0
+		for i = 2, #line do
+			total += (line[i] - line[i - 1]).Magnitude
+			along[i] = total
+		end
+		if self.takedown == takedown then
+			takedown.line, takedown.doors, takedown.along = line, doors, along
+		end
+	end)
+end
+
+-- One step of the drag along its planned way: his body carried along it at
+-- the drag's speed, facing the way, doors ahead burst open. True once he's
+-- there.
+function StalkerService:_dragStep(takedown, dt: number): boolean
+	local line = takedown.line
+	local speed = G.TakedownDragSpeed or 23
+	-- (Into his stride over the first moments, not from a standstill to a run.)
+	takedown.ran = (takedown.ran or 0) + dt
+	local pace = speed * math.min(1, 0.35 + takedown.ran * 2.5)
+	takedown.s = (takedown.s or 0) + pace * dt
+	local walked, at, way = 0, line[#line], Vector3.new(0, 0, -1)
+	local doneWalking = true
+	for i = 2, #line do
+		local a, b = line[i - 1], line[i]
+		local length = (b - a).Magnitude
+		if length > 1e-3 then
+			way = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+			if takedown.s <= walked + length then
+				at = a:Lerp(b, (takedown.s - walked) / length)
+				doneWalking = false
+				break
+			end
+		end
+		walked += length
+	end
+	-- Doors on the way: burst open a few strides before he reaches them; the
+	-- last one slammed shut behind you both once your body is through.
+	local doors = takedown.doors or {}
+	for i, entry in doors do
+		local at = takedown.along[entry.index] or 0
+		if not entry.opened and takedown.s >= at - 6 then
+			entry.opened = true
+			if not entry.door.open then
+				self.services.DoorService:SetOpen(entry.door, true, nil, true)
+			end
+		end
+		if i == #doors and not entry.shut and takedown.s >= at + takedown.gap + 1.8 then
+			entry.shut = true
+			self.services.DoorService:SetOpen(entry.door, false, nil, true)
+		end
+	end
+	way = way.Magnitude > 1e-3 and way.Unit or Vector3.new(0, 0, -1)
+	local body = self.bodyCtl
+	local root = self.body.root
+	local base = at + Vector3.new(0, self.body.groundOffset, 0)
+	takedown.gliding = true
+	body:Park(CFrame.lookAt(base, base + way))
+	-- (Carried, not walked: his speed set so his legs still run.)
+	root.AssemblyLinearVelocity = way * pace
+	body:SetPose(Poses.Run)
+	return doneWalking
+end
+
+-- Where he drags someone he has taken: a room a good way off by his own way
+-- (Config.Guest.TakedownDragAway), as far from everyone else as he can find,
+-- dark if it can be, never a lit Lantern room. Its middle, or nil.
+function StalkerService:_dragDestination(from: Vector3, victim: Player): Vector3?
+	local world = self.services.WorldService
+	local ps = self.services.PlayerStateService
+	local away = G.TakedownDragAway or { 25, 55 }
+	local others = {}
+	for _, other in ps:LivingPlayers() do
+		local at = other ~= victim and ps:Position(other)
+		if at then
+			table.insert(others, at)
+		end
+	end
+	local best, bestScore = nil, -math.huge
+	for _, id in world:RoomIds() do
+		local room = world:Room(id)
+		local centre = room and room.center
+		if centre and not world:IsLanternRoom(id) and world:RoomAt(from) ~= id then
+			local route = world:Route(from, centre, { who = "guest" })
+			local cost = route and route.cost
+			-- (Never through a locked door: his keys take seconds at a lock.)
+			for _, step in route and route.steps or {} do
+				if step.seam and (not world:SeamCost(step.seam, "player") or world:Barricades(step.seam)) then
+					cost = nil
+					break
+				end
+			end
+			if cost and cost >= away[1] and cost <= away[2] then
+				local nearest = math.huge
+				for _, at in others do
+					nearest = math.min(nearest, world:Separation(at, centre))
+				end
+				-- (Best of all behind a door he can slam shut on you both.)
+				local steps = route.steps
+				local behindDoor = false
+				for k = #steps, 1, -1 do
+					if steps[k].seam then
+						behindDoor = steps[k].door ~= nil
+						break
+					end
+				end
+				local score = math.min(nearest, 60)
+					+ cost * 0.15
+					+ (world:IsLit(centre) and 0 or 12)
+					+ (behindDoor and 15 or 0)
+				if score > bestScore then
+					best, bestScore = centre, score
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- F2 `takedown [taste|taking] [front|behind|hiding]`: him put where that
+-- opening needs him and the takedown played on you, without the down.
+function StalkerService:DebugTakedown(player: Player, kind: string?, opening: string?, hold: string?): string
+	local ps = self.services.PlayerStateService
+	if kind == "stop" then
+		if self.takedown then
+			self.takedown.untilT = 0
+			return "stopped"
+		end
+		return "none playing"
+	end
+	local root = ps:Root(player)
+	if not root or not self.bodyCtl or not ps:IsActive(player) then
+		return "no run, or you're not up"
+	end
+	if self.takedown then
+		return "one is already playing"
+	end
+	kind = kind == "taking" and "taking" or "taste"
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z).Unit
+	local distance = opening == "hiding" and 4.3 or 2.8
+	local at = root.Position + (opening == "behind" and -flat or flat) * distance
+	self.bodyCtl:Place(at, root.Position)
+	local seconds = self:_takedown(player, opening == "hiding" and "inspect" or "hunt", kind)
+	if not seconds then
+		return "no takedown (Config.Guest.Takedown off?)"
+	end
+	if hold == "hold" then
+		-- (For stills: held until `takedown stop`, never dragged off; pin the
+		-- moment on the client with the attribute DebugTakedownAt.)
+		self.takedown.untilT = os.clock() + 600
+		self.takedown.dragAt = nil
+	end
+	return string.format("takedown: %s, %s, %.1f s", kind, opening or "front", seconds)
+end
+
+-- The taking's way out: from where the body lands, through the nearest open
+-- doorway of the room and a few studs on into the next, if the way is clear
+-- of furniture at a body's width; else the longest clear line from there.
+function StalkerService:_takingPath(origin: Vector3, towardGuest: Vector3): { Vector3 }
+	local world = self.services.WorldService
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = { self.body.model }
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(ignore, other.Character)
+		end
+	end
+	params.FilterDescendantsInstances = ignore
+	params.RespectCanCollide = true
+	local lift = Vector3.new(0, 1.3, 0)
+	local function clear(a: Vector3, b: Vector3): boolean
+		local offset = b - a
+		if offset.Magnitude < 0.05 then
+			return true
+		end
+		return workspace:Spherecast(a + lift, 0.8, offset, params) == nil
+	end
+	local function length(path): number
+		local total = 0
+		for i = 1, #path - 1 do
+			total += (path[i + 1] - path[i]).Magnitude
+		end
+		return total
+	end
+	local most = G.TakedownDragMax or 16
+	local best, bestLength = nil, math.huge
+	local roomId = world:RoomAt(origin)
+	if roomId then
+		for _, other in world:Neighbours(roomId) do
+			local seam = world:SeamBetween(roomId, other)
+			if seam and seam.connected and world:SeamCost(seam.id, "guest") then
+				local door = Vector3.new(seam.floorPosition.X, origin.Y, seam.floorPosition.Z)
+				local into = (seam.a == roomId) and seam.normal or -seam.normal
+				into = Vector3.new(into.X, 0, into.Z).Unit
+				local path = { origin, door - into * 2.5, door, door + into * 4 }
+				if clear(origin, door) then
+					path = { origin, door, door + into * 4 }
+				end
+				local ok = true
+				for i = 1, #path - 1 do
+					if not clear(path[i], path[i + 1]) then
+						ok = false
+						break
+					end
+				end
+				local l = length(path)
+				if ok and l <= most and l >= Takedown.Drag.gap + 2.5 and l < bestLength then
+					best, bestLength = path, l
+				end
+			end
+		end
+	end
+	if best then
+		return best
+	end
+	-- No doorway in reach: the longest clear straight line, his way first.
+	local longest, longestLength = nil, 0
+	for i = 0, 7 do
+		local way = CFrame.Angles(0, i * math.pi / 4, 0):VectorToWorldSpace(towardGuest)
+		local hit = workspace:Spherecast(origin + lift, 0.8, way * 9, params)
+		local reach = (hit and hit.Distance or 9) - 0.6
+		if reach > longestLength then
+			longest, longestLength = way, reach
+		end
+	end
+	return { origin, origin + (longest or towardGuest) * math.max(longestLength, 0) }
 end
 
 function StalkerService:_updateHunting(now: number, dt: number, watchers)

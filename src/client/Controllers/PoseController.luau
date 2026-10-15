@@ -71,6 +71,21 @@ local function wanted(player: Player): (string?, number)
 	return nil, player:GetAttribute(PA.State) == Constants.PlayerStates.Active and P.RiseSeconds or P.CrouchSeconds
 end
 
+-- After the Guest's takedown: the body lies as it left it (face down, the
+-- prone pose's own place), so carry on from there at full weight, not up
+-- from standing; if it isn't to stay down, it gets up from there.
+function PoseController:Settle(player: Player, character: Model)
+	local rig = self:_rig(character)
+	if not rig.complete then
+		return
+	end
+	rig.pose = "prone"
+	rig.weight = 1
+	rig.from = nil
+	rig.wrote = true
+	local _ = player
+end
+
 function PoseController:_frame(dt: number)
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
@@ -82,6 +97,11 @@ function PoseController:_frame(dt: number)
 end
 
 function PoseController:_pose(player: Player, character: Model, root: BasePart, dt: number)
+	-- The Guest's takedown has this body just now (Controllers/TakedownController).
+	local takedown = self.controllers.TakedownController
+	if takedown and takedown:Owns(player) then
+		return
+	end
 	local target, seconds = wanted(player)
 	local rig = self:_rig(character)
 	if not rig.complete then
