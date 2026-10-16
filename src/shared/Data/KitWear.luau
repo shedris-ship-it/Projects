@@ -477,5 +477,8 @@ return {
 		ToolRadio = { size = { 1.039, 1.67, 0.44 }, at = { 0.0255, 0.545, -0.04 } },
 		ToolSalts = { size = { 0.306, 0.74, 0.306 }, at = { 0, 0.1, 0 } },
 		ToolTorch = { size = { 0.49, 0.49, 1.427 }, at = { 0, 0, -0.0415 } },
+		ToolTorchBrass = { size = { 0.504, 0.504, 1.486 }, at = { 0, 0, -0.013 } },
+		ToolTorchChrome = { size = { 0.524, 0.524, 1.962 }, at = { 0, 0, 0.219 } },
+		ToolTorchRubber = { size = { 0.564, 0.564, 1.475 }, at = { 0, 0, -0.0305 } },
 	},
 }

@@ -13,11 +13,17 @@
 -- lobby (Services/MonetizationService); a gift waits for its friend as a
 -- wrapped box at their feet. The starter pack is offered once, after your
 -- first run.
+--
+-- LB4's wares (Logic/Catalog): the torch's looks at the electronics
+-- counter (UI/Wares: the one you carry goes into the run, PA.TorchLook)
+-- and the car bits at the garage's pegboard (UI/Wares: paint, bits and a
+-- radio station, shown on any car you drive, Services/CarService).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Catalog = require(Shared.Logic.Catalog)
 local Closet = require(Shared.Logic.Closet)
 local Constants = require(Shared.Constants)
 local Mall = require(Shared.Data.Mall)
@@ -109,6 +115,12 @@ function ShopService:Build(parent: Instance, origin: Vector3)
 	end
 	spot("Till", B.till, "Pay", "Till", function(player)
 		self:Till(player)
+	end)
+	spot("Counter", B.counter, "Look", B.counter.label, function(player)
+		self:Wares(player, "counter")
+	end)
+	spot("Pegboard", B.pegboard, "Look", B.pegboard.label, function(player)
+		self:Wares(player, "pegboard")
 	end)
 	-- The cards: what's new on each rack, its price in Marks.
 	for _, tag in B.tags do
@@ -283,6 +295,97 @@ function ShopService:Done(player: Player, save: boolean?)
 	end
 	if changed and save ~= false then
 		task.spawn(self.services.DataService.SaveNow, self.services.DataService, player)
+	end
+end
+
+-- The counter and the pegboard (LB4) ------------------------------------------------
+
+-- Opens (or refreshes) the counter's or the pegboard's card: what's yours of
+-- each kind, the torch you carry, your car, your Marks.
+function ShopService:Wares(player: Player, which: string)
+	local data = self.services.DataService:Get(player)
+	if not data then
+		return
+	end
+	local owned = {}
+	for kind, k in Catalog.Kinds do
+		owned[kind] = {}
+		for _, id in k.order do
+			if Catalog.owns(data, kind, id) then
+				table.insert(owned[kind], id)
+			end
+		end
+	end
+	Net.get("WareState"):FireClient(player, {
+		which = which,
+		marks = data.Marks,
+		owned = owned,
+		torch = Catalog.torchOf(data),
+		car = Catalog.carOf(data),
+	})
+end
+
+-- What you carry and drive, everywhere it shows.
+function ShopService:_show(player: Player)
+	local data = self.services.DataService:Get(player)
+	if data then
+		player:SetAttribute(PA.TorchLook, Catalog.torchOf(data))
+	end
+	local cars = self.services.CarService
+	if cars then
+		cars:Redress()
+	end
+end
+
+-- Buys a ware for Marks, then uses it (carries the torch, paints the car,
+-- fits the bit, tunes the radio).
+function ShopService:WareBuy(player: Player, kind: string, id: string, which: string)
+	local data = self.services.DataService:Get(player)
+	if not data then
+		return
+	end
+	local ok, why = Catalog.buy(data, kind, id)
+	if not ok then
+		local say = {
+			marks = "Not enough Marks for that yet: runs pay them, or the boutique's till sells them.",
+			owned = "That's already yours.",
+			free = "That one's everyone's: no need to buy it.",
+		}
+		tell(player, say[why] or "That isn't for sale.")
+	else
+		self:WareUse(player, kind, id, true, which, true)
+		tell(player, string.format("%s: it's yours.", Catalog.item(kind, id).name))
+		self.services.DataService:Send(player)
+		if self.services.Telemetry then
+			self.services.Telemetry:Log("WareBuy", { kind = kind, id = id, marks = Catalog.price(kind, id) }, player)
+		end
+	end
+	self:Wares(player, which)
+end
+
+-- Uses a ware you own: carry a torch, paint the car, fit (`on`) or take off
+-- a bit, tune the radio.
+function ShopService:WareUse(player: Player, kind: string, id: string, on: boolean, which: string, quiet: boolean?)
+	local data = self.services.DataService:Get(player)
+	if not data then
+		return
+	end
+	local ok
+	if kind == "torch" then
+		ok = Catalog.carry(data, id)
+	elseif kind == "paint" then
+		ok = Catalog.paint(data, id)
+	elseif kind == "carbit" then
+		ok = Catalog.fit(data, id, on)
+	elseif kind == "radio" then
+		ok = Catalog.tune(data, id)
+	end
+	if ok then
+		self:_show(player)
+		task.spawn(self.services.DataService.SaveNow, self.services.DataService, player)
+	end
+	if not quiet then
+		self:Wares(player, which)
 	end
 end
 
@@ -496,6 +599,20 @@ function ShopService:Start()
 	Net.onServer("TillBuy", { interval = 1, types = { "string", "number" } }, function(player, name, forUserId)
 		self:TillBuy(player, name, math.floor(forUserId))
 	end)
+	Net.onServer(
+		"WareBuy",
+		{ interval = 0.5, types = { "string", "string", "string" } },
+		function(player, kind, id, which)
+			self:WareBuy(player, kind, id, which)
+		end
+	)
+	Net.onServer(
+		"WareUse",
+		{ interval = 0.15, types = { "string", "string", "boolean", "string" } },
+		function(player, kind, id, on, which)
+			self:WareUse(player, kind, id, on, which)
+		end
+	)
 	Net.onServer("StarterAnswer", { interval = 1, types = { "boolean" } }, function(player, yes)
 		if yes then
 			self.services.MonetizationService:Prompt(player, "StarterPack")
@@ -518,6 +635,8 @@ function ShopService:Start()
 			if not data then
 				return
 			end
+			-- The torch look you carry, into the run with you (any server).
+			player:SetAttribute(PA.TorchLook, Catalog.torchOf(data))
 			task.wait(6)
 			if player.Parent then
 				self:CheckOffer(player)

@@ -140,7 +140,7 @@ event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overh
 seed <n> · layout cells|mansion|default · squad <1-4|auto> · night short|full   (apply to the next run; short is the default)
 role (this server's job: lobby, run or both; set ServerStorage's DebugRole attribute to lobby or run before a Studio play test to try one)
 car (the cars) · car in [n] · car out · car honk · car set difficulty|night|friendsonly <value> · tape [location|none] (a rental tape in your hand)
-marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> (a wrapped gift from yourself) · starter [again] (the boutique)
+marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> (a wrapped gift from yourself) · starter [again] (the boutique) · ware [<torch|paint|carbit|radio> <id>|none|open counter|pegboard] (LB4's wares: alone, the torch you carry and your car; a kind and an id, yours and in use; none takes them all back; open shows a card)
 mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter|Horn> [n] (the hub's sounds, picked by ear; Horn sounds the nearest car) · brownout · mallstrike
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy

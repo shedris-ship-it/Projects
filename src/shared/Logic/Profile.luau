@@ -5,11 +5,12 @@
 -- credits and tickets, the starter pack, and the receipts that make every
 -- purchase count once. Version 3 (LB3, the boutique) adds the day of your
 -- last double-Marks escape, whether the starter pack has been offered, and
--- gifts waiting to be opened.
+-- gifts waiting to be opened. Version 4 (LB4) adds your car's setup (its
+-- paint, the bits fitted, its radio station: Logic/Catalog).
 
 local Profile = {}
 
-Profile.Version = 3
+Profile.Version = 4
 
 -- Gifts waiting to be opened (more are refused until some are).
 Profile.MaxGifts = 20
@@ -38,6 +39,8 @@ local TEMPLATE = {
 	DoubleDay = 0, -- the day (UTC, Logic/Progression.day) of the last double-Marks escape
 	StarterOffered = false, -- the starter pack's slip shown, after the first run
 	Gifts = {}, -- wrapped boxes not yet opened: { product, from (a user id) }, oldest first
+	-- Version 4 (LB4):
+	Car = {}, -- your car's setup: { paint, bits = { [id] = true }, radio } (Logic/Catalog)
 }
 
 -- Versioned upgrades: add a step whenever the saved shape changes. A step
@@ -50,6 +53,10 @@ local MIGRATIONS = {
 	end,
 	[2] = function(data)
 		-- 2 -> 3: only new fields.
+		return data
+	end,
+	[3] = function(data)
+		-- 3 -> 4: only new fields.
 		return data
 	end,
 }
@@ -118,6 +125,21 @@ function Profile.reconcile(data)
 		end
 	end
 	data.Gifts = gifts
+	-- Your car: names only (Logic/Catalog.carOf keeps only what's yours).
+	local setup = type(data.Car) == "table" and data.Car or {}
+	local bits = {}
+	if type(setup.bits) == "table" then
+		for id, on in setup.bits do
+			if type(id) == "string" and on == true then
+				bits[id] = true
+			end
+		end
+	end
+	data.Car = {
+		paint = type(setup.paint) == "string" and setup.paint or nil,
+		radio = type(setup.radio) == "string" and setup.radio or nil,
+		bits = bits,
+	}
 	local receipts = {}
 	if type(data.Receipts) == "table" then
 		for _, id in data.Receipts do

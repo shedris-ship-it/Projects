@@ -41,7 +41,7 @@ Hotbar.__index = Hotbar
 
 -- A small picture of a tool: its model, seen from the front and a little above.
 local function icon(parent: Instance, id: string)
-	local model = id == Inventory.TORCH and ToolModel.torch() or ToolModel.tool(id)
+	local model = id == Inventory.TORCH and ToolModel.torch(player:GetAttribute(PA.TorchLook)) or ToolModel.tool(id)
 	if not model then
 		return nil
 	end
@@ -214,8 +214,11 @@ function Hotbar:Update(dt: number)
 	local kit = ReplicatedStorage:FindFirstChild("Kit")
 	local meshes = kit and kit:FindFirstChild("Meshes")
 	local count = meshes and #meshes:GetChildren() or 0
-	if count ~= self.meshCount then
+	-- (Again for your torch look, LB4.)
+	local look = player:GetAttribute(PA.TorchLook)
+	if count ~= self.meshCount or look ~= self.look then
 		self.meshCount = count
+		self.look = look
 		if self.torch.icon then
 			self.torch.icon:Destroy()
 		end

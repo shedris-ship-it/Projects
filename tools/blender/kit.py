@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, atmosphere, bake, decor, devices, fittings, furniture, house, living, mall, mall2, mall3, materials, ornament, shapes, swatches, things, trim  # noqa: E402
+from kitlib import architecture, atmosphere, bake, carbits, decor, devices, fittings, furniture, house, living, mall, mall2, mall3, materials, ornament, shapes, swatches, things, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -177,6 +177,9 @@ BATCHES = {
     # The third: the garage (laid out by hand), the vault's ribs and ends,
     # the escalators, the shops' neon (kitlib/mall3).
     "mall3": mall3.MALL3,
+    # The fourth (LB4): the party cars' paintable body, its trim and
+    # woodgrain, and the pegboard's bits (kitlib/carbits).
+    "mall4": carbits.MALL4,
 }
 
 

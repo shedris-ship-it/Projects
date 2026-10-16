@@ -857,6 +857,15 @@ return {
 		-- workbench (Props.Car, Props.Workbench; already imported).
 		MallCar = { mesh = "Car", id = 87772743662583, size = { 7.45, 4.76, 14.4 }, at = { 0, -0.12, 0 } },
 		MallWorkbench = { mesh = "Workbench", id = 129304846002547, size = { 10, 8.6, 3.5 }, at = { 0, 2.3, 0 } },
+		-- LB4's party car in its pieces (kit.py mall4, kitlib/carbits; World/CarDress,
+		-- Services/CarService): its paint (tinted), the rest, the woodgrain bit, the
+		-- pegboard's bits. Each in the car's frame: `at` from its body's middle.
+		MallCarBody = { mesh = "MallCarBody", size = { 6.9, 3.91, 14 }, at = { 0, 0.205, 0 } },
+		MallCarTrim = { mesh = "MallCarTrim", size = { 7.45, 4.76, 14.4 }, at = { 0, -0.12, 0 } },
+		MallCarWood = { mesh = "MallCarWood", size = { 6.98, 1.1, 9.95 }, at = { 0, -0.55, -1.825 } },
+		CarWhitewalls = { mesh = "CarWhitewalls", size = { 6.93, 1.72, 10.72 }, at = { 0, -1.5, 0 } },
+		CarRoofRack = { mesh = "CarRoofRack", size = { 6, 1.06, 5.62 }, at = { 0, 2.71, -2.93 } },
+		CarSpotlight = { mesh = "CarSpotlight", size = { 7.29, 4.53, 9.88 }, at = { 0.475, 1.064, -2.56 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
@@ -1406,5 +1415,9 @@ return {
 		ToolRadio = { mesh = "ToolRadio", id = 114854761143227 },
 		ToolSalts = { mesh = "ToolSalts", id = 140453181174772 },
 		ToolTorch = { mesh = "ToolTorch", id = 81344747482525 },
+		-- The torch's looks (LB4, Data/TorchLooks; the wardrobe_lb4 batch).
+		ToolTorchBrass = { mesh = "ToolTorchBrass" },
+		ToolTorchChrome = { mesh = "ToolTorchChrome" },
+		ToolTorchRubber = { mesh = "ToolTorchRubber" },
 	},
 }

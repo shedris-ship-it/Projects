@@ -19,7 +19,9 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
+local CarDress = require(Shared.World.CarDress)
 local Cars = require(Shared.Logic.Cars)
+local Catalog = require(Shared.Logic.Catalog)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Homecoming = require(Shared.Logic.Homecoming)
@@ -154,12 +156,25 @@ function CarService:_buildCar(folder: Instance, id: number, home: CFrame, bay, d
 	horn.RollOffMinDistance = 12
 	horn.RollOffMaxDistance = 120
 	horn.Parent = body
-	-- Its look: the house's station wagon (told apart by the bay's number).
+	-- Its look: the house's station wagon (told apart by the bay's number);
+	-- once LB4's paintable car is in (the mall4 batch), its paint and the
+	-- rest apart, so World/CarDress can tint the paint and fit the woodgrain.
 	task.spawn(function()
 		Kit.preload()
-		local mesh = Kit.place(model, "MallCar", bodyAt * CFrame.Angles(0, math.pi, 0))
+		local turned = bodyAt * CFrame.Angles(0, math.pi, 0)
+		local mesh = Kit.place(model, "MallCarBody", turned)
+		if mesh then
+			Kit.place(model, "MallCarTrim", turned)
+		else
+			mesh = Kit.place(model, "MallCar", turned)
+		end
 		if mesh then
 			Kit.hide(body)
+			-- (Dressed again on its new body: its paint and its bits.)
+			model:SetAttribute("Dressed", nil)
+			if self.bodies[id] then
+				self:_dressCar(id)
+			end
 		end
 	end)
 	local seats = {}
@@ -791,6 +806,51 @@ end
 -- What everyone sees ------------------------------------------------------------
 
 -- The signs, the prompts, and each rider's dashboard.
+-- A car in its driver's bits (LB4; Logic/Catalog.carOf, World/CarDress), the
+-- plain car with nobody at the wheel, and their radio station playing while
+-- anyone's in it.
+function CarService:_dressCar(id: number)
+	local car, b = self.cars[id], self.bodies[id]
+	local driver = Cars.driver(car)
+	local player = driver and playerOf(driver)
+	local data = player and self.services.DataService:Get(player)
+	local setup = data and Catalog.carOf(data) or Catalog.plainCar()
+	CarDress.dress(b.model, setup)
+	local station = Cars.count(car) > 0 and setup.radio or "Off"
+	if b.station == station then
+		return
+	end
+	b.station = station
+	local sound = b.body:FindFirstChild("Radio") :: Sound?
+	if not sound then
+		local made = Instance.new("Sound")
+		made.Name = "Radio"
+		made.Looped = true
+		made.Volume = 0.45
+		made.RollOffMinDistance = 6
+		made.RollOffMaxDistance = 40
+		made.Parent = b.body
+		sound = made
+	end
+	local list = Assets.Mall.Stations and Assets.Mall.Stations[station]
+	if not list or #list == 0 then
+		(sound :: Sound):Stop()
+		return
+	end
+	local pick = ReplicatedStorage.RunState:GetAttribute(Constants.RunState.MallSound .. "Station" .. station)
+	sound.SoundId = list[math.clamp(tonumber(pick) or 1, 1, #list)]
+	sound:Play()
+end
+
+-- Every car dressed again (ShopService, when a driver's setup changes).
+function CarService:Redress()
+	for id in self.cars do
+		if self.bodies[id] then
+			self:_dressCar(id)
+		end
+	end
+end
+
 function CarService:_render()
 	local t = now()
 	local names = {}
@@ -800,6 +860,7 @@ function CarService:_render()
 	for id, car in self.cars do
 		local b = self.bodies[id]
 		if b then
+			self:_dressCar(id)
 			local location = car.tape and Locations.ById[car.tape]
 			b.sign.Text = table.concat(Cars.sign(car, names, location and location.name, t, C), "\n")
 			b.prompt.Enabled = not car.away and Cars.count(car) < #car.seats

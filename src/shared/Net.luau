@@ -47,6 +47,9 @@ local DEFINITIONS = {
 	ShopDone = "RemoteEvent", -- out of the fitting room, wearing what's yours
 	TillBuy = "RemoteEvent", -- (product name, for userId or 0): a Robux product at the till, for you or a friend here
 	StarterAnswer = "RemoteEvent", -- (yes): the starter pack's slip answered
+	-- The torch's looks and the car bits (LB4; Services/ShopService, UI/Wares).
+	WareBuy = "RemoteEvent", -- (kind, id): buy a torch look, a paint, a car bit or a station for Marks
+	WareUse = "RemoteEvent", -- (kind, id, on): carry a torch, paint your car, fit or take off a bit, tune
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",
@@ -81,6 +84,7 @@ local DEFINITIONS = {
 	ShopTill = "RemoteEvent", -- S->C ({ products, friends, marks }): the till opened
 	StarterOffer = "RemoteEvent", -- S->C ({ robux, garment, marks }): the starter pack, offered once after your first run
 	GiftArrived = "RemoteEvent", -- S->C ({ from, what }): a wrapped gift for you (or opened)
+	WareState = "RemoteEvent", -- S->C ({ which, marks, owned, torch, car }): the counter or the pegboard, opened or changed
 	DebugState = "UnreliableRemoteEvent",
 	ProfileData = "RemoteEvent",
 }

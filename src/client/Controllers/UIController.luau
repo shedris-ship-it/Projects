@@ -48,6 +48,7 @@ function UIController:Start()
 			"Lobby",
 			"Dashboard",
 			"Boutique",
+			"Wares",
 			"Dossier",
 			"Settings",
 			"Overlays",

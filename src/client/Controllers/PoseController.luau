@@ -92,8 +92,40 @@ function PoseController:_frame(dt: number)
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			self:_pose(player, character, root, dt)
+			self:_torchArm(player, character, dt)
 		end
 	end
+end
+
+-- Another player's raised torch (LB4: the squad sees the torch in your left
+-- hand, Controllers/HeldTorchController): their left arm up and forward,
+-- eased, whenever no whole-body pose has them. (Yours is your view model's.)
+function PoseController:_torchArm(player: Player, character: Model, dt: number)
+	local rig = self.rigs[character]
+	if not rig or not rig.complete then
+		return
+	end
+	local up = player ~= Players.LocalPlayer
+		and player:GetAttribute(PA.TorchUp) == true
+		and not player:GetAttribute(PA.Hidden)
+		and (rig.weight or 0) <= 0
+	local rate = dt / math.max(P.TorchArmSeconds, 0.05)
+	rig.arm = rig.arm or 0
+	rig.arm = up and math.min(1, rig.arm + rate) or math.max(0, rig.arm - rate)
+	local shoulder, elbow = rig.joints.LeftShoulder, rig.joints.LeftElbow
+	if rig.arm <= 0 then
+		if rig.armWrote then
+			shoulder.Transform = CFrame.identity
+			elbow.Transform = CFrame.identity
+			rig.armWrote = false
+		end
+		return
+	end
+	local w = rig.arm * rig.arm * (3 - 2 * rig.arm)
+	local a = P.TorchArm
+	shoulder.Transform = shoulder.Transform:Lerp(CFrame.Angles(math.rad(a[1]), math.rad(a[2]), math.rad(a[3])), w)
+	elbow.Transform = elbow.Transform:Lerp(CFrame.Angles(math.rad(P.TorchElbow), 0, 0), w)
+	rig.armWrote = true
 end
 
 function PoseController:_pose(player: Player, character: Model, root: BasePart, dt: number)

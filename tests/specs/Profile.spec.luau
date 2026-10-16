@@ -86,7 +86,7 @@ return function(test, check, Shared, require)
 			Wearing = { Top = "Biker", Bottom = 9 },
 			Gifts = { { product = "MarksSmall", from = 12 }, "junk", { from = 3 } },
 		})
-		check.equal(data.Version, 3, "upgraded")
+		check.equal(data.Version, Profile.Version, "upgraded")
 		check.equal(data.DoubleDay, 0, "no double yet")
 		check.equal(data.StarterOffered, false, "not offered yet")
 		check.truthy(data.Owned.garment.Biker, "a real garment kept")

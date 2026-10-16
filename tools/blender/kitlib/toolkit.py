@@ -314,8 +314,8 @@ def torch_chrome():
     return obj
 
 
-# The looks on sale (LB4): not in TOOLS (wardrobe.py's tools) until the
-# owner keeps them.
+# The looks on sale (LB4): in TOOLS since the owner kept them for now
+# (2026-10-16).
 TORCH_LOOKS = [torch_rubber, torch_brass, torch_chrome]
 
 def lantern():
@@ -415,4 +415,4 @@ def salts():
     return obj
 
 
-TOOLS = [torch, lantern, radio, crowbar, bolt_cutters, salts]
+TOOLS = [torch, lantern, radio, crowbar, bolt_cutters, salts] + TORCH_LOOKS

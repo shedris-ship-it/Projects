@@ -7,6 +7,7 @@
 -- points down -Z (away from the viewer) with its middle at the pivot.
 
 local Config = require(script.Parent.Parent.Config)
+local TorchLooks = require(script.Parent.Parent.Data.TorchLooks)
 local Kit = require(script.Parent.Kit)
 
 local ToolModel = {}
@@ -60,8 +61,10 @@ end
 local METAL = Color3.fromRGB(46, 46, 50)
 local DARK = Color3.fromRGB(26, 26, 28)
 
--- The torch in your right hand. `lens` glows while it's on.
-function ToolModel.torch(): (Model, BasePart)
+-- The torch in your right hand. `lens` glows while it's on. `look`: its
+-- look (Data/TorchLooks, LB4: bought at the electronics counter), today's
+-- when nil; every look is built round the same lens and switch.
+function ToolModel.torch(look: string?): (Model, BasePart)
 	local model, root = newModel("Torch")
 	part(model, root, "Body", Vector3.new(1.1, 0.3, 0.3), ALONG_Z, {
 		Shape = Enum.PartType.Cylinder,
@@ -104,8 +107,19 @@ function ToolModel.torch(): (Model, BasePart)
 	-- SpotLight's front face looks straight down the torch (ViewModelController).
 	part(model, root, "Muzzle", Vector3.new(0.1, 0.1, 0.1), CFrame.new(0, 0, -0.8), { Transparency = 1 })
 	-- Its modelled body (V6, Data/Kit Tools), round the lens and switch that
-	-- glow (open in the mesh, so they show).
-	Kit.dressTool(model, "ToolTorch", { "Lens", "Switch", "Muzzle" })
+	-- glow (open in the mesh, so they show); a look's own, or its colours on
+	-- the grey box until that mesh is in.
+	local entry = TorchLooks.Looks[look or TorchLooks.Default] or TorchLooks.Looks[TorchLooks.Default]
+	model:SetAttribute("Look", look or TorchLooks.Default)
+	if not Kit.dressTool(model, entry.mesh, { "Lens", "Switch", "Muzzle" }) and entry.paint then
+		for name, key in { Body = "body", Grip = "body", Head = "head", Cap = "head" } do
+			local p = model:FindFirstChild(name) :: BasePart?
+			if p then
+				p.Color = rgb(entry.paint[key])
+				p.Material = Enum.Material.SmoothPlastic
+			end
+		end
+	end
 	return model, lens
 end
 

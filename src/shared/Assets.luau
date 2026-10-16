@@ -148,6 +148,23 @@ Assets.Mall = {
 		"rbxassetid://9125657802", -- PSE "Mercedes-Benz 280 SL Failed Starts Engine Start 2"
 		"rbxassetid://9112970895", -- PSE "1979 Mack Semi Truck 2": failed starts, whirring, clanking
 	},
+	-- The party cars' radio stations (LB4, Data/CarBits Radio; Services/
+	-- CarService plays the first of each while anyone's in the car; not yet
+	-- heard, swap by ear).
+	Stations = {
+		Hits = {
+			"rbxassetid://90409233638163", -- DistroKid "Glass Cities: 80s Synth Pop, Cold Neon Aesthetic"
+			"rbxassetid://94768360138586", -- DistroKid "Light in the Dark (80s Synth-Pop)"
+			"rbxassetid://77875465950412", -- DistroKid "TicToc (synth-pop) 80s Magic Records"
+		},
+		Oldies = {
+			"rbxassetid://1846282214", -- APM "Rock Cafe"
+		},
+		Night = {
+			"rbxassetid://9112851363", -- PSE "Radio Light Chatter 1": chatter, whine, loop
+			"rbxassetid://8028069841", -- NoobMatthew3 "Radio Static Loop" (the house's)
+		},
+	},
 	Horn = { -- a party car's driver honks to go (LB2, Services/CarService)
 		"rbxassetid://9114886932", -- PSE "Jeep Horn Doubles Triples Various Versions 1" (2.5 s; the owner's pick)
 		-- (Turned down by ear, 2026-10-16, "just obnoxious": diman's group "Car

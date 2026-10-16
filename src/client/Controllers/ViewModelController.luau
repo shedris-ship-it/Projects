@@ -91,7 +91,7 @@ function ViewModelController:_rebuildTorch()
 		return
 	end
 	ViewModel.destroy(self.torch)
-	self.torch = ViewModel.torch()
+	self.torch = ViewModel.torch(player:GetAttribute(PA.TorchLook))
 	self.torch:ScaleTo(SCALE)
 	addFill(self.torch)
 	if self.itemId then
@@ -107,7 +107,7 @@ function ViewModelController:_build()
 		self.arms[side] = nil
 	end
 	ViewModel.destroy(self.torch)
-	self.torch = ViewModel.torch()
+	self.torch = ViewModel.torch(player:GetAttribute(PA.TorchLook))
 	self.torch:ScaleTo(SCALE)
 	addFill(self.torch)
 	self.swing, self.swingSpeed = 0, 0
@@ -476,6 +476,11 @@ function ViewModelController:Start()
 				self:_rebuildTorch()
 			end
 		end
+	end)
+	-- Your torch look (LB4, bought at the electronics counter): the torch
+	-- built again in it.
+	player:GetAttributeChangedSignal(PA.TorchLook):Connect(function()
+		self:_rebuildTorch()
 	end)
 	-- After the camera script and the roll sway, so the models sit on the final camera.
 	RunService:BindToRenderStep("ConsensusViewModel", Enum.RenderPriority.Camera.Value + 3, function(dt)

@@ -21,6 +21,7 @@ local HouseMetrics = require(Shared.Logic.HouseMetrics)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local Catalog = require(Shared.Logic.Catalog)
 local Closet = require(Shared.Logic.Closet)
 local Locations = require(Shared.Data.Locations)
 local Products = require(Shared.Data.Products)
@@ -66,6 +67,7 @@ local HELP = table.concat({
 	"crowd <n>|clear (n dressed stand-ins over the mall, for a full lobby's cost with perf)",
 	"car [in [n]|out|honk|set <key> <value>] (the party cars) · tape [location|none] (a rental tape in your hand)",
 	"marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> · starter [again] (the boutique)",
+	"ware [<torch|paint|carbit|radio> <id>|none|open counter|pegboard] (LB4's torch looks and car bits, yours and on)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
@@ -800,6 +802,51 @@ function DebugService:Run(player: Player, text: string)
 			end
 			table.sort(list)
 			reply(player, "owns " .. table.concat(list, ", ") .. " · Marks " .. data.Marks)
+		end
+	elseif command == "ware" then
+		-- `ware <kind> <id>`: a torch look, paint, car bit or station yours
+		-- and in use (LB4: torch Brass, paint Cream, carbit RoofRack, radio
+		-- Hits); `ware none` takes LB4's back; `ware` lists yours.
+		local data = services.DataService:Get(player)
+		if not data then
+			reply(player, "no profile")
+		elseif args[2] == "open" then
+			-- `ware open counter|pegboard`: its card, as its prompt opens it.
+			services.ShopService:Wares(player, args[3] == "pegboard" and "pegboard" or "counter")
+			reply(player, "opened " .. (args[3] or "counter"))
+		elseif args[2] == "none" then
+			for kind in Catalog.Kinds do
+				data.Owned[kind] = nil
+			end
+			data.Wearing.torch = nil
+			data.Car = { bits = {} }
+			services.ShopService:_show(player)
+			reply(player, "LB4's wares taken back")
+		elseif args[2] and args[3] then
+			local kind, found = args[2], nil
+			local k = Catalog.Kinds[kind]
+			for id in k and k.items or {} do
+				if string.lower(id) == args[3] then
+					found = id
+				end
+			end
+			if found then
+				data.Owned[kind] = data.Owned[kind] or {}
+				data.Owned[kind][found] = true
+				services.ShopService:WareUse(player, kind, found, true, "debug", true)
+				reply(player, kind .. " " .. found .. " yours and on")
+			else
+				reply(player, "ware <torch|paint|carbit|radio> <id>|none")
+			end
+		else
+			reply(
+				player,
+				string.format(
+					"torch %s · car %s",
+					Catalog.torchOf(data),
+					game:GetService("HttpService"):JSONEncode(Catalog.carOf(data))
+				)
+			)
 		end
 	elseif command == "gift" then
 		-- `gift <product>`: a gift to yourself as if a friend had bought it
@@ -1577,8 +1624,9 @@ function DebugService:Run(player: Player, text: string)
 		-- Audition the lobby mall's sounds (Assets.Mall): the role's n-th
 		-- candidate plays for everyone at once (Controllers/MallController).
 		local role
-		for name in Assets.Mall do
-			if string.lower(name) == args[2] then
+		for name, list in Assets.Mall do
+			-- (A role is a list of sounds; Stations is a table of them.)
+			if string.lower(name) == args[2] and #list > 0 then
 				role = name
 			end
 		end

@@ -188,7 +188,8 @@ The agreed plan, in order:
      - LB1a (builds .201 to .205, `docs/progress/2026-10-15-lobby-lb1a/`): the grey-box dead mall, its story, sounds, lightning, brownouts, the two-storey grandeur pass.
      - LB1b (builds .206 to .212, `docs/progress/2026-10-15-lobby-lb1b/`): three Blender batches (the court, the shops, the garage and the dead mall) imported by the owner; the lighting pass; 49 stand-ins at 60 fps on the owner's PC.
      - LB2 (build .213, `docs/progress/2026-10-16-lobby-lb2/`): parties by car and the video rental; the Ready button and the majority timer gone.
-     - LB3 (build .215, `docs/progress/2026-10-16-lobby-lb3/`): the boutique (the fitting room, the till, gifts, the starter pack), the six paid garments sketched for the owner, runs paying about half the Marks.
+     - LB3 (build .215, `docs/progress/2026-10-16-lobby-lb3/`): the boutique (the fitting room, the till, gifts, the starter pack), the six paid garments sketched, kept by the owner and baked for their import, runs paying about half the Marks.
+     - LB4 (build .216, `docs/progress/2026-10-16-lobby-lb4/`): the torch's three looks and the car bits, built on Claude's proposal until the owner reviews it: the electronics counter, the garage's pegboard, your torch look in the run and in others' hands, a car in its driver's bits with their radio station; the torches and the paintable car baked for the owner's import.
 6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
 7. **Second location:** St. Odile Ward, with The Orderly. The archetype data already exists.
 

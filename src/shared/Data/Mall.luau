@@ -342,6 +342,10 @@ Mall.Boutique = {
 		{ slot = "Shoes", label = "Shoes", x = -19.5, y = 3, z = -45 },
 	},
 	till = { x = -27, y = 3, z = -55.3 },
+	-- LB4: the electronics shop's display counter (the torches under its
+	-- glass, its customer side) and the garage's pegboard of car bits.
+	counter = { x = -33.5, y = 3, z = 55.2, label = "Torches" },
+	pegboard = { x = 47.6, y = 3.5, z = -82, label = "Car bits" },
 	-- (Each card stands on its rack's top rail: the rails are 5 studs up,
 	-- the shoe wall 6; a card's middle is half its height over that, less a
 	-- little so it's clipped on, not floating.)

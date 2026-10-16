@@ -741,7 +741,7 @@ def workbench():
     return shapes.join(parts, "Workbench")
 
 
-def car(paint_color=None, woodgrain=True, name="Car"):
+def car(paint_color=None, woodgrain=True, name="Car", only=None):
     """The garage's car, 7 x 5 x 14 (Data/Props' Car): a 1980s station wagon
     gone dull under the dust. Its body is drawn from its side's profile and
     swept across it: a sloped hood, the wheels in their arches, a near
@@ -749,7 +749,8 @@ def car(paint_color=None, woodgrain=True, name="Car"):
     roof, woodgrain panels down the sides, chrome bumpers, square headlamps,
     hubcaps. Its front is -Y (the grey-box's +Z). (LB4's car-bit sketches:
     `paint_color` another paint, `woodgrain` False without the woodgrain sides;
-    the defaults are the car as it's been imported.)"""
+    the defaults are the car as it's been imported. LB4's paintable car, the
+    mall4 batch: `only` one of CAR_GROUPS' groups, "body", "wood" or "trim".)"""
     w, d = 7.0, 14.0
     if paint_color is None:
         paint = materials.paint("CarPaint", color=(96, 42, 36), roughness=0.3, grime=0.45)
@@ -837,7 +838,28 @@ def car(paint_color=None, woodgrain=True, name="Car"):
             parts.append(materials.assign(shapes.box("Headlamp", (0.55, 0.06, 0.34), (sx * x, -(d / 2 + 0.01), 1.85), 0.03, 2), lamp))
         parts.append(materials.assign(shapes.box("TailLamp", (0.45, 0.06, 0.9), (sx * (w / 2 - 0.35), d / 2 + 0.01, 1.9), 0.03, 2), red))
     parts.append(materials.assign(shapes.box("Plate", (1.2, 0.03, 0.4), (0, d / 2 + 0.02, 1.55), 0.01, 1), lamp))
+    if only:
+        keep = []
+        for part in parts:
+            if CAR_GROUPS.get(part.name.split(".")[0], "trim") == only:
+                keep.append(part)
+            else:
+                bpy.data.objects.remove(part, do_unlink=True)
+        parts = keep
     return shapes.join(parts, name)
+
+
+# The car's pieces by what they're for (LB4's mall4 batch: the paint tinted in
+# the game, the woodgrain a bit you fit, the rest as it's always been).
+CAR_GROUPS = {
+    "Body": "body",
+    "Roof": "body",
+    "Pillar": "body",
+    "APillar": "body",
+    "DPillar": "body",
+    "Wood": "wood",
+    "Trim": "wood",
+}
 
 
 def boiler():

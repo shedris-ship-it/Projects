@@ -128,6 +128,9 @@ Constants.PlayerAttributes = {
 	-- In the boutique's fitting room (Services/ShopService): "booth" or
 	-- "rack", nil when not.
 	Trying = "Trying",
+	-- The torch look you carry (Data/TorchLooks, LB4): your hand's and, to
+	-- the squad, the one in your hand (Controllers/HeldTorchController).
+	TorchLook = "TorchLook",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",
 	-- The keys on your ring (the escape, Services/LockService): their names,

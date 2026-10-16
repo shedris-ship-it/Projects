@@ -185,6 +185,13 @@ Config.Bodies = {
 -- Players' poses (Logic/PlayerPose, Controllers/PoseController; the squad
 -- playtest, 2026-10-08: no crouch, no down animation).
 Config.Pose = {
+	-- Another player's torch raised (LB4, Controllers/HeldTorchController):
+	-- their left arm up and forward (degrees about the shoulder's x, y, z),
+	-- the elbow a little bent, over this long; the torch in the hand.
+	TorchArm = { 80, 0, 6 },
+	TorchElbow = 12,
+	TorchArmSeconds = 0.3,
+	TorchInHand = { 0, -0.32, -0.12 }, -- studs from the left hand's middle (its -y along the arm)
 	FallSeconds = 0.6, -- going down: the fall to the floor
 	RiseSeconds = 0.8, -- revived: back up
 	CrouchSeconds = 0.25, -- down into a crouch, and up out of it
