@@ -60,7 +60,14 @@ return function(test, check, Shared, require)
 	end)
 
 	test("only real runs count: an escape on the short night, never Studio or one an F2 command touched", function()
-		local run = { won = true, extracted = 1, night = "short", difficulty = "Normal", seconds = 600 }
+		local run = {
+			won = true,
+			extracted = 1,
+			location = "HalfwayHouse",
+			night = "short",
+			difficulty = "Normal",
+			seconds = 600,
+		}
 		check.truthy(Records.counts(run), "a real escape counts")
 		local function why(changes)
 			local copy = table.clone(run)
@@ -75,6 +82,7 @@ return function(test, check, Shared, require)
 		check.equal(why({ won = false }), "lost", "only escapes")
 		check.equal(why({ extracted = 0 }), "lost", "somebody got out")
 		check.equal(why({ night = "full" }), "night", "the short night only, to start")
+		check.equal(why({ location = "StOdileWard" }), "location", "only The Halfway House has boards so far")
 		check.equal(why({ difficulty = "Easy" }), "difficulty", "Normal or Hard")
 		check.equal(why({ seconds = 0 }), "time", "a time to post")
 	end)

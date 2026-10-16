@@ -527,6 +527,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		seed = run.seed,
 		difficulty = run.difficultyName,
 		stalker = run.location.stalker,
+		case = run.location.case,
 		escape = services.FinaleService:Progress(),
 	}
 	-- The family's valuables carried out (push your luck): Marks for everyone.
@@ -619,6 +620,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 			debugged = services.DebugService ~= nil and services.DebugService.used == true,
 			night = self:Night(),
 			difficulty = run.difficultyName,
+			location = run.location.id,
 			seconds = (run.outAt or os.clock()) - run.started,
 			size = #run.players,
 			names = names,

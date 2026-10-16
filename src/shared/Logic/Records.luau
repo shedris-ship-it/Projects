@@ -14,6 +14,9 @@ local Records = {}
 Records.Size = 5
 Records.Difficulties = { "Normal", "Hard" }
 Records.Night = "short"
+-- The boards are this location's: a second location's runs need boards of
+-- their own first (their keys have no location; docs/NEW-MAP.md).
+Records.Location = "HalfwayHouse"
 
 -- Each list: its key, its heading, whether lower is better, and who's on it.
 Records.Lists = {
@@ -29,8 +32,8 @@ function Records.board(difficulty: string, list: string): string
 end
 
 -- Whether a finished run goes on the boards, and why not:
--- run = { won, extracted (how many got out), studio, debugged, night,
--- difficulty, seconds }. Only real runs count: never one from Studio, never
+-- run = { won, extracted (how many got out), studio, debugged, location,
+-- night, difficulty, seconds }. Only real runs count: never one from Studio, never
 -- one an F2 command touched (or test runs would hold every record), only a
 -- completed escape, only the short night.
 function Records.counts(run): (boolean, string?)
@@ -40,6 +43,8 @@ function Records.counts(run): (boolean, string?)
 		return false, "debug"
 	elseif not run.won or (run.extracted or 0) < 1 then
 		return false, "lost"
+	elseif run.location ~= Records.Location then
+		return false, "location"
 	elseif run.night ~= Records.Night then
 		return false, "night"
 	elseif not table.find(Records.Difficulties, run.difficulty) then

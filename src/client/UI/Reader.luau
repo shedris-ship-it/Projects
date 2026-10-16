@@ -5,6 +5,11 @@
 --
 -- The 1988 interface (V7): a real sheet (tools/paper.py), ruled, a margin in
 -- red, taped down, written in blue ballpoint.
+--
+-- The lobby's things to read (LB5's story foundation, Services/LoreService)
+-- come the same way: `style` "typed" for a file or a list (typewritten,
+-- smaller, so a page holds more), and `keep` false keeps them out of the
+-- run's journal.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -73,6 +78,17 @@ function Reader.new(ctx)
 		ZIndex = 4,
 		Parent = sheet,
 	})
+	-- (A file or a list: typewritten, smaller, the ruling ignored.)
+	self.typedText = Ui.typed("", {
+		Position = UDim2.fromOffset(56, TOP - 26),
+		Size = UDim2.new(1, -80, 1, -TOP - 34),
+		TextSize = 17,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		ZIndex = 4,
+		Visible = false,
+		Parent = sheet,
+	})
 	Ui.paperButton("Put it down", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -18),
@@ -129,8 +145,11 @@ end
 
 function Reader:Show(note)
 	self.lastId = note.id
-	self.text.Text = note.text
-	if note.id and not self.read[note.id] then
+	local typed = note.style == "typed"
+	self.text.Text = typed and "" or note.text
+	self.typedText.Text = typed and note.text or ""
+	self.typedText.Visible = typed
+	if note.id and not self.read[note.id] and note.keep ~= false then
 		self.read[note.id] = note.text
 		table.insert(self.order, note.id)
 	end

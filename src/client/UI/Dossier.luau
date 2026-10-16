@@ -67,7 +67,7 @@ function Dossier.new(ctx)
 		ZIndex = 3,
 		Parent = sheet,
 	})
-	Ui.typed("INCIDENT REPORT  ·  CASE 88-0412", {
+	self.caseLine = Ui.typed("INCIDENT REPORT  ·  CASE 88-0412", {
 		Size = UDim2.new(1, 0, 0, 16),
 		TextSize = 12,
 		TextColor3 = Ui.Theme.typeDim,
@@ -154,6 +154,9 @@ function Dossier.new(ctx)
 end
 
 function Dossier:Show(data)
+	if data.summary and data.summary.case then
+		self.caseLine.Text = "INCIDENT REPORT  ·  CASE " .. data.summary.case
+	end
 	local s = data.summary
 	local d = data.dossier
 	self.title.Text = s.won and "YOU GOT OUT" or "THE HOUSE KEPT YOU"

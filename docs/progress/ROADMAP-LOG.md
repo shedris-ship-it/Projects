@@ -191,6 +191,7 @@ The agreed plan, in order:
      - LB3 (build .215, `docs/progress/2026-10-16-lobby-lb3/`): the boutique (the fitting room, the till, gifts, the starter pack), the six paid garments sketched, kept by the owner and baked for their import, runs paying about half the Marks.
      - LB4 (build .216, `docs/progress/2026-10-16-lobby-lb4/`): the torch's three looks and the car bits, built on Claude's proposal until the owner reviews it: the electronics counter, the garage's pegboard, your torch look in the run and in others' hands, a car in its driver's bits with their radio station; the torches and the paintable car baked for the owner's import.
      - LB5 (build .217, `docs/progress/2026-10-16-lobby-lb5/`): HOUSE CALL, the Guest's three rules as a maze game on the arcade's two cabinets (free play a day, plays bought or for Marks, attract screens, watching over a shoulder, the server's replay check, weekly and all-time high scores), and the diner's two boards of real runs' fastest and longest escapes.
+     - The story's foundation (build .218, `docs/progress/2026-10-16-lobby-story/`): things to read in the garage (drafts, Studio only), the story's questions for the owner (`docs/plans/lobby-story.md`), the story clutter sketched, and `docs/NEW-MAP.md`, everything in the lobby a new map changes.
 6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
 7. **Second location:** St. Odile Ward, with The Orderly. The archetype data already exists.
 

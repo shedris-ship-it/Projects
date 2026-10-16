@@ -29,6 +29,7 @@ local Progression = require(Shared.Logic.Progression)
 local Records = require(Shared.Logic.Records)
 local Closet = require(Shared.Logic.Closet)
 local Locations = require(Shared.Data.Locations)
+local Lore = require(Shared.Data.Lore)
 local Products = require(Shared.Data.Products)
 local Wardrobe = require(Shared.Data.Wardrobe)
 local LookSpots = require(Shared.Data.LookSpots)
@@ -74,6 +75,7 @@ local HELP = table.concat({
 	"marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> · starter [again] (the boutique)",
 	"ware [<torch|paint|carbit|radio> <id>|none|open counter|pegboard] (LB4's torch looks and car bits, yours and on)",
 	"arcade [play [n]|free|credits <n>|score <n> [name]|bot [cheat]|clear] (HOUSE CALL: play at cabinet n, today's free play back, plays bought, a high score, a scripted game through the replay check, empty the boards)",
+	"lore [<id>] (the lobby's things to read: list them, or read one where you stand)",
 	"record [count|add <normal|hard> <fast|long> <solo|squad> <seconds> [names]|clear] (the diner's boards: the next run counts in Studio, an entry, empty them)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
@@ -943,6 +945,25 @@ function DebugService:Run(player: Player, text: string)
 					data.Marks
 				)
 			)
+		end
+	elseif command == "lore" then
+		-- The lobby's things to read (Data/Lore): `lore` lists them, `lore <id>`
+		-- reads one to you wherever you are (drafts too, for the owner's look).
+		local found
+		for _, entry in Lore do
+			if args[2] and string.lower(entry.id) == args[2] then
+				found = entry
+			end
+		end
+		if found then
+			services.LoreService:Read(player, found)
+			reply(player, "reading " .. found.id)
+		else
+			local ids = {}
+			for _, entry in Lore do
+				table.insert(ids, entry.id .. (entry.draft and " (draft)" or ""))
+			end
+			reply(player, "lore <id>: " .. table.concat(ids, ", "))
 		end
 	elseif command == "record" then
 		-- The diner's boards (LB5; Services/RecordsService).

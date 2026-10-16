@@ -56,7 +56,7 @@ function Lobby.new(ctx)
 		Rotation = 1.6,
 		Parent = panel,
 	}, false)
-	Ui.typed("CASE 88-0412\nTHE HALFWAY HOUSE", {
+	self.caseLabel = Ui.typed("CASE 88-0412\nTHE HALFWAY HOUSE", {
 		Position = UDim2.fromOffset(14, 9),
 		Size = UDim2.new(1, -24, 1, -14),
 		TextSize = 13,
@@ -170,6 +170,8 @@ function Lobby:Render()
 	local inCar = player:GetAttribute(Constants.PlayerAttributes.Car) ~= nil
 	if lobby then
 		self.contract.Text = string.format("Case: %s\n%s", lobby.location.name, lobby.location.blurb)
+		self.caseLabel.Text =
+			string.format("CASE %s\n%s", lobby.location.case or "88-0412", string.upper(lobby.location.name))
 		local function step(done: boolean, text: string)
 			return (done and "[x]  " or "[  ]  ") .. text
 		end

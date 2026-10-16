@@ -7,6 +7,7 @@ local Locations = {
 	{
 		id = "HalfwayHouse",
 		name = "The Halfway House",
+		case = "88-0412", -- its case number: the lobby's case folder, the Dossier (docs/NEW-MAP.md)
 		blurb = "A family house that locks you in and lays a place for its guest.",
 		stalker = "TheGuest",
 		templates = "Rooms", -- Data module holding this location's room templates
@@ -19,6 +20,7 @@ local Locations = {
 	{
 		id = "StOdileWard",
 		name = "St. Odile Ward",
+		case = "88-0731",
 		blurb = "An abandoned hospital wing. Coming in the alpha.",
 		stalker = "TheOrderly",
 		templates = "Rooms",

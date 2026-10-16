@@ -81,6 +81,8 @@ function LobbyService:_build()
 	-- The arcade's cabinets and the diner's record boards (LB5).
 	self.services.ArcadeService:Build(folder, o)
 	self.services.RecordsService:Build(folder, o)
+	-- The investigators' things to read (the story's foundation).
+	self.services.LoreService:Build(folder, o)
 	self.folder = folder
 end
 
@@ -172,7 +174,7 @@ function LobbyService:Broadcast()
 	local location = Locations.ById[self.location]
 	Net.get("LobbyState"):FireAllClients({
 		players = list,
-		location = { id = location.id, name = location.name, blurb = location.blurb },
+		location = { id = location.id, name = location.name, blurb = location.blurb, case = location.case },
 		locations = Locations.List,
 		inLobby = self:InLobby(),
 	})
