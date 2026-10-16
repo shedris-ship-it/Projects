@@ -6,6 +6,12 @@
 -- told the purchase is granted; if the save fails both are taken back and
 -- Roblox asks again later, so nothing is granted twice or lost. Products
 -- and passes come from Data/Products; one without an id can't be bought.
+--
+-- Gifts (LB3, the boutique's till): a product bought for a friend in the
+-- same lobby is granted to them and saved with its receipt before Roblox is
+-- told, a wrapped box waiting for them to open (Services/ShopService). If
+-- they've left by then, the buyer has it instead, so nothing paid for is
+-- lost.
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -18,11 +24,13 @@ local Profile = require(Shared.Logic.Profile)
 local MonetizationService = {}
 
 function MonetizationService:Init(services)
+	self.services = services
 	self.Data = services.DataService
 	self.Telemetry = services.Telemetry
 	self.byId = {} -- developer product id -> { name, product }
 	self.passIds = {} -- pass name -> id
 	self.owned = {} -- player -> { [pass name] = true }, once seen owned
+	self.gifting = {} -- buyer -> { product, to (userId), at }: the gift being bought
 end
 
 function MonetizationService:Start()
@@ -56,7 +64,21 @@ function MonetizationService:Start()
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		self.owned[player] = nil
+		self.gifting[player] = nil
 	end)
+end
+
+-- Who a purchase of `name` by `buyer` goes to now: a friend they're buying
+-- it for (still here, profile loaded), else themselves.
+function MonetizationService:_recipient(buyer: Player, name: string): (Player, boolean)
+	local gift = self.gifting[buyer]
+	if gift and gift.product == name and os.clock() - gift.at < 600 then
+		local friend = Players:GetPlayerByUserId(gift.to)
+		if friend and friend ~= buyer and self.Data:Get(friend) then
+			return friend, true
+		end
+	end
+	return buyer, false
 end
 
 function MonetizationService:_process(receipt)
@@ -67,15 +89,21 @@ function MonetizationService:_process(receipt)
 		warn("[Consensus] a purchase of an unknown product: " .. tostring(receipt.ProductId))
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local player = Players:GetPlayerByUserId(receipt.PlayerId)
-	if not player then
+	local buyer = Players:GetPlayerByUserId(receipt.PlayerId)
+	if not buyer then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- granted when they're next in a server
 	end
-	local data = self.Data:WaitForProfile(player, 10)
-	if not data then
+	local buyerData = self.Data:WaitForProfile(buyer, 10)
+	if not buyerData then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local applied, undo = Profile.applyPurchase(data, receipt.PurchaseId, entry.product.grant or {})
+	if Profile.hasReceipt(buyerData, receipt.PurchaseId) then
+		return Enum.ProductPurchaseDecision.PurchaseGranted -- a gift already given: Roblox asking again
+	end
+	local player, isGift = self:_recipient(buyer, entry.name)
+	local data = self.Data:Get(player)
+	local gift = isGift and { product = entry.name, from = buyer.UserId } or nil
+	local applied, undo = Profile.applyPurchase(data, receipt.PurchaseId, entry.product.grant or {}, gift)
 	if not applied then
 		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted: Roblox asking again
 	end
@@ -84,10 +112,41 @@ function MonetizationService:_process(receipt)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	self.Data:Send(player)
+	if isGift then
+		-- (The buyer keeps the receipt too, so a later ask never grants it to
+		-- them as well; it's given either way.)
+		self.gifting[buyer] = nil
+		table.insert(buyerData.Receipts, receipt.PurchaseId)
+		while #buyerData.Receipts > Profile.MaxReceipts do
+			table.remove(buyerData.Receipts, 1)
+		end
+		task.spawn(self.Data.SaveNow, self.Data, buyer)
+		local shop = self.services and self.services.ShopService
+		if shop then
+			shop:GiftDelivered(player, buyer, entry.name)
+		end
+	end
 	if self.Telemetry then
-		self.Telemetry:Log("Purchase", { product = entry.name, robux = receipt.CurrencySpent }, player)
+		self.Telemetry:Log("Purchase", { product = entry.name, robux = receipt.CurrencySpent, gift = isGift }, buyer)
 	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+-- Opens Roblox's purchase prompt for a product, for a friend in this lobby
+-- (a gift). False when it can't be: no id yet, the friend isn't here, or a
+-- once-only product they already have.
+function MonetizationService:PromptGift(buyer: Player, name: string, friend: Player): boolean
+	local product = Products.Products[name]
+	if not product or type(product.id) ~= "number" or friend == buyer or friend.Parent ~= Players then
+		return false
+	end
+	local data = self.Data:Get(friend)
+	if not data or (product.once and name == "StarterPack" and data.StarterPack) then
+		return false
+	end
+	self.gifting[buyer] = { product = name, to = friend.UserId, at = os.clock() }
+	MarketplaceService:PromptProductPurchase(buyer, product.id)
+	return true
 end
 
 -- Whether a player owns a game pass (by its name in Data/Products). Asks
@@ -119,6 +178,7 @@ function MonetizationService:Prompt(player: Player, name: string): boolean
 		if product.once and name == "StarterPack" and data and data.StarterPack then
 			return false
 		end
+		self.gifting[player] = nil
 		MarketplaceService:PromptProductPurchase(player, product.id)
 		return true
 	end

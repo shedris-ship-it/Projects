@@ -8,16 +8,22 @@
 -- LoadCharacterWithHumanoidDescription and changed in place when you pick
 -- the other.
 --
--- The clothes (V6): each squad member's outfit (Logic/Outfit.wear: a top,
--- trousers and shoes from Data/Wardrobe), its modelled pieces welded on the
--- body's parts (World/Kit.wear), over skin. Until a garment's meshes are in
--- (Data/Kit Wear) the body is painted in its colours instead
--- (Logic/Outfit.palette), as before.
+-- The clothes (V6): each squad member's outfit (a top, trousers and shoes
+-- from Data/Wardrobe), its modelled pieces welded on the body's parts
+-- (World/Kit.wear), over skin. Until a garment's meshes are in (Data/Kit
+-- Wear) the body is painted in its colours instead (its `paint`, or
+-- Logic/Outfit.palette's), as before.
+--
+-- Since LB3 (the boutique) the outfit is the player's own: what they own
+-- and chose to wear (Logic/Closet.outfit), their squad slot's in any slot
+-- they haven't chosen; in the changing booth, what they're trying on
+-- (Services/ShopService, SetTrying).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Closet = require(Shared.Logic.Closet)
 local Kit = require(Shared.World.Kit)
 local Outfit = require(Shared.Logic.Outfit)
 local Wardrobe = require(Shared.Data.Wardrobe)
@@ -32,6 +38,7 @@ local STRAY = { "Accessory", "Shirt", "Pants", "ShirtGraphic", "BodyColors", "Ch
 
 local joined = {} -- player -> squad slot, in the order they arrived
 local bodyOf = {} -- player -> the body their character was dressed in
+local trying = {} -- player -> the outfit they're trying on in the changing booth
 local watched = setmetatable({}, { __mode = "k" }) -- character -> its look, once its new parts are dressed as they come
 
 local function colour(t: { number }): Color3
@@ -76,19 +83,34 @@ function OutfitService:LoadCharacter(player: Player)
 	end
 end
 
--- What a character in slot `index` wears: for each body part, its colour
--- and the wardrobe pieces on it (those whose garment is wholly in).
-function OutfitService:Look(index: number)
+-- What a player wears now: what they're trying on in the booth, else
+-- their own (Logic/Closet.outfit).
+function OutfitService:OutfitOf(player: Player)
+	if trying[player] then
+		return trying[player]
+	end
+	return Closet.outfit(self.Data and self.Data:Get(player), joined[player] or 1)
+end
+
+-- What a character wears (`outfit`, { Top, Bottom, Shoes }; squad slot
+-- `index` for its skin and the painted colours): for each body part, its
+-- colour and the wardrobe pieces on it (those whose garment is wholly in).
+function OutfitService:Look(outfit, index: number)
 	local palette = Outfit.palette(index)
-	local outfit = Outfit.wear(index)
 	local look = { colours = {}, pieces = {} }
 	local dressed = {}
+	local shoes = Wardrobe.Garments[outfit.Shoes]
+	-- (High-tops are worn in place of the trousers' shins, once they're in.)
+	local shinless = shoes ~= nil and shoes.over == true and Kit.hasWear(shoes.pieces)
 	for _, slot in Wardrobe.Slots do
 		local garment = Wardrobe.Garments[outfit[slot]]
 		if garment and Kit.hasWear(garment.pieces) then
 			for part, mesh in garment.pieces do
-				look.pieces[part] = look.pieces[part] or {}
-				table.insert(look.pieces[part], mesh)
+				local shin = part == "LeftLowerLeg" or part == "RightLowerLeg"
+				if not (slot == "Bottom" and shin and shinless) then
+					look.pieces[part] = look.pieces[part] or {}
+					table.insert(look.pieces[part], mesh)
+				end
 			end
 			dressed[slot] = true
 		end
@@ -101,10 +123,18 @@ function OutfitService:Look(index: number)
 			look.colours[name] = colour(rgb)
 		end
 	end
+	local function shade(slot, fallback)
+		local garment = Wardrobe.Garments[outfit[slot]]
+		return garment and garment.paint or fallback
+	end
 	paint(SKIN, skin)
-	paint(SHIRT, dressed.Top and skin or palette.shirt)
-	paint(PANTS, dressed.Bottom and skin or palette.pants)
-	paint(SHOES, dressed.Shoes and skin or palette.shoes)
+	paint(SHIRT, dressed.Top and skin or shade("Top", palette.shirt))
+	paint(PANTS, dressed.Bottom and skin or shade("Bottom", palette.pants))
+	paint(SHOES, dressed.Shoes and skin or shade("Shoes", palette.shoes))
+	local top = Wardrobe.Garments[outfit.Top]
+	if top and top.short then
+		paint({ "LeftLowerArm", "RightLowerArm" }, skin)
+	end
 	if dressed.Bottom then
 		look.colours.LowerTorso = colour(skin)
 	end
@@ -127,8 +157,9 @@ local function dressPart(part: BasePart, look)
 	end
 end
 
--- Dresses a character in slot `index`.
-function OutfitService:Apply(character: Model, index: number)
+-- Dresses a character in slot `index`, in `outfit` (a player's own:
+-- OutfitOf; the squad slot's when not given, for stand-ins).
+function OutfitService:Apply(character: Model, index: number, outfit)
 	for _, child in character:GetChildren() do
 		for _, class in STRAY do
 			if child:IsA(class) then
@@ -137,7 +168,7 @@ function OutfitService:Apply(character: Model, index: number)
 			end
 		end
 	end
-	local look = self:Look(index)
+	local look = self:Look(outfit or Outfit.wear(index), index)
 	for _, child in character:GetChildren() do
 		if child:IsA("BasePart") and (look.colours[child.Name] or look.pieces[child.Name]) then
 			dressPart(child, look)
@@ -179,17 +210,31 @@ function OutfitService:_redress(player: Player)
 		warn("[Consensus] new body for " .. player.Name .. " failed: " .. tostring(err))
 	end
 	if character.Parent then
-		self:Apply(character, joined[player])
+		self:Apply(character, joined[player], self:OutfitOf(player))
 	end
 end
 
--- F2 `outfit <n>`: dress yourself as squad member n (DebugService).
+-- Dresses a player again in what they wear now (bought, chosen, tried on).
+function OutfitService:Redress(player: Player)
+	local character = player.Character
+	if character and character.Parent then
+		self:Apply(character, joined[player] or 1, self:OutfitOf(player))
+	end
+end
+
+-- The changing booth (Services/ShopService): `outfit` tried on, or nil to
+-- go back to their own.
+function OutfitService:SetTrying(player: Player, outfit)
+	trying[player] = outfit
+	self:Redress(player)
+end
+
+-- F2 `outfit <n>`: dress yourself as squad member n (DebugService; your
+-- own choices still win in the slots you've chosen).
 function OutfitService:DebugWear(player: Player, index: number): string
 	joined[player] = math.max(1, math.floor(index))
-	if player.Character then
-		self:Apply(player.Character, joined[player])
-	end
-	local outfit = Outfit.wear(joined[player])
+	self:Redress(player)
+	local outfit = self:OutfitOf(player)
 	return table.concat({ outfit.Top, outfit.Bottom, outfit.Shoes }, ", ")
 end
 
@@ -298,10 +343,8 @@ function OutfitService:Start()
 	task.spawn(function()
 		Kit.preload()
 		Kit.share(Kit.toolNames())
-		for player, slot in joined do
-			if player.Character then
-				self:Apply(player.Character, slot)
-			end
+		for player in joined do
+			self:Redress(player)
 		end
 	end)
 	local function track(player: Player)
@@ -314,18 +357,18 @@ function OutfitService:Start()
 		end
 		player.CharacterAdded:Connect(function(character)
 			if character:WaitForChild("UpperTorso", 10) then
-				self:Apply(character, joined[player])
+				self:Apply(character, joined[player], self:OutfitOf(player))
 			end
 		end)
 		-- (The body's own colours land after CharacterAdded: dress again once
 		-- its appearance has loaded.)
 		player.CharacterAppearanceLoaded:Connect(function(character)
 			if character.Parent then
-				self:Apply(character, joined[player])
+				self:Apply(character, joined[player], self:OutfitOf(player))
 			end
 		end)
 		if player.Character then
-			self:Apply(player.Character, joined[player])
+			self:Redress(player)
 		end
 	end
 	Players.PlayerAdded:Connect(track)
@@ -335,6 +378,7 @@ function OutfitService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		joined[player] = nil
 		bodyOf[player] = nil
+		trying[player] = nil
 	end)
 	if self.Data then
 		self.Data.SettingsSaved:Connect(function(player)

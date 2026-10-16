@@ -2055,6 +2055,35 @@ Config.Monitor = {
 	Hz = 2, -- updates a second
 }
 
+-- What a run pays (doc section 9: every run pays, win or lose; Logic/
+-- Progression). LB3 (docs/plans/lobby-rework.md, "Marks"; the owner,
+-- 2026-10-15: about half of before, "to make marks more valuable"): about
+-- 150 Marks for a strong escape, 20 to 60 for a lost run that got
+-- somewhere; every sum came down, nothing is capped. Clearance XP keeps its
+-- old sums (`Xp`), so levels come as fast as ever. Double Marks on your
+-- first escape of the day (UTC).
+Config.Pay = {
+	Marks = {
+		base = 10, -- every run
+		won = 60, -- the dinner served
+		drift = 5, -- + (100 - Drift) / this, when won
+		extracted = 10, -- out of the front door
+		region = 5, -- each region opened
+		puzzle = 5, -- each puzzle solved
+		hunt = 8, -- each hunt survived
+	},
+	Xp = {
+		base = 40,
+		won = 100,
+		drift = 2,
+		extracted = 25,
+		region = 10,
+		puzzle = 10,
+		hunt = 15,
+	},
+	DailyDouble = 2, -- the first escape of the day pays this many times its Marks
+}
+
 -- Wind-up toys (docs/plans/level-design.md section 4, L3.6; Services/ToyService).
 -- The family's valuables (Data/Valuables, Logic/Valuables, ItemService; push
 -- your luck, the owner's choice of 2026-10-11): how many a house keeps is
@@ -2062,7 +2091,10 @@ Config.Monitor = {
 -- heirloom (he knows your room, he puts back one left lying); worth Marks
 -- for everyone in the squad only once carried out of the front door.
 Config.Valuables = {
-	Marks = 25, -- each one carried out, for every player in the run
+	-- Each one carried out, for every player in the run: Marks (halved with
+	-- the rest at LB3, still a share you'd notice) and Clearance XP (as before).
+	Marks = 12,
+	Xp = 25,
 	CaseChance = 0.4, -- in a locked display case (pick it or break the glass), else on a top in plain sight
 }
 

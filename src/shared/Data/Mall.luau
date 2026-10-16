@@ -323,6 +323,38 @@ Mall.Tapes = {
 	{ room = "video", location = "StOdileWard", x = -7.62, y = 2.94, z = -51.6 },
 }
 
+-- The boutique's shop (LB3; Services/ShopService): where you try clothes on
+-- and pay. `booth`: where you stand at the changing booth, just out of its
+-- curtain and facing the shop (the camera in front of you: a mirror's
+-- view; inside, the drawn curtain hid you, and leaving pushed you out
+-- through its back), and its prompt (`at`).
+-- `racks`: where you can try a slot on in place (each rack's front, by
+-- slot). `till`: the cash wrap's customer side. `tags`: the cards naming
+-- what's new on each rack and its price in Marks (the prices are
+-- Data/Wardrobe's), in the cardboard signs' style.
+Mall.Boutique = {
+	room = "boutique",
+	booth = { x = -46, y = 3, z = -53.6, face = "S", at = { x = -46, y = 3.5, z = -55.1 } },
+	racks = {
+		{ slot = "Top", label = "Tops", x = -27, y = 3, z = -40.1 },
+		{ slot = "Top", label = "Jackets", x = -38, y = 3, z = -41.3 },
+		{ slot = "Bottom", label = "Bottoms", x = -27, y = 3, z = -48.1 },
+		{ slot = "Shoes", label = "Shoes", x = -19.5, y = 3, z = -45 },
+	},
+	till = { x = -27, y = 3, z = -55.3 },
+	-- (Each card stands on its rack's top rail: the rails are 5 studs up,
+	-- the shoe wall 6; a card's middle is half its height over that, less a
+	-- little so it's clipped on, not floating.)
+	tags = {
+		{ garments = { "Ringer", "Sweatshirt" }, x = -27, y = 5.57, z = -40.95, face = "S", w = 3.6, h = 1.3 },
+		{ garments = { "DenimJacket", "Biker" }, x = -38, y = 5.57, z = -44, face = "S", w = 3.6, h = 1.3 },
+		{ garments = { "Parachute" }, x = -27, y = 5.42, z = -48.95, face = "S", w = 3, h = 1 },
+		{ garments = { "HighTop" }, x = -19.25, y = 6.42, z = -45, face = "W", w = 3, h = 1 },
+	},
+	-- Taped over the booth's own FITTING ROOM header.
+	sign = { text = "TRY IT ON · PAY AT THE TILL", x = -46, y = 8.6, z = -54.85, face = "S", w = 5, h = 0.9 },
+}
+
 -- A run server builds only this: the squad's waiting room (Services/
 -- PlaceService); its spawn and returns are the garage's.
 Mall.Waiting = { rooms = { "garage" }, spawn = { x = 0, z = -80, face = "N" } }

@@ -834,29 +834,37 @@ class Garment:
         self.objects = {}  # key -> built object (the left side's)
         self.tucked = False
         self.high = False
+        self.short = False  # short sleeves: no forearm's sleeve (LB3's ringer tee)
+        self.over = False  # shoes in place of the trousers' shins (LB3's high-tops)
 
     def add(self, key, piece):
         self.pieces[key] = piece
         return piece
 
 
-def _top(name, margin, sleeve_margin, tucked, swell=None, sleeve_swell=None, lower_sleeve_swell=None):
+def _top(name, margin, sleeve_margin, tucked, swell=None, sleeve_swell=None, lower_sleeve_swell=None, short=None, hem_u0=-0.62):
     g = Garment(name, "Top")
     g.tucked = tucked
     g.add("Torso", Piece(name + "Torso", "UpperTorso", margin, caps=(False, True), swell=swell, rows=20))
-    # The forearm's sleeve ends at the wrist (the hand's top), open: the
-    # forearm goes into the hand there. The upper sleeve covers its top (at
-    # the elbow the upper arm is the wider, on the body too).
-    g.add("LowerSleeve", Piece(name + "LowerSleeveL", "LowerArm", sleeve_margin, u0=WRIST_U - 0.06, caps=(False, True), swell=lower_sleeve_swell or sleeve_swell))
-    g.add("UpperSleeve", Piece(name + "UpperSleeveL", "UpperArm", sleeve_margin, caps=(False, True), swell=sleeve_swell))
+    if short is None:
+        # The forearm's sleeve ends at the wrist (the hand's top), open: the
+        # forearm goes into the hand there. The upper sleeve covers its top
+        # (at the elbow the upper arm is the wider, on the body too).
+        g.add("LowerSleeve", Piece(name + "LowerSleeveL", "LowerArm", sleeve_margin, u0=WRIST_U - 0.06, caps=(False, True), swell=lower_sleeve_swell or sleeve_swell))
+        g.add("UpperSleeve", Piece(name + "UpperSleeveL", "UpperArm", sleeve_margin, caps=(False, True), swell=sleeve_swell))
+    else:
+        # A short sleeve: the upper sleeve alone, open at `short` (the upper
+        # arm's height), the forearm bare.
+        g.short = True
+        g.add("UpperSleeve", Piece(name + "UpperSleeveL", "UpperArm", sleeve_margin, u0=short, rows=10, caps=(False, True), swell=sleeve_swell))
     if not tucked:
         # The hem over the hips: a short band of the garment from below the
         # torso's foot up past it (the torso's foot tucks inside it).
-        g.add("Hem", Piece(name + "Hem", "LowerTorso", margin + 0.03, u0=-0.62, u1=0.05, rows=6, caps=(False, False)))
+        g.add("Hem", Piece(name + "Hem", "LowerTorso", margin + 0.03, u0=hem_u0, u1=0.05, rows=6, caps=(False, False)))
     return g
 
 
-def _bottom(name, margin, swell=None):
+def _bottom(name, margin, swell=None, thigh_swell=None):
     g = Garment(name, "Bottom")
     # The classic leg is mostly thigh: the thigh piece reaches down to the
     # shoe's top and its foot flares over the shin's top, open, so the
@@ -865,17 +873,21 @@ def _bottom(name, margin, swell=None):
     # used to reach well down inside, and the shoe flared round it like a
     # funnel (the owner, 2026-10-15).
     g.add("LowerLeg", Piece(name + "LowerLegL", "LowerLeg", margin, u0=HEM_U, caps=(False, True), swell=swell))
-    g.add("UpperLeg", Piece(name + "UpperLegL", "UpperLeg", margin, caps=(False, True), swell=swell))
+    g.add("UpperLeg", Piece(name + "UpperLegL", "UpperLeg", margin, caps=(False, True), swell=thigh_swell or swell))
     g.add("Waist", Piece(name + "Waist", "LowerTorso", margin, u1=0.6, caps=(True, False)))
     return g
 
 
-def _shoes(name, margin, high):
+def _shoes(name, margin, high, over=False):
     g = Garment(name, "Shoes")
     g.high = high
+    g.over = over
     # A high-top rises over the ankle (shaft()); a low shoe stops at the
     # foot's top, the trousers' hem just over it. Open at the top either way.
-    top = 1.48 if high else 0.98
+    # A high-top worn in place of the trousers' shin (LB3) rises into the
+    # thighs' foot on both bodies: on the classic leg only that much shin
+    # shows between the thigh and the foot.
+    top = (1.8 if over else 1.48) if high else 0.98
     g.add("Shoe", Piece(name + "L", "Foot", margin, u1=top, rows=12, caps=("flat", False), reach=0.93))
     return g
 
@@ -894,9 +906,36 @@ SPECS = {
     # so a high-top's shaft came out a bucket, 2026-10-15.)
     "Sneaker": lambda: _shoes("Sneaker", 0.03, high=False),
     "Loafer": lambda: _shoes("Loafer", 0.025, high=False),
+    # The boutique's first paid line (LB3, docs/plans/lobby-rework.md): every
+    # top untucked and every shoe over the hems, so none of them reshapes a
+    # garment that's already in.
+    "Ringer": lambda: _top("Ringer", 0.035, 0.035, tucked=False, short=-0.25, hem_u0=-0.42),
+    "Sweatshirt": lambda: _top(
+        "Sweatshirt", 0.06, 0.055, tucked=False, swell=lambda u, t: 0.022 * (1 - abs(u)),
+        sleeve_swell=lambda u, t: 0.018,
+    ),
+    "DenimJacket": lambda: _top("DenimJacket", 0.075, 0.07, tucked=False, swell=lambda u, t: 0.012, sleeve_swell=lambda u, t: 0.01),
+    "Biker": lambda: _top("Biker", 0.07, 0.065, tucked=False, swell=lambda u, t: 0.01, sleeve_swell=lambda u, t: 0.008),
+    # Baggy from the knee down, slim where the jackets' hems cover the
+    # thighs' tops; gathered at the ankle.
+    "Parachute": lambda: _bottom("Parachute", 0.035, swell=lambda u, t: 0.012, thigh_swell=_parachute_thigh),
+    "HighTop": lambda: _shoes("HighTop", 0.03, high=True, over=True),
 }
 
 BELT = (-0.15, 0.3)  # the trousers' belt (and waistband), as the lower torso's height
+
+
+def _parachute_thigh(u, t):
+    """Parachute pants' fullness down the thigh (the classic thigh runs from
+    the hip to just over the ankle): none where a jacket's hem covers its
+    top, full round the knee, gathered again toward the ankle."""
+    if u >= 0.55:
+        return 0.0
+    if u >= -0.35:
+        k = (0.55 - u) / 0.9
+        return 0.1 * k * k * (3 - 2 * k)
+    k = (u + 1.0) / 0.65
+    return 0.04 + 0.06 * k
 
 
 def shaft(piece, from_u=0.35):
@@ -953,13 +992,13 @@ def wardrobe(names=None):
     for g in garments:
         for piece in g.pieces.values():
             note("%s over its body" % piece.name, piece.cover(body_points(piece.part, "L", piece.part, "L"), GAP))
-    for g in tops:
+    for g in [t for t in tops if not t.short]:
         lp = g.pieces["LowerSleeve"]
         note("%s over the hand" % lp.name, lp.cover(body_points("Hand", "L", "LowerArm", "L"), GAP))
     # Inner pieces tucked inside the pieces over them where they meet, so
     # those keep their own shape: the forearm's sleeve in the upper sleeve,
     # the shin in the thigh, the thighs' tops in the seat.
-    for t in tops:
+    for t in [t for t in tops if not t.short]:
         note("%s tucked in" % t.pieces["LowerSleeve"].name, tuck(t.pieces["LowerSleeve"], t.pieces["UpperSleeve"]))
     for b in bottoms:
         note("%s tucked in" % b.pieces["LowerLeg"].name, tuck(b.pieces["LowerLeg"], b.pieces["UpperLeg"]))
@@ -968,25 +1007,44 @@ def wardrobe(names=None):
     # (the hem, no more: a shoe swallowing the trouser leg flared like a
     # funnel, 2026-10-15); then the thighs over the shins and the shoes, and
     # the seat over the thighs.
+    under_shoes = [s for s in shoes if not s.over]
+    over_shoes = [s for s in shoes if s.over]
     for s in shoes:
         # Its collar round the ankle (the body's shin, which on the classic
         # body is wider than the foot's top: hugging the foot, the shoe left
         # a sliver of ankle under the hem).
         shoe = s.pieces["Shoe"]
         note("%s round the ankle" % shoe.name, shoe.cover(body_points("LowerLeg", "L", "Foot", "L"), GAP))
+    for s in under_shoes:
         if s.high:
-            shaft(shoe)
+            shaft(s.pieces["Shoe"])
         s.objects["Shoe"] = DRESS[s.name]["shoe"](s)
     for b in bottoms:
-        cover(b.pieces["LowerLeg"], [s.objects["Shoe"] for s in shoes], "the shoes' tops")
+        cover(b.pieces["LowerLeg"], [s.objects["Shoe"] for s in under_shoes], "the shoes' tops")
         b.objects["LowerLeg"] = DRESS[b.name]["lower"](b)
     for b in bottoms:
-        cover(b.pieces["UpperLeg"], [b.objects["LowerLeg"]] + [s.objects["Shoe"] for s in shoes], b.name + "'s shin and the shoes")
+        cover(b.pieces["UpperLeg"], [b.objects["LowerLeg"]] + [s.objects["Shoe"] for s in under_shoes], b.name + "'s shin and the shoes")
         upper = DRESS[b.name]["upper"](b)
         cover(b.pieces["Waist"], [upper], b.name + "'s thighs")
         b.objects["UpperLeg"] = upper
-    # Sleeves: the forearm's, then the upper sleeve over it.
+    # Shoes in place of the trousers' shins (high-tops; the game leaves the
+    # shins off with them, Data/Wardrobe `over`): round the body's shin, the
+    # shaft straight, its top tucked inside every trouser's thigh foot. Built
+    # after the trousers, so they never widen a trouser leg (a shaft round
+    # the trousers' hems came out a bucket, 2026-10-16).
+    for s in over_shoes:
+        shoe = s.pieces["Shoe"]
+        if s.high:
+            shaft(shoe)
+        for b in bottoms:
+            note("%s tucked in %s" % (shoe.name, b.name), tuck(shoe, b.pieces["UpperLeg"]))
+        s.objects["Shoe"] = DRESS[s.name]["shoe"](s)
+    # Sleeves: the forearm's, then the upper sleeve over it (a short sleeve
+    # alone).
     for t in tops:
+        if t.short:
+            t.objects["UpperSleeve"] = DRESS[t.name]["upper"](t)
+            continue
         lower = DRESS[t.name]["lower"](t)
         cover(t.pieces["UpperSleeve"], [lower], t.name + "'s forearm")
         upper = DRESS[t.name]["upper"](t)
@@ -1045,7 +1103,8 @@ def check(garments, built):
     for g in bottoms:
         pairs += [(g.pieces["UpperLeg"], g.objects["LowerLeg"]), (g.pieces["Waist"], g.objects["UpperLeg"])]
     for g in tops:
-        pairs.append((g.pieces["UpperSleeve"], g.objects["LowerSleeve"]))
+        if not g.short:
+            pairs.append((g.pieces["UpperSleeve"], g.objects["LowerSleeve"]))
         if not g.tucked:
             pairs.append((g.pieces["Hem"], g.objects["Torso"]))
             for b in bottoms:
@@ -1057,7 +1116,11 @@ def check(garments, built):
                 pairs.append((b.pieces["Belt"], g.objects["Torso"]))
     for s in shoes:
         for b in bottoms:
-            pairs += [(b.pieces["LowerLeg"], s.objects["Shoe"]), (b.pieces["UpperLeg"], s.objects["Shoe"])]
+            if s.over:
+                # In place of the trousers' shin, under their thighs' foot.
+                pairs.append((b.pieces["UpperLeg"], s.objects["Shoe"]))
+            else:
+                pairs += [(b.pieces["LowerLeg"], s.objects["Shoe"]), (b.pieces["UpperLeg"], s.objects["Shoe"])]
     lines = []
     worst = 0.0
     for outer, inner in pairs:
@@ -1118,8 +1181,11 @@ def _finish_top(g):
     out = [g.objects["Torso"]]
     if "Hem" in g.objects:
         out.append(g.objects["Hem"])
-    upper, lower = g.objects["UpperSleeve"], g.objects["LowerSleeve"]
-    out += [upper, lower, mirror(upper, g.name + "UpperSleeveR"), mirror(lower, g.name + "LowerSleeveR")]
+    upper = g.objects["UpperSleeve"]
+    out += [upper, mirror(upper, g.name + "UpperSleeveR")]
+    if not g.short:
+        lower = g.objects["LowerSleeve"]
+        out += [lower, mirror(lower, g.name + "LowerSleeveR")]
     return out
 
 
@@ -1424,6 +1490,241 @@ def loafer(g):
     return _finish(join([body, sole, strap, apron], "LoaferL"), "LoaferL", "Foot")
 
 
+# The boutique's first paid line (LB3) ------------------------------------------
+
+# The ringer tee.
+
+def _ringer_mats():
+    return [
+        cm.plain("RingerJersey", (228, 222, 206), 0.92, bump=0.06, scale=90.0, mottle=0.06, folds=0.3),
+        cm.rib("RingerTrim", (172, 36, 40)),
+    ]
+
+
+def ringer_torso(g):
+    """A cream cotton ringer tee: a red ribbed crew neck (and red bands round
+    the sleeves), worn out over the trousers."""
+    ml = _ringer_mats()
+    t = g.pieces["Torso"]
+    torso = mats(t.build(), *ml)
+    top = _torso_top()
+    neck = paint(mats(neck_collar("RingerNeck", top - 0.03, 0.075, 0.024), *ml), 1)
+    return _finish(join([torso, neck], "RingerTorso"), "RingerTorso", "UpperTorso")
+
+
+def ringer_hem(g):
+    return _finish(mats(g.pieces["Hem"].build(), *_ringer_mats()), "RingerHem", "LowerTorso")
+
+
+def ringer_upper(g):
+    up = g.pieces["UpperSleeve"]
+    trim = (lambda: up.band("RingerSleeveTrimL", up.us[0], up.us[0] + 0.16, 0.004, thickness=0.02).build(subdivide=0), 1)
+    return _upper_sleeve(g, _ringer_mats(), more=[trim])
+
+
+# The colour-block sweatshirt.
+
+def _sweat_mats():
+    navy, red, yellow = (34, 52, 118), (196, 46, 54), (236, 188, 48)
+    return [
+        cm.blocks("SweatChest", [navy, yellow, red], [0.0, 0.34], roughness=0.92),
+        cm.rib("SweatRib", navy),
+        cm.blocks("SweatSleeve", [navy, yellow, red], [-0.05, 0.22], roughness=0.92),
+        cm.plain("SweatFleece", navy, 0.93, bump=0.1, scale=70.0, folds=0.3),
+    ]
+
+
+def sweatshirt_torso(g):
+    """A cotton fleece crewneck in big 80s colour blocks: navy below, a
+    yellow band across the chest, red over the shoulders; a ribbed neck."""
+    ml = _sweat_mats()
+    t = g.pieces["Torso"]
+    torso = mats(t.build(), *ml)
+    top = _torso_top()
+    neck = paint(mats(neck_collar("SweatNeck", top - 0.03, 0.09, 0.03), *ml), 1)
+    return _finish(join([torso, neck], "SweatshirtTorso"), "SweatshirtTorso", "UpperTorso")
+
+
+def sweatshirt_hem(g):
+    """Its waistband: deep ribbing gathered over the hips."""
+    return _finish(paint(mats(g.pieces["Hem"].build(), *_sweat_mats()), 1), "SweatshirtHem", "LowerTorso")
+
+
+def sweatshirt_lower(g):
+    obj = _lower_sleeve(g, _sweat_mats(), cuff=(1, 0.34, 0.006))
+    for poly in obj.data.polygons:
+        if poly.material_index == 0:
+            poly.material_index = 3
+    return obj
+
+
+def sweatshirt_upper(g):
+    obj = _upper_sleeve(g, _sweat_mats())
+    for poly in obj.data.polygons:
+        if poly.material_index == 0:
+            poly.material_index = 2
+    return obj
+
+
+# The acid-wash denim jacket.
+
+def _denimjacket_mats():
+    return [
+        cm.acidwash("AcidWash", (92, 122, 170), (212, 222, 234)),
+        cm.metal("JacketCopper", (176, 112, 62), 0.32),
+    ]
+
+
+def denimjacket_torso(g):
+    """An acid-wash trucker jacket: a point collar, copper shank buttons down
+    the front, flapped chest pockets, seams down from them."""
+    ml = _denimjacket_mats()
+    t = g.pieces["Torso"]
+    torso = mats(t.build(), *ml)
+    top = _torso_top()
+    parts = [torso, mats(neck_collar("DenimCollar", top - 0.03, 0.15, 0.03, open_front=0.28, flare=0.06), *ml)]
+    for side in (-1, 1):
+        parts.append(mats(patch("DenimCollarPoint", t, 0.84, FRONT + side * 0.34, 0.3, 0.24, 0.006, depth=0.016, tilt=side * 32), *ml))
+        theta = FRONT + side * 0.52
+        parts.append(mats(patch("DenimPocket", t, 0.32, theta, 0.36, 0.3, 0.0, depth=0.012), *ml))
+        parts.append(mats(patch("DenimPocketFlap", t, 0.48, theta, 0.4, 0.14, 0.012, depth=0.014), *ml))
+        parts.append(mats(patch("DenimSeam", t, -0.35, theta, 0.025, 0.8, 0.0, depth=0.008), *ml))
+    parts.append(mats(patch("DenimPlacket", t, -0.05, FRONT, 0.12, 1.62, 0.0, depth=0.014), *ml))
+    buttons = [paint(mats(button("DenimButton", t, u, FRONT, 0.012, radius=0.032, height=0.02), *ml), 1) for u in (0.66, 0.34, 0.02, -0.3, -0.62)]
+    buttons += [paint(mats(button("DenimPocketButton", t, 0.44, FRONT + side * 0.52, 0.028, radius=0.026), *ml), 1) for side in (-1, 1)]
+    return _finish(join(parts + buttons, "DenimJacketTorso"), "DenimJacketTorso", "UpperTorso")
+
+
+def denimjacket_hem(g):
+    """Its waistband, buttoned, with an adjuster tab each side."""
+    ml = _denimjacket_mats()
+    h = g.pieces["Hem"]
+    hem = mats(h.build(), *ml)
+    band = mats(h.band("DenimWaistband", h.us[0], h.us[0] + 0.42, 0.006, thickness=0.024).build(subdivide=0), *ml)
+    buttons = [paint(mats(button("DenimTabButton", h, h.us[0] + 0.2, FRONT + side * 0.95, 0.03, radius=0.026), *ml), 1) for side in (-1, 1)]
+    buttons.append(paint(mats(button("DenimHemButton", h, h.us[0] + 0.2, FRONT, 0.03, radius=0.03), *ml), 1))
+    return _finish(join([hem, band] + buttons, "DenimJacketHem"), "DenimJacketHem", "LowerTorso")
+
+
+def denimjacket_lower(g):
+    lp = g.pieces["LowerSleeve"]
+    btn = (lambda: button("DenimCuffButton", lp, lp.us[0] + 0.14, math.pi, 0.03, radius=0.022), 1)
+    return _lower_sleeve(g, _denimjacket_mats(), cuff=(0, 0.3, 0.006), more=[btn])
+
+
+# The leather biker jacket.
+
+def _biker_mats():
+    return [
+        cm.leather("BikerLeather", (30, 28, 30), 0.36),
+        cm.metal("BikerSteel", (196, 196, 202), 0.22),
+    ]
+
+
+def biker_torso(g):
+    """A black leather biker jacket: the zip running from the left hip up to
+    the right shoulder, wide lapels held by snaps, zipped pockets."""
+    ml = _biker_mats()
+    t = g.pieces["Torso"]
+    torso = mats(t.build(), *ml)
+    top = _torso_top()
+    parts = [torso, mats(neck_collar("BikerCollar", top - 0.03, 0.15, 0.035, open_front=0.44, flare=0.06), *ml)]
+    for side in (-1, 1):
+        parts.append(mats(patch("BikerLapel", t, 0.6, FRONT + side * 0.42, 0.42, 0.62, 0.006, depth=0.02, tilt=-side * 26), *ml))
+        parts.append(paint(mats(patch("BikerPocketZip", t, -0.42, FRONT + side * 0.62, 0.03, 0.4, 0.004, depth=0.012, tilt=side * 24), *ml), 1))
+    parts.append(paint(mats(patch("BikerChestZip", t, 0.34, FRONT + 0.62, 0.028, 0.3, 0.004, depth=0.012, tilt=-30), *ml), 1))
+    parts.append(paint(mats(patch("BikerZip", t, -0.05, FRONT - 0.2, 0.034, 1.74, 0.006, depth=0.012, tilt=-9), *ml), 1))
+    snaps = [paint(mats(button("BikerSnap", t, 0.36, FRONT + side * 0.6, 0.03, radius=0.026, height=0.016), *ml), 1) for side in (-1, 1)]
+    return _finish(join(parts + snaps, "BikerTorso"), "BikerTorso", "UpperTorso")
+
+
+def biker_hem(g):
+    """Its hem, belted round with a steel buckle on the left."""
+    ml = _biker_mats()
+    h = g.pieces["Hem"]
+    hem = mats(h.build(), *ml)
+    belt = mats(h.band("BikerBelt", h.us[0] + 0.08, h.us[0] + 0.38, 0.008, thickness=0.022).build(subdivide=0), *ml)
+    buckle = paint(mats(patch("BikerBuckle", h, h.us[0] + 0.23, FRONT - 0.35, 0.16, 0.15, 0.03, depth=0.02, bevel=0.01), *ml), 1)
+    return _finish(join([hem, belt, buckle], "BikerHem"), "BikerHem", "LowerTorso")
+
+
+def biker_lower(g):
+    lp = g.pieces["LowerSleeve"]
+    zip_ = (lambda: patch("BikerCuffZip", lp, lp.us[0] + 0.26, math.pi, 0.026, 0.42, 0.004, depth=0.012), 1)
+    return _lower_sleeve(g, _biker_mats(), more=[zip_])
+
+
+# Parachute pants.
+
+def _para_mats():
+    return [
+        cm.nylon("ParaNylon", (150, 32, 38), 0.3),
+        cm.metal("ParaZip", (200, 200, 208), 0.28),
+        cm.rib("ParaElastic", (122, 26, 32)),
+    ]
+
+
+def parachute_lower(g):
+    """The shin, gathered into an elastic cuff at the ankle, a zip up its
+    outer side."""
+    ml = _para_mats()
+    lp = g.pieces["LowerLeg"]
+    shin = mats(lp.build(), *ml)
+    cuff = paint(mats(lp.band("ParachuteCuffL", HEM_U, HEM_U + 0.22, 0.006, thickness=0.022).build(subdivide=0), *ml), 2)
+    zip_ = paint(mats(patch("ParachuteAnkleZip", lp, HEM_U + 0.42, math.pi, 0.026, 0.36, 0.004, depth=0.01), *ml), 1)
+    return _finish(join([shin, cuff, zip_], "ParachuteLowerLegL"), "ParachuteLowerLegL", "LowerLeg")
+
+
+def parachute_upper(g):
+    """The thigh, full round the knee: zips slanting across the front and a
+    zipped pocket down the outer side."""
+    ml = _para_mats()
+    up = g.pieces["UpperLeg"]
+    thigh = mats(up.build(), *ml)
+    zips = [paint(mats(patch("ParachuteZip", up, u, FRONT + 0.1, 0.026, 0.5, 0.004, depth=0.01, tilt=tilt), *ml), 1) for u, tilt in ((0.2, 62), (-0.4, 58))]
+    zips.append(paint(mats(patch("ParachutePocketZip", up, -0.05, math.pi + 0.15, 0.026, 0.46, 0.004, depth=0.01), *ml), 1))
+    return _finish(join([thigh] + zips, "ParachuteUpperLegL"), "ParachuteUpperLegL", "UpperLeg")
+
+
+def parachute_waist(g):
+    """Their seat (the fly hidden: a zip there pushed every jacket's front out)."""
+    return _finish(mats(g.pieces["Waist"].build(), *_para_mats()), "ParachuteWaistBody", "LowerTorso")
+
+
+def parachute_belt(g):
+    """An elastic waistband."""
+    return _finish(paint(mats(g.pieces["Belt"].build(subdivide=0), *_para_mats()), 2), "ParachuteBand", "LowerTorso")
+
+
+# High-tops.
+
+def hightop(g):
+    """White leather basketball high-tops, worn over the trousers' hems: a
+    padded navy collar, a navy heel and side panel, laces to the top, a
+    rubber cupsole and toe."""
+    ml = [
+        cm.leather("HighTopLeather", (234, 230, 222), 0.48),
+        cm.plain("HighTopRubber", (222, 216, 200), 0.75, bump=0.05, folds=0.0),
+        cm.lacing("HighTopLace", (246, 244, 238), (150, 150, 156)),
+        cm.leather("HighTopNavy", (34, 46, 92), 0.45),
+    ]
+    s = g.pieces["Shoe"]
+    top = s.us[-1]
+    body = mats(s.build(), *ml)
+    sole = paint(mats(s.band("HighTopSole", -1.0, -0.6, 0.014, thickness=0.032).build(subdivide=0), *ml), 1)
+    toe = paint(mats(s.band("HighTopToe", -0.6, -0.3, 0.004, thickness=0.012, a0=FRONT - 0.7, a1=FRONT + 0.7).build(subdivide=0), *ml), 1)
+    # (The collar where the shaft shows, below the thighs' foot: a padded navy
+    # band round the ankle.)
+    collar = paint(mats(s.band("HighTopCollar", 1.22, 1.62, 0.008, thickness=0.026).build(subdivide=0), *ml), 3)
+    heel = paint(mats(s.band("HighTopHeel", -0.58, 0.32, 0.004, thickness=0.01, a0=BACK - 0.6, a1=BACK + 0.6).build(subdivide=0), *ml), 3)
+    # Navy side panels lying on the curve (flat ones stood off it, jagged),
+    # and the laces as a laced strip down the tongue (separate tabs stood off
+    # the steep instep like loose flaps).
+    panels = [paint(mats(s.band("HighTopPanel", -0.36, 0.42, 0.004, thickness=0.008, a0=a - 0.55, a1=a + 0.55).build(subdivide=0), *ml), 3) for a in (0.0, math.pi)]
+    tongue = paint(mats(s.band("HighTopTongue", 0.02, 1.0, 0.006, thickness=0.012, a0=FRONT - 0.32, a1=FRONT + 0.32).build(subdivide=0), *ml), 2)
+    return _finish(join([body, sole, toe, collar, heel, tongue] + panels, "HighTopL"), "HighTopL", "Foot")
+
+
 DRESS = {
     "Flannel": {
         "torso": flannel_torso,
@@ -1462,6 +1763,36 @@ DRESS = {
     },
     "Sneaker": {"shoe": sneaker, "finish": _finish_shoes},
     "Loafer": {"shoe": loafer, "finish": _finish_shoes},
+    "Ringer": {"torso": ringer_torso, "hem": ringer_hem, "upper": ringer_upper, "finish": _finish_top},
+    "Sweatshirt": {
+        "torso": sweatshirt_torso,
+        "hem": sweatshirt_hem,
+        "lower": sweatshirt_lower,
+        "upper": sweatshirt_upper,
+        "finish": _finish_top,
+    },
+    "DenimJacket": {
+        "torso": denimjacket_torso,
+        "hem": denimjacket_hem,
+        "lower": denimjacket_lower,
+        "upper": lambda g: _upper_sleeve(g, _denimjacket_mats()),
+        "finish": _finish_top,
+    },
+    "Biker": {
+        "torso": biker_torso,
+        "hem": biker_hem,
+        "lower": biker_lower,
+        "upper": lambda g: _upper_sleeve(g, _biker_mats()),
+        "finish": _finish_top,
+    },
+    "Parachute": {
+        "lower": parachute_lower,
+        "upper": parachute_upper,
+        "waist": parachute_waist,
+        "belt": parachute_belt,
+        "finish": _finish_bottom,
+    },
+    "HighTop": {"shoe": hightop, "finish": _finish_shoes},
 }
 
 

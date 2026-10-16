@@ -212,7 +212,9 @@ end
 function Lobby:Update()
 	local state = self.ctx.state
 	local inLobby = state:Phase() == Constants.Phases.Lobby and state:PlayerState() == Constants.PlayerStates.Lobby
-	self.gui.Enabled = inLobby
+	-- (Put away in the boutique's fitting room: its card is the one to read.)
+	local trying = player:GetAttribute(Constants.PlayerAttributes.Trying) ~= nil
+	self.gui.Enabled = inLobby and not trying
 end
 
 return Lobby

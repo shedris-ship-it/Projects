@@ -248,6 +248,11 @@ function ActionController:Start()
 	player:GetAttributeChangedSignal(PA.Car):Connect(function()
 		self:_applyCamera()
 	end)
+	-- (In the boutique's fitting room, UI/Boutique has the camera and no
+	-- prompt works: you leave by Done.)
+	player:GetAttributeChangedSignal(PA.Trying):Connect(function()
+		self:_applyCamera()
+	end)
 	player.CharacterAdded:Connect(function(character)
 		task.defer(function()
 			self:_applyCamera()
@@ -382,8 +387,9 @@ function ActionController:_applyCamera()
 		end
 	end
 	-- Prompts are for active Witnesses only (shut in a wardrobe, its door's),
-	-- and not from inside a party car (its dashboard does it all, LB2).
-	local inCar = player:GetAttribute(PA.Car) ~= nil
+	-- and not from inside a party car (its dashboard does it all, LB2) nor
+	-- the fitting room (LB3).
+	local inCar = player:GetAttribute(PA.Car) ~= nil or player:GetAttribute(PA.Trying) ~= nil
 	ProximityPromptService.Enabled = (not inRun and not inCar)
 		or (inRun and state == PS.Active and not self.state:IsTucked())
 end

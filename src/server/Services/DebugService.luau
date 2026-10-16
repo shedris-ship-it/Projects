@@ -21,7 +21,10 @@ local HouseMetrics = require(Shared.Logic.HouseMetrics)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local Closet = require(Shared.Logic.Closet)
 local Locations = require(Shared.Data.Locations)
+local Products = require(Shared.Data.Products)
+local Wardrobe = require(Shared.Data.Wardrobe)
 local LookSpots = require(Shared.Data.LookSpots)
 local Mall = require(Shared.Data.Mall)
 local MallLayout = require(Shared.Logic.MallLayout)
@@ -62,6 +65,7 @@ local HELP = table.concat({
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"crowd <n>|clear (n dressed stand-ins over the mall, for a full lobby's cost with perf)",
 	"car [in [n]|out|honk|set <key> <value>] (the party cars) · tape [location|none] (a rental tape in your hand)",
+	"marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> · starter [again] (the boutique)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
@@ -740,6 +744,84 @@ function DebugService:Run(player: Player, text: string)
 			end
 			services.RentalService:Give(player, id)
 			reply(player, "holding " .. id)
+		end
+	elseif command == "marks" then
+		-- `marks <n>`: your Marks set to n (the boutique, LB3).
+		local data = services.DataService:Get(player)
+		local n = tonumber(args[2])
+		if data and n then
+			data.Marks = math.clamp(math.floor(n), 0, 1e9)
+			services.DataService:Send(player)
+			reply(player, "marks " .. data.Marks)
+		else
+			reply(player, "marks <n>")
+		end
+	elseif command == "shop" then
+		-- `shop [booth|rack] [slot]`: into the boutique's fitting room from
+		-- anywhere in the hub (`shop done` out).
+		if args[2] == "done" then
+			services.ShopService:Done(player)
+			reply(player, "out of the fitting room")
+		else
+			local slot = args[3] == "bottom" and "Bottom" or args[3] == "shoes" and "Shoes" or "Top"
+			services.ShopService:Open(player, args[2] == "rack" and "rack" or "booth", slot)
+			reply(player, "fitting room: " .. tostring(player:GetAttribute(Constants.PlayerAttributes.Trying)))
+		end
+	elseif command == "own" then
+		-- `own <garment>` puts it in your wardrobe; `own none` empties it
+		-- (the free set stays everyone's); `own` lists what you have.
+		local data = services.DataService:Get(player)
+		if not data then
+			reply(player, "no profile")
+		elseif args[2] == "none" then
+			data.Owned.garment = {}
+			data.Wearing = {}
+			services.OutfitService:Redress(player)
+			reply(player, "owns only the free set")
+		elseif args[2] then
+			local found
+			for id in Wardrobe.Garments do
+				if string.lower(id) == args[2] then
+					found = id
+				end
+			end
+			if found then
+				Closet.give(data, found)
+				reply(player, "owns " .. found)
+			else
+				reply(player, "own <garment>|none")
+			end
+		else
+			local list = {}
+			for id in Wardrobe.Garments do
+				if Closet.owns(data, id) then
+					table.insert(list, id)
+				end
+			end
+			table.sort(list)
+			reply(player, "owns " .. table.concat(list, ", ") .. " · Marks " .. data.Marks)
+		end
+	elseif command == "gift" then
+		-- `gift <product>`: a gift to yourself as if a friend had bought it
+		-- (MarksSmall, StarterPack...): granted, its wrapped box at your feet.
+		local found = "MarksSmall"
+		for name in Products.Products do
+			if string.lower(name) == (args[2] or "") then
+				found = name
+			end
+		end
+		reply(player, services.ShopService:DebugGift(player, found))
+	elseif command == "starter" then
+		-- `starter`: the starter pack's slip, as after a first run (once
+		-- only, unless `starter again`).
+		local data = services.DataService:Get(player)
+		if data then
+			if args[2] == "again" then
+				data.StarterOffered = false
+			end
+			data.RunsPlayed = math.max(data.RunsPlayed, 1)
+			services.ShopService:CheckOffer(player)
+			reply(player, data.StarterOffered and "offered (or not on sale yet: no product id)" or "not offered")
 		end
 	elseif command == "ui" then
 		-- Open a screen on your client: `ui map|journal|note|dossier|settings|

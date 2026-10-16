@@ -167,7 +167,7 @@ function Dossier:Show(data)
 	self.notes.Text = string.format(
 		"+%d Marks%s\n%dm %02ds in the house\nfinal Drift %d\nseed %s, %s",
 		data.marks or 0,
-		data.extracted and ", got out" or "",
+		data.doubled and ", doubled: first out today" or data.extracted and ", got out" or "",
 		s.minutes,
 		s.seconds,
 		s.drift,

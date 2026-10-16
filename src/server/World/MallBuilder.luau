@@ -647,7 +647,7 @@ local function buildSign(folder: Instance, origin: Vector3, sign)
 	-- The canvas follows the panel's size (the default fixed 800 x 600 canvas
 	-- squashed the words into a thin line).
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 40
+	gui.PixelsPerStud = sign.ppi or 40 -- (a small card wants more: its text stays sharp)
 	gui.Parent = panel
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
@@ -1129,6 +1129,12 @@ end
 -- Builds the mall into `parent`, from `origin` (the court's floor middle).
 -- only: the rooms to build (a run server's waiting room), or nil for all.
 -- Returns where players spawn and come back, and the contract table's spot.
+-- A sign in the mall's style (Data/Mall Signs' fields), for services that
+-- put up their own (Services/ShopService's price cards).
+function MallBuilder.sign(folder: Instance, origin: Vector3, sign)
+	buildSign(folder, origin, sign)
+end
+
 function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 	local built = {}
 	for id in Mall.Rooms do

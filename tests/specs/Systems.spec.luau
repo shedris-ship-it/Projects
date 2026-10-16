@@ -155,21 +155,77 @@ return function(test, check, Shared, require)
 				> Progression.marksForRun({ won = true, drift = 80 }),
 			"low drift pays more"
 		)
-		-- Progress pays, won or lost: +10 a region opened or a puzzle solved.
+		-- Progress pays, won or lost (Config.Pay).
+		local pay = Config.Pay.Marks
 		local lost = { won = false, drift = 100 }
 		local progressed = { won = false, drift = 100, regionsOpened = 2, puzzlesSolved = 1 }
 		check.equal(
 			Progression.marksForRun(progressed) - Progression.marksForRun(lost),
-			30,
-			"two regions and a puzzle are worth 30"
+			2 * pay.region + pay.puzzle,
+			"two regions and a puzzle"
 		)
 		check.equal(
 			Progression.marksForRun({ won = false, drift = 100, survivedHunts = 2 }) - Progression.marksForRun(lost),
-			30,
-			"two hunts survived are worth 30"
+			2 * pay.hunt,
+			"two hunts survived"
 		)
 		local level = Progression.levelFromXp(10 ^ 7)
 		check.equal(level, 50, "max level")
+	end)
+
+	test("Marks (LB3): about 150 a strong escape, 20 to 60 a lost run that got somewhere", function()
+		-- A strong escape: the dinner served and out, Drift low, the short
+		-- night's two regions or the full house's four, puzzles, hunts, a
+		-- valuable carried out.
+		for _, regions in { 2, 4 } do
+			local strong = {
+				won = true,
+				extracted = true,
+				drift = 35,
+				regionsOpened = regions,
+				puzzlesSolved = regions,
+				survivedHunts = 2,
+				valuables = 1,
+				valuableMarks = Config.Valuables.Marks,
+			}
+			local marks = Progression.marksForRun(strong)
+			check.truthy(marks >= 130 and marks <= 175, "a strong escape pays about 150 (" .. marks .. ")")
+		end
+		for _, run in
+			{
+				{ won = false, drift = 100, regionsOpened = 1, survivedHunts = 1 },
+				{ won = false, drift = 100, regionsOpened = 3, puzzlesSolved = 2, survivedHunts = 2 },
+			}
+		do
+			local marks = Progression.marksForRun(run)
+			check.truthy(marks >= 20 and marks <= 60, "a lost run that got somewhere (" .. marks .. ")")
+		end
+		check.truthy(Progression.marksForRun({ won = false, drift = 100 }) > 0, "every run pays")
+	end)
+
+	test("Clearance XP keeps its old pace; Marks are about half of it", function()
+		local run =
+			{ won = true, extracted = true, drift = 20, regionsOpened = 3, puzzlesSolved = 2, survivedHunts = 2 }
+		-- (Before LB3 one sum paid both: 40, +100 and (100 - Drift) / 2 won,
+		-- +25 out, 10 a region or puzzle, 15 a hunt.)
+		check.equal(Progression.xpForRun(run), 40 + 100 + 40 + 25 + 30 + 20 + 30, "the old sum")
+		local ratio = Progression.marksForRun(run) / Progression.xpForRun(run)
+		check.truthy(ratio > 0.4 and ratio < 0.6, "Marks about half")
+	end)
+
+	test("double Marks on your first escape of the day (UTC)", function()
+		local out = { extracted = true }
+		local today = Progression.day(86400 * 20000 + 5)
+		local marks, doubled = Progression.withDaily(100, out, today - 1, today)
+		check.truthy(doubled and marks == 100 * Config.Pay.DailyDouble, "the day's first")
+		marks, doubled = Progression.withDaily(100, out, today, today)
+		check.truthy(not doubled and marks == 100, "not twice a day")
+		marks, doubled = Progression.withDaily(100, { extracted = false }, today - 1, today)
+		check.truthy(not doubled and marks == 100, "only an escape")
+		check.equal(Progression.day(86400 * 3 - 1), 2, "days break at midnight UTC")
+	end)
+
+	test("levels start at 1", function()
 		check.equal((Progression.levelFromXp(0)), 1, "start level")
 	end)
 end

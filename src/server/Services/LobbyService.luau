@@ -76,6 +76,8 @@ function LobbyService:_build()
 	-- The party cars in the garage and the tapes to rent (LB2).
 	self.services.CarService:Build(folder, o)
 	self.services.RentalService:Build(folder, o)
+	-- The boutique's fitting room, till and price cards (LB3).
+	self.services.ShopService:Build(folder, o)
 	self.folder = folder
 end
 
@@ -139,6 +141,14 @@ function LobbyService:Return(players: { Player }, receipts)
 			self.services.PlayerStateService:MarkTeleport(player)
 			character:PivotTo(self:SpawnCFrame(i))
 		end
+		-- (Back with a run behind them: the starter pack's slip, once, and any
+		-- gift waiting.)
+		task.delay(4, function()
+			if player.Parent then
+				self.services.ShopService:CheckOffer(player)
+				self.services.ShopService:ShowGifts(player)
+			end
+		end)
 	end
 	self:Broadcast()
 end

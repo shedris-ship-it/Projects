@@ -54,7 +54,7 @@ In **Game Settings** (after publishing the place once):
 - **Solo:** press **Play**. There is no companion (removed 2026-10-06). Alone, a lit Lantern room is safe ground and charges your torch; downed, you crawl to the light or into a hiding place's mouth to get up; smelling salts bring you round once; you push harder; after a catch he lets you go. Three downs and you're Lost (two on Hard).
 - **Squad:** **Test → Clients and Servers → 2–4 players → Start**. Several things (the dinner at the table, crank doors, the dumbwaiter, barricades, the shared map) only show their worth with two or more clients.
 
-In the hub, rent the case in the video store (E on THE HALFWAY HOUSE on the NEW RELEASES shelf), take it through STAFF ONLY · GARAGE to a car, and get in: the first in drives, four to a car. The driver's trip sheet on the dash sets the difficulty, the night's length (**Short night**, the default, is two wings, two heirlooms and a side room, about 15 minutes; **Full house** is the squad's whole house, with the cellar or the attic) and Friends only, and **HONK** leaves after a 5-second countdown in which anyone can get out (Space). After the run you're back in your car. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
+In the hub, rent the case in the video store (E on THE HALFWAY HOUSE on the NEW RELEASES shelf), take it through STAFF ONLY · GARAGE to a car, and get in: the first in drives, four to a car. The driver's trip sheet on the dash sets the difficulty, the night's length (**Short night**, the default, is two wings, two heirlooms and a side room, about 15 minutes; **Full house** is the squad's whole house, with the cellar or the attic) and Friends only, and **HONK** leaves after a 5-second countdown in which anyone can get out (Space). After the run you're back in your car. Runs pay Marks (about 150 for a strong escape, double on your first escape of the day); the boutique, by the fountain, sells clothes for them: try them on in its fitting room (E at the changing booth or a rack), and what you wear goes into the house with you. Tools (a Lantern, a Radio) are found in the house on tables, desks and dressers: walk up and press **E** to take one.
 
 ---
 
@@ -140,6 +140,7 @@ event <id> (a house event where you stand: radioOn, phoneRings, lightsDie, overh
 seed <n> · layout cells|mansion|default · squad <1-4|auto> · night short|full   (apply to the next run; short is the default)
 role (this server's job: lobby, run or both; set ServerStorage's DebugRole attribute to lobby or run before a Studio play test to try one)
 car (the cars) · car in [n] · car out · car honk · car set difficulty|night|friendsonly <value> · tape [location|none] (a rental tape in your hand)
+marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> (a wrapped gift from yourself) · starter [again] (the boutique)
 mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter|Horn> [n] (the hub's sounds, picked by ear; Horn sounds the nearest car) · brownout · mallstrike
 start · end · skip (end Arrival) · resolve (serve the dinner)
 act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · scent · table · tidy

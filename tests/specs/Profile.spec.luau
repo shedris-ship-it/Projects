@@ -25,7 +25,7 @@ return function(test, check, Shared, require)
 			Dossier = { ["stalker:TheGuest"] = true },
 		}
 		local data = Profile.reconcile(old)
-		check.equal(data.Version, 2, "upgraded")
+		check.equal(data.Version, Profile.Version, "upgraded")
 		check.equal(data.Marks, 535, "Marks kept")
 		check.equal(data.RunsPlayed, 6, "runs kept")
 		check.equal(data.Settings.fov, 80, "settings kept")
@@ -76,6 +76,44 @@ return function(test, check, Shared, require)
 		check.equal(data.Marks, 50, "Marks back")
 		check.equal(data.ArcadeCredits, 0, "credits back")
 		check.truthy(not Profile.hasReceipt(data, "p1"), "receipt gone, so Roblox's next ask grants it")
+	end)
+
+	test("version 3 (LB3): the daily double, the starter slip, gifts; bad owned data cleaned", function()
+		local data = Profile.reconcile({
+			Version = 2,
+			Marks = 10,
+			Owned = { garment = { Biker = true, Junk = "yes", [4] = true }, frames = 7 },
+			Wearing = { Top = "Biker", Bottom = 9 },
+			Gifts = { { product = "MarksSmall", from = 12 }, "junk", { from = 3 } },
+		})
+		check.equal(data.Version, 3, "upgraded")
+		check.equal(data.DoubleDay, 0, "no double yet")
+		check.equal(data.StarterOffered, false, "not offered yet")
+		check.truthy(data.Owned.garment.Biker, "a real garment kept")
+		check.equal(data.Owned.garment.Junk, nil, "only true is owned")
+		check.equal(data.Owned.frames, nil, "a kind must be a set")
+		check.equal(data.Wearing.Top, "Biker", "wearing kept")
+		check.equal(data.Wearing.Bottom, nil, "only names")
+		check.equal(#data.Gifts, 1, "only real gifts")
+	end)
+
+	test("a purchase can grant a garment, and a gift waits wrapped", function()
+		local data = Profile.new()
+		Profile.applyPurchase(data, "p1", { marks = 1000, starterPack = true, garment = "DenimJacket" })
+		check.truthy(data.Owned.garment.DenimJacket, "the starter pack's jacket")
+		check.equal(data.Marks, 1000, "and its Marks")
+		local applied, undo = Profile.applyPurchase(data, "p2", { marks = 4400 }, { product = "MarksMedium", from = 7 })
+		check.truthy(applied, "a gift applied")
+		check.equal(data.Marks, 5400, "granted at once")
+		check.equal(#data.Gifts, 1, "its box waiting")
+		undo()
+		check.equal(data.Marks, 1000, "a failed save takes it back")
+		check.equal(#data.Gifts, 0, "box too")
+		check.truthy(data.Owned.garment.DenimJacket, "an earlier purchase stays")
+		Profile.applyPurchase(data, "p3", { marks = 1000 }, { product = "MarksSmall", from = 7 })
+		local gift = Profile.openGift(data)
+		check.truthy(gift and gift.product == "MarksSmall" and gift.from == 7, "opened")
+		check.equal(Profile.openGift(data), nil, "none left")
 	end)
 
 	test("only the newest receipts are kept", function()

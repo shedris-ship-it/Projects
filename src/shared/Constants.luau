@@ -125,6 +125,9 @@ Constants.PlayerAttributes = {
 	Car = "Car",
 	-- The rental tape in your hand (Services/RentalService): a location id.
 	Tape = "Tape",
+	-- In the boutique's fitting room (Services/ShopService): "booth" or
+	-- "rack", nil when not.
+	Trying = "Trying",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",
 	-- The keys on your ring (the escape, Services/LockService): their names,

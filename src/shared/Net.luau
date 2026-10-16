@@ -41,6 +41,12 @@ local DEFINITIONS = {
 	CarSet = "RemoteEvent", -- (key, value as text): the driver's dashboard: difficulty, night, friendsOnly
 	CarHonk = "RemoteEvent", -- the driver honks to leave
 	CarGetOut = "RemoteEvent", -- out of your car (Space works too)
+	-- The boutique (LB3; Services/ShopService, UI/Boutique).
+	ShopTry = "RemoteEvent", -- (garment id): try it on in the fitting room
+	ShopBuy = "RemoteEvent", -- (garment id): buy it for Marks
+	ShopDone = "RemoteEvent", -- out of the fitting room, wearing what's yours
+	TillBuy = "RemoteEvent", -- (product name, for userId or 0): a Robux product at the till, for you or a friend here
+	StarterAnswer = "RemoteEvent", -- (yes): the starter pack's slip answered
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",
@@ -71,6 +77,10 @@ local DEFINITIONS = {
 	CarState = "RemoteEvent", -- S->C (state): the car you're in, for its dashboard
 	Receipt = "RemoteEvent", -- S->C ({ marks, case }): back in your car after a run
 	PromptInvite = "RemoteEvent", -- S->C: the payphone; your client asks Roblox to invite a friend
+	ShopState = "RemoteEvent", -- S->C (state or nil): the fitting room: what you have on, own, can afford; nil when out
+	ShopTill = "RemoteEvent", -- S->C ({ products, friends, marks }): the till opened
+	StarterOffer = "RemoteEvent", -- S->C ({ robux, garment, marks }): the starter pack, offered once after your first run
+	GiftArrived = "RemoteEvent", -- S->C ({ from, what }): a wrapped gift for you (or opened)
 	DebugState = "UnreliableRemoteEvent",
 	ProfileData = "RemoteEvent",
 }

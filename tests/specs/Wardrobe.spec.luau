@@ -68,7 +68,30 @@ return function(test, check, Shared, require)
 		}
 		for id, garment in Wardrobe.Garments do
 			for _, part in need[garment.slot] do
-				check.truthy(garment.pieces[part] ~= nil, id .. " covers " .. part)
+				-- (Short sleeves leave the forearms bare.)
+				local bare = garment.short and (part == "LeftLowerArm" or part == "RightLowerArm")
+				check.equal(garment.pieces[part] ~= nil, not bare, id .. " on " .. part)
+			end
+		end
+	end)
+
+	test("the boutique (LB3): the eight free, the rest priced, painted till their meshes are in", function()
+		local free = 0
+		for id, garment in Wardrobe.Garments do
+			if garment.free then
+				free += 1
+				check.equal(garment.price, nil, id .. " isn't sold")
+			else
+				check.truthy(type(garment.price) == "number" and garment.price > 0, id .. " has a price")
+				check.truthy(type(garment.paint) == "table" and #garment.paint == 3, id .. " has a colour to paint")
+			end
+			check.truthy(not garment.over or garment.slot == "Shoes", id .. ": only shoes go over the hems")
+			check.truthy(not garment.short or garment.slot == "Top", id .. ": only tops are short-sleeved")
+		end
+		check.equal(free, 8, "today's eight are the free set")
+		for _, look in Wardrobe.Outfits do
+			for _, slot in Wardrobe.Slots do
+				check.truthy(Wardrobe.Garments[look[slot]].free, "the squad's looks are all free")
 			end
 		end
 	end)

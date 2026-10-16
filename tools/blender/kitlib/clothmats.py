@@ -196,6 +196,35 @@ def denim(name, color, light, roughness=0.9):
     return mat
 
 
+def acidwash(name, color, light, roughness=0.9):
+    """Acid-wash denim (LB3): the twill marbled with bleach, pale blotches
+    and veins with hard edges against the darker blue left between them."""
+    if name in _cache:
+        return _cache[name]
+    mat = bpy.data.materials.new(name)
+    n = materials.Nodes(mat)
+    m, _ = _xyz(n)
+    twill = n.add("ShaderNodeTexWave", wave_type="BANDS", bands_direction="DIAGONAL")
+    twill.inputs["Scale"].default_value = 160.0
+    n.link(m.outputs["Vector"], twill.inputs["Vector"])
+    # The bleach: a strongly distorted noise, cut hard into blotches.
+    marble = n.noise(m.outputs["Vector"], 4.5, 6.0, 0.65)
+    marble.inputs["Distortion"].default_value = 2.4
+    # (Mostly blue: the first try bleached half of it white, a floral print.)
+    bleach = n.ramp(marble.outputs["Fac"], [(0.58, (0, 0, 0, 1)), (0.66, (0.85, 0.85, 0.85, 1))])
+    vein = n.noise(m.outputs["Vector"], 11.0, 4.0, 0.6)
+    veins = n.ramp(vein.outputs["Fac"], [(0.485, (0, 0, 0, 1)), (0.5, (1, 1, 1, 1)), (0.515, (0, 0, 0, 1))])
+    amount = n.math("MINIMUM", n.math("ADD", bleach.outputs["Color"], n.math("MULTIPLY", veins.outputs["Color"], 0.35).outputs["Value"]).outputs["Value"], 1.0)
+    col = _mix(n, _rgb(n, color), _rgb(n, light), amount.outputs["Value"])
+    lines = n.math("MULTIPLY", twill.outputs["Fac"], 0.1)
+    col = _mix(n, col, _rgb(n, tuple(int(c * 0.6) for c in color)), lines.outputs["Value"])
+    n.link(col, n.bsdf.inputs["Base Color"])
+    n.bsdf.inputs["Roughness"].default_value = roughness
+    _fold_bump(n, m, n.math("MULTIPLY", twill.outputs["Fac"], 0.3).outputs["Value"], 0.35)
+    _cache[name] = mat
+    return mat
+
+
 def corduroy(name, color, roughness=0.9):
     """Corduroy: soft round wales running down the leg, darker between
     them."""

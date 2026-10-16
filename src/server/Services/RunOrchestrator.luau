@@ -572,7 +572,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		if player.Parent then
 			local extracted = run.extracted[player] == true
 			local rewards = services.RunLogService:Rewards(player)
-			local marks = services.DataService:GrantRunRewards(player, {
+			local marks, doubled = services.DataService:GrantRunRewards(player, {
 				won = won,
 				extracted = extracted,
 				drift = drift,
@@ -581,6 +581,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				puzzlesSolved = rewards.puzzlesSolved,
 				valuables = #haul,
 				valuableMarks = Config.Valuables.Marks,
+				valuableXp = Config.Valuables.Xp,
 				stalker = run.location.stalker,
 			})
 			run.receipts[player] = marks
@@ -588,6 +589,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				summary = summary,
 				dossier = dossier,
 				marks = marks,
+				doubled = doubled,
 				extracted = extracted,
 			})
 		end

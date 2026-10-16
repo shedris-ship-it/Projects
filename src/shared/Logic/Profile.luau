@@ -3,11 +3,16 @@
 -- it). Version 2 (the lobby rework's LB0, docs/plans/lobby-rework.md, "Data")
 -- adds what the lobby's shops will need: what you own and wear, arcade
 -- credits and tickets, the starter pack, and the receipts that make every
--- purchase count once.
+-- purchase count once. Version 3 (LB3, the boutique) adds the day of your
+-- last double-Marks escape, whether the starter pack has been offered, and
+-- gifts waiting to be opened.
 
 local Profile = {}
 
-Profile.Version = 2
+Profile.Version = 3
+
+-- Gifts waiting to be opened (more are refused until some are).
+Profile.MaxGifts = 20
 
 -- Receipts kept (the newest): Roblox asks again about a purchase until it's
 -- granted, and only ever about recent ones.
@@ -29,6 +34,10 @@ local TEMPLATE = {
 	Tickets = 0, -- the arcade's prize counter (none given until it opens)
 	StarterPack = false, -- bought once
 	Receipts = {}, -- recent purchase ids, oldest first
+	-- Version 3 (LB3):
+	DoubleDay = 0, -- the day (UTC, Logic/Progression.day) of the last double-Marks escape
+	StarterOffered = false, -- the starter pack's slip shown, after the first run
+	Gifts = {}, -- wrapped boxes not yet opened: { product, from (a user id) }, oldest first
 }
 
 -- Versioned upgrades: add a step whenever the saved shape changes. A step
@@ -37,6 +46,10 @@ local TEMPLATE = {
 local MIGRATIONS = {
 	[1] = function(data)
 		-- 1 -> 2: only new fields (TEMPLATE fills them in).
+		return data
+	end,
+	[2] = function(data)
+		-- 2 -> 3: only new fields.
 		return data
 	end,
 }
@@ -72,11 +85,39 @@ function Profile.reconcile(data)
 	data.ArcadeCredits = clampNumber(data.ArcadeCredits, 1e6)
 	data.Tickets = clampNumber(data.Tickets, 1e9)
 	data.StarterPack = data.StarterPack == true
+	data.StarterOffered = data.StarterOffered == true
+	data.DoubleDay = clampNumber(data.DoubleDay, 1e7)
 	for _, key in { "Owned", "Wearing", "Settings", "Dossier" } do
 		if type(data[key]) ~= "table" then
 			data[key] = {}
 		end
 	end
+	-- What you own: sets of names by kind; what you wear: a name a slot.
+	for kind, set in data.Owned do
+		if type(kind) ~= "string" or type(set) ~= "table" then
+			data.Owned[kind] = nil
+		else
+			for id, yes in set do
+				if type(id) ~= "string" or yes ~= true then
+					set[id] = nil
+				end
+			end
+		end
+	end
+	for slot, id in data.Wearing do
+		if type(slot) ~= "string" or type(id) ~= "string" then
+			data.Wearing[slot] = nil
+		end
+	end
+	local gifts = {}
+	if type(data.Gifts) == "table" then
+		for _, gift in data.Gifts do
+			if type(gift) == "table" and type(gift.product) == "string" and #gifts < Profile.MaxGifts then
+				table.insert(gifts, { product = gift.product, from = math.floor(tonumber(gift.from) or 0) })
+			end
+		end
+	end
+	data.Gifts = gifts
 	local receipts = {}
 	if type(data.Receipts) == "table" then
 		for _, id in data.Receipts do
@@ -101,12 +142,14 @@ function Profile.hasReceipt(data, purchaseId: string): boolean
 end
 
 -- Applies a Robux purchase once: its grant and its receipt together.
--- grant = { marks = n?, arcadeCredits = n?, starterPack = true? }. Marks
--- bought never add Clearance XP (the plan's "Marks"). Returns whether
--- anything was applied (false when the receipt was already there) and a
--- function that takes it all back, for when the save that should keep it
--- fails.
-function Profile.applyPurchase(data, purchaseId: string, grant): (boolean, () -> ())
+-- grant = { marks = n?, arcadeCredits = n?, starterPack = true?, garment =
+-- id? }. Marks bought never add Clearance XP (the plan's "Marks"). `gift` =
+-- { product, from }: the purchase was a friend's gift to this profile, its
+-- wrapped box waiting (LB3; its grant is applied now, the box is how it's
+-- opened). Returns whether anything was applied (false when the receipt was
+-- already there) and a function that takes it all back, for when the save
+-- that should keep it fails.
+function Profile.applyPurchase(data, purchaseId: string, grant, gift): (boolean, () -> ())
 	if Profile.hasReceipt(data, purchaseId) then
 		return false, function() end
 	end
@@ -115,7 +158,12 @@ function Profile.applyPurchase(data, purchaseId: string, grant): (boolean, () ->
 		ArcadeCredits = data.ArcadeCredits,
 		StarterPack = data.StarterPack,
 		Receipts = table.clone(data.Receipts),
+		Gifts = table.clone(data.Gifts),
+		Owned = table.clone(data.Owned),
 	}
+	for kind, set in data.Owned do
+		before.Owned[kind] = table.clone(set)
+	end
 	if type(grant.marks) == "number" and grant.marks > 0 then
 		data.Marks = math.min(data.Marks + math.floor(grant.marks), 1e9)
 	end
@@ -124,6 +172,13 @@ function Profile.applyPurchase(data, purchaseId: string, grant): (boolean, () ->
 	end
 	if grant.starterPack then
 		data.StarterPack = true
+	end
+	if type(grant.garment) == "string" then
+		data.Owned.garment = data.Owned.garment or {}
+		data.Owned.garment[grant.garment] = true
+	end
+	if gift and #data.Gifts < Profile.MaxGifts then
+		table.insert(data.Gifts, { product = gift.product, from = gift.from })
 	end
 	table.insert(data.Receipts, purchaseId)
 	while #data.Receipts > Profile.MaxReceipts do
@@ -134,6 +189,15 @@ function Profile.applyPurchase(data, purchaseId: string, grant): (boolean, () ->
 			data[key] = value
 		end
 	end
+end
+
+-- Opens the oldest wrapped gift: takes it off the list and returns it ({
+-- product, from }), or nil when there's none.
+function Profile.openGift(data)
+	if #data.Gifts == 0 then
+		return nil
+	end
+	return table.remove(data.Gifts, 1)
 end
 
 return Profile

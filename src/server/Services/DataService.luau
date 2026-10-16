@@ -275,16 +275,23 @@ function DataService:Send(player: Player)
 	})
 end
 
--- result = { won, extracted, drift, survivedHunts, regionsOpened, puzzlesSolved, stalker }
--- (old profiles may hold "anomaly:" Dossier entries from the retired clue loop; they stay readable)
-function DataService:GrantRunRewards(player: Player, result): number
+-- result = { won, extracted, drift, survivedHunts, regionsOpened, puzzlesSolved,
+-- valuables, valuableMarks, valuableXp, stalker } (old profiles may hold
+-- "anomaly:" Dossier entries from the retired clue loop; they stay
+-- readable). Returns the Marks paid and whether they were the day's double
+-- (LB3: Marks and Clearance XP are separate sums, Config.Pay).
+function DataService:GrantRunRewards(player: Player, result): (number, boolean)
 	local data = profiles[player]
 	if not data then
-		return 0
+		return 0, false
 	end
-	local marks = Progression.marksForRun(result)
-	data.Marks += marks
-	data.Xp += marks
+	local today = Progression.day(os.time())
+	local marks, doubled = Progression.withDaily(Progression.marksForRun(result), result, data.DoubleDay, today)
+	if doubled then
+		data.DoubleDay = today
+	end
+	data.Marks = math.min(data.Marks + marks, 1e9)
+	data.Xp = math.min(data.Xp + Progression.xpForRun(result), 1e9)
 	data.RunsPlayed += 1
 	if result.won then
 		data.Wins += 1
@@ -297,7 +304,7 @@ function DataService:GrantRunRewards(player: Player, result): number
 	end
 	self:Send(player)
 	task.spawn(self._save, self, player, false)
-	return marks
+	return marks, doubled
 end
 
 return DataService
