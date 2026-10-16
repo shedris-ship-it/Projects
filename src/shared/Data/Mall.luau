@@ -814,8 +814,10 @@ Mall.Lights = {
 	{ room = "garage", kind = "strip", x = 0, y = 17, z = -95, fixture = true },
 	{ room = "garage", kind = "strip", x = 25, y = 17, z = -95, fixture = true, off = true },
 	{ room = "garage", kind = "strip", x = 0, y = 17, z = -72, fixture = true },
-	{ room = "garage", kind = "work", x = -34, y = 7, z = -77, stand = true, shadows = true },
-	{ room = "garage", kind = "work", x = 22, y = 7, z = -79, stand = true },
+	-- (`aim`: degrees about y from facing north, toward what each lights: the
+	-- case board, the generator.)
+	{ room = "garage", kind = "work", x = -34, y = 7, z = -77, stand = true, shadows = true, aim = 90 },
+	{ room = "garage", kind = "work", x = 22, y = 7, z = -79, stand = true, aim = -90 },
 	-- the dead mall's emergency lamps; the lot's sodium lamp
 	{ room = "concourse", kind = "dim", x = 95, y = 20.5, z = 0, fixture = true },
 	{ room = "concourse", kind = "dim", x = 175, y = 20.5, z = 0, fixture = true },

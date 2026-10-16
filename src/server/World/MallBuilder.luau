@@ -705,7 +705,10 @@ local function buildSign(folder: Instance, origin: Vector3, sign)
 			if not sign.battery then
 				CollectionService:AddTag(tubes, Constants.Tags.MallPower)
 			end
-			Kit.place(folder, "SignRaceway", cf, Vector3.new(tubes.Size.X * 0.9, 0.7, 0.58))
+			-- The raceway under the word, the letters standing up from it (behind
+			-- them it read as a line struck through them).
+			local under = cf:PointToObjectSpace(tubes.Position).Y - tubes.Size.Y / 2 - 0.4
+			Kit.place(folder, "SignRaceway", cf * CFrame.new(0, under, 0), Vector3.new(tubes.Size.X * 0.9, 0.7, 0.58))
 			gui.Enabled = false
 		end)
 	end
@@ -755,18 +758,19 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 			DARK_STEEL,
 			material("Metal")
 		)
+		local aim = CFrame.Angles(0, math.rad(l.aim or 0), 0)
 		holder = decor(
 			folder,
 			"WorkLamp",
 			Vector3.new(1.2, 0.9, 1.2),
-			CFrame.new(at) * CFrame.Angles(math.rad(-20), 0, 0),
+			CFrame.new(at) * aim * CFrame.Angles(math.rad(-20), 0, 0),
 			color,
 			material("Neon")
 		)
 		-- The kit's tripod and housing round the lit head (mall3, modelled
 		-- with its head 7 up, as the work lamps hang).
 		later(function()
-			if Kit.place(folder, "WorkLamp", CFrame.new(at - Vector3.new(0, l.y, 0))) then
+			if Kit.place(folder, "WorkLamp", CFrame.new(at - Vector3.new(0, l.y, 0)) * aim) then
 				Kit.hide(pole)
 			end
 		end)

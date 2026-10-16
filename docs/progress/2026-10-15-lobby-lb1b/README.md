@@ -271,3 +271,36 @@ Everything stands as grey box until imported, and a piece not yet imported chang
 - **In Studio before the import** (build .210): 189 dressing jobs ran with no warnings and no errors from the game. The house's car and workbench, already imported, went straight in (`mall3/house_car_workbench.jpg`): the cars nose to the door, the bench facing the room. Everything else stays grey box until imported.
 
 **For the owner:** import `build/kit/mall3/mall3.fbx` (Home → Import 3D). It's 33 meshes, but only 28 come with maps: the five neon words have none, since the game draws them glowing in their own colour. Then Claude files the ids and checks TC-312.
+
+### mall3 imported and seen in Studio (build `2026-10-16.211`)
+
+**The import:**
+- The owner imported `mall3.fbx` (Home → Import 3D): all 33 meshes, the five neon words without maps as intended.
+- Claude filed the 33 ids in `Data/Kit` and the 28 sets of maps in `assets/kit`, and Rojo synced them (no duplicate looks).
+
+**In play:**
+- 299 kit meshes and the batch loaded.
+- All 189 dressing jobs ran and 509 grey blocks were hidden. Every piece is in place:
+  - the garage's 29 (with 4 strip lights and the 2 work lamps);
+  - 21 roll-up shutters (the garage's door, the dead mall's ten fronts and the ten upper shutters);
+  - 8 vault ribs and 2 lunettes, the escalator pair;
+  - the five neon words with their raceways.
+- The neon is drawn Neon in each sign's colour, no maps, and the old text is switched off.
+
+**Two things fixed on seeing it:**
+- **The raceway behind each neon word read as a line struck through it** (`mall3/ingame_0_neon_before_raceway.jpg`, `ingame_2_neon_west.jpg`). It now runs under the word, the letters standing up from it, and on the shops it tucks behind the grille box (`ingame_1_neon.jpg`).
+- **The camp's work lamp faced the bays while its light fell on the camp.** The work lamps take an `aim` now (Data/Mall's lights): the camp's faces the case board and throws its tripod's shadow up the wall; the workshop's faces the generator (`ingame_4_camp.jpg`).
+
+| Shot | What it shows |
+| --- | --- |
+| `mall3/ingame_1_neon.jpg` | BOUTIQUE, VIDEO and ARCADE in neon over their fronts |
+| `mall3/ingame_2_neon_west.jpg` | ELECTRONICS and DINER (taken before the raceway moved) |
+| `mall3/ingame_3_vault.jpg` | Looking up: the ribs over the dark glass, the east lunette over the two-storey grille |
+| `mall3/ingame_4_camp.jpg` | The camp: cots, the camp table, TONIGHT on the whiteboard, the case board, the desk and chair, the boxes, the lamp aimed at the board |
+| `mall3/ingame_5_workshop.jpg` | The generator, drums, cans and reel, the car bits pegboard, the payphone, a lamp, a strip light |
+| `mall3/ingame_6_escalators.jpg` | Through the grille: the stopped escalators between the dead fronts' shutters |
+
+For the owner:
+- TC-312 by eye.
+- You can delete `Workspace.Scene` (the imported copy).
+- The night keeps the vault's lattice dark until lightning lights it. If you'd like it read more, a faint light on the ribs is a later tweak for the lighting pass.

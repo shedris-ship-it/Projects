@@ -359,7 +359,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
       - the arcade's cabinets and the prize counter;
       - the electronics store's TVs;
       - the boutique's racks and the changing booth.
-    - **`mall3`, the garage and the dead mall** (started 2026-10-16: the garage laid out by hand too, its desk, diesel and tyres; 33 pieces plus the house's car and workbench; the vault's ribs and ends, the escalators, real neon tubes for the five shop names, the roll-up shutter for every shutter):
+    - **`mall3`, the garage and the dead mall** (*done*, build .211: imported by the owner and seen in place; started 2026-10-16: the garage laid out by hand too, its desk, diesel and tyres; 33 pieces plus the house's car and workbench; the vault's ribs and ends, the escalators, real neon tubes for the five shop names, the roll-up shutter for every shutter):
       - the investigators' generator, cots, desk, case board and tool bench;
       - the payphone;
       - the vault's frame;
