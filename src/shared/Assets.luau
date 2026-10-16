@@ -112,39 +112,39 @@ Assets.Sounds = {
 }
 
 -- The lobby mall's sounds (Controllers/MallController; the owner's ask,
--- 2026-10-15). A shortlist per role, chosen by description and not yet
--- heard: the first plays; the owner picks by ear in Studio with F2
--- `mallsound <role> <n>` (Hum, Buzz, Drip, Radio, Arcade, Sputter), then
--- the pick moves to the front here. Pro Sound Effects and APM are licensed
+-- 2026-10-15). A shortlist per role; the first plays. The owner picked each
+-- by ear on 2026-10-15 (from Roblox's store pages), and the picks are first;
+-- the rest stay to swap back with F2 `mallsound <role> <n>` (Hum, Buzz,
+-- Drip, Radio, Arcade, Sputter). Pro Sound Effects and APM are licensed
 -- library audio; the rest is free Creator Store audio. Nothing uploaded.
 Assets.Mall = {
 	Hum = { -- the investigators' generator, idling in the garage
-		"rbxassetid://71482635231754", -- TheGoldCube "Diesel engine idle loop"
+		"rbxassetid://71482635231754", -- TheGoldCube "Diesel engine idle loop" (the owner's pick)
 		"rbxassetid://4350214335", -- ZombieLordCell123 "GE Idle"
 		"rbxassetid://9112890980", -- PSE "Ups Sorting Facility 1": fluttering machine, motor, compressor
 	},
 	Buzz = { -- the two fluorescents still working
-		"rbxassetid://9112823813", -- PSE "Light Bulb Buzz 2": close, constant tone, loop
+		"rbxassetid://9112823813", -- PSE "Light Bulb Buzz 2": close, constant tone, loop (the owner's pick)
 		"rbxassetid://619993906", -- Dekimus "Buzzing Fluorescent Light"
 		"rbxassetid://9112889082", -- PSE "Transformer Hum 1": steady buzz, loop
 	},
 	Drip = { -- the leak into the bucket, one drop at a time
-		"rbxassetid://9112895345", -- PSE "Water Drip Single Drops Into Tin Bucket 117"
+		"rbxassetid://9112895345", -- PSE "Water Drip Single Drops Into Tin Bucket 117" (the owner's pick)
 		"rbxassetid://9112899667", -- PSE "... Tin Bucket 54"
 		"rbxassetid://9120520174", -- PSE "Water Drip Into Wood Bowl Light Blip 17" (the house's)
 	},
 	Radio = { -- the CB radio in the investigators' corner
+		"rbxassetid://9120457641", -- PSE "Walkie Talkie 7": futzed voices (the owner's pick)
 		"rbxassetid://9112851363", -- PSE "Radio Light Chatter 1": chatter, whine, loop
-		"rbxassetid://9120457641", -- PSE "Walkie Talkie 7": futzed voices
 		"rbxassetid://8028069841", -- NoobMatthew3 "Radio Static Loop" (the house's)
 	},
 	Arcade = { -- the cabinets' attract mode (no arcade loop in the libraries)
+		"rbxassetid://82693415549955", -- DistroKid "Save Game" (the owner's pick)
 		"rbxassetid://135444413435483", -- DistroKid "World 1-1: Dingo Drivers" (chiptune)
-		"rbxassetid://82693415549955", -- DistroKid "Save Game"
 		"rbxassetid://9112814647", -- PSE "Las Vegas Casino 2": video poker blips (has crowd walla)
 	},
 	Sputter = { -- the generator coughing in a brownout
-		"rbxassetid://9125346931", -- PSE "1988 Chevy Pickup Truck Rough Start Turn Off 4": sputtering failures
+		"rbxassetid://9125346931", -- PSE "1988 Chevy Pickup Truck Rough Start Turn Off 4": sputtering failures (the owner's pick)
 		"rbxassetid://9125657802", -- PSE "Mercedes-Benz 280 SL Failed Starts Engine Start 2"
 		"rbxassetid://9112970895", -- PSE "1979 Mack Semi Truck 2": failed starts, whirring, clanking
 	},

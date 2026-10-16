@@ -115,3 +115,12 @@ The owner picked ideas 1 to 3 of the list after the story pass: "the sounds (I'l
   - a strike flashed the door light from 0.25 to 1.25 and the moonlight from 0.9 to 4.5, the thunder played, and both settled back.
 
   `story/7_brownout.jpg` is caught in the middle of one. Not judged by ear: the sounds themselves (the owner's job, with `mallsound`).
+- **The owner's picks** (2026-10-15, by ear on Roblox's store pages, through a sound board in the chat; build .204), now first in `Assets.Mall`:
+  - the generator: the diesel idle loop;
+  - the fluorescents: Light Bulb Buzz 2;
+  - the drip: the tin bucket (117);
+  - the CB radio: Walkie Talkie 7;
+  - the arcade: "Save Game";
+  - the cough: the 1988 pickup's rough start.
+
+  The two that changed place (the walkie-talkie, Save Game) were loaded and played in Studio before the build.
