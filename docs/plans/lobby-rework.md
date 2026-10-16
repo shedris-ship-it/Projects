@@ -343,7 +343,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
 
     The report's "grandeur pass" section and its `grandeur/` screenshots; TC-309.
   - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight, and now the vault, the gallery and its rail, the chandelier, the escalators), imported by the owner as before; the lighting pass; the 50-player measurement. The owner walked .205 ("the height works") and started it the same day. In batches, as the house's kit went (kit.py, `kitlib/mall`):
-    - **`mall1`, the court** (started 2026-10-15), what every player sees close up each visit, 14 pieces:
+    - **`mall1`, the court** (*done*, build .207: imported by the owner and seen in place), what every player sees close up each visit, 14 pieces:
       - the bench, the planter and its dead ficus;
       - the fountain's basin (drained, stepped into: `hollow`) and its centrepiece;
       - the directory, with the mall's map and YOU ARE HERE;

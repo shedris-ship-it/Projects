@@ -71,3 +71,45 @@ Nothing glows: the mall's own lamps are dead, and only what the investigators hu
 1. Import the batch: in Studio, **Home → Import 3D**, pick `A:\111- Projects\Github\Projects\build\kit\mall1\mall1.fbx`, and import it with the importer's defaults. It uploads 14 meshes and their maps to your account, as the house's batches did.
 2. Tell Claude when it's in. Claude reads the new ids in Studio, files them (Data/Kit `id`, `assets/kit/<piece>.model.json`), and checks every piece in place (TC-310).
 3. You can delete the imported `Scene` model from Workspace afterwards, since the game builds the pieces from their ids.
+
+## Imported and seen in Studio (build `2026-10-15.207`)
+
+**The import:**
+- The owner imported `mall1.fbx` (Home → Import 3D).
+- Its 14 meshes and their maps came in under `Workspace.Scene`, each at its modelled size.
+- Claude filed them: each mesh's id in `Data/Kit` and its four maps in `assets/kit/<piece>.model.json`.
+
+**In play** (Rojo synced; the file lengths matched):
+- The console printed 268 kit meshes loaded (the house's 254 and these 14), with no errors.
+- Every dressing job ran (44) and 66 grey blocks were hidden. Each piece in place:
+  - 2 benches;
+  - 4 planters and 4 dead ficus;
+  - the fountain's basin and centrepiece;
+  - the directory and the photo booth;
+  - 2 carts;
+  - 4 lightbox cases;
+  - 6 grille boxes;
+  - 12 columns (the court's 4 and the dead mall's 8);
+  - 58 lengths of parapet;
+  - the chandelier.
+- **The fountain is stepped into:**
+  - On the court floor the character's root stood at 3.20; dropped into the basin, at 3.70. That is its drained floor, half a stud up, not the old solid top a stud and a half up.
+  - It walked back out over the rim on its own.
+  - The coins and leaves lie on the drained floor.
+
+| Shot | What it shows |
+| --- | --- |
+| `ingame/1_spawn.jpg` | From the spawn: the directory, the fountain, a planter, the columns, the chandelier's globes (compare `../2026-10-15-lobby-lb1a/grandeur/1_spawn.jpg`) |
+| `ingame/2_fountain.jpg` | The drained basin: terrazzo rim, mosaic, stains, coins and leaves on its floor, the centrepiece (the pole behind it is a gallery column) |
+| `ingame/3_bench_planter.jpg` | A bench, a planter and its ficus, a column's bronze plinth, an east lightbox behind |
+| `ingame/4_booth_directory.jpg` | The photo booth facing the court (PHOTOS, the samples), the directory's north face |
+| `ingame/5_chandelier_gallery.jpg` | Looking up: the chandelier, the columns' collars, the parapet along the gallery |
+| `ingame/6_parapet_corner.jpg` | The parapet's two runs meeting over the diner and the boutique, facing the void |
+| `ingame/7_lightbox.jpg` | A west lightbox: the bronze case and its screws round "THIS SPACE AVAILABLE", nothing over the face |
+| `ingame/8_cart.jpg` | A shopping cart on its wheels by the dead shop's grille |
+
+Not judged here, for the owner (TC-310):
+- the look by eye at the game's own exposure (the court is dark by design, so the pieces read mostly where the shops and bulbs light them);
+- the dead mall's tipped-over cart, seen only through the grille.
+
+**You can now delete `Workspace.Scene`** (the imported copy); the game builds every piece from its id.
