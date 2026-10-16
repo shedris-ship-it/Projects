@@ -148,6 +148,11 @@ Assets.Mall = {
 		"rbxassetid://9125657802", -- PSE "Mercedes-Benz 280 SL Failed Starts Engine Start 2"
 		"rbxassetid://9112970895", -- PSE "1979 Mack Semi Truck 2": failed starts, whirring, clanking
 	},
+	Horn = { -- a party car's driver honks to go (LB2, Services/CarService; not yet heard)
+		"rbxassetid://9114886932", -- PSE "Jeep Horn Doubles Triples Various Versions 1" (2.5 s)
+		"rbxassetid://98887155647851", -- diman's group "Car horn 5" ("feel free to use in games", 4.9 s)
+		"rbxassetid://75630569167524", -- AmikkuHedgehog "Generic car horn" (4.9 s)
+	},
 }
 
 -- Player footsteps by surface (Data/Footsteps, Controllers/FootstepController).

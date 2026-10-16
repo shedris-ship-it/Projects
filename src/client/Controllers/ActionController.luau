@@ -245,6 +245,9 @@ function ActionController:Start()
 	self.state.PlayerStateChanged:Connect(function()
 		self:_applyCamera()
 	end)
+	player:GetAttributeChangedSignal(PA.Car):Connect(function()
+		self:_applyCamera()
+	end)
 	player.CharacterAdded:Connect(function(character)
 		task.defer(function()
 			self:_applyCamera()
@@ -348,16 +351,41 @@ function ActionController:_applyCamera()
 	local inRun = self.state:InRun()
 	local state = self.state:PlayerState()
 	local firstPerson = inRun and Config.Camera.FirstPersonInRun and (state == PS.Active or state == PS.Downed)
+	-- In a party car (LB2) the camera turns about the car, and follows it out
+	-- of the garage door.
+	local carId = not inRun and player:GetAttribute(PA.Car) or nil
+	local lobby = carId and Workspace:FindFirstChild("ConsensusLobby")
+	local cars = lobby and lobby:FindFirstChild("Cars")
+	local car = cars and cars:FindFirstChild("Car" .. tostring(carId))
+	local body = car and car:FindFirstChild("Body")
+	local camera = Workspace.CurrentCamera
 	if firstPerson then
 		player.CameraMode = Enum.CameraMode.LockFirstPerson
 		player.CameraMinZoomDistance = 0.5
+	elseif body then
+		player.CameraMode = Enum.CameraMode.Classic
+		player.CameraMaxZoomDistance = Config.Camera.CarZoom[2]
+		player.CameraMinZoomDistance = Config.Camera.CarZoom[1]
 	else
 		player.CameraMode = Enum.CameraMode.Classic
 		player.CameraMaxZoomDistance = Config.Camera.LobbyMaxZoom
 		player.CameraMinZoomDistance = 4
 	end
-	-- Prompts are for active Witnesses only (shut in a wardrobe, its door's).
-	ProximityPromptService.Enabled = (not inRun) or (state == PS.Active and not self.state:IsTucked())
+	if body then
+		camera.CameraSubject = body
+		self.carCamera = true
+	elseif self.carCamera then
+		self.carCamera = false
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+	-- Prompts are for active Witnesses only (shut in a wardrobe, its door's),
+	-- and not from inside a party car (its dashboard does it all, LB2).
+	local inCar = player:GetAttribute(PA.Car) ~= nil
+	ProximityPromptService.Enabled = (not inRun and not inCar)
+		or (inRun and state == PS.Active and not self.state:IsTucked())
 end
 
 function ActionController:_onHidden(hidden: boolean)

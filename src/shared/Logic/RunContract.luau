@@ -9,7 +9,9 @@ RunContract.Version = 1
 
 local MAX_SQUAD = 8 -- more than any squad (Config.Run.MaxPlayers); a bound on what's read back
 
--- userIds: the squad; settings = { difficulty, location, night }; now: os.time().
+-- userIds: the squad; settings = { difficulty, location, night, lobby? }
+-- (lobby: the sending lobby server's JobId, so the squad can come back to
+-- it, LB2); now: os.time().
 function RunContract.make(userIds: { number }, settings, now: number)
 	local squad = {}
 	for _, id in userIds do
@@ -23,6 +25,7 @@ function RunContract.make(userIds: { number }, settings, now: number)
 		difficulty = settings.difficulty,
 		location = settings.location,
 		night = settings.night,
+		lobby = settings.lobby,
 		made = now,
 	}
 end
@@ -55,6 +58,7 @@ function RunContract.read(raw, known)
 		difficulty = pick(raw.difficulty, known and known.difficulty),
 		location = pick(raw.location, known and known.location),
 		night = type(raw.night) == "string" and raw.night or nil,
+		lobby = (type(raw.lobby) == "string" and #raw.lobby > 0 and #raw.lobby <= 64) and raw.lobby or nil,
 		made = type(raw.made) == "number" and raw.made or 0,
 	}
 end

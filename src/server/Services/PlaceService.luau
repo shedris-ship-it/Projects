@@ -16,8 +16,8 @@ local TeleportService = game:GetService("TeleportService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Constants = require(Shared.Constants)
 local Locations = require(Shared.Data.Locations)
+local Homecoming = require(Shared.Logic.Homecoming)
 local Net = require(Shared.Net)
 local RunContract = require(Shared.Logic.RunContract)
 local ServerRole = require(Shared.Logic.ServerRole)
@@ -45,8 +45,8 @@ function PlaceService:Start()
 		warn(string.format("[Consensus] teleport for %s failed: %s %s", player.Name, tostring(result), message))
 		self.services.DataService:TakeBack(player)
 		self:_tell({ player }, "The road was blocked. Try again in a moment.")
-		player:SetAttribute(Constants.PlayerAttributes.Ready, false)
-		self.services.LobbyService:Broadcast()
+		-- (The car brings them back into the garage, still in their seats.)
+		self.services.CarService:TeleportFailed(player)
 	end)
 	if self.role == ServerRole.Run then
 		task.spawn(self._runServer, self)
@@ -127,8 +127,9 @@ function PlaceService:_teleport(players: { Player }, options: TeleportOptions?):
 end
 
 -- Lobby: sends a squad to a run of its own. settings = { difficulty,
--- location, night }. Returns whether they're on their way; when not, they
--- stay in the hub with their profiles kept here.
+-- location, night, lobby } (lobby: this server's JobId, to come back to).
+-- Returns whether they're on their way; when not, they stay in the hub with
+-- their profiles kept here.
 function PlaceService:SendSquad(players: { Player }, settings): boolean
 	local telemetry = self.services.Telemetry
 	local reserved, code, serverId = pcall(TeleportService.ReserveServer, TeleportService, game.PlaceId)
@@ -231,6 +232,8 @@ function PlaceService:_runServer()
 	pcall(function()
 		self:_contracts():RemoveAsync(key)
 	end)
+	-- (Kept for the way back: the lobby they came from, the car's settings.)
+	self.contract = contract
 	print(string.format("[Consensus] run server: %d of %d of the squad here", #squad, #contract.squad))
 	if contract.night then
 		services.RunOrchestrator:SetNight(contract.night)
@@ -243,9 +246,12 @@ function PlaceService:_runServer()
 end
 
 -- Run: after the run (RunOrchestrator), everyone goes back to a lobby once
--- the Dossier has had its time. A teleport that fails leaves them here, and
--- this server becomes both, so they can play on.
-function PlaceService:ReturnSquad(players: { Player })
+-- the Dossier has had its time: the one they came from if it's still there
+-- (any other if not), with their car's tape and settings and the run's
+-- Marks for the receipt (Logic/Homecoming; Services/CarService seats them in
+-- a car again). A teleport that fails leaves them here, and this server
+-- becomes both, so they can play on. receipts: { [Player] = Marks }.
+function PlaceService:ReturnSquad(players: { Player }, receipts)
 	self:_tell(players, string.format("Back to the hub in %d seconds.", Config.Places.ReturnSeconds))
 	task.delay(Config.Places.ReturnSeconds, function()
 		local here = {}
@@ -257,15 +263,39 @@ function PlaceService:ReturnSquad(players: { Player })
 		if #here == 0 then
 			return
 		end
-		if self:_handOff(here) and self:_teleport(here, nil) then
-			return
+		local contract = self.contract or {}
+		local byId = {}
+		for player, marks in receipts or {} do
+			byId[player.UserId] = marks
+		end
+		local data = Homecoming.make(game.JobId ~= "" and game.JobId or "studio", {
+			tape = contract.location or Locations.Default,
+			difficulty = contract.difficulty or "Normal",
+			night = contract.night or self.services.RunOrchestrator:Night(),
+		}, userIds(here), byId)
+		if self:_handOff(here) then
+			-- The lobby they came from first; any lobby if it's gone or full.
+			if contract.lobby then
+				local home = Instance.new("TeleportOptions")
+				home.ServerInstanceId = contract.lobby
+				home:SetTeleportData(data)
+				if self:_teleport(here, home) then
+					return
+				end
+			end
+			local any = Instance.new("TeleportOptions")
+			any:SetTeleportData(data)
+			if self:_teleport(here, any) then
+				return
+			end
 		end
 		for _, player in here do
 			self.services.DataService:TakeBack(player)
 		end
 		self.role = ServerRole.Both
 		print("[Consensus] couldn't send the squad back; this server is a hub now")
-		self:_tell(here, "Couldn't reach the hub; ready up to play again here.")
+		self:_tell(here, "Couldn't reach the hub. Your car's here: honk to play again.")
+		self.services.CarService:Strand(here, contract, byId)
 	end)
 end
 

@@ -146,6 +146,33 @@ return function(test, check, Shared, require)
 		check.truthy(#MallLayout.openSpots(Mall, "court", 4, 1.5) >= 40, "the court holds most of them")
 	end)
 
+	test("each party car has its own door to drive out of, and room to stand in", function()
+		local garage = Mall.Rooms.garage.rect
+		check.equal(#Mall.Cars.bays, 6, "six bays")
+		for i, bay in Mall.Cars.bays do
+			-- (A car is 7.45 x 14.4, its nose toward the door at the garage's north.)
+			local x0, x1, z0, z1 = bay.x - 3.8, bay.x + 3.8, bay.z - 7.3, bay.z + 7.3
+			check.truthy(x0 > garage[1] + 1 and x1 < garage[3] - 1, "bay " .. i .. " is inside the garage")
+			local door
+			for _, d in Mall.Doors do
+				if d.a == "garage" and d.kind == "garage" and d.at == garage[2] and d.from <= x0 and d.to >= x1 then
+					door = d
+				end
+			end
+			check.truthy(door, "bay " .. i .. " has a door as wide as its car")
+			check.truthy(door and door.height >= 5, "bay " .. i .. "'s door is tall enough for it")
+			for _, b in Mall.Blocks do
+				if b.room == "garage" and b.collide ~= false then
+					local hx, hz = b.size[1] / 2, b.size[3] / 2
+					check.truthy(
+						b.x + hx <= x0 or b.x - hx >= x1 or b.z + hz <= z0 or b.z - hz >= z1,
+						string.format("bay %d is clear of the %s", i, b.name)
+					)
+				end
+			end
+		end
+	end)
+
 	test("a broken layout is caught", function()
 		local broken = {
 			Rooms = {

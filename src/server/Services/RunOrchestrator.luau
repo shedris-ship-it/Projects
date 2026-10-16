@@ -566,6 +566,8 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 			firstProgressAt = stats.firstProgressAt and math.floor(stats.firstProgressAt) or nil,
 		})
 	end
+	-- Each player's Marks, for the receipt in the car (Services/CarService).
+	run.receipts = {}
 	for _, player in run.players do
 		if player.Parent then
 			local extracted = run.extracted[player] == true
@@ -581,6 +583,7 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				valuableMarks = Config.Valuables.Marks,
 				stalker = run.location.stalker,
 			})
+			run.receipts[player] = marks
 			Net.get("Dossier"):FireClient(player, {
 				summary = summary,
 				dossier = dossier,
@@ -603,6 +606,7 @@ end
 function RunOrchestrator:_returnToLobby()
 	local services = self.services
 	local players = self.run and self.run.players or {}
+	local receipts = self.run and self.run.receipts or {}
 	services.StalkerService:Stop()
 	services.ToolService:EndRun()
 	for _, player in players do
@@ -637,12 +641,13 @@ function RunOrchestrator:_returnToLobby()
 			table.insert(alive, player)
 		end
 	end
-	services.LobbyService:Return(alive)
+	-- (The phase first: back in the hub, a car takes them in again.)
 	self:_setPhase(Phases.Lobby)
+	services.LobbyService:Return(alive, receipts)
 	-- A run server sends the squad back to a lobby once the Dossier has had
 	-- its time (Services/PlaceService).
 	if services.PlaceService and services.PlaceService:IsRun() then
-		services.PlaceService:ReturnSquad(alive)
+		services.PlaceService:ReturnSquad(alive, receipts)
 	end
 end
 

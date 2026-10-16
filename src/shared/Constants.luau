@@ -71,10 +71,7 @@ Constants.RunState = {
 	PhaseEndsAt = "PhaseEndsAt",
 	Difficulty = "Difficulty",
 	SquadSize = "SquadSize",
-	LobbyCountdown = "LobbyCountdown",
 	Night = "Night", -- "full" or "short" (Config.Run.Night): the next run's length
-	LobbyWaiting = "LobbyWaiting", -- the names not ready, while a majority waits on them
-	LobbyStartsAt = "LobbyStartsAt", -- server time when the majority may go in without them
 	Objective = "Objective", -- the HUD's one-line objective (Logic/Objectives)
 }
 
@@ -123,7 +120,11 @@ Constants.PlayerAttributes = {
 	HideEnter = "HideEnter", -- ducking into a hiding place (a moment's crouch)
 	Peeking = "Peeking", -- peeking out of a hiding place (Logic/HideRules)
 	Crouched = "Crouched", -- crouching (Controllers/ActionController asks, PlayerStateService decides)
-	Ready = "Ready",
+	-- The party car you're in (Services/CarService): its id, nil when you're
+	-- on foot.
+	Car = "Car",
+	-- The rental tape in your hand (Services/RentalService): a location id.
+	Tape = "Tape",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",
 	-- The keys on your ring (the escape, Services/LockService): their names,

@@ -185,7 +185,12 @@ Mall.Doors = {
 	},
 	{ a = "court", runs = "x", at = 30, from = -12, to = 12, height = 12, kind = "entrance", fill = "glass" },
 	{ a = "video", b = "garage", runs = "x", at = -62, from = -6, to = 6, height = 10, kind = "back" },
-	{ a = "garage", runs = "x", at = -122, from = -20, to = 20, height = 14, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = -43, to = -32, height = 8, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = -28, to = -17, height = 8, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = -13, to = -2, height = 8, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = 2, to = 13, height = 8, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = 17, to = 28, height = 8, kind = "garage", fill = "shutter" },
+	{ a = "garage", runs = "x", at = -122, from = 32, to = 43, height = 8, kind = "garage", fill = "shutter" },
 	{ a = "concourse", runs = "x", at = -20, from = 64, to = 84, height = 12, kind = "deadfront", fill = "shutter" },
 	{ a = "concourse", runs = "x", at = -20, from = 98, to = 118, height = 12, kind = "deadfront", fill = "shutter" },
 	{ a = "concourse", runs = "x", at = -20, from = 132, to = 152, height = 12, kind = "deadfront", fill = "shutter" },
@@ -289,7 +294,34 @@ Mall.Returns = {
 	},
 	face = "N",
 }
-Mall.Contract = { room = "garage", x = -14, z = -72, face = "E" }
+-- The party cars (LB2; Services/CarService, Logic/Cars): one in each bay,
+-- nose to its own roll-up door, each a colour to tell them apart ("the blue
+-- car"). Data/Kit's MallCar, tinted.
+Mall.Cars = {
+	room = "garage",
+	-- Named by their bays' numbers, stencilled over each door (Mall.Signs):
+	-- the six are the house's one maroon wagon, its paint baked in.
+	bays = {
+		{ x = -37.5, z = -110, name = "car 1" },
+		{ x = -22.5, z = -110, name = "car 2" },
+		{ x = -7.5, z = -110, name = "car 3" },
+		{ x = 7.5, z = -110, name = "car 4" },
+		{ x = 22.5, z = -110, name = "car 5" },
+		{ x = 37.5, z = -110, name = "car 6" },
+	},
+}
+
+-- The tapes to rent (LB2; Services/RentalService): a box for each location
+-- on the NEW RELEASES island's top shelf, face out toward the way through
+-- (+x), in front of the row of tapes and leaning back on it as they do; `y`
+-- is the shelf it stands on (Blender's video_island: its rows at 0.6, 1.75
+-- and 2.9 up, boards 0.08 thick, tapes against the spine to x -7.65; the
+-- header band from 4.4). Take one and carry it to a car (Data/Locations: one
+-- not out yet says so).
+Mall.Tapes = {
+	{ room = "video", location = "HalfwayHouse", x = -7.62, y = 2.94, z = -48.4 },
+	{ room = "video", location = "StOdileWard", x = -7.62, y = 2.94, z = -51.6 },
+}
 
 -- A run server builds only this: the squad's waiting room (Services/
 -- PlaceService); its spawn and returns are the garage's.
@@ -758,15 +790,97 @@ Mall.Signs = {
 	},
 	{
 		room = "garage",
-		text = "CARS (LB2)",
+		text = "CARS · TO THE HOUSE",
 		x = 0,
-		y = 15.5,
-		z = -120.8,
-		w = 12,
-		h = 1.6,
+		y = 11.2,
+		z = -120.75,
+		w = 11,
+		h = 1.7,
 		face = "S",
-		color = { 240, 230, 200 },
-		font = "SourceSansBold",
+		tilt = -1.5,
+		color = { 38, 30, 26 },
+		panel = { 176, 140, 96 },
+		font = "PermanentMarker",
+	},
+	-- Each bay's number, stencilled over its door in road paint (the car's
+	-- name: Mall.Cars).
+	{
+		room = "garage",
+		text = "1",
+		x = -37.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
+	},
+	{
+		room = "garage",
+		text = "2",
+		x = -22.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
+	},
+	{
+		room = "garage",
+		text = "3",
+		x = -7.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
+	},
+	{
+		room = "garage",
+		text = "4",
+		x = 7.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
+	},
+	{
+		room = "garage",
+		text = "5",
+		x = 22.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
+	},
+	{
+		room = "garage",
+		text = "6",
+		x = 37.5,
+		y = 10,
+		z = -120.88,
+		w = 1.8,
+		h = 2.2,
+		face = "S",
+		color = { 214, 182, 84 },
+		see = 1,
+		font = "GothamBlack",
 	},
 	{
 		room = "concourse",
@@ -817,7 +931,9 @@ Mall.Lights = {
 	-- (The lighting pass, LB1b: the bays and the way out lit, the cars and the
 	-- roll-up door read from the video store's back door.)
 	{ room = "garage", kind = "strip", x = 0, y = 17, z = -110, fixture = true },
-	{ room = "garage", kind = "dock", x = 0, y = 17.1, z = -120.4 },
+	{ room = "garage", kind = "dock", x = -30, y = 10, z = -120.4 },
+	{ room = "garage", kind = "dock", x = 0, y = 10, z = -120.4 },
+	{ room = "garage", kind = "dock", x = 30, y = 10, z = -120.4 },
 	-- (`aim`: degrees about y from facing north, toward what each lights: the
 	-- case board, the generator.)
 	{ room = "garage", kind = "work", x = -34, y = 7, z = -77, stand = true, shadows = true, aim = 90 },
@@ -2465,28 +2581,6 @@ Mall.Blocks = {
 		size = { 0.4, 0.06, 22 },
 		color = { 230, 220, 160 },
 		collide = false,
-	},
-	{
-		room = "garage",
-		name = "Car",
-		kit = "MallCar",
-		x = -22.5,
-		y = 2.5,
-		z = -110,
-		size = { 7, 5, 14 },
-		rot = { 0, 180, 0 },
-		color = { 92, 70, 52 },
-	},
-	{
-		room = "garage",
-		name = "Car",
-		kit = "MallCar",
-		x = 22.5,
-		y = 2.5,
-		z = -110,
-		size = { 7, 5, 14 },
-		rot = { 0, 180, 0 },
-		color = { 60, 72, 66 },
 	},
 	{
 		room = "garage",

@@ -183,6 +183,11 @@ The agreed plan, in order:
    - Small known issues: Roblox's chat hint overlaps the hub title; hub sign text sizes vary.
 4. **Tutorial run**, never cut. Build it after the playtest so it teaches the escape. Currently there's only a how-to-play screen.
 5. **Hub place, MemoryStore matchmaking, reserved and private servers.** The owner must publish the places in Creator Hub; walk them through it.
+   - **The lobby rework (the owner, 2026-10-15; `docs/plans/lobby-rework.md`) took this over:** one place whose runs go to reserved servers, no second place.
+     - LB0 (builds .199 to .200, `docs/progress/2026-10-15-lobby-lb0/`): Studio's own stores, `PlaceService`, profile version 2, `MonetizationService`; the teleport checked live by the owner, solo.
+     - LB1a (builds .201 to .205, `docs/progress/2026-10-15-lobby-lb1a/`): the grey-box dead mall, its story, sounds, lightning, brownouts, the two-storey grandeur pass.
+     - LB1b (builds .206 to .212, `docs/progress/2026-10-15-lobby-lb1b/`): three Blender batches (the court, the shops, the garage and the dead mall) imported by the owner; the lighting pass; 49 stand-ins at 60 fps on the owner's PC.
+     - LB2 (build .213, `docs/progress/2026-10-16-lobby-lb2/`): parties by car and the video rental; the Ready button and the majority timer gone.
 6. **Daily contract**, and a harder Hard (more locked regions; `Config.Progression`).
 7. **Second location:** St. Odile Ward, with The Orderly. The archetype data already exists.
 

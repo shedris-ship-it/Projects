@@ -1269,11 +1269,9 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 	else
 		table.insert(returns, facing(origin, spawn.x, 3, spawn.z, spawn.face))
 	end
-	local contract = Mall.Contract
 	return {
 		spawn = facing(origin, spawn.x, 0, spawn.z, spawn.face),
 		returns = returns,
-		contract = built[contract.room] and facing(origin, contract.x, 0, contract.z, contract.face) or nil,
 	}
 end
 

@@ -103,7 +103,7 @@ The garage holds about six station wagons (the house's `Car` kit piece, given do
 - **A payphone on the garage wall** opens Roblox's invite-a-friend prompt (`SocialService:PromptGameInvite`).
 - **Leaving:** the car pulls out of the garage door, then a teleport screen shows the road at night through the windscreen, with rain and wipers. The run begins with the arrival cutscene the game already has.
 - **Coming back:** the squad lands in the same lobby server and in a car again, still a party, with the run's Marks on a typed receipt slip.
-- **Today's Ready button and majority timer go.** The car is the ready-up. `Logic/LobbyRules` stays for Studio's one-place mode (below) until the cars replace it there too.
+- **Today's Ready button and majority timer go.** The car is the ready-up, in Studio's one-place mode too (*done* in LB2: `Logic/LobbyRules` is gone).
 
 ## The shops
 
@@ -366,7 +366,12 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
       - the escalators and the upper fronts;
       - the neon signs' letters.
     - **The lighting pass and the 50-player measurement** (*done*, build .212): the garage's way out lit (a strip over the bays, a caged lamp over the roll-up door), shadows following the preset, the lamps aimed; F2 `crowd <n>` (dressed stand-ins over `MallLayout.openSpots`), `perf` and the overlay's render line. A full lobby holds 60 fps on the owner's PC (about +2 ms CPU, +1 ms GPU, +12 MB); a phone and live networking are the owner's checks. **LB1b is done.**
-- **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
+- **LB2, parties and the video rental** (*done*, build .213, 2026-10-16; report `docs/progress/2026-10-16-lobby-lb2/`). The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
+  - Built: `Logic/Cars` and `Logic/Homecoming` (spec'd), `Services/CarService`, `Services/RentalService`, `UI/Dashboard`. The Ready button, the majority timer and the contract table are gone.
+  - The sign is in the rear window, which faces the dock where players walk in (the cars nose to their doors).
+  - The cars are numbered, not coloured: the six are the house's one maroon wagon, its paint baked in. Painting them goes with the pegboard's paint jobs (LB4), which need a re-exported car with a tintable body.
+  - A squad stranded on its run server goes back in a car there, its case in the deck.
+  - Left for later: the teleport screen (the road at night through the windscreen, rain and wipers). Today the car drives out of its door and Roblox's own teleport screen follows.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.
 - **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's two boards (Normal and Hard; fastest and longest; solo and squad; short night; real runs only).

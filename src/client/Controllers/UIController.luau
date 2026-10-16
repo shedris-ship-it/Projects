@@ -46,6 +46,7 @@ function UIController:Start()
 			"TuneStrip",
 			"Reader",
 			"Lobby",
+			"Dashboard",
 			"Dossier",
 			"Settings",
 			"Overlays",

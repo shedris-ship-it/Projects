@@ -1,8 +1,10 @@
--- The hub (doc section 2, "Briefing"): a lit safehouse where the squad picks
--- a contract and difficulty, chooses a tool and readies up. In a live lobby
--- the squad that readies goes to a reserved server of its own for the run
--- (Services/PlaceService, docs/plans/lobby-rework.md); in Studio, and with
--- Config.Places.ReservedRuns off, the run is played in this server.
+-- The hub (doc section 2, "Briefing"; docs/plans/lobby-rework.md): the dead
+-- mall's lit corner. A squad rents a tape in the video store, gets in a car
+-- in the garage, and the driver honks (Services/RentalService, Services/
+-- CarService, LB2: the cars are the ready-up). In a live lobby the car's
+-- squad goes to a reserved server of its own for the run (Services/
+-- PlaceService); in Studio, and with Config.Places.ReservedRuns off, the run
+-- is played in this server.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,9 +15,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Net = require(Shared.Net)
 local Locations = require(Shared.Data.Locations)
-local LobbyRules = require(Shared.Logic.LobbyRules)
 local Mall = require(Shared.Data.Mall)
-local PropFactory = require(Shared.World.PropFactory)
 
 local MallBuilder = require(script.Parent.Parent.World.MallBuilder)
 
@@ -25,9 +25,9 @@ local LobbyService = {}
 
 function LobbyService:Init(services)
 	self.services = services
+	-- (F2 `start` plays these: a car's own settings go with its squad.)
 	self.difficulty = "Normal"
 	self.location = Locations.Default
-	self.countdownThread = nil
 end
 
 local function lobbyOrigin(): Vector3
@@ -73,31 +73,10 @@ function LobbyService:_build()
 		decal:Destroy()
 	end
 
-	-- The contract table: toggles difficulty. In the garage until LB2's cars
-	-- take its place.
-	local tableCF = built.contract or built.spawn
-	local contract = PropFactory.build("Table", tableCF, folder, { name = "ContractTable" })
-	local paper = PropFactory.part(
-		folder,
-		"Contract",
-		Vector3.new(3, 0.1, 2),
-		tableCF * CFrame.new(0, 3.5, 0),
-		Color3.fromRGB(226, 216, 186),
-		PropFactory.material("SmoothPlastic"),
-		{ collide = false }
-	)
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Change difficulty"
-	prompt.ObjectText = "Contract: " .. Locations.ById[self.location].name
-	prompt.MaxActivationDistance = 9
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = paper
-	prompt.Triggered:Connect(function(player)
-		self:SetDifficulty(player, self.difficulty == "Normal" and "Hard" or "Normal")
-	end)
-	self.contractPrompt = prompt
+	-- The party cars in the garage and the tapes to rent (LB2).
+	self.services.CarService:Build(folder, o)
+	self.services.RentalService:Build(folder, o)
 	self.folder = folder
-	return contract
 end
 
 function LobbyService:Start()
@@ -115,7 +94,6 @@ function LobbyService:Start()
 				end
 			end)
 		end)
-		player:SetAttribute(PA.Ready, false)
 		if data then
 			data:WaitForProfile(player, 8)
 		end
@@ -131,21 +109,7 @@ function LobbyService:Start()
 	Players.PlayerRemoving:Connect(function()
 		task.defer(function()
 			self:Broadcast()
-			self:_checkStart()
 		end)
-	end)
-
-	Net.onServer("SetReady", { interval = 0.2, types = { "boolean" } }, function(player, ready)
-		self:SetReady(player, ready == true)
-	end)
-	Net.onServer("SetNight", { interval = 0.3, types = { "string" } }, function(_, night)
-		-- The next run's length (WP8), from the hub's Night button.
-		if self:InLobby() and self.services.RunOrchestrator:SetNight(night) then
-			self:Broadcast()
-		end
-	end)
-	Net.onServer("SetDifficulty", { interval = 0.3, types = { "string" } }, function(player, difficulty)
-		self:SetDifficulty(player, difficulty)
 	end)
 end
 
@@ -164,158 +128,14 @@ function LobbyService:LobbyPlayers(): { Player }
 	return list
 end
 
-function LobbyService:SetDifficulty(player: Player, difficulty)
-	if type(difficulty) ~= "string" or not Config.Difficulty[difficulty] or not self:InLobby() then
-		return
-	end
-	self.difficulty = difficulty
-	Net.get("Notify"):FireAllClients(player.DisplayName .. " set the contract to " .. difficulty .. ".", "info")
-	self:Broadcast()
-end
-
-function LobbyService:SetReady(player: Player, ready: boolean)
-	if not self:InLobby() then
-		return
-	end
-	player:SetAttribute(PA.Ready, ready)
-	-- The majority's clock runs from the first Ready (Logic/LobbyRules) and
-	-- stops when nobody is ready any more.
-	local anyReady = false
-	for _, other in self:LobbyPlayers() do
-		if other:GetAttribute(PA.Ready) then
-			anyReady = true
-		end
-	end
-	if anyReady and not self.firstReadyAt then
-		self.firstReadyAt = os.clock()
-		-- Look again when the timer runs out, with nobody pressing anything.
-		task.delay((Config.Run.LobbyMajoritySeconds or 30) + 0.1, function()
-			self:_checkStart()
-		end)
-	elseif not anyReady then
-		self.firstReadyAt = nil
-	end
-	self:Broadcast()
-	self:_checkStart()
-end
-
--- Who is ready, and who isn't, among the hub's players.
-function LobbyService:_readiness(): ({ Player }, { Player })
-	local ready, waiting = {}, {}
-	for _, player in self:LobbyPlayers() do
-		if player:GetAttribute(PA.Ready) then
-			table.insert(ready, player)
-		else
-			table.insert(waiting, player)
-		end
-	end
-	return ready, waiting
-end
-
-function LobbyService:_checkStart()
-	if not self:InLobby() then
-		return
-	end
-	-- A run server starts only the run its contract asks for
-	-- (Services/PlaceService); its hub is the squad's waiting room.
-	local places = self.services.PlaceService
-	if places and places:IsRun() then
-		return
-	end
-	local runState = ReplicatedStorage.RunState
-	local players = self:LobbyPlayers()
-	local ready, waiting = self:_readiness()
-	local since = self.firstReadyAt and (os.clock() - self.firstReadyAt) or nil
-	local how = LobbyRules.start(#players, #ready, since, Config.Run)
-	-- The hub's word on it: who it waits for, and when it stops waiting.
-	if how == nil and #ready >= LobbyRules.needed(#players) and #waiting > 0 and self.firstReadyAt then
-		local names = {}
-		for _, player in waiting do
-			table.insert(names, player.DisplayName)
-		end
-		runState:SetAttribute(Constants.RunState.LobbyWaiting, table.concat(names, ", "))
-		runState:SetAttribute(
-			Constants.RunState.LobbyStartsAt,
-			workspace:GetServerTimeNow() + math.max(0, (Config.Run.LobbyMajoritySeconds or 30) - (since or 0))
-		)
-	else
-		runState:SetAttribute(Constants.RunState.LobbyWaiting, nil)
-		runState:SetAttribute(Constants.RunState.LobbyStartsAt, nil)
-	end
-	if how and not self.countdownThread then
-		-- The squad is whoever is ready now (everyone, when everyone is);
-		-- the rest stay in the hub (Logic/LobbyRules "majority").
-		local squad = table.clone(ready)
-		self.countdownThread = task.spawn(function()
-			for t = Config.Run.LobbyCountdown, 1, -1 do
-				runState:SetAttribute(Constants.RunState.LobbyCountdown, t)
-				task.wait(1)
-				local stillReady = #squad >= 1
-				for _, player in squad do
-					if not player.Parent or not player:GetAttribute(PA.Ready) then
-						stillReady = false
-					end
-				end
-				if not stillReady then
-					runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
-					self.countdownThread = nil
-					self:_checkStart()
-					return
-				end
-			end
-			runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
-			runState:SetAttribute(Constants.RunState.LobbyWaiting, nil)
-			runState:SetAttribute(Constants.RunState.LobbyStartsAt, nil)
-			self.countdownThread = nil
-			self.firstReadyAt = nil
-			-- Whoever readied during the countdown comes too (the squad
-			-- playtest, 2026-10-10: three pressed Ready, the timer's majority
-			-- went in with two and left the third behind).
-			for _, player in (self:_readiness()) do
-				if not table.find(squad, player) then
-					table.insert(squad, player)
-				end
-			end
-			while #squad > Config.Run.MaxPlayers do
-				table.remove(squad)
-			end
-			local places = self.services.PlaceService
-			if places and places:IsLobby() then
-				-- A lobby sends the squad to a reserved server of its own
-				-- (Services/PlaceService); they're no longer ready here, so the
-				-- hub doesn't count them again while they go.
-				for _, player in squad do
-					player:SetAttribute(PA.Ready, false)
-				end
-				self:Broadcast()
-				local sent = places:SendSquad(squad, {
-					difficulty = self.difficulty,
-					location = self.location,
-					night = self.services.RunOrchestrator:Night(),
-				})
-				if not sent then
-					for _, player in squad do
-						if player.Parent then
-							Net.get("Notify")
-								:FireClient(player, "The car wouldn't start. Ready up to try again.", "info")
-						end
-					end
-				end
-			else
-				self.services.RunOrchestrator:StartRun(squad, self.difficulty, self.location)
-			end
-		end)
-	elseif not how and self.countdownThread then
-		runState:SetAttribute(Constants.RunState.LobbyCountdown, nil)
-	end
-end
-
--- Return players to the hub after a run.
-function LobbyService:Return(players: { Player })
+-- Return players to the hub after a run played here (Studio): back in the
+-- car they left in (CarService), or by the cars. receipts: { [Player] =
+-- Marks }, for the slip in the car.
+function LobbyService:Return(players: { Player }, receipts)
+	local seated = self.services.CarService:Return(players, receipts)
 	for i, player in players do
-		player:SetAttribute(PA.Ready, false)
 		local character = player.Character
-		if character then
+		if character and not table.find(seated, player) then
 			self.services.PlayerStateService:MarkTeleport(player)
 			character:PivotTo(self:SpawnCFrame(i))
 		end
@@ -329,7 +149,7 @@ function LobbyService:Broadcast()
 		table.insert(list, {
 			userId = player.UserId,
 			name = player.DisplayName,
-			ready = player:GetAttribute(PA.Ready) == true,
+			car = self.services.CarService:CarName(player),
 			state = player:GetAttribute(PA.State),
 		})
 	end
@@ -337,13 +157,8 @@ function LobbyService:Broadcast()
 		return a.userId < b.userId
 	end)
 	local location = Locations.ById[self.location]
-	if self.contractPrompt then
-		self.contractPrompt.ObjectText = location.name .. " · " .. self.difficulty
-	end
 	Net.get("LobbyState"):FireAllClients({
 		players = list,
-		difficulty = self.difficulty,
-		night = self.services.RunOrchestrator:Night(),
 		location = { id = location.id, name = location.name, blurb = location.blurb },
 		locations = Locations.List,
 		inLobby = self:InLobby(),

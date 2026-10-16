@@ -5,19 +5,13 @@ local Config = {}
 
 Config.Run = {
 	MinPlayers = 1,
-	-- The lobby starts on a majority or a timer (the owner, 2026-10-06): once
-	-- at least half the hub is ready and this long has passed since the
-	-- first Ready, the ready ones go in and the rest stay in the hub (Logic/
-	-- LobbyRules). Everyone ready still starts at once.
-	LobbyMajoritySeconds = 30,
 	-- The length of the night (docs/progress/2026-10-07-loop/REPORT.md, WP8):
 	-- "full" is the squad's house; "short" lays Config.Mansion.Profiles.short
 	-- over it (about 15 minutes). Short is the default since 2026-10-11 (the
 	-- owner's choice: shorter runs are played more, and a loss costs less).
-	-- The lobby's Night button and F2 `night` pick it for the next run.
+	-- A car's dashboard (LB2) and F2 `night` pick it for the next run.
 	Night = "short",
 	MaxPlayers = 4,
-	LobbyCountdown = 5,
 	ArrivalSeconds = 180, -- (doc) 3-4 min
 	NoHuntBeforeSeconds = 180, -- (doc) hunts never start in the first 3 minutes
 	StalkerDormantSeconds = 90, -- (doc) nothing appears in the first 90 seconds
@@ -2434,6 +2428,9 @@ Config.Difficulty = {
 Config.Camera = {
 	FirstPersonInRun = true,
 	LobbyMaxZoom = 14,
+	-- In a party car (LB2) the camera turns about the car, not you: far
+	-- enough out to clear its roof (the wagon is 14 studs long).
+	CarZoom = { 13, 24 },
 	FieldOfView = 70,
 }
 
@@ -2682,6 +2679,33 @@ Config.Body = {
 -- Where runs are played (Services/PlaceService; docs/plans/lobby-rework.md,
 -- "One place, runs in reserved servers"): a lobby sends each squad to a
 -- reserved server of the same place.
+-- The garage's party cars (LB2; docs/plans/lobby-rework.md, "Parties";
+-- Logic/Cars, Services/CarService, UI/Dashboard).
+Config.Cars = {
+	Seats = Config.Run.MaxPlayers, -- a wagon seats the squad
+	Countdown = 5, -- seconds from the honk to pulling out; anyone can get out meanwhile
+	DriveSeconds = 3.5, -- pulling out of its door
+	DriveDistance = 28, -- studs, out through the door into the night
+	DoorRise = 8.5, -- how far its roll-up door goes up
+	DoorSeconds = 1.2,
+	BackSeconds = 6, -- an empty car back in its bay after its squad has gone
+	PartyHold = 90, -- seconds a car is kept for a Roblox party that arrives together
+	ArrivalWait = 8, -- a squad coming back waits this long for its last member before it's seated
+	ReceiptSeconds = 12, -- the receipt slip's time on screen
+	Difficulty = { "Normal", "Hard" },
+	Night = { "short", "full" },
+	NightNames = { short = "short night", full = "full house" },
+	Default = { difficulty = "Normal", night = Config.Run.Night },
+	-- Each seat in a car's frame (its front -Z, toward the door): the wheel
+	-- first (on the left, as an American wagon's), the passenger, the back.
+	-- (Low: a seated head stays under the wagon's roof, 4.76 studs, at the windows.)
+	SeatSpots = { { -1.5, 0.4, -0.4 }, { 1.5, 0.4, -0.4 }, { -1.5, 0.4, 2.7 }, { 1.5, 0.4, 2.7 } },
+	ExitSide = 5.4, -- getting out: this far to the side of your seat, between the cars
+	ExitSettle = 0.3, -- s: set down beside the car again once the client lets go of the seat
+	SignAt = { 0, 3.6, 6.66 }, -- the sign in the rear window, read from the garage
+	SignSize = { 4.8, 1.7 },
+}
+
 Config.Places = {
 	-- false puts runs back in the lobby's own server, as before (a switch
 	-- for a live problem, no other change needed).

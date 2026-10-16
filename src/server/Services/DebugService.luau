@@ -21,6 +21,7 @@ local HouseMetrics = require(Shared.Logic.HouseMetrics)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
+local Locations = require(Shared.Data.Locations)
 local LookSpots = require(Shared.Data.LookSpots)
 local Mall = require(Shared.Data.Mall)
 local MallLayout = require(Shared.Logic.MallLayout)
@@ -60,6 +61,7 @@ local HELP = table.concat({
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
 	"crowd <n>|clear (n dressed stand-ins over the mall, for a full lobby's cost with perf)",
+	"car [in [n]|out|honk|set <key> <value>] (the party cars) · tape [location|none] (a rental tape in your hand)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
@@ -674,6 +676,70 @@ function DebugService:Run(player: Player, text: string)
 				left = n - #spots
 			end
 			reply(player, services.OutfitService:DebugCrowd(spots) .. " stand-ins in the mall")
+		end
+	elseif command == "car" then
+		-- The party cars (LB2; Services/CarService): `car` lists them; `car in
+		-- [n]` gets you in (car n, or the first free); `car out`; `car set
+		-- <key> <value>` (difficulty Hard, night full, friendsOnly true);
+		-- `car honk`.
+		local cars = services.CarService
+		local sub = args[2]
+		if sub == "in" then
+			local id = tonumber(args[3])
+			if not id then
+				for i, car in cars.cars do
+					if not car.away and require(Shared.Logic.Cars).count(car) < #car.seats then
+						id = i
+						break
+					end
+				end
+			end
+			local ok, why = cars:Board(player, id or 1)
+			reply(player, ok and ("in car " .. tostring(id)) or ("can't: " .. tostring(why)))
+		elseif sub == "out" then
+			cars:Leave(player, true)
+			reply(player, "out")
+		elseif sub == "honk" then
+			cars:Honk(player)
+			reply(player, "honk")
+		elseif sub == "set" and args[3] then
+			cars:Set(player, args[3], args[4] or "")
+			reply(player, "set " .. args[3])
+		else
+			local lines = {}
+			for i, car in cars.cars do
+				table.insert(
+					lines,
+					string.format(
+						"%d %s: %s · tape %s · %s %s%s%s",
+						i,
+						cars.bodies[i].name,
+						table.concat(require(Shared.Logic.Cars).riders(car), ","),
+						tostring(car.tape),
+						car.difficulty,
+						car.night,
+						car.friendsOnly and " · friends only" or "",
+						car.away and " · away" or ""
+					)
+				)
+			end
+			reply(player, table.concat(lines, " | "))
+		end
+	elseif command == "tape" then
+		-- `tape [location]`: a rental tape in your hand (LB2), or `tape none`.
+		if args[2] == "none" then
+			services.RentalService:Take(player)
+			reply(player, "no tape")
+		else
+			-- (Args come lowercased: matched to a location's id.)
+			local id = Locations.Default
+			for _, location in Locations.List do
+				if string.lower(location.id) == (args[2] or "") then
+					id = location.id
+				end
+			end
+			services.RentalService:Give(player, id)
+			reply(player, "holding " .. id)
 		end
 	elseif command == "ui" then
 		-- Open a screen on your client: `ui map|journal|note|dossier|settings|
@@ -1435,13 +1501,17 @@ function DebugService:Run(player: Player, text: string)
 			end
 		end
 		if not role then
-			reply(player, "mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n]")
+			reply(player, "mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter|Horn> [n]")
 		else
 			local list = Assets.Mall[role]
 			local n = math.clamp(tonumber(args[3]) or 1, 1, #list)
 			ReplicatedStorage.RunState:SetAttribute(Constants.RunState.MallSound .. role, n)
 			if role == "Sputter" and services.MallService then
 				services.MallService:BrownoutNow()
+			end
+			local character = player.Character
+			if role == "Horn" and character then
+				services.CarService:Sound(nil, character:GetPivot().Position)
 			end
 			reply(player, string.format("%s: candidate %d of %d (%s)", role, n, #list, list[n]))
 		end

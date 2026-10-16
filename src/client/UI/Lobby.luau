@@ -1,6 +1,7 @@
--- The hub panel: contract, difficulty, tool choice, ready-up, squad, and
--- the player's progress. In the 1988 interface (V7): a manila case folder,
--- typed on, its label taped on, READY a rubber stamp.
+-- The hub panel: the case, how a squad leaves (LB2: rent a tape, get in a
+-- car, the driver honks; UI/Dashboard is the car's), who's where, and the
+-- player's progress. In the 1988 interface (V7): a manila case folder,
+-- typed on, its label taped on.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,7 +9,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Build = require(Shared.Build)
 local Constants = require(Shared.Constants)
-local Net = require(Shared.Net)
 
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
@@ -16,12 +16,6 @@ local player = Players.LocalPlayer
 
 local Lobby = {}
 Lobby.__index = Lobby
-
--- The Night button (Config.Run.Night, Config.Mansion.Profiles).
-local NIGHT_LABELS = {
-	short = "Night: Short (15 min)",
-	full = "Night: Full house",
-}
 
 -- The folder, laid out at this size (Ui.fit shrinks it on a small screen).
 local WIDTH, HEIGHT = 430, 570
@@ -96,68 +90,25 @@ function Lobby.new(ctx)
 		TextYAlignment = Enum.TextYAlignment.Top,
 		Parent = panel,
 	})
-	local function choice(y: number, onClick)
-		return Ui.paperButton("", {
-			Position = UDim2.fromOffset(0, y),
-			Size = UDim2.new(1, 0, 0, 28),
-			TextSize = 17,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = panel,
-		}, onClick)
-	end
-	self.difficultyButton = choice(204, function()
-		local lobby = ctx.state.lobby
-		local current = lobby and lobby.difficulty or "Normal"
-		Net.get("SetDifficulty"):FireServer(current == "Normal" and "Hard" or "Normal")
-	end)
-	-- The length of the night (WP8): a short one by default (about 15
-	-- minutes: two wings, two heirlooms; Config.Run.Night), or the squad's
-	-- whole house.
-	self.nightButton = choice(234, function()
-		local lobby = ctx.state.lobby
-		local current = lobby and lobby.night or "short"
-		Net.get("SetNight"):FireServer(current == "full" and "short" or "full")
-	end)
-
-	-- What the difficulty means (it ran off the button, mid-word), else a tip.
-	self.note = Ui.hand("Tools are found in the house: look on tables, desks and dressers.", {
-		Position = UDim2.fromOffset(0, 266),
-		Size = UDim2.new(1, 0, 0, 48),
-		TextSize = 22,
-		LineHeight = 0.95,
+	-- How a squad leaves (LB2): three steps, typed, the one you're on
+	-- ticked in pen.
+	self.steps = Ui.typed("", {
+		Position = UDim2.fromOffset(0, 204),
+		Size = UDim2.new(1, 0, 0, 92),
+		TextSize = 15,
+		LineHeight = 1.25,
 		TextYAlignment = Enum.TextYAlignment.Top,
 		Parent = panel,
 	})
-
-	-- Ready: a rubber stamp once you are.
-	self.readyButton = Ui.paperButton("", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 320),
-		Size = UDim2.new(1, 0, 0, 46),
-		TextSize = 24,
-		Parent = panel,
-	}, function()
-		Net.get("SetReady"):FireServer(not player:GetAttribute(Constants.PlayerAttributes.Ready))
-	end)
-	self.readyStroke = Ui.new("UIStroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Color = Ui.Theme.red,
-		Thickness = 3,
-		Transparency = 1,
-		Parent = self.readyButton,
-	})
-	Ui.corner(4).Parent = self.readyButton
-	self.countdown = Ui.hand("", {
-		Position = UDim2.fromOffset(0, 370),
-		Size = UDim2.new(1, 0, 0, 42),
-		TextXAlignment = Enum.TextXAlignment.Center,
-		TextYAlignment = Enum.TextYAlignment.Top,
+	self.note = Ui.hand("", {
+		Position = UDim2.fromOffset(0, 300),
+		Size = UDim2.new(1, 0, 0, 108),
 		TextSize = 21,
 		LineHeight = 0.95,
-		TextColor3 = Ui.Theme.red,
+		TextYAlignment = Enum.TextYAlignment.Top,
 		Parent = panel,
 	})
-	Ui.typed("SQUAD", {
+	Ui.typed("WHO'S HERE", {
 		Position = UDim2.fromOffset(0, 414),
 		Size = UDim2.new(1, 0, 0, 18),
 		TextSize = 14,
@@ -215,31 +166,34 @@ end
 function Lobby:Render()
 	local state = self.ctx.state
 	local lobby = state.lobby
+	local tape = player:GetAttribute(Constants.PlayerAttributes.Tape)
+	local inCar = player:GetAttribute(Constants.PlayerAttributes.Car) ~= nil
 	if lobby then
-		self.contract.Text = string.format("Contract: %s\n%s", lobby.location.name, lobby.location.blurb)
-		self.difficultyButton.Text = "Difficulty:  " .. lobby.difficulty .. "  >"
-		self.note.Text = lobby.difficulty == "Hard"
-				and "Hard: uneasy from the start, more wings, quicker hunts, and two downs and you're out."
-			or "Tools are found in the house: look on tables, desks and dressers."
-		self.nightButton.Text = (lobby.night == "full" and NIGHT_LABELS.full or NIGHT_LABELS.short) .. "  >"
+		self.contract.Text = string.format("Case: %s\n%s", lobby.location.name, lobby.location.blurb)
+		local function step(done: boolean, text: string)
+			return (done and "[x]  " or "[  ]  ") .. text
+		end
+		self.steps.Text = table.concat({
+			step(tape ~= nil or inCar, "Rent the case in the video store."),
+			step(inCar, "Take it to a car in the garage. Get in."),
+			step(false, "The driver honks. The car takes you there."),
+		}, "\n")
+		self.note.Text = inCar and "Your car's dashboard: the difficulty, the night, friends only, the horn."
+			or "Your friends can ride with you: one car seats four. The payphone in the garage calls more."
 		local lines = {}
 		for _, p in lobby.players do
-			local status = p.state == Constants.PlayerStates.Lobby or p.state == nil
+			local here = p.state == Constants.PlayerStates.Lobby or p.state == nil
 			table.insert(
 				lines,
-				string.format("%s  ·  %s", p.name, status and (p.ready and "READY" or "not ready") or "in the house")
+				string.format(
+					"%s  ·  %s",
+					p.name,
+					here and (p.car and ("in " .. p.car) or "in the mall") or "in the house"
+				)
 			)
 		end
 		self.squad.Text = table.concat(lines, "\n")
 	end
-	local ready = player:GetAttribute(Constants.PlayerAttributes.Ready) == true
-	self.readyButton.Text = ready and "READY" or "Mark me ready  >"
-	self.readyButton.TextColor3 = ready and Ui.Theme.red or Ui.Theme.type
-	self.readyButton.Rotation = ready and -3 or 0
-	-- (A stamp's box hugs its word.)
-	self.readyButton.Size = ready and UDim2.fromOffset(170, 48) or UDim2.new(1, 0, 0, 46)
-	self.readyButton.TextSize = ready and 30 or 24
-	self.readyStroke.Transparency = ready and 0.2 or 1
 	local profile = state.profile
 	if profile then
 		self.profile.Text = string.format(
@@ -259,21 +213,6 @@ function Lobby:Update()
 	local state = self.ctx.state
 	local inLobby = state:Phase() == Constants.Phases.Lobby and state:PlayerState() == Constants.PlayerStates.Lobby
 	self.gui.Enabled = inLobby
-	if inLobby then
-		local countdown = state:Run(Constants.RunState.LobbyCountdown)
-		local waiting = state:Run(Constants.RunState.LobbyWaiting)
-		local startsAt = state:Run(Constants.RunState.LobbyStartsAt)
-		if countdown then
-			self.countdown.Text = string.format("Entering the house in %d...", countdown)
-		elseif waiting and startsAt then
-			-- A majority is ready: the rest have this long, then stay behind.
-			local left = math.max(0, startsAt - workspace:GetServerTimeNow())
-			self.countdown.Text =
-				string.format("Waiting for %s · going in without them in %d s", waiting, math.ceil(left))
-		else
-			self.countdown.Text = "Everyone ready, or half of you for thirty seconds."
-		end
-	end
 end
 
 return Lobby

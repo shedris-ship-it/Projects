@@ -37,9 +37,10 @@ local DEFINITIONS = {
 	Knockback = "RemoteEvent", -- (velocity, seconds): a flung piece hit you (PushService); you stagger
 	Release = "RemoteEvent", -- let go of what you're carrying
 	Throw = "RemoteEvent", -- (aim): throw what you're carrying
-	SetReady = "RemoteEvent",
-	SetDifficulty = "RemoteEvent",
-	SetNight = "RemoteEvent", -- ("full" | "short"): the next run's length (Config.Mansion.Profiles)
+	-- The party cars (LB2; Services/CarService, UI/Dashboard).
+	CarSet = "RemoteEvent", -- (key, value as text): the driver's dashboard: difficulty, night, friendsOnly
+	CarHonk = "RemoteEvent", -- the driver honks to leave
+	CarGetOut = "RemoteEvent", -- out of your car (Space works too)
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",
@@ -67,6 +68,9 @@ local DEFINITIONS = {
 	Layout = "RemoteEvent",
 	Dossier = "RemoteEvent",
 	LobbyState = "RemoteEvent",
+	CarState = "RemoteEvent", -- S->C (state): the car you're in, for its dashboard
+	Receipt = "RemoteEvent", -- S->C ({ marks, case }): back in your car after a run
+	PromptInvite = "RemoteEvent", -- S->C: the payphone; your client asks Roblox to invite a friend
 	DebugState = "UnreliableRemoteEvent",
 	ProfileData = "RemoteEvent",
 }

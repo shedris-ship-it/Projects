@@ -49,4 +49,12 @@ return function(test, check, Shared, require)
 		check.truthy(not RunContract.expects(read, 99), "99 isn't")
 		check.equal(RunContract.arrived(read, { 1, 2, 99 }), 2, "two of the squad here, one stranger")
 	end)
+
+	test("the lobby a squad came from rides along, so it can go back there", function()
+		local made = RunContract.make({ 1 }, { difficulty = "Normal", lobby = "job-123" }, 0)
+		local read = RunContract.read(made, { difficulty = { Normal = true } })
+		check.equal(read.lobby, "job-123", "the lobby's JobId")
+		made.lobby = string.rep("x", 200)
+		check.equal(RunContract.read(made, {}).lobby, nil, "a bad one is dropped")
+	end)
 end
