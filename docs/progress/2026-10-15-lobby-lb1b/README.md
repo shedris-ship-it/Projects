@@ -174,3 +174,35 @@ It caught the video counter's TV poking 0.15 studs into the way in.
 - **The changing booth had two hairline holes:** the curtain's open edges, and a wall face sharing a plane with another. The curtain is a closed pleated solid now, and the back wall stands between the sides.
 - **The shelves' backs overlapped their sides** on the same plane (a red strip in the hole render, against the wall, where it would flicker in Roblox). The back, header and plinth of the video shelving, the islands and the electronics shelving now fit between the sides.
 - Left as it is: a speck at one corner of the record boards' frames, where its lengths meet, against the wall.
+
+### mall2 imported and seen in Studio (build `2026-10-16.209`)
+
+**The import:**
+- The owner imported `mall2.fbx` (Home → Import 3D): all 31 meshes and their maps, at their modelled sizes, uploaded to their account.
+- Claude filed them: each mesh's id in `Data/Kit` and its four maps in `assets/kit/<piece>.model.json`.
+- Rojo synced both (the file's exact length in Studio; 31 new looks in `ReplicatedStorage.Kit`, no duplicates).
+
+**In play:**
+- 299 kit meshes loaded and no errors from the game.
+- All 114 dressing jobs ran and 134 grey blocks were hidden, every piece in place:
+  - the diner: back bar, counter, 6 stools, 12 booth seats at 6 tables, 2 board frames, the jukebox, the coat rack, 15 floor panels;
+  - the video store: 6 wall shelves, 2 islands, the counter and its TV, the standee;
+  - the arcade: 6 cabinets, the prize counter and wall, the change machine, 9 carpet panels;
+  - electronics: 3 TVs on their stand, 4 shelves, the glass counter;
+  - the boutique: 2 dress forms, the round rack, 2 rails, the shoe wall, the slatwall, the changing booth, the cash wrap.
+
+| Shot | What it shows |
+| --- | --- |
+| `mall2/ingame_1_diner.jpg` | The counter and its six stools under SPECIALS · HARD and MENU · NORMAL, the check floor (compare `before_diner.jpg`) |
+| `mall2/ingame_2_diner_booths.jpg` | The booths in pairs and at the end wall, each seat facing its table, the jukebox in the corner |
+| `mall2/ingame_3_video.jpg` | The clear way to STAFF ONLY · GARAGE, tapes face out under HORROR and ACTION · COMEDY, the islands, the counter |
+| `mall2/ingame_4_arcade.jpg` | HOUSE CALL and NIGHT DRIVE on the back wall, NIGHT DRIVE and the two dead STAR PATROLs on the east, the neon carpet |
+| `mall2/ingame_5_arcade_prizes.jpg` | PRIZES · CLOSED over the pegboard, the counter shut under its sheet, the change machine |
+| `mall2/ingame_6_electronics.jpg` | The TV wall on its stand of decks facing the court, the shelves, the service counter |
+| `mall2/ingame_7_boutique.jpg` | The dress forms facing the court, the slatwall, the round rack, the rails, FITTING ROOM, the shoe wall |
+
+**Notes:**
+- This was checked in a local copy of the place (`Consensus.rbxlx`, not the published place), so profiles didn't save. The footstep samples (`Assets.Footsteps`, other creators' audio) also failed to load there: "Asset type does not match", since Roblox grants that audio only to the published place.
+- The pieces are Kit meshes like the house's, so they'll be in the published place too once its Rojo is connected.
+
+For the owner: TC-311 by eye, and you can delete `Workspace.Scene` (the imported copy).
