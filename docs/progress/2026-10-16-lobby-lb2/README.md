@@ -59,7 +59,7 @@ The hub's case folder now shows the case, the three steps (tape, car, honk; each
 | `Services/PlaceService`, `RunOrchestrator`, `LobbyService` | The lobby's id in the contract, the way back with the Homecoming data, the receipts, a stranded squad's car |
 | `Data/Mall` | A roll-up door per bay (six), `Mall.Cars`, `Mall.Tapes`, the bay numbers, the CARS · TO THE HOUSE card, three dock lamps |
 | `Config.Cars`, `Config.Camera.CarZoom` | Seats, countdown, drive, door, party hold, arrival wait, receipt, the dashboard's choices, the seat spots, the exit, the sign |
-| `Assets.Mall.Horn` | Three horns to pick by ear (not yet heard): Pro Sound Effects' jeep horn doubles and triples (2.5 s), diman's "Car horn 5", AmikkuHedgehog's "Generic car horn". F2 `mallsound horn <n>` picks one and sounds the nearest car's |
+| `Assets.Mall.Horn` | The horn: Pro Sound Effects' jeep horn doubles and triples (2.5 s), the owner's pick by ear (build .214) over diman's "Car horn 5" and AmikkuHedgehog's "Generic car horn" ("just obnoxious"). F2 `mallsound horn` sounds the nearest car's |
 
 F2:
 - `car` lists the cars.
@@ -82,8 +82,9 @@ Not checked here, the owner's (TC-314 to TC-319):
 - two or more clients: friends only, the wheel passing on, a countdown someone gets out of;
 - a Roblox party arriving together;
 - the payphone's invite in the live game;
-- the live teleport there and back into the same lobby, in a car;
-- the horn picked by ear.
+- the live teleport there and back into the same lobby, in a car.
+
+The horn was picked by ear the same day (build .214): the jeep horn, candidate 1. The owner: "Definitely 1, the other horn sounds are just obnoxious."
 
 ## Shots
 
