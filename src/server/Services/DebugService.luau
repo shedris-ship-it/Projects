@@ -11,6 +11,7 @@ local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Build = require(Shared.Build)
@@ -67,6 +68,7 @@ local HELP = table.concat({
 	"botrun [fast] [flee|hide] (the bot plays the run with your character; again stops it) · botrun plan (the steps, to Output)",
 	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
 	"role (this server's job: lobby, run or both; Services/PlaceService)",
+	"mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n] (hear the n-th candidate, Assets.Mall) · brownout · mallstrike (the lobby mall's)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -1383,6 +1385,36 @@ function DebugService:Run(player: Player, text: string)
 	elseif command == "role" then
 		local places = services.PlaceService
 		reply(player, places and places:Describe() or "no PlaceService")
+	elseif command == "mallsound" then
+		-- Audition the lobby mall's sounds (Assets.Mall): the role's n-th
+		-- candidate plays for everyone at once (Controllers/MallController).
+		local role
+		for name in Assets.Mall do
+			if string.lower(name) == args[2] then
+				role = name
+			end
+		end
+		if not role then
+			reply(player, "mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n]")
+		else
+			local list = Assets.Mall[role]
+			local n = math.clamp(tonumber(args[3]) or 1, 1, #list)
+			ReplicatedStorage.RunState:SetAttribute(Constants.RunState.MallSound .. role, n)
+			if role == "Sputter" and services.MallService then
+				services.MallService:BrownoutNow()
+			end
+			reply(player, string.format("%s: candidate %d of %d (%s)", role, n, #list, list[n]))
+		end
+	elseif command == "brownout" then
+		if services.MallService then
+			services.MallService:BrownoutNow()
+			reply(player, "the generator coughs")
+		end
+	elseif command == "mallstrike" then
+		if services.MallService then
+			services.MallService:StrikeNow()
+			reply(player, "lightning over the mall")
+		end
 	elseif command == "perf" then
 		reply(
 			player,

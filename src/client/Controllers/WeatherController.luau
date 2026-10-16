@@ -269,7 +269,10 @@ function WeatherController:_flash(strength: number, seconds: number, soft: boole
 end
 
 function WeatherController:_strike(strike)
-	if not self.state:InRun() then
+	-- A strike over the lobby's mall (Services/MallService, marked `hub`) is
+	-- for those in the hub, through its skylight and main doors (their lights
+	-- are tagged as moon beams); the house's is for those in the run.
+	if (strike.hub == true) == self.state:InRun() then
 		return
 	end
 	local soft = self.state.settings.reduceFlicker == true

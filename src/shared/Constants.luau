@@ -19,6 +19,12 @@ Constants.Tags = {
 	Photo = "ConsensusPhoto", -- a family photo the client ages with Drift
 	Blood = "ConsensusBlood", -- a hidden stain the client reveals at its attribute BloodAt (Drift)
 	Window = "ConsensusWindow", -- a window or mirror pane The Guest can show in (attribute Kind)
+	-- The lobby mall (World/MallBuilder, Controllers/MallController): what
+	-- runs on the investigators' generator (lights, glowing parts, neon
+	-- letters: they brown out together), and where its sounds come from
+	-- (attribute Role).
+	MallPower = "ConsensusMallPower",
+	MallSound = "ConsensusMallSound",
 	Level = "ConsensusLevel",
 	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
 	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)
@@ -47,6 +53,8 @@ Constants.Attributes = {
 Constants.RunState = {
 	Reckoning = "Reckoning", -- true from Drift 100 (the Reckoning) to the run's end
 	Storm = "Storm", -- the storm's stage, 0 still, 1 rain, 2 thunder (Logic/Storm, Services/WeatherService)
+	MallBrownout = "MallBrownout", -- server time the mall's generator last browned out (Services/MallService)
+	MallSound = "MallSound", -- + a role ("MallSoundHum"): which of Assets.Mall's candidates plays (F2 `mallsound`)
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",

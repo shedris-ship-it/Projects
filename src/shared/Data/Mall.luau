@@ -596,6 +596,7 @@ Mall.Signs = {
 		color = { 80, 230, 120 },
 		font = "SourceSansBold",
 		glow = true,
+		battery = true, -- not on the generator: it doesn't brown out
 	},
 }
 
@@ -632,6 +633,21 @@ Mall.Lights = {
 	{ room = "concourse", kind = "dim", x = 95, y = 20, z = 0, fixture = true },
 	{ room = "concourse", kind = "dim", x = 145, y = 20, z = 0, fixture = true },
 	{ room = "court", kind = "street", x = 0, y = 12, z = 52 },
+	-- the storm's light in through the main doors, for lightning (`face`: where it shines)
+	{ room = "court", kind = "storm", x = 0, y = 11, z = 36, face = "N" },
+}
+
+-- What you hear (Assets.Mall's candidates, Config.Mall.Sounds): the
+-- generator idling, the two fluorescents still working, the leak dripping
+-- into its bucket, the CB radio in the investigators' corner, the arcade's
+-- cabinets. The generator's cough in a brownout comes from the Hum.
+Mall.Sounds = {
+	{ room = "garage", role = "Hum", x = 30, y = 3, z = -72 },
+	{ room = "garage", role = "Buzz", x = 0, y = 16.5, z = -95 },
+	{ room = "garage", role = "Buzz", x = 0, y = 16.5, z = -72 },
+	{ room = "court", role = "Drip", x = 14, y = 1.7, z = 9 },
+	{ room = "garage", role = "Radio", x = -45.5, y = 4.6, z = -78 },
+	{ room = "arcade", role = "Arcade", x = 36, y = 4, z = -52 },
 }
 
 -- The generator's power: cables on the floor from the garage, through the

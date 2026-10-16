@@ -7,10 +7,12 @@
 -- powered again. A run server builds only the waiting room (Mall.Waiting),
 -- with doors to rooms it doesn't build walled up.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local Mall = require(Shared.Data.Mall)
 local MallLayout = require(Shared.Logic.MallLayout)
 local PropFactory = require(Shared.World.PropFactory)
@@ -371,6 +373,12 @@ local function buildSign(folder: Instance, origin: Vector3, sign)
 		)
 		holder.Transparency = 1
 		light.Parent = holder
+		-- Neon on the generator browns out with it; a `battery` sign (the
+		-- dead mall's EXIT) doesn't.
+		if not sign.battery then
+			CollectionService:AddTag(label, Constants.Tags.MallPower)
+			CollectionService:AddTag(light, Constants.Tags.MallPower)
+		end
 	end
 end
 
@@ -434,14 +442,18 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 			material("Metal")
 		)
 	else
-		holder = decor(folder, "Light", Vector3.new(0.2, 0.2, 0.2), CFrame.new(at), color, material("SmoothPlastic"))
+		local cf = l.face and facing(origin, l.x, l.y, l.z, l.face) or CFrame.new(at)
+		holder = decor(folder, "Light", Vector3.new(0.2, 0.2, 0.2), cf, color, material("SmoothPlastic"))
 		holder.Transparency = 1
 	end
 	local light
-	if l.kind == "moon" then
+	if l.kind == "moon" or l.kind == "storm" then
 		light = Instance.new("SpotLight")
-		light.Face = Enum.NormalId.Bottom
+		light.Face = l.kind == "moon" and Enum.NormalId.Bottom or Enum.NormalId.Front
 		light.Angle = look.angle or 60
+		-- Lightning burns these for an instant (Controllers/WeatherController's
+		-- flash, as the house's moon beams).
+		CollectionService:AddTag(holder, "ConsensusMoonLight")
 	else
 		light = Instance.new("PointLight")
 	end
@@ -450,6 +462,13 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 	light.Brightness = look.brightness
 	light.Shadows = l.shadows == true
 	light.Parent = holder
+	if not Config.Mall.Unpowered[l.kind] then
+		-- On the investigators' generator: it browns out with it.
+		CollectionService:AddTag(light, Constants.Tags.MallPower)
+		if holder.Material == Enum.Material.Neon then
+			CollectionService:AddTag(holder, Constants.Tags.MallPower)
+		end
+	end
 end
 
 local function buildBlock(folder: Instance, origin: Vector3, b)
@@ -532,6 +551,7 @@ local function buildString(folder: Instance, origin: Vector3, s)
 				material("Neon")
 			)
 			bulb.Shape = Enum.PartType.Ball
+			CollectionService:AddTag(bulb, Constants.Tags.MallPower)
 			if i % (s.lit or 4) == 0 then
 				local light = Instance.new("PointLight")
 				light.Color = color
@@ -539,6 +559,7 @@ local function buildString(folder: Instance, origin: Vector3, s)
 				light.Brightness = look.brightness
 				light.Shadows = false
 				light.Parent = bulb
+				CollectionService:AddTag(light, Constants.Tags.MallPower)
 			end
 		end
 	end
@@ -593,6 +614,24 @@ local function buildAd(folder: Instance, origin: Vector3, ad)
 	light.Brightness = look.brightness
 	light.Shadows = false
 	light.Parent = face
+	CollectionService:AddTag(face, Constants.Tags.MallPower)
+	CollectionService:AddTag(light, Constants.Tags.MallPower)
+end
+
+-- Where one of the mall's sounds comes from (Controllers/MallController
+-- plays it: Assets.Mall's candidates, Config.Mall.Sounds).
+local function buildSound(folder: Instance, origin: Vector3, s)
+	local emitter = decor(
+		folder,
+		"MallSound",
+		Vector3.new(0.2, 0.2, 0.2),
+		CFrame.new(origin + Vector3.new(s.x, s.y, s.z)),
+		DARK_STEEL,
+		material("SmoothPlastic")
+	)
+	emitter.Transparency = 1
+	emitter:SetAttribute("Role", s.role)
+	CollectionService:AddTag(emitter, Constants.Tags.MallSound)
 end
 
 -- Builds the mall into `parent`, from `origin` (the court's floor middle).
@@ -650,6 +689,11 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 	for _, ad in Mall.Ads or {} do
 		if built[ad.room] then
 			buildAd(dressing, origin, ad)
+		end
+	end
+	for _, s in Mall.Sounds or {} do
+		if built[s.room] then
+			buildSound(dressing, origin, s)
 		end
 	end
 	local spawn = only and Mall.Waiting.spawn or Mall.Spawn

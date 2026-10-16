@@ -2728,7 +2728,31 @@ Config.Mall = {
 		dim = { color = { 255, 120, 80 }, range = 20, brightness = 0.35 }, -- the dead mall's emergency lamps
 		street = { color = { 255, 170, 90 }, range = 34, brightness = 1 }, -- the lot's sodium lamp
 		sign = { range = 14, brightness = 0.8 }, -- a neon sign's glow, in its own colour
+		-- Lightning through the main doors: barely there until a strike burns it
+		-- (WeatherController's flash, Config.Storm.FlashMoon).
+		storm = { color = { 190, 205, 240 }, range = 60, brightness = 0.25, angle = 80 },
 	},
+	-- Lights not on the generator: the moon, the lot's lamp, the dead mall's
+	-- battery emergency lamps (and its EXIT sign), and the storm's.
+	Unpowered = { moon = true, street = true, dim = true, storm = true },
+	-- The mall's sounds (Data/Mall `Sounds`, Assets.Mall's candidates):
+	-- volume, the distance they carry, and for the drip the seconds between
+	-- drops.
+	Sounds = {
+		Hum = { volume = 0.5, near = 10, reach = 110 },
+		Buzz = { volume = 0.22, near = 4, reach = 28 },
+		Drip = { volume = 0.55, near = 4, reach = 30, every = { 1.4, 4 } },
+		Radio = { volume = 0.2, near = 4, reach = 26 },
+		Arcade = { volume = 0.18, near = 6, reach = 36 },
+		Sputter = { volume = 0.9, near = 12, reach = 140 },
+	},
+	-- The storm over the mall between runs (Services/MallService): a strike
+	-- every so often, its thunder this share of the house's.
+	Storm = { Every = { 40, 100 }, Volume = 0.75 },
+	-- The generator's brownouts (Logic/Brownout, Services/MallService):
+	-- seconds between them, how long one lasts, how low the power drops,
+	-- how high it catches in the stutter, how fast it stutters.
+	Brownout = { Every = { 150, 300 }, Seconds = 2.4, Low = 0.15, StutterHigh = 0.6, Step = 0.07 },
 	-- Rain drums on the skylight in the hub too (WeatherController), at this
 	-- share of the house's first stage.
 	Rain = 0.6,

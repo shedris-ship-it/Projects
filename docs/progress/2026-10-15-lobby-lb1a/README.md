@@ -86,3 +86,32 @@ The owner, on the first grey box: "it doesn't really read as an abandoned mall w
 | `story/4_the_generator.jpg` | The generator, its exhaust, the cable reel, the fuel cans, the black cable to the power box, a work lamp, a dead fluorescent |
 | `story/5_the_investigators_corner.jpg` | Cots, coffee, the whiteboard, the case board with its red string, evidence boxes, bulbs |
 | `story/6_plan_from_above.jpg` | The layout from above, dark in the middle, lit at the edges |
+
+## The mall alive: sounds, lightning, brownouts (build `2026-10-15.203`)
+
+The owner picked ideas 1 to 3 of the list after the story pass: "the sounds (I'll pick them by ear from your shortlist), lightning through the skylight and doors, and the generator's brownouts".
+
+- **Sounds** (`Controllers/MallController`, `Data/Mall` `Sounds`, `Config.Mall.Sounds`):
+  - the generator idling in the garage, carrying faintly into the video store;
+  - the buzz of the two fluorescents still working;
+  - the leak dripping into its bucket, a drop every 1.4-4 s at a slightly different pitch each time;
+  - CB radio chatter in the investigators' corner;
+  - the arcade's cabinets.
+
+  Each role has a shortlist of three in `Assets.Mall`, chosen by description. **The owner picks by ear in Studio:** F2 `mallsound <role> <n>` switches every sound of that role to its n-th candidate at once (Hum, Buzz, Drip, Radio, Arcade, Sputter; Sputter also sets off a brownout so the cough can be heard). Then the pick moves to the front of its list. The arcade has no real arcade loop in the free libraries: two chiptune tracks and a casino loop (which has crowd voices) are its candidates. Silence is a fine answer too.
+- **Lightning over the mall** (`Services/MallService`, `Controllers/WeatherController`):
+  - Every 40-100 s while it's the hub, a strike from the house's own storm logic (`Logic/Storm`), marked `hub`, with its thunder at 75 %.
+  - Only players in the hub see and hear it; the house's strikes stay the run's.
+  - The flash burns the moonlight down through the skylight and a new light in through the main doors (both tagged as moon beams, which the flash already brightens), and lifts the sky's light over the court.
+  - "Reduce flicker" gets the house's soft swell.
+- **Brownouts** (`Logic/Brownout`, spec'd; `Services/MallService`; `Controllers/MallController`):
+  - Every 150-300 s the generator coughs (the Sputter sound from the generator).
+  - Everything on its power dips at once and stutters for a couple of seconds before coming back with one last falter: the shops' and diner's lights and their spill, the bulb strings, the work lamps, the working fluorescents, the ad lightboxes, the neon signs.
+  - The mall's own dead lamps, the moon, the lot's lamp and the dead mall's battery emergency lamps and EXIT don't change, which shows what runs on the generator without a word.
+  - Every client sees the same stutter (it comes from the brownout's time); "Reduce flicker" gets one smooth dip.
+- **Checked in Studio:**
+  - all six sounds loaded and played (123 things tagged as on the generator), no errors;
+  - a brownout took a shop's light down to 18 % in a stutter (60 36 27 44 23 31 47 ... %) and back to 100 % in about 2.4 s, the moonlight untouched;
+  - a strike flashed the door light from 0.25 to 1.25 and the moonlight from 0.9 to 4.5, the thunder played, and both settled back.
+
+  `story/7_brownout.jpg` is caught in the middle of one. Not judged by ear: the sounds themselves (the owner's job, with `mallsound`).
