@@ -21,7 +21,13 @@ The owner: "Lets do Lb3." The plan (`docs/plans/lobby-rework.md`, "Boutique", "M
 - **Lace tabs and side panels.** These stood off the steep instep as loose flaps and jagged strips. Now they're a laced strip on the tongue and curved bands that follow the shoe.
 - **The acid wash.** The first try bleached half of it white, and it read as a floral print. Now it's mostly blue with pale marbling.
 
-**Next, the owner's:** swap any of the six, or keep them. Then Claude bakes and exports the batch (`build/kit/wardrobe/`, the new pieces only, checked with `preview.py --backfaces` and `wardrobe_visibility.py`), and the owner imports it with Home → Import 3D. Until then the six are worn in plain colours (each garment's `paint`).
+**The owner kept all six** ("Keep all six as sketched. Bake and export the batch for me to import"). The batch is `build/kit/wardrobe/wardrobe_lb3.glb`: the 29 new pieces only, their maps baked (a right side wears its left side's), exported with `wardrobe.py --garments=Ringer,Sweatshirt,DenimJacket,Biker,Parachute,HighTop --name=lb3`.
+- **The layer check caught the high-tops' collar.** Raised after the sketch's clean check so it shows on both bodies, its band ran up to 0.02 studs through the trouser thighs' foot on the Boy's shorter shin. It's now tucked under them as the shaft is: worst 0.000 again, and only the high-tops changed.
+- **Visibility** (`wardrobe_visibility.py -- --lb3`, eight outfits wearing the six, both bodies, the trouser shins left off under high-tops): nothing seen from behind but a handful of single rays grazing an open edge's rim, at most 0.02% of a piece (two of them on old pieces in the new combinations).
+- **The exported file previewed** (its baked maps, faces from the front only; `sketch/baked_*.jpg`) looks as sketched. The high-tops' laces baked to a plain glossy tab at first; darker gaps between them fixed it.
+- About 39k triangles for a player in the heaviest new outfit (the biker jacket, parachute pants, high-tops), as today's 40k.
+
+Until the batch is imported and filed the six are worn in plain colours (each garment's `paint`).
 
 ## The boutique (`Services/ShopService`, `UI/Boutique`, `Logic/Closet`)
 
