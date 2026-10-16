@@ -2720,6 +2720,30 @@ Config.Body = {
 -- reserved server of the same place.
 -- The garage's party cars (LB2; docs/plans/lobby-rework.md, "Parties";
 -- Logic/Cars, Services/CarService, UI/Dashboard).
+-- The arcade (LB5; docs/plans/lobby-rework.md, "Arcade"; Services/ArcadeService,
+-- Controllers/ArcadeController; HOUSE CALL's own rules are Logic/Arcade/HouseCall's).
+Config.Arcade = {
+	PlayMarks = 100, -- a play for Marks (the owner): twice what a 5 R play is worth, so Robux is the better deal
+	Screen = { 1.9, 1.3 }, -- studs: the cabinet's screen (kitlib/mall2 _cabinet)
+	Canvas = { 440, 300 }, -- its pixels
+	Lead = 0.5, -- s: a game's first tick this long after it's paid, so the player's client has it first
+	Batch = 0.1, -- s: how often your presses go to the server
+	MaxBatch = 32, -- presses in one batch at most
+	Slack = 3, -- s: how far a game's clock may run ahead of the server's before it's refused
+	Behind = 0.6, -- s: how far behind a watcher's screen runs (the presses reach them late)
+	Watch = 24, -- studs: near enough a cabinet to watch the game on it
+	Draw = 45, -- studs: its screen drawn at all
+	BoardSize = 10, -- places kept on each high score board
+	Shown = 5, -- places shown on the attract screen
+}
+
+-- The short boards (LB5: the diner's records, the arcade's high scores;
+-- Services/BoardService), one DataStore key each.
+Config.Boards = {
+	Store = "ConsensusBoards_v1",
+	Refresh = 120, -- s between reads of the boards a lobby shows
+}
+
 Config.Cars = {
 	Seats = Config.Run.MaxPlayers, -- a wagon seats the squad
 	Countdown = 5, -- seconds from the honk to pulling out; anyone can get out meanwhile

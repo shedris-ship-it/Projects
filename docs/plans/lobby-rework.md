@@ -291,9 +291,9 @@ This is CLAUDE.md's Next item 7 (the hub, reserved servers), brought forward. Me
 ### The arcade's games and scores
 
 - **Each game is pure, seeded logic with a fixed tick** (`Logic/Arcade/HouseCall`), spec'd under Lune like the rest of `Logic`.
-- **The player's client runs and draws it** on the cabinet screen (an EditableImage, as the TV's static does) and sends its button presses when the game ends. The server replays them for the score, and a score the replay doesn't reproduce is dropped. A worldwide board gets fake scores within days without this.
-- **Spectating comes for free:** nearby clients run the same game from the same presses.
-- **Boards:** OrderedDataStores per machine, all-time and weekly.
+- **The player's client runs and draws it** on the cabinet screen (as built, a SurfaceGui of frames rather than an EditableImage: crisp at any distance, no image memory) and sends its button presses as it plays. The server replays them for the score, and a score the replay doesn't reproduce is dropped. A worldwide board gets fake scores within days without this.
+- **Spectating comes for free:** nearby clients run the same game from the same presses, a moment behind.
+- **Boards:** as built, one DataStore key per board holding its whole top list with names (Services/BoardService), all-time and weekly.
 
 ### 50 players
 
@@ -387,6 +387,14 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     - a car in its driver's bits for the whole lobby, with their station on its radio (`World/CarDress`, `CarService`).
   - *The batch,* two files for the owner to import: `wardrobe_lb4.glb` (the three torches) and `mall4.glb` (the car split into its tintable paint, its trim and the woodgrain, and the whitewalls, roof rack and spotlight). Until they're in, the torches are painted grey boxes, the bits grey boxes in their colours, and the paint can't show: the imported car has its maroon baked in.
 - **LB5, the arcade and the records.** HOUSE CALL, credits, the free daily play, plays for Marks, the pass, the bundle, the replay check, the boards, spectating, the closed prize counter. The diner's two boards (Normal and Hard; fastest and longest; solo and squad; short night; real runs only).
+  - *Built* (build .217, 2026-10-16, while the owner was away; report `docs/progress/2026-10-16-lobby-lb5/`):
+    - **HOUSE CALL** (`Logic/Arcade/HouseCall`, spec'd): the Guest's three rules as a maze game. Take the family's silver from a dark house; face him and he freezes (your torch's line down the way you face; hold the button to stand and look); stare too long and he hunts; in a hunt, break his sight or get to a lantern, whose light he never steps into. Touch him and he has you; three lives, one more at 10,000; a cleared house brings a faster one. Tuned with bots: a careful player lasts 4 to 12 minutes and scores 6,000 to 39,000, a careless one about a minute.
+    - **Paying** (`Logic/Arcade/Credits`, spec'd): the pass, then the day's free play, then a play bought, then the coin card (100 Marks, or Robux: "soon" until the products exist). Profile version 5.
+    - **The cabinets** (`Services/ArcadeService`, `Controllers/ArcadeController`, `UI/Arcade`): the screen drawn on each, attract mode when idle (his rules, the scores, your free play), the camera on the screen while you play, and anyone near watching the same game a moment behind.
+    - **The replay check:** the client sends its presses as it plays; the server replays them for the score and drops one that doesn't match.
+    - **The boards** (`Services/BoardService`, `Logic/Leaderboard`): each board one DataStore key holding its whole list with names (not the OrderedDataStores planned above: only the top few ever show, and the names come with them), written only when an entry makes it. The arcade: this week's and all-time, top ten, one a player.
+    - **The diner's records** (`Services/RecordsService`, `Logic/Records`, spec'd): a real run's time from its arrival to the last of the squad out, on its board's fastest and longest list; the two boards lettered over the back bar.
+    - The prize counter stays as it was: shut under its dust sheet with PRIZES · CLOSED.
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
 - **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
 

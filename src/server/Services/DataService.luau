@@ -19,6 +19,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Credits = require(Shared.Logic.Arcade.Credits)
 local Net = require(Shared.Net)
 local Profile = require(Shared.Logic.Profile)
 local Progression = require(Shared.Logic.Progression)
@@ -272,6 +273,9 @@ function DataService:Send(player: Player)
 		settings = data.Settings,
 		dossier = data.Dossier,
 		saved = self.store ~= nil,
+		-- (The arcade's attract screens: "1 free play today", LB5.)
+		arcadeFree = Credits.freeToday(data, Progression.day(os.time())),
+		arcadeCredits = data.ArcadeCredits,
 	})
 end
 

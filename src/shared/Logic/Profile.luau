@@ -6,11 +6,12 @@
 -- purchase count once. Version 3 (LB3, the boutique) adds the day of your
 -- last double-Marks escape, whether the starter pack has been offered, and
 -- gifts waiting to be opened. Version 4 (LB4) adds your car's setup (its
--- paint, the bits fitted, its radio station: Logic/Catalog).
+-- paint, the bits fitted, its radio station: Logic/Catalog). Version 5 (LB5)
+-- adds the day of your last free arcade play (Logic/Arcade/Credits).
 
 local Profile = {}
 
-Profile.Version = 4
+Profile.Version = 5
 
 -- Gifts waiting to be opened (more are refused until some are).
 Profile.MaxGifts = 20
@@ -41,6 +42,8 @@ local TEMPLATE = {
 	Gifts = {}, -- wrapped boxes not yet opened: { product, from (a user id) }, oldest first
 	-- Version 4 (LB4):
 	Car = {}, -- your car's setup: { paint, bits = { [id] = true }, radio } (Logic/Catalog)
+	-- Version 5 (LB5):
+	ArcadeFreeDay = 0, -- the day (UTC, Logic/Progression.day) of your last free arcade play
 }
 
 -- Versioned upgrades: add a step whenever the saved shape changes. A step
@@ -57,6 +60,10 @@ local MIGRATIONS = {
 	end,
 	[3] = function(data)
 		-- 3 -> 4: only new fields.
+		return data
+	end,
+	[4] = function(data)
+		-- 4 -> 5: only new fields.
 		return data
 	end,
 }
@@ -94,6 +101,7 @@ function Profile.reconcile(data)
 	data.StarterPack = data.StarterPack == true
 	data.StarterOffered = data.StarterOffered == true
 	data.DoubleDay = clampNumber(data.DoubleDay, 1e7)
+	data.ArcadeFreeDay = clampNumber(data.ArcadeFreeDay, 1e7)
 	for _, key in { "Owned", "Wearing", "Settings", "Dossier" } do
 		if type(data[key]) ~= "table" then
 			data[key] = {}

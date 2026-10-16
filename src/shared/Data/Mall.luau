@@ -1766,7 +1766,7 @@ Mall.Blocks = {
 		rot = { 0, 20, 0 },
 		color = { 60, 50, 46 },
 	},
-	-- The arcade (its machines; their games come later): cabinets facing into
+	-- The arcade (its machines; HOUSE CALL's two play since LB5): cabinets facing into
 	-- the room down the back wall and the east wall, HOUSE CALL where it's
 	-- seen from the court and two dead machines at the end; the prize counter
 	-- shut under its dust sheet on the west wall, its prize wall behind; the
@@ -1775,6 +1775,7 @@ Mall.Blocks = {
 		room = "arcade",
 		name = "Cabinet",
 		kit = "CabinetHouseCall",
+		game = "HouseCall", -- (its game runs on it: Services/ArcadeService)
 		x = 25,
 		y = 3,
 		z = -59.5,
@@ -1785,6 +1786,7 @@ Mall.Blocks = {
 		room = "arcade",
 		name = "Cabinet",
 		kit = "CabinetHouseCall",
+		game = "HouseCall", -- (its game runs on it: Services/ArcadeService)
 		x = 31,
 		y = 3,
 		z = -59.5,

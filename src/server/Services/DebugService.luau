@@ -22,6 +22,11 @@ local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local Catalog = require(Shared.Logic.Catalog)
+local Credits = require(Shared.Logic.Arcade.Credits)
+local HouseCall = require(Shared.Logic.Arcade.HouseCall)
+local Leaderboard = require(Shared.Logic.Leaderboard)
+local Progression = require(Shared.Logic.Progression)
+local Records = require(Shared.Logic.Records)
 local Closet = require(Shared.Logic.Closet)
 local Locations = require(Shared.Data.Locations)
 local Products = require(Shared.Data.Products)
@@ -68,6 +73,8 @@ local HELP = table.concat({
 	"car [in [n]|out|honk|set <key> <value>] (the party cars) · tape [location|none] (a rental tape in your hand)",
 	"marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> · starter [again] (the boutique)",
 	"ware [<torch|paint|carbit|radio> <id>|none|open counter|pegboard] (LB4's torch looks and car bits, yours and on)",
+	"arcade [play [n]|free|credits <n>|score <n> [name]|bot [cheat]|clear] (HOUSE CALL: play at cabinet n, today's free play back, plays bought, a high score, a scripted game through the replay check, empty the boards)",
+	"record [count|add <normal|hard> <fast|long> <solo|squad> <seconds> [names]|clear] (the diner's boards: the next run counts in Studio, an entry, empty them)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
@@ -263,6 +270,11 @@ function DebugService:Run(player: Player, text: string)
 		)
 	if changes and services.RunLogService then
 		services.RunLogService:F2(command)
+	end
+	-- (A run an F2 command touched, or the bot played, never goes on the
+	-- diner's boards.)
+	if changes or command == "botrun" then
+		self.used = true
 	end
 	if command == "help" or command == "" then
 		reply(player, HELP)
@@ -847,6 +859,135 @@ function DebugService:Run(player: Player, text: string)
 					game:GetService("HttpService"):JSONEncode(Catalog.carOf(data))
 				)
 			)
+		end
+	elseif command == "arcade" then
+		-- HOUSE CALL (LB5; Services/ArcadeService).
+		local data = services.DataService:Get(player)
+		local arcade = services.ArcadeService
+		local all, week = "Arcade_HouseCall_All", "Arcade_HouseCall_W" .. Leaderboard.week(os.time())
+		if not data then
+			reply(player, "no profile")
+		elseif args[2] == "play" then
+			arcade:Approach(player, tonumber(args[3]) or 1)
+			reply(player, "at cabinet " .. (args[3] or "1"))
+		elseif args[2] == "free" then
+			data.ArcadeFreeDay = 0
+			services.DataService:Send(player)
+			reply(player, "today's free play is yours again")
+		elseif args[2] == "credits" then
+			data.ArcadeCredits = math.max(0, math.floor(tonumber(args[3]) or 0))
+			services.DataService:Send(player)
+			reply(player, "plays bought: " .. data.ArcadeCredits)
+		elseif args[2] == "score" and tonumber(args[3]) then
+			task.spawn(function()
+				local entry = {
+					value = math.floor(tonumber(args[3]) :: number),
+					key = args[4] or tostring(player.UserId),
+					name = args[4] and string.upper(args[4]) or player.DisplayName,
+					at = os.time(),
+				}
+				local w = services.BoardService:Post(week, entry, Config.Arcade.BoardSize, false, true)
+				local a = services.BoardService:Post(all, entry, Config.Arcade.BoardSize, false, true)
+				reply(player, string.format("score %d: week %s, all-time %s", entry.value, tostring(w), tostring(a)))
+			end)
+		elseif args[2] == "clear" then
+			services.BoardService:Clear(week)
+			services.BoardService:Clear(all)
+			reply(player, "the high scores emptied")
+		elseif args[2] == "bot" then
+			-- A game of random presses through the server's own check and the
+			-- boards, as BOT; `bot cheat` claims 1,000 more than it scored.
+			local seed = Random.new():NextInteger(1, 2147483646)
+			local rng = Random.new(seed)
+			local s = HouseCall.new(seed)
+			local events, value, last = {}, 0, -1
+			while not s.over do
+				if s.tick % 10 == 0 then
+					value = rng:NextInteger(1, 4)
+				end
+				if value ~= last then
+					table.insert(events, s.tick + 1)
+					table.insert(events, value)
+					last = value
+				end
+				HouseCall.step(s, value)
+			end
+			local claim = args[3] == "cheat" and s.score + 1000 or s.score
+			local why = arcade:Check(seed, events, s.tick, claim)
+			if why then
+				reply(player, string.format("BOT's %d dropped: %s", claim, why))
+			else
+				task.spawn(function()
+					local w, a = arcade:PostScore("bot", "BOT", s.score)
+					reply(
+						player,
+						string.format(
+							"BOT scored %d in %d presses: week %s, all-time %s",
+							s.score,
+							#events / 2,
+							tostring(w),
+							tostring(a)
+						)
+					)
+				end)
+			end
+		else
+			local today = Progression.day(os.time())
+			reply(
+				player,
+				string.format(
+					"a play now: %s · free today %s · plays bought %d · Marks %d",
+					Credits.how(data, today, arcade:_pass(player)) or "the coin card",
+					tostring(Credits.freeToday(data, today)),
+					data.ArcadeCredits,
+					data.Marks
+				)
+			)
+		end
+	elseif command == "record" then
+		-- The diner's boards (LB5; Services/RecordsService).
+		local records = services.RecordsService
+		if args[2] == "count" then
+			records.forceNext = true
+			reply(player, "the next run counts for the boards (Studio's)")
+		elseif args[2] == "clear" then
+			for _, difficulty in Records.Difficulties do
+				for _, list in Records.Lists do
+					services.BoardService:Clear(Records.board(difficulty, list.id))
+				end
+			end
+			reply(player, "the diner's boards emptied")
+		elseif args[2] == "add" and tonumber(args[6]) then
+			local difficulty = args[3] == "hard" and "Hard" or "Normal"
+			local fast = args[4] ~= "long"
+			local solo = args[5] ~= "squad"
+			local names = {}
+			for i = 7, #args do
+				table.insert(names, string.upper(args[i]))
+			end
+			if #names == 0 then
+				table.insert(names, player.DisplayName)
+			end
+			local id = (fast and "Fast" or "Long") .. (solo and "Solo" or "Squad")
+			local entry = {
+				value = math.floor((tonumber(args[6]) :: number) * 10),
+				names = solo and { names[1] } or names,
+				size = solo and 1 or math.max(2, #names),
+				at = os.time(),
+			}
+			task.spawn(function()
+				local rank = services.BoardService:Post(Records.board(difficulty, id), entry, Records.Size, fast)
+				reply(player, string.format("%s %s: place %s", difficulty, id, tostring(rank)))
+			end)
+		else
+			local lines = {}
+			for _, difficulty in Records.Difficulties do
+				for _, list in Records.Lists do
+					local top = services.BoardService:Get(Records.board(difficulty, list.id))[1]
+					table.insert(lines, difficulty .. " " .. list.id .. ": " .. Records.line(top, list.solo))
+				end
+			end
+			reply(player, table.concat(lines, " · ") .. (records.forceNext and " (the next run counts)" or ""))
 		end
 	elseif command == "gift" then
 		-- `gift <product>`: a gift to yourself as if a friend had bought it

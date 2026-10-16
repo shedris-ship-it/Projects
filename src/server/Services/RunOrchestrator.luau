@@ -374,6 +374,8 @@ function RunOrchestrator:_onExtracted(player: Player)
 		return
 	end
 	run.extracted[player] = true
+	-- (The squad's time for the diner's boards: to the last one out.)
+	run.outAt = os.clock()
 	self.services.RunLogService:Extracted()
 	-- The last shot (the V8 cutscene): out of the front door into the storm,
 	-- then the hub. Their run is over (Extracted: he has no business with
@@ -600,6 +602,30 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 		drift = summary.drift,
 		duration = math.floor(duration),
 	})
+	-- The diner's records (LB5): a real escape's time, from the arrival to
+	-- the last of the squad out of the front door.
+	if services.RecordsService then
+		local names, extracted = {}, 0
+		for _, player in run.players do
+			table.insert(names, player.DisplayName)
+		end
+		for _ in run.extracted do
+			extracted += 1
+		end
+		services.RecordsService:Post({
+			won = won,
+			extracted = extracted,
+			studio = RunService:IsStudio(),
+			debugged = services.DebugService ~= nil and services.DebugService.used == true,
+			night = self:Night(),
+			difficulty = run.difficultyName,
+			seconds = (run.outAt or os.clock()) - run.started,
+			size = #run.players,
+			names = names,
+			at = os.time(),
+			players = run.players,
+		})
+	end
 	task.delay(3, function()
 		self:_returnToLobby()
 	end)

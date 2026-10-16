@@ -78,6 +78,9 @@ function LobbyService:_build()
 	self.services.RentalService:Build(folder, o)
 	-- The boutique's fitting room, till and price cards (LB3).
 	self.services.ShopService:Build(folder, o)
+	-- The arcade's cabinets and the diner's record boards (LB5).
+	self.services.ArcadeService:Build(folder, o)
+	self.services.RecordsService:Build(folder, o)
 	self.folder = folder
 end
 

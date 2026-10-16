@@ -50,6 +50,11 @@ local DEFINITIONS = {
 	-- The torch's looks and the car bits (LB4; Services/ShopService, UI/Wares).
 	WareBuy = "RemoteEvent", -- (kind, id): buy a torch look, a paint, a car bit or a station for Marks
 	WareUse = "RemoteEvent", -- (kind, id, on): carry a torch, paint your car, fit or take off a bit, tune
+	-- The arcade (LB5; Services/ArcadeService, Controllers/ArcadeController, UI/Arcade).
+	ArcadePay = "RemoteEvent", -- (cabinet, how): the coin card's choice: "marks", or a product or pass to buy
+	ArcadePress = "RemoteEvent", -- (from, { tick, value, ... }): your presses as you play, in batches
+	ArcadeEnd = "RemoteEvent", -- (tick, score): your game over, or you walked away from it
+	ArcadeWatch = "RemoteEvent", -- (cabinet, on): near a cabinet: its game, live, or not any more
 	SaveSettings = "RemoteEvent",
 	DebugCommand = "RemoteEvent",
 	RequestSync = "RemoteEvent",
@@ -85,6 +90,10 @@ local DEFINITIONS = {
 	StarterOffer = "RemoteEvent", -- S->C ({ robux, garment, marks }): the starter pack, offered once after your first run
 	GiftArrived = "RemoteEvent", -- S->C ({ from, what }): a wrapped gift for you (or opened)
 	WareState = "RemoteEvent", -- S->C ({ which, marks, owned, torch, car }): the counter or the pegboard, opened or changed
+	ArcadeCoin = "RemoteEvent", -- S->C ({ index, marks, price, credits, robux }): the coin card, nothing to play with
+	ArcadeStart = "RemoteEvent", -- S->C ({ index, seed, started }): your game, its first tick at `started` (server time)
+	ArcadeFeed = "RemoteEvent", -- S->C (cabinet, { seed?, started?, name?, from, events } or { over }): a game you're watching
+	ArcadeResult = "RemoteEvent", -- S->C ({ score, week?, all?, dropped? }): your score, and its places on the boards
 	DebugState = "UnreliableRemoteEvent",
 	ProfileData = "RemoteEvent",
 }

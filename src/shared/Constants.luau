@@ -131,6 +131,8 @@ Constants.PlayerAttributes = {
 	-- The torch look you carry (Data/TorchLooks, LB4): your hand's and, to
 	-- the squad, the one in your hand (Controllers/HeldTorchController).
 	TorchLook = "TorchLook",
+	-- At an arcade cabinet, playing (Services/ArcadeService): its number.
+	Arcade = "Arcade",
 	Carrying = "Carrying",
 	IsEcho = "IsEcho",
 	-- The keys on your ring (the escape, Services/LockService): their names,
