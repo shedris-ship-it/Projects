@@ -1038,6 +1038,8 @@ def wardrobe(names=None):
             shaft(shoe)
         for b in bottoms:
             note("%s tucked in %s" % (shoe.name, b.name), tuck(shoe, b.pieces["UpperLeg"]))
+        # (Its own bands over the shaft go under the thighs too.)
+        s.tuck_under = [b.pieces["UpperLeg"] for b in bottoms]
         s.objects["Shoe"] = DRESS[s.name]["shoe"](s)
     # Sleeves: the forearm's, then the upper sleeve over it (a short sleeve
     # alone).
@@ -1705,7 +1707,7 @@ def hightop(g):
     ml = [
         cm.leather("HighTopLeather", (234, 230, 222), 0.48),
         cm.plain("HighTopRubber", (222, 216, 200), 0.75, bump=0.05, folds=0.0),
-        cm.lacing("HighTopLace", (246, 244, 238), (150, 150, 156)),
+        cm.lacing("HighTopLace", (246, 244, 238), (84, 86, 96)),  # (dark gaps: paler ones baked to a plain tab)
         cm.leather("HighTopNavy", (34, 46, 92), 0.45),
     ]
     s = g.pieces["Shoe"]
@@ -1715,7 +1717,12 @@ def hightop(g):
     toe = paint(mats(s.band("HighTopToe", -0.6, -0.3, 0.004, thickness=0.012, a0=FRONT - 0.7, a1=FRONT + 0.7).build(subdivide=0), *ml), 1)
     # (The collar where the shaft shows, below the thighs' foot: a padded navy
     # band round the ankle.)
-    collar = paint(mats(s.band("HighTopCollar", 1.22, 1.62, 0.008, thickness=0.026).build(subdivide=0), *ml), 3)
+    # (Raised to show on both bodies, its top runs into the trousers' thigh
+    # foot on the Boy's shorter shin: tucked under it there, as the shaft is.)
+    band = s.band("HighTopCollar", 1.22, 1.62, 0.008, thickness=0.026)
+    for outer in getattr(g, "tuck_under", ()):
+        tuck(band, outer)
+    collar = paint(mats(band.build(subdivide=0), *ml), 3)
     heel = paint(mats(s.band("HighTopHeel", -0.58, 0.32, 0.004, thickness=0.01, a0=BACK - 0.6, a1=BACK + 0.6).build(subdivide=0), *ml), 3)
     # Navy side panels lying on the curve (flat ones stood off it, jagged),
     # and the laces as a laced strip down the tongue (separate tabs stood off

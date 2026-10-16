@@ -3,6 +3,7 @@
 Run from the repository root (Blender 5.2, headless):
 
     blender.exe -b --factory-startup -P tools/blender/wardrobe.py -- [--only=A,B] [--nobake]
+        [--garments=Ringer,Biker --name=lb3]
 
 Builds every garment (kitlib/wardrobe: layer over layer, checked for anything
 coming through) and every tool (kitlib/toolkit); bakes their maps; writes
@@ -66,6 +67,16 @@ def main():
         if a.startswith("--only="):
             only = set(a[len("--only=") :].split(","))
     nobake = "--nobake" in args
+    # `--garments=A,B`: only these garments' pieces (a new batch for the
+    # importer, LB3), written to wardrobe_<--name>.glb; Data/KitWear isn't
+    # touched (it's written whole by a run without --only or --garments).
+    garments_only = None
+    batch_name = None
+    for a in args:
+        if a.startswith("--garments="):
+            garments_only = a[len("--garments=") :].split(",")
+        if a.startswith("--name="):
+            batch_name = a[len("--name=") :]
     # `--reuse=A,B`: these pieces wear the maps baked last time (the rest bake).
     reuse = set()
     for a in args:
@@ -95,6 +106,9 @@ def main():
     pieces = list(built.values()) + tools
     if only:
         pieces = [o for o in pieces if o.name in only or o.name[:-1] + "R" in only]
+    if garments_only:
+        pieces = [o for o in pieces if any(o.name.startswith(g) and o.name[len(g) : len(g) + 1].isupper() for g in garments_only)]
+        only = {o.name for o in pieces}
     report = []
     for obj in pieces:
         if not nobake:
@@ -167,7 +181,7 @@ def main():
     bpy.ops.object.select_all(action="DESELECT")
     for obj in pieces:
         obj.select_set(True)
-    name = "wardrobe" if not only else "wardrobe_" + "_".join(sorted(only))
+    name = "wardrobe" if not only else "wardrobe_" + (batch_name or "_".join(sorted(only)))
     if rights_only:
         name = "wardrobe_rights"
     glb = os.path.join(OUT, name + ".glb")

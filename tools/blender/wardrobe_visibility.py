@@ -5,7 +5,7 @@ inside out, and only Studio showed it).
 
 Run from the repository root (Blender 5.2, headless):
 
-    blender.exe -b --factory-startup -P tools/blender/wardrobe_visibility.py
+    blender.exe -b --factory-startup -P tools/blender/wardrobe_visibility.py [-- --lb3]
 
 Builds every garment (kitlib/wardrobe), dresses both measured bodies in every
 outfit (as the game stretches them), and looks at each from all round, from
@@ -35,6 +35,20 @@ OUTFITS = [
     ("Windbreaker", "Cords", "Sneaker"),
     ("Cardigan", "Cords", "Loafer"),
 ]
+# The boutique's first paid line (LB3), each worn with the free set and each
+# other: every new top over every bottom, the parachute pants over every
+# shoe, the high-tops under every bottom (`--lb3` checks only these).
+LB3 = [
+    ("Ringer", "Parachute", "HighTop"),
+    ("Ringer", "Jeans", "Sneaker"),
+    ("Sweatshirt", "Jeans", "HighTop"),
+    ("Sweatshirt", "Cords", "Loafer"),
+    ("DenimJacket", "Cords", "HighTop"),
+    ("DenimJacket", "Parachute", "Loafer"),
+    ("Biker", "Parachute", "Sneaker"),
+    ("Biker", "Jeans", "HighTop"),
+]
+OVER = ("HighTop",)  # shoes worn in place of the trousers' shins (Data/Wardrobe `over`)
 DIRECTIONS = 96
 KINDS = {}  # piece -> the kind of face met from behind (outer, lining, rim) -> count
 GRID = 70
@@ -130,13 +144,17 @@ def main():
             wardrobe.line(obj)
     lines = []
     totals = {}
+    outfits = LB3 if "--lb3" in sys.argv else OUTFITS + LB3
     for body in wardrobe.BODY_NAMES:
-        for top, bottom, shoes in OUTFITS:
+        for top, bottom, shoes in outfits:
             body_objs = wardrobe._proxy(body)
             dressed = []
             for garment in (top, bottom, shoes):
                 for name, obj in built.items():
                     if name.startswith(garment):
+                        # (As the game: high-tops leave the trousers' shins off.)
+                        if garment == bottom and shoes in OVER and name[len(garment):].startswith("LowerLeg"):
+                            continue
                         copy = obj.copy()
                         copy.data = obj.data
                         copy.name = name + "@"
