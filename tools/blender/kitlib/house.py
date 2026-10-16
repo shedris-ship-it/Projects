@@ -741,15 +741,20 @@ def workbench():
     return shapes.join(parts, "Workbench")
 
 
-def car():
+def car(paint_color=None, woodgrain=True, name="Car"):
     """The garage's car, 7 x 5 x 14 (Data/Props' Car): a 1980s station wagon
     gone dull under the dust. Its body is drawn from its side's profile and
     swept across it: a sloped hood, the wheels in their arches, a near
     upright tail. On it the glass of the long wagon cabin, its pillars and
     roof, woodgrain panels down the sides, chrome bumpers, square headlamps,
-    hubcaps. Its front is -Y (the grey-box's +Z)."""
+    hubcaps. Its front is -Y (the grey-box's +Z). (LB4's car-bit sketches:
+    `paint_color` another paint, `woodgrain` False without the woodgrain sides;
+    the defaults are the car as it's been imported.)"""
     w, d = 7.0, 14.0
-    paint = materials.paint("CarPaint", color=(96, 42, 36), roughness=0.3, grime=0.45)
+    if paint_color is None:
+        paint = materials.paint("CarPaint", color=(96, 42, 36), roughness=0.3, grime=0.45)
+    else:
+        paint = materials.paint("CarPaint%d_%d_%d" % paint_color, color=paint_color, roughness=0.3, grime=0.45)
     wood = materials.wood("Woodgrain", (90, 60, 36), (140, 100, 64), grain_axis="Y", scale=0.7, roughness=0.3)
     chrome = _chrome("CarChrome")
     glass = materials.paint("CarGlass", color=(70, 84, 90), roughness=0.04, grime=0.3)
@@ -807,7 +812,7 @@ def car():
         # A wing mirror by the windscreen.
         parts.append(materials.assign(shapes.box("Mirror", (0.35, 0.12, 0.25), (sx * (w / 2 + 0.05), -2.3, 3.0), 0.04, 2), chrome))
         # Woodgrain down the side, framed in chrome, round the arches.
-        for y0, y1 in ((fy + r_arch + 0.15, ry - r_arch - 0.15), (ry + r_arch + 0.15, 6.8)):
+        for y0, y1 in ((fy + r_arch + 0.15, ry - r_arch - 0.15), (ry + r_arch + 0.15, 6.8)) if woodgrain else ():
             cy, ln = (y0 + y1) / 2, y1 - y0
             parts.append(materials.assign(shapes.box("Wood", (0.03, ln, 1.0), (sx * (w / 2 - 0.035), cy, 1.95), 0.0), wood))
             for z in (1.43, 2.47):
@@ -832,7 +837,7 @@ def car():
             parts.append(materials.assign(shapes.box("Headlamp", (0.55, 0.06, 0.34), (sx * x, -(d / 2 + 0.01), 1.85), 0.03, 2), lamp))
         parts.append(materials.assign(shapes.box("TailLamp", (0.45, 0.06, 0.9), (sx * (w / 2 - 0.35), d / 2 + 0.01, 1.9), 0.03, 2), red))
     parts.append(materials.assign(shapes.box("Plate", (1.2, 0.03, 0.4), (0, d / 2 + 0.02, 1.55), 0.01, 1), lamp))
-    return shapes.join(parts, "Car")
+    return shapes.join(parts, name)
 
 
 def boiler():

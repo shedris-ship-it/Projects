@@ -213,6 +213,111 @@ def torch():
     return obj
 
 
+
+# The torch's looks (LB4, docs/plans/lobby-rework.md, "Electronics"): sold for
+# Marks, looks only. Each keeps today's lens (its opening at z -0.75, 0.4
+# across), the switch on top at z 0.05 and the body round the grip just
+# behind it (Config.ViewModel's `grip`), so the beam, the switch's glow and
+# the hand are exactly as they are; nothing on them glows. Named
+# ToolTorch<Look> (Data/Kit Tools).
+
+
+def _lanyard(name, z, y=0.0):
+    """A loop of cord off the tail."""
+    return _tube(name, [(0, y, z), (0, y + 0.08, z + 0.035), (0, y + 0.13, z - 0.01), (0, y + 0.08, z - 0.05), (0, y, z)], 0.012, 8)
+
+
+def torch_rubber():
+    """A yellow rubber work torch (1,000 Marks): chunky and practical,
+    ribbed where the hand goes, a black rubber bumper round the head, a black
+    tail cap and lanyard, a black boot round the switch."""
+    yellow = cm.plain("RubberYellow", (248, 196, 26), 0.66, bump=0.15, scale=60.0, mottle=0.04, folds=0.0)
+    black = cm.plain("RubberBlack", (28, 28, 30), 0.85, bump=0.12, folds=0.0)
+    ml = [yellow, black]
+    body = _paint(_spin_z("RubberBody", [(0.0, 0.6), (0.155, 0.6), (0.165, 0.56), (0.165, -0.42), (0.172, -0.45)]), 0)
+    ribs = [
+        _paint(_spin_z("RubberRib", [(0.164, z - 0.022), (0.179, z - 0.012), (0.179, z + 0.012), (0.164, z + 0.022)]), 0)
+        for z in (0.2, 0.28, 0.36, 0.44)
+    ]
+    head = _paint(_spin_z("RubberHead", [(0.172, -0.44), (0.185, -0.48), (0.225, -0.56), (0.248, -0.64), (0.252, -0.68)], steps=40), 0)
+    bumper = _paint(
+        _spin_z("RubberBumper", [(0.25, -0.655), (0.276, -0.675), (0.282, -0.735), (0.258, -0.768), (0.208, -0.765), (0.2, -0.75)], steps=40),
+        1,
+    )
+    tail = _paint(_spin_z("RubberTail", [(0.0, 0.64), (0.14, 0.64), (0.172, 0.61), (0.172, 0.53), (0.165, 0.51)]), 1)
+    ring = _paint(_lanyard("RubberLanyard", 0.66), 1)
+    boot = _paint(_box("RubberBoot", (0.16, 0.05, 0.28), (0, 0.162, 0.05), 0.02), 1)
+    obj = _join([body, head, bumper, tail, ring, boot] + ribs, "ToolTorchRubber", ml)
+    obj["bake_size"] = 512
+    return obj
+
+
+def torch_brass():
+    """A brass torch from someone's grandfather's drawer (1,500 Marks): an
+    aged brass tube with engraved bands at either end, a knurled band to hold
+    it by, a domed head with a rolled lip, a brass slide round the switch, a
+    domed end cap and its ring."""
+    brass = cm.metal("TorchBrass", (196, 160, 84), 0.3)
+    dark = cm.metal("TorchBrassDark", (126, 96, 50), 0.5)
+    knurl = _knurl("TorchBrassKnurl", (178, 142, 72))
+    ml = [brass, dark, knurl]
+    body = _paint(_spin_z("BrassBody", [(0.0, 0.6), (0.14, 0.6), (0.148, 0.57), (0.148, -0.4), (0.152, -0.42)]), 0)
+    bands = [
+        _paint(_spin_z("BrassBand", [(0.147, z - 0.012), (0.153, z - 0.008), (0.153, z + 0.008), (0.147, z + 0.012)]), 1)
+        for z in (-0.33, -0.29, 0.5, 0.54)
+    ]
+    grip = _paint(_spin_z("BrassKnurl", [(0.147, 0.13), (0.152, 0.14), (0.152, 0.42), (0.147, 0.43)]), 2)
+    head = _paint(
+        _spin_z(
+            "BrassHead",
+            [(0.152, -0.42), (0.172, -0.46), (0.212, -0.54), (0.234, -0.62), (0.238, -0.69), (0.236, -0.73), (0.222, -0.752), (0.206, -0.756), (0.2, -0.745)],
+            steps=40,
+        ),
+        0,
+    )
+    lip = _paint(_spin_z("BrassLip", [(0.236, -0.682), (0.25, -0.69), (0.252, -0.716), (0.238, -0.728)], steps=40), 0)
+    slide = _paint(_box("BrassSlide", (0.13, 0.03, 0.32), (0, 0.15, 0.05), 0.012), 1)
+    cap = _paint(_spin_z("BrassCap", [(0.0, 0.69), (0.06, 0.685), (0.115, 0.66), (0.145, 0.62), (0.15, 0.59)]), 0)
+    ring = _paint(_tube("BrassRing", [(0, 0.0, 0.69), (0, 0.06, 0.72), (0, 0.1, 0.69), (0, 0.06, 0.66), (0, 0.0, 0.69)], 0.01, 8), 0)
+    obj = _join([body, grip, head, lip, slide, cap, ring] + bands, "ToolTorchBrass", ml)
+    obj["bake_size"] = 512
+    return obj
+
+
+def torch_chrome():
+    """A long chrome torch (2,000 Marks), the one you show off: a long
+    polished barrel, knurled where it's held, a wide head behind a crisp ring,
+    a black rubber tail. Longer than today's only toward you, so the hand,
+    the switch and the lens stay where they are."""
+    chrome = cm.metal("TorchChromeBright", (216, 216, 222), 0.1)
+    knurl = _knurl("TorchChromeKnurl", (184, 186, 192))
+    rubber = cm.plain("TorchChromeRubber", (26, 26, 28), 0.85, bump=0.1, folds=0.0)
+    ml = [chrome, knurl, rubber]
+    body = _paint(_spin_z("ChromeBody", [(0.0, 1.15), (0.14, 1.15), (0.15, 1.12), (0.15, -0.42), (0.156, -0.44)]), 0)
+    grips = [
+        _paint(_spin_z("ChromeKnurl", [(0.149, a), (0.153, a + 0.01), (0.153, b - 0.01), (0.149, b)]), 1)
+        for a, b in ((0.13, 0.42), (0.62, 0.98))
+    ]
+    collar = _paint(_spin_z("ChromeCollar", [(0.155, -0.43), (0.168, -0.425), (0.168, -0.395), (0.155, -0.39)]), 0)
+    head = _paint(
+        _spin_z(
+            "ChromeHead",
+            [(0.156, -0.44), (0.168, -0.46), (0.222, -0.55), (0.252, -0.64), (0.258, -0.72), (0.262, -0.745), (0.224, -0.762), (0.2, -0.748)],
+            steps=40,
+        ),
+        0,
+    )
+    tail = _paint(_spin_z("ChromeTail", [(0.0, 1.2), (0.12, 1.2), (0.148, 1.18), (0.148, 1.13), (0.142, 1.12)]), 2)
+    boot = _paint(_box("ChromeBoot", (0.15, 0.04, 0.26), (0, 0.155, 0.05), 0.015), 2)
+    obj = _join([body, collar, head, tail, boot] + grips, "ToolTorchChrome", ml)
+    obj["bake_size"] = 512
+    return obj
+
+
+# The looks on sale (LB4): not in TOOLS (wardrobe.py's tools) until the
+# owner keeps them.
+TORCH_LOOKS = [torch_rubber, torch_brass, torch_chrome]
+
 def lantern():
     """A hurricane lantern: a tin fount for a base, a wire guard round the
     game's glass and flame (left open), a vented top, a bail handle."""
