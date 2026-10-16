@@ -37,11 +37,15 @@ local MARKER = { 38, 30, 26 } -- black marker on it
 Mall.Rooms = {
 	court = {
 		rect = { -50, -30, 50, 30 },
-		height = 26,
+		-- Two storeys under a glass vault (the owner, 2026-10-15: "it doesn't
+		-- really have that encapsulating grandeur"): the same floor, so the
+		-- walks stay short, and the height instead (Mall.Galleries, Mall.Vaults).
+		height = 48,
 		floor = { color = { 200, 192, 176 }, material = "Marble" },
 		wall = { color = { 206, 196, 176 }, material = "SmoothPlastic" },
 		ceiling = { color = { 170, 164, 152 } },
-		skylight = { -30, -14, 30, 14 },
+		skylight = { -40, -20, 49, 20 }, -- the void over the court, open to the vault
+		vault = true,
 	},
 	boutique = {
 		rect = { -50, -62, -17, -30 },
@@ -86,8 +90,8 @@ Mall.Rooms = {
 		wall = { color = { 150, 148, 140 }, material = "Concrete" },
 	},
 	concourse = { -- behind the shutter: the dead mall, dark
-		rect = { 50, -20, 162, 20 },
-		height = 22,
+		rect = { 50, -20, 230, 20 },
+		height = 44, -- two storeys, like the court: seen whole through the shutter
 		floor = { color = { 120, 114, 104 }, material = "Marble" },
 		wall = { color = { 110, 104, 96 } },
 		ceiling = { color = { 70, 66, 62 } },
@@ -173,7 +177,7 @@ Mall.Doors = {
 		at = 50,
 		from = -20,
 		to = 20,
-		height = 22,
+		height = 44, -- both storeys: the hall ends in a two-storey grille
 		kind = "shutter",
 		grille = "giant",
 	},
@@ -186,6 +190,71 @@ Mall.Doors = {
 	{ a = "concourse", runs = "x", at = 20, from = 64, to = 84, height = 12, kind = "deadfront", fill = "shutter" },
 	{ a = "concourse", runs = "x", at = 20, from = 98, to = 118, height = 12, kind = "deadfront", fill = "shutter" },
 	{ a = "concourse", runs = "x", at = 20, from = 132, to = 152, height = 12, kind = "deadfront", fill = "shutter" },
+	{ a = "concourse", runs = "x", at = -20, from = 166, to = 186, height = 12, kind = "deadfront", fill = "shutter" },
+	{ a = "concourse", runs = "x", at = -20, from = 200, to = 220, height = 12, kind = "deadfront", fill = "shutter" },
+	{ a = "concourse", runs = "x", at = 20, from = 166, to = 186, height = 12, kind = "deadfront", fill = "shutter" },
+	{ a = "concourse", runs = "x", at = 20, from = 200, to = 220, height = 12, kind = "deadfront", fill = "shutter" },
+}
+
+-- The floors above (World/MallBuilder buildGallery): out of reach, dark,
+-- the dead part of the mall. The court's runs round three sides (the east end
+-- is the two-storey shutter); its columns stand on the walls between the
+-- shopfronts, never before a sign, and clear of the ad lightboxes' view
+-- (tests/specs/MallLayout). The dead mall's runs along both sides.
+Mall.Galleries = {
+	{
+		room = "court",
+		level = 22,
+		depth = 9,
+		sides = { "N", "S", "W" },
+		parapet = 3.6,
+		columns = { { -17, -21 }, { 17, -21 }, { -17, 21 }, { 17, 21 } },
+	},
+	{
+		room = "concourse",
+		level = 22,
+		depth = 7,
+		sides = { "N", "S" },
+		parapet = 3.4,
+		-- On the walls between its dead fronts.
+		columns = {
+			{ 91, -13 },
+			{ 91, 13 },
+			{ 125, -13 },
+			{ 125, 13 },
+			{ 159, -13 },
+			{ 159, 13 },
+			{ 193, -13 },
+			{ 193, 13 },
+		},
+	},
+}
+
+-- The glass barrel vault over the court's void, springing from the roof at
+-- 48 studs and rising 11 more at its middle.
+Mall.Vaults = {
+	{ room = "court", x0 = -40, x1 = 49, z0 = -20, z1 = 20, spring = 48, rise = 11, ribs = 8, segments = 10 },
+}
+
+-- The upper floors' shopfronts, dead (World/MallBuilder buildUpperFront):
+-- shutters down, or a grille on a dark shop.
+Mall.UpperFronts = {
+	{ room = "court", side = "N", from = -47, to = -20, level = 22, height = 11, kind = "shutter" },
+	{ room = "court", side = "N", from = -14, to = 14, level = 22, height = 11, kind = "grille" },
+	{ room = "court", side = "N", from = 20, to = 47, level = 22, height = 11, kind = "shutter" },
+	{ room = "court", side = "S", from = -47, to = -20, level = 22, height = 11, kind = "shutter" },
+	{ room = "court", side = "S", from = -14, to = 14, level = 22, height = 11, kind = "grille" },
+	{ room = "court", side = "S", from = 20, to = 47, level = 22, height = 11, kind = "shutter" },
+	{ room = "concourse", side = "N", from = 64, to = 84, level = 22, height = 10, kind = "shutter" },
+	{ room = "concourse", side = "N", from = 98, to = 118, level = 22, height = 10, kind = "grille" },
+	{ room = "concourse", side = "N", from = 132, to = 152, level = 22, height = 10, kind = "shutter" },
+	{ room = "concourse", side = "N", from = 166, to = 186, level = 22, height = 10, kind = "shutter" },
+	{ room = "concourse", side = "N", from = 200, to = 220, level = 22, height = 10, kind = "grille" },
+	{ room = "concourse", side = "S", from = 64, to = 84, level = 22, height = 10, kind = "grille" },
+	{ room = "concourse", side = "S", from = 98, to = 118, level = 22, height = 10, kind = "shutter" },
+	{ room = "concourse", side = "S", from = 132, to = 152, level = 22, height = 10, kind = "shutter" },
+	{ room = "concourse", side = "S", from = 166, to = 186, level = 22, height = 10, kind = "grille" },
+	{ room = "concourse", side = "S", from = 200, to = 220, level = 22, height = 10, kind = "shutter" },
 }
 
 Mall.Fountain = { x = 0, z = 0 }
@@ -587,7 +656,7 @@ Mall.Signs = {
 	{
 		room = "concourse",
 		text = "EXIT",
-		x = 160.8,
+		x = 228.8,
 		y = 13,
 		z = 0,
 		w = 4,
@@ -605,11 +674,14 @@ Mall.Signs = {
 -- (a work lamp); `off` is a dead lamp of the mall's own.
 Mall.Lights = {
 	-- the mall's pendants, dead
-	{ room = "court", kind = "pendant", x = -30, y = 20, z = -12, cord = 26, off = true },
-	{ room = "court", kind = "pendant", x = 30, y = 20, z = -12, cord = 26, off = true },
-	{ room = "court", kind = "pendant", x = -30, y = 20, z = 12, cord = 26, off = true },
-	{ room = "court", kind = "pendant", x = 30, y = 20, z = 12, cord = 26, off = true },
-	{ room = "court", kind = "moon", x = 0, y = 25.5, z = 0 },
+	{ room = "court", kind = "pendant", x = -30, y = 30, z = -12, cord = 57, off = true },
+	{ room = "court", kind = "pendant", x = 30, y = 30, z = -12, cord = 57, off = true },
+	{ room = "court", kind = "pendant", x = -30, y = 30, z = 12, cord = 57, off = true },
+	{ room = "court", kind = "pendant", x = 30, y = 30, z = 12, cord = 57, off = true },
+	{ room = "court", kind = "moon", x = 0, y = 46, z = 0 },
+	{ room = "court", kind = "skyglow", x = 0, y = 50, z = 0 },
+	{ room = "court", kind = "skyglow", x = -26, y = 44, z = 0 },
+	{ room = "court", kind = "skyglow", x = 26, y = 44, z = 0 },
 	-- the shops, lit again, their light out over the court
 	{ room = "boutique", kind = "shop", x = -33.5, y = 13, z = -46, fixture = true },
 	{ room = "video", kind = "shop", x = 0, y = 13, z = -46, fixture = true },
@@ -630,8 +702,8 @@ Mall.Lights = {
 	{ room = "garage", kind = "work", x = -34, y = 7, z = -77, stand = true, shadows = true },
 	{ room = "garage", kind = "work", x = 22, y = 7, z = -79, stand = true },
 	-- the dead mall's emergency lamps; the lot's sodium lamp
-	{ room = "concourse", kind = "dim", x = 95, y = 20, z = 0, fixture = true },
-	{ room = "concourse", kind = "dim", x = 145, y = 20, z = 0, fixture = true },
+	{ room = "concourse", kind = "dim", x = 95, y = 20.5, z = 0, fixture = true },
+	{ room = "concourse", kind = "dim", x = 175, y = 20.5, z = 0, fixture = true },
 	{ room = "court", kind = "street", x = 0, y = 12, z = 52 },
 	-- the storm's light in through the main doors, for lightning (`face`: where it shines)
 	{ room = "court", kind = "storm", x = 0, y = 11, z = 36, face = "N" },
@@ -702,9 +774,14 @@ Mall.Strings = {
 
 -- The mall's old backlit lightboxes, powered again: the immersive ads' slots
 -- (docs/plans/lobby-rework.md; LB6 fills them). {x, y, z} is the box's front.
+-- Roblox's rules: a face 8 x 4.5 to 32 x 18 studs, near 16:9, and nothing in
+-- front of it (the owner, 2026-10-15: keep the ad areas intact). The court's
+-- columns, planters and strings keep clear (tests/specs/MallLayout's "ad"
+-- test, Logic/MallLayout.adBlockers). Until an ad runs each reads THIS SPACE
+-- AVAILABLE, as a dead mall's empty lightboxes do.
 Mall.Ads = {
-	{ room = "court", slot = "court-west-north", x = -48.4, y = 6, z = -21, w = 8.5, h = 5, face = "E" },
-	{ room = "court", slot = "court-west-south", x = -48.4, y = 6, z = 21, w = 8.5, h = 5, face = "E" },
+	{ room = "court", slot = "court-west-north", x = -48.4, y = 6.6, z = -21, w = 11, h = 6.2, face = "E" },
+	{ room = "court", slot = "court-west-south", x = -48.4, y = 6.6, z = 21, w = 11, h = 6.2, face = "E" },
 	{ room = "court", slot = "court-east-north", x = 48.4, y = 6, z = -24.6, w = 8.4, h = 5, face = "W" },
 	{ room = "court", slot = "court-east-south", x = 48.4, y = 6, z = 24.6, w = 8.4, h = 5, face = "W" },
 }
@@ -841,16 +918,16 @@ Mall.Blocks = {
 		material = "Fabric",
 	},
 	-- planters with what's left of their plants
-	{ room = "court", name = "Planter", x = -42, y = 1.5, z = -22, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = 42, y = 1.5, z = -22, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = -42, y = 1.5, z = 22, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = 42, y = 1.5, z = 22, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
+	{ room = "court", name = "Planter", x = -26, y = 1.5, z = -12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
+	{ room = "court", name = "Planter", x = 26, y = 1.5, z = -12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
+	{ room = "court", name = "Planter", x = -26, y = 1.5, z = 12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
+	{ room = "court", name = "Planter", x = 26, y = 1.5, z = 12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
 	{
 		room = "court",
 		name = "DeadPlant",
-		x = -42.5,
+		x = -26.5,
 		y = 4.2,
-		z = -22,
+		z = -12,
 		size = { 0.3, 2.6, 0.3 },
 		rot = { 0, 0, 14 },
 		color = DEAD,
@@ -858,9 +935,9 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
-		x = 41.5,
+		x = 25.5,
 		y = 4,
-		z = -21.5,
+		z = -11.5,
 		size = { 0.3, 2.2, 0.3 },
 		rot = { 12, 0, -10 },
 		color = DEAD,
@@ -868,9 +945,9 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
-		x = -41.5,
+		x = -25.5,
 		y = 4.1,
-		z = 22.5,
+		z = 12.5,
 		size = { 0.3, 2.4, 0.3 },
 		rot = { -10, 0, 8 },
 		color = DEAD,
@@ -878,9 +955,9 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
-		x = 42,
+		x = 26,
 		y = 3.9,
-		z = 22,
+		z = 12,
 		size = { 0.3, 2, 0.3 },
 		rot = { 0, 0, -18 },
 		color = DEAD,
@@ -977,9 +1054,9 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "Cart",
-		x = 30,
+		x = 35,
 		y = 2.1,
-		z = 18,
+		z = 15,
 		size = { 2.2, 1.6, 3.4 },
 		rot = { 0, 25, 0 },
 		color = { 150, 152, 156 },
@@ -1010,8 +1087,8 @@ Mall.Blocks = {
 		collide = false,
 	},
 	-- the directory, the photo booth
-	{ room = "court", name = "Directory", x = 12, y = 3.5, z = 20, size = { 4, 7, 0.8 }, color = { 60, 60, 66 } },
-	{ room = "court", name = "PhotoBooth", x = 26, y = 4, z = 23, size = { 5, 8, 5 }, color = { 160, 56, 56 } },
+	{ room = "court", name = "Directory", x = 6.5, y = 3.5, z = 22, size = { 4, 7, 0.8 }, color = { 60, 60, 66 } },
+	{ room = "court", name = "PhotoBooth", x = 21, y = 4, z = 24, size = { 5, 8, 5 }, color = { 160, 56, 56 } },
 	-- the main doors: boarded on the outside, and the lot in the rain
 	{
 		room = "court",
@@ -1038,10 +1115,10 @@ Mall.Blocks = {
 		room = "court",
 		name = "CautionTape",
 		x = 48.85,
-		y = 11,
+		y = 22,
 		z = 0,
-		size = { 0.08, 0.6, 45.5 },
-		rot = { 28.8, 0, 0 },
+		size = { 0.08, 0.6, 59.4 },
+		rot = { 47.7, 0, 0 },
 		color = { 240, 200, 30 },
 		collide = false,
 		shadow = false,
@@ -1050,10 +1127,10 @@ Mall.Blocks = {
 		room = "court",
 		name = "CautionTape",
 		x = 48.85,
-		y = 11,
+		y = 22,
 		z = 0,
-		size = { 0.08, 0.6, 45.5 },
-		rot = { -28.8, 0, 0 },
+		size = { 0.08, 0.6, 59.4 },
+		rot = { -47.7, 0, 0 },
 		color = { 240, 200, 30 },
 		collide = false,
 		shadow = false,
@@ -1701,9 +1778,9 @@ Mall.Blocks = {
 	{
 		room = "concourse",
 		name = "Cart",
-		x = 138,
+		x = 160,
 		y = 1.2,
-		z = -8,
+		z = 6,
 		size = { 2.2, 1.6, 3.4 },
 		rot = { 0, 0, 80 },
 		color = { 120, 122, 126 },
@@ -1711,5 +1788,184 @@ Mall.Blocks = {
 		transparency = 0.45,
 	},
 }
+
+-- The mall's grandeur, dead (the owner, 2026-10-15): what hangs in the void
+-- over the court, what's on its upper walls, and the dead mall's escalators.
+local DEAD_GLASS = { 64, 60, 56 }
+
+-- The chandelier over the fountain: a ring on a long cord from the vault,
+-- its globes dark.
+table.insert(Mall.Blocks, {
+	room = "court",
+	name = "ChandelierCord",
+	x = 0,
+	y = 47.5,
+	z = 0,
+	size = { 0.3, 23, 0.3 },
+	color = { 70, 72, 76 },
+	material = "Metal",
+	collide = false,
+	shadow = false,
+})
+for i = 0, 11 do
+	local a = math.pi * 2 * i / 12
+	table.insert(Mall.Blocks, {
+		room = "court",
+		name = "ChandelierRing",
+		x = 6 * math.cos(a),
+		y = 36,
+		z = 6 * math.sin(a),
+		size = { 3.3, 0.4, 0.4 },
+		rot = { 0, -math.deg(a) - 90, 0 },
+		color = { 120, 104, 70 },
+		material = "Metal",
+		collide = false,
+	})
+	if i % 2 == 0 then
+		table.insert(Mall.Blocks, {
+			room = "court",
+			name = "ChandelierGlobe",
+			x = 6 * math.cos(a),
+			y = 34.6,
+			z = 6 * math.sin(a),
+			size = { 1.8, 1.8, 1.8 },
+			shape = "Ball",
+			color = DEAD_GLASS,
+			material = "Glass",
+			collide = false,
+		})
+	end
+end
+
+-- The clock high on the west wall, over the diner: stopped at 9:47.
+table.insert(Mall.Blocks, {
+	room = "court",
+	name = "ClockFace",
+	x = -48.6,
+	y = 34,
+	z = 0,
+	size = { 0.6, 9, 9 },
+	rot = { 0, 0, 90 },
+	shape = "Cylinder",
+	color = { 214, 206, 186 },
+	collide = false,
+})
+table.insert(Mall.Blocks, {
+	room = "court",
+	name = "ClockHand",
+	x = -48.2,
+	y = 34.7,
+	z = 1.76,
+	size = { 0.12, 0.35, 3.6 },
+	rot = { -12, 0, 0 },
+	color = { 30, 28, 26 },
+	collide = false,
+	shadow = false,
+})
+table.insert(Mall.Blocks, {
+	room = "court",
+	name = "ClockHand",
+	x = -48.2,
+	y = 34.52,
+	z = 1.19,
+	size = { 0.14, 0.45, 2.6 },
+	rot = { -23.5, 0, 0 },
+	color = { 30, 28, 26 },
+	collide = false,
+	shadow = false,
+})
+
+-- Faded sale banners hanging in the void, and the upper floors' own signs.
+for _, banner in
+	{
+		{ x = -26, text = "S\nA\nL\nE", panel = { 150, 70, 60 } },
+		{ x = 26, text = "S\nA\nV\nE", panel = { 70, 90, 130 } },
+	}
+do
+	table.insert(Mall.Signs, {
+		room = "court",
+		text = banner.text,
+		x = banner.x,
+		y = 40,
+		z = 0,
+		w = 3.4,
+		h = 13,
+		face = "S",
+		color = { 226, 216, 196 },
+		panel = banner.panel,
+		material = "Fabric",
+		font = "GothamBlack",
+	})
+end
+table.insert(Mall.Signs, {
+	room = "court",
+	text = "FOR LEASE",
+	x = -33.5,
+	y = 30,
+	z = -28.5,
+	w = 7,
+	h = 1.3,
+	face = "S",
+	color = { 150, 140, 120 },
+	panel = { 40, 38, 36 },
+	font = "SourceSansBold",
+})
+table.insert(Mall.Signs, {
+	room = "court",
+	text = "FOR LEASE",
+	x = 33.5,
+	y = 30,
+	z = 28.5,
+	w = 7,
+	h = 1.3,
+	face = "N",
+	color = { 150, 140, 120 },
+	panel = { 40, 38, 36 },
+	font = "SourceSansBold",
+})
+
+-- The upper floors' battery emergency lamps: barely there, never on the
+-- generator.
+table.insert(Mall.Lights, { room = "court", kind = "dim", x = -30, y = 40, z = -28.6, fixture = true })
+table.insert(Mall.Lights, { room = "court", kind = "dim", x = 30, y = 40, z = 28.6, fixture = true })
+table.insert(Mall.Lights, { room = "concourse", kind = "dim", x = 130, y = 40, z = 0, fixture = true })
+
+-- The dead mall's escalators, stopped: up from its floor to the north
+-- gallery, with a landing at the top; seen through the shutter.
+for _, z in { -8, -4 } do
+	table.insert(Mall.Blocks, {
+		room = "concourse",
+		name = "Escalator",
+		x = 119,
+		y = 11,
+		z = z,
+		size = { 43.9, 1.6, 3.4 },
+		rot = { 0, 0, 30.07 },
+		color = { 90, 88, 84 },
+		material = "Metal",
+	})
+	for _, side in { -1.9, 1.9 } do
+		table.insert(Mall.Blocks, {
+			room = "concourse",
+			name = "EscalatorSide",
+			x = 118,
+			y = 12.8,
+			z = z + side,
+			size = { 44, 3, 0.4 },
+			rot = { 0, 0, 30.07 },
+			color = { 150, 150, 146 },
+			material = "Metal",
+		})
+	end
+end
+table.insert(Mall.Blocks, {
+	room = "concourse",
+	name = "EscalatorLanding",
+	x = 140,
+	y = 21.4,
+	z = -7,
+	size = { 6, 1.2, 10 },
+	color = { 110, 104, 96 },
+})
 
 return Mall

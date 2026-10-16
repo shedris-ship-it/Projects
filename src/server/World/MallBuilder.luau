@@ -131,6 +131,9 @@ local function buildRoom(folder: Instance, origin: Vector3, id: string, built)
 		slab(x0, sky[4], x1, z1)
 		slab(x0, sky[2], sky[1], sky[4])
 		slab(sky[3], sky[2], x1, sky[4])
+	end
+	-- A flat skylight in the hole, unless a vault (Mall.Vaults) rises over it.
+	if sky and not room.vault then
 		local w, d = sky[3] - sky[1], sky[4] - sky[2]
 		local mid = origin + Vector3.new((sky[1] + sky[3]) / 2, h + 0.5, (sky[2] + sky[4]) / 2)
 		part(
@@ -163,8 +166,157 @@ local function buildRoom(folder: Instance, origin: Vector3, id: string, built)
 			DARK_STEEL,
 			material("Metal")
 		)
-	else
+	elseif not sky then
 		slab(x0, z0, x1, z1)
+	end
+end
+
+-- A floor above, round a room's open middle (the court's void, the dead
+-- mall's): its slab along each of `sides`, a parapet with a handrail on the
+-- edge over the void, and the columns that hold it. Out of reach: the
+-- investigators only use the ground floor.
+local function buildGallery(folder: Instance, origin: Vector3, g)
+	local room = Mall.Rooms[g.room]
+	local x0, z0, x1, z1 = room.rect[1], room.rect[2], room.rect[3], room.rect[4]
+	local t = Mall.Wall
+	local d = g.depth
+	local has = {}
+	for _, side in g.sides do
+		has[side] = true
+	end
+	-- The void's edges.
+	local vx0 = has.W and x0 + t + d or x0 + t
+	local vx1 = has.E and x1 - t - d or x1 - t
+	local vz0 = has.N and z0 + t + d or z0 + t
+	local vz1 = has.S and z1 - t - d or z1 - t
+	local model = Instance.new("Folder")
+	model.Name = "Gallery_" .. g.room
+	model.Parent = folder
+	local color = rgb(g.color or (room.wall and room.wall.color) or { 200, 200, 200 })
+	local y = g.level
+	local function slab(ax0: number, az0: number, ax1: number, az1: number)
+		part(
+			model,
+			"GalleryFloor",
+			Vector3.new(ax1 - ax0, 1.2, az1 - az0),
+			CFrame.new(origin + Vector3.new((ax0 + ax1) / 2, y - 0.6, (az0 + az1) / 2)),
+			color,
+			material("SmoothPlastic")
+		)
+	end
+	local function parapet(ax0: number, az0: number, ax1: number, az1: number)
+		local centre = origin + Vector3.new((ax0 + ax1) / 2, y + g.parapet / 2, (az0 + az1) / 2)
+		local size = Vector3.new(math.max(ax1 - ax0, 0.6), g.parapet, math.max(az1 - az0, 0.6))
+		part(model, "Parapet", size, CFrame.new(centre), color, material("SmoothPlastic"))
+		decor(
+			model,
+			"Handrail",
+			Vector3.new(size.X + 0.1, 0.3, size.Z + 0.1),
+			CFrame.new(centre + Vector3.new(0, g.parapet / 2 + 0.15, 0)),
+			STEEL,
+			material("Metal")
+		)
+	end
+	if has.N then
+		slab(x0 + t, z0 + t, x1 - t, vz0)
+		parapet(vx0, vz0 - 0.6, vx1, vz0)
+	end
+	if has.S then
+		slab(x0 + t, vz1, x1 - t, z1 - t)
+		parapet(vx0, vz1, vx1, vz1 + 0.6)
+	end
+	if has.W then
+		slab(x0 + t, vz0, vx0, vz1)
+		parapet(vx0 - 0.6, vz0, vx0, vz1)
+	end
+	if has.E then
+		slab(vx1, vz0, x1 - t, vz1)
+		parapet(vx1, vz0, vx1 + 0.6, vz1)
+	end
+	for _, c in g.columns or {} do
+		local p = part(
+			model,
+			"Column",
+			Vector3.new(y - 1.2, 2, 2),
+			CFrame.new(origin + Vector3.new(c[1], (y - 1.2) / 2, c[2])) * CFrame.Angles(0, 0, math.pi / 2),
+			color,
+			material("SmoothPlastic")
+		)
+		p.Shape = Enum.PartType.Cylinder
+	end
+end
+
+-- A glass barrel vault over a void: a half-ellipse across z, from `spring`
+-- up `rise` at the middle, glass bands between steel ribs, its two ends
+-- closed by stepped gables.
+local function buildVault(folder: Instance, origin: Vector3, v)
+	local model = Instance.new("Folder")
+	model.Name = "Vault_" .. v.room
+	model.Parent = folder
+	local cz = (v.z0 + v.z1) / 2
+	local r = (v.z1 - v.z0) / 2
+	local n = v.segments or 10
+	local points = {}
+	for i = 0, n do
+		local a = math.pi * i / n
+		table.insert(points, Vector3.new(0, v.spring + v.rise * math.sin(a), cz - r * math.cos(a)))
+	end
+	local length = v.x1 - v.x0
+	local midX = (v.x0 + v.x1) / 2
+	-- A frame on the arc between two points: X along the vault, Z along the arc.
+	local function arcFrame(x: number, p: Vector3, q: Vector3): (CFrame, number)
+		local dir = (q - p)
+		local seg = dir.Magnitude
+		dir = dir.Unit
+		local up = Vector3.new(0, dir.Z, -dir.Y)
+		local centre = origin + Vector3.new(x, (p.Y + q.Y) / 2, (p.Z + q.Z) / 2)
+		return CFrame.fromMatrix(centre, Vector3.xAxis, up), seg
+	end
+	for i = 1, n do
+		local cf, seg = arcFrame(midX, points[i], points[i + 1])
+		part(
+			model,
+			"VaultGlass",
+			Vector3.new(length, 0.3, seg + 0.1),
+			cf,
+			Color3.fromRGB(120, 140, 160),
+			material("Glass"),
+			{
+				transparency = 0.6,
+				castShadow = false,
+			}
+		)
+	end
+	local ribs = v.ribs or 8
+	for k = 0, ribs - 1 do
+		local x = v.x0 + length * k / (ribs - 1)
+		for i = 1, n do
+			local cf, seg = arcFrame(x, points[i], points[i + 1])
+			decor(
+				model,
+				"VaultRib",
+				Vector3.new(0.5, 0.7, seg + 0.3),
+				cf * CFrame.new(0, -0.3, 0),
+				DARK_STEEL,
+				material("Metal")
+			)
+		end
+	end
+	local wall = rgb(v.gable or { 170, 164, 152 })
+	for _, x in { v.x0, v.x1 } do
+		local steps = 4
+		for j = 1, steps do
+			local low = v.rise * (j - 1) / steps
+			local halfWidth = r * math.sqrt(math.max(0, 1 - (low / v.rise) ^ 2))
+			part(
+				model,
+				"Gable",
+				Vector3.new(1, v.rise / steps, halfWidth * 2),
+				CFrame.new(origin + Vector3.new(x, v.spring + low + v.rise / steps / 2, cz)),
+				wall,
+				material("SmoothPlastic")
+			)
+		end
 	end
 end
 
@@ -310,6 +462,61 @@ local function buildDoor(folder: Instance, origin: Vector3, door)
 			)
 		end
 	end
+end
+
+-- An upper floor's shopfront on a room's wall, above the gallery: dead, its
+-- shutter down, or a grille with the dark shop behind it.
+local function buildUpperFront(folder: Instance, origin: Vector3, f)
+	local room = Mall.Rooms[f.room]
+	local x0, z0, x1, z1 = room.rect[1], room.rect[2], room.rect[3], room.rect[4]
+	local t = Mall.Wall
+	local face, inward
+	if f.side == "N" then
+		face, inward = Vector3.new(0, 0, z0 + t), Vector3.new(0, 0, 1)
+	elseif f.side == "S" then
+		face, inward = Vector3.new(0, 0, z1 - t), Vector3.new(0, 0, -1)
+	elseif f.side == "W" then
+		face, inward = Vector3.new(x0 + t, 0, 0), Vector3.new(1, 0, 0)
+	else
+		face, inward = Vector3.new(x1 - t, 0, 0), Vector3.new(-1, 0, 0)
+	end
+	local w = f.to - f.from
+	local mid = (f.from + f.to) / 2
+	local along = (f.side == "N" or f.side == "S") and Vector3.new(mid, 0, 0) or Vector3.new(0, 0, mid)
+	local pos = origin + face + along + Vector3.new(0, f.level + f.height / 2, 0) + inward * 0.25
+	local cf = CFrame.lookAt(pos, pos + inward)
+	if f.kind == "grille" then
+		part(
+			folder,
+			"UpperShopDark",
+			Vector3.new(w, f.height, 0.2),
+			cf * CFrame.new(0, 0, 0.15),
+			Color3.fromRGB(12, 12, 14),
+			material("SmoothPlastic")
+		)
+		bars(folder, cf * CFrame.new(0, 0, -0.15), w, f.height, 0.9, 0.16, STEEL)
+	else
+		part(folder, "UpperShutter", Vector3.new(w, f.height, 0.4), cf, Color3.fromRGB(96, 96, 92), material("Metal"))
+		for i = 1, math.floor(f.height) - 1 do
+			decor(
+				folder,
+				"ShutterRib",
+				Vector3.new(w, 0.12, 0.2),
+				cf * CFrame.new(0, -f.height / 2 + i, -0.25),
+				Color3.fromRGB(74, 74, 72),
+				material("Metal")
+			)
+		end
+	end
+	-- The bulkhead over it, where its sign was.
+	decor(
+		folder,
+		"UpperBulkhead",
+		Vector3.new(w + 2, 2.4, 0.6),
+		cf * CFrame.new(0, f.height / 2 + 1.2, -0.1),
+		Color3.fromRGB(58, 54, 50),
+		material("SmoothPlastic")
+	)
 end
 
 local function buildSign(folder: Instance, origin: Vector3, sign)
@@ -580,13 +787,16 @@ local function buildAd(folder: Instance, origin: Vector3, ad)
 		DARK_STEEL,
 		material("Metal")
 	)
+	-- Not Neon: its bloom washes a face out to plain white. The glow is the
+	-- SurfaceGui's own, unlit and a little bright, so whatever is on the
+	-- face stays readable.
 	local face = part(
 		folder,
 		"AdFace",
 		Vector3.new(ad.w, ad.h, 0.1),
 		cf * CFrame.new(0, 0, -0.05),
 		rgb(look.color),
-		material("Neon"),
+		material("SmoothPlastic"),
 		{
 			collide = false,
 			castShadow = false,
@@ -594,20 +804,54 @@ local function buildAd(folder: Instance, origin: Vector3, ad)
 	)
 	face:SetAttribute("AdSlot", ad.slot or true)
 	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Placeholder"
 	gui.Face = Enum.NormalId.Front
 	gui.LightInfluence = 0
+	gui.Brightness = look.face
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 30
 	gui.Parent = face
+	-- Until an ad runs, what an empty lightbox in a dead mall says: the
+	-- diffuser yellowed with age, brightest where its tubes are.
+	local panel = Instance.new("Frame")
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.BackgroundColor3 = Color3.new(1, 1, 1)
+	panel.BorderSizePixel = 0
+	panel.Parent = gui
+	local tubes = Instance.new("UIGradient")
+	tubes.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(196, 182, 150)),
+		ColorSequenceKeypoint.new(0.3, Color3.fromRGB(236, 226, 200)),
+		ColorSequenceKeypoint.new(0.7, Color3.fromRGB(236, 226, 200)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(196, 182, 150)),
+	})
+	tubes.Parent = panel
+	local ink = Color3.fromRGB(74, 58, 42)
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 0.3)
-	label.Position = UDim2.fromScale(0, 0.35)
+	label.Size = UDim2.fromScale(0.84, 0.44)
+	label.Position = UDim2.fromScale(0.08, 0.12)
 	label.BackgroundTransparency = 1
-	label.Text = "AD SPACE"
+	label.Text = "THIS SPACE\nAVAILABLE"
 	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(150, 140, 120)
-	label.Font = Enum.Font.SourceSansBold
-	label.Parent = gui
+	label.TextColor3 = ink
+	label.Font = Enum.Font.Bodoni
+	label.Parent = panel
+	local rule = Instance.new("Frame")
+	rule.Size = UDim2.new(0.36, 0, 0, 3)
+	rule.Position = UDim2.fromScale(0.32, 0.64)
+	rule.BackgroundColor3 = ink
+	rule.BorderSizePixel = 0
+	rule.Parent = panel
+	local small = Instance.new("TextLabel")
+	small.Size = UDim2.fromScale(0.8, 0.1)
+	small.Position = UDim2.fromScale(0.1, 0.72)
+	small.BackgroundTransparency = 1
+	small.Text = "LEASING · ENQUIRE AT THE MALL OFFICE"
+	small.TextScaled = true
+	small.TextColor3 = ink
+	small.Font = Enum.Font.SourceSansSemibold
+	small.Parent = panel
+	CollectionService:AddTag(gui, Constants.Tags.MallPower)
 	local light = Instance.new("PointLight")
 	light.Color = rgb(look.color)
 	light.Range = look.range
@@ -648,6 +892,23 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 	for id, yes in built do
 		if yes then
 			buildRoom(rooms, origin, id, built)
+		end
+	end
+	-- The floors above and the vault: the mall's height (the owner, 2026-10-15:
+	-- "it doesn't really have that encapsulating grandeur").
+	for _, g in Mall.Galleries or {} do
+		if built[g.room] then
+			buildGallery(rooms, origin, g)
+		end
+	end
+	for _, v in Mall.Vaults or {} do
+		if built[v.room] then
+			buildVault(rooms, origin, v)
+		end
+	end
+	for _, f in Mall.UpperFronts or {} do
+		if built[f.room] then
+			buildUpperFront(rooms, origin, f)
 		end
 	end
 	local doors = Instance.new("Folder")

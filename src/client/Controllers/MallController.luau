@@ -125,7 +125,7 @@ function MallController:Start()
 		if base[thing] ~= nil then
 			return
 		end
-		if thing:IsA("Light") then
+		if thing:IsA("Light") or thing:IsA("SurfaceGui") then -- an ad lightbox's unlit face too
 			base[thing] = thing.Brightness
 		elseif thing:IsA("BasePart") then
 			base[thing] = thing.Color
@@ -143,6 +143,8 @@ function MallController:Start()
 				thing.Color = full:Lerp(Color3.new(0, 0, 0), (1 - level) * 0.85)
 			elseif thing:IsA("TextLabel") then
 				thing.TextTransparency = full + (1 - full) * (1 - level) * 0.85
+			elseif thing:IsA("SurfaceGui") then
+				thing.Brightness = full * (1 - (1 - level) * 0.85) -- an ad lightbox's unlit face
 			end
 		end
 	end

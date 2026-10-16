@@ -66,6 +66,41 @@ return function(test, check, Shared, require)
 		check.equal(diner.at, Mall.Rooms.court.rect[1], "the diner on its west end")
 	end)
 
+	test("nothing stands in front of an ad lightbox", function()
+		check.truthy(#Mall.Ads >= 4, "the four ad slots are there")
+		for _, ad in Mall.Ads do
+			check.truthy(
+				ad.w >= 8 and ad.h >= 4.5 and ad.w <= 32 and ad.h <= 18,
+				ad.slot .. " is within Roblox's sizes"
+			)
+			local aspect = ad.w / ad.h
+			check.truthy(aspect > 1.55 and aspect < 2, ad.slot .. " is near 16:9")
+		end
+		local blockers = MallLayout.adBlockers(Mall, 14)
+		check.equal(#blockers, 0, table.concat(blockers, "; "))
+		-- And it would see a column put in front of one.
+		local moved = table.clone(Mall)
+		moved.Galleries = { { room = "court", level = 22, columns = { { -42, -21 } } } }
+		check.equal(#MallLayout.adBlockers(moved, 14), 1, "a column before the west-north box")
+		-- Or beside one, where it hides the box from across the court.
+		moved.Galleries = { { room = "court", level = 22, columns = { { -41, -13 } } } }
+		check.equal(#MallLayout.adBlockers(moved, 14), 1, "a column off the west-north box's corner")
+		moved.Galleries = { { room = "court", level = 22, columns = { { -30, -2 } } } }
+		check.equal(#MallLayout.adBlockers(moved, 14), 0, "one well to the side is no trouble")
+	end)
+
+	test("the gallery's columns stand between the shopfronts, clear of everything", function()
+		local clashes = MallLayout.columnClashes(Mall)
+		check.equal(#clashes, 0, table.concat(clashes, "; "))
+		local moved = table.clone(Mall)
+		moved.Galleries = {
+			{ room = "court", level = 22, depth = 9, sides = { "N", "W" }, columns = { { 30, -21 }, { 0, 0 } } },
+		}
+		local text = table.concat(MallLayout.columnClashes(moved), "; ")
+		check.truthy(text:find("hides a front"), "one before the arcade: " .. text)
+		check.truthy(text:find("Fountain"), "one in the fountain: " .. text)
+	end)
+
 	test("a broken layout is caught", function()
 		local broken = {
 			Rooms = {

@@ -331,7 +331,18 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     For the owner to judge (the report): the fountain on the way to the video store, the shutter as a grille, the garage's light, the court's size.
   - **The story pass** (build .202; the owner: "it doesn't really read as an abandoned mall with a secret community of investigators in it ... dim the lights in there except from the stores and the ads, more environmental storytelling", the generator their idea): the mall's own lamps dead; light only from the shops, the ad lightboxes, the investigators' bulb strings and work lamps, all on their generator in the garage, its cables taped over the floor to each lit place; their cardboard signs and floor tape; the dead mall's dust sheets, dry fountain, fallen tiles, boarded doors; the shutter taped off. The report's "story pass" section and `story/` screenshots.
   - **The mall alive** (build .203; the owner's picks 1 to 3 of Claude's ideas): its sounds (the generator, fluorescents, a drip into the bucket, CB chatter, the arcade; shortlists in `Assets.Mall` the owner picks by ear with F2 `mallsound`), lightning over the mall through the skylight and the main doors, and the generator's brownouts. Ideas 4 to 8 (readable lore, the squads' photo wall, live screens, seeds for the shutter, the loading dock) wait.
-  - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight), imported by the owner as before; the lighting pass; the 50-player measurement.
+  - **The grandeur pass** (build .205; the owner: it "felt a little small for a mall ... doesn't really have that encapsulating grandeur"):
+    - grown up, not out, so the walks stay as short: the court two storeys high, with a dark gallery round three sides and the dead upper shops;
+    - a glass barrel vault over the court, a dead chandelier, banners, the clock stopped at 9:47;
+    - the east end a two-storey grille, with the dead concourse behind it two storeys and longer, its escalators stopped.
+
+    The owner's calls settled the same day: the fountain stays where it is, and the shutter stays a see-through grille. On their note to keep the ad areas "intact and not messed up looking while still looking good and on theme":
+    - the lightboxes are kept clear of columns and furniture, from straight on and up to 45 degrees off (spec'd in `MallLayout.adBlockers`), and the columns stand only between shopfronts (`columnClashes`);
+    - the west boxes are larger;
+    - the placeholder is a readable, yellowed "THIS SPACE AVAILABLE" panel instead of a Neon glare.
+
+    The report's "grandeur pass" section and its `grandeur/` screenshots; TC-309.
+  - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight, and now the vault, the gallery and its rail, the chandelier, the escalators), imported by the owner as before; the lighting pass; the 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.

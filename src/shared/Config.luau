@@ -2714,7 +2714,10 @@ Config.Mall = {
 	Lights = {
 		pendant = { color = { 255, 200, 150 }, range = 40, brightness = 1.6 },
 		fountain = { color = { 255, 214, 170 }, range = 18, brightness = 0.9 },
-		moon = { color = { 150, 170, 230 }, range = 40, brightness = 0.9, angle = 70 }, -- down through the skylight
+		moon = { color = { 150, 170, 230 }, range = 60, brightness = 1, angle = 95 }, -- down through the vault (Roblox lights reach 60 studs at most)
+		-- The night sky through the vault: a faint cool glow that shows its ribs,
+		-- the upper floor and the void (the owner, 2026-10-15: the grandeur).
+		skyglow = { color = { 120, 140, 190 }, range = 46, brightness = 0.35 },
 		shop = { color = { 255, 214, 172 }, range = 28, brightness = 1.4 },
 		arcade = { color = { 200, 130, 255 }, range = 28, brightness = 1.3 },
 		warm = { color = { 255, 190, 140 }, range = 26, brightness = 1.4 },
@@ -2723,7 +2726,8 @@ Config.Mall = {
 		spillCool = { color = { 190, 220, 255 }, range = 28, brightness = 1 }, -- the TV wall's
 		bulb = { color = { 255, 196, 130 }, range = 12, brightness = 0.7 }, -- a string of bulbs, every few lit
 		work = { color = { 255, 214, 160 }, range = 30, brightness = 1.3 }, -- a work lamp on a stand
-		ad = { color = { 214, 210, 196 }, range = 16, brightness = 0.8 }, -- an ad lightbox's glow
+		-- An ad lightbox's glow; `face` is its placeholder's brightness.
+		ad = { color = { 214, 210, 196 }, range = 16, brightness = 0.8, face = 1.1 },
 		strip = { color = { 222, 236, 226 }, range = 30, brightness = 0.7 }, -- the garage's fluorescents (the ones still working)
 		dim = { color = { 255, 120, 80 }, range = 20, brightness = 0.35 }, -- the dead mall's emergency lamps
 		street = { color = { 255, 170, 90 }, range = 34, brightness = 1 }, -- the lot's sodium lamp
@@ -2734,7 +2738,7 @@ Config.Mall = {
 	},
 	-- Lights not on the generator: the moon, the lot's lamp, the dead mall's
 	-- battery emergency lamps (and its EXIT sign), and the storm's.
-	Unpowered = { moon = true, street = true, dim = true, storm = true },
+	Unpowered = { moon = true, street = true, dim = true, storm = true, skyglow = true },
 	-- The mall's sounds (Data/Mall `Sounds`, Assets.Mall's candidates):
 	-- volume, the distance they carry, and for the drip the seconds between
 	-- drops.

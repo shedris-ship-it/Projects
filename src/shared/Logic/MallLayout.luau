@@ -145,6 +145,142 @@ function MallLayout.check(mall, reach: number): { string }
 	return problems
 end
 
+-- Half a block's size along x, y and z, as built (a Cylinder stands upright:
+-- its first size is its height). A turned block gives the box round it,
+-- turned as MallBuilder turns it (CFrame.Angles: x of y of z).
+local function halves(b)
+	local s = b.size
+	local h
+	if b.shape == "Cylinder" then
+		h = { s[2] / 2, s[1] / 2, s[3] / 2 }
+	else
+		h = { s[1] / 2, s[2] / 2, s[3] / 2 }
+	end
+	if not b.rot then
+		return h[1], h[2], h[3]
+	end
+	local a, c, e = math.rad(b.rot[1] or 0), math.rad(b.rot[2] or 0), math.rad(b.rot[3] or 0)
+	local ca, sa, cb, sb, cc, sc = math.cos(a), math.sin(a), math.cos(c), math.sin(c), math.cos(e), math.sin(e)
+	local r = {
+		{ cb * cc, -cb * sc, sb },
+		{ ca * sc + sa * sb * cc, ca * cc - sa * sb * sc, -sa * cb },
+		{ sa * sc - ca * sb * cc, sa * cc + ca * sb * sc, ca * cb },
+	}
+	local out = {}
+	for i = 1, 3 do
+		out[i] = math.abs(r[i][1]) * h[1] + math.abs(r[i][2]) * h[2] + math.abs(r[i][3]) * h[3]
+	end
+	return out[1], out[2], out[3]
+end
+
+-- What stands in front of an ad lightbox (Roblox serves an ad only to a face
+-- nothing covers): every column, and every solid block whose box reaches
+-- into the space `depth` studs out from the ad's face, as tall as it and
+-- widening as it goes out (seen from up to 45 degrees off its face). Names,
+-- for a test to show; none for a good layout.
+function MallLayout.adBlockers(mall, depth: number): { string }
+	local found = {}
+	local out = { E = { 1, 0 }, W = { -1, 0 }, N = { 0, -1 }, S = { 0, 1 } }
+	for _, ad in mall.Ads or {} do
+		local d = out[ad.face]
+		-- The box round the fan in front of the face, on the floor plan.
+		local ax0, ax1, az0, az1
+		if d[1] ~= 0 then
+			ax0, ax1 = math.min(ad.x, ad.x + d[1] * depth), math.max(ad.x, ad.x + d[1] * depth)
+			az0, az1 = ad.z - ad.w / 2 - depth, ad.z + ad.w / 2 + depth
+		else
+			az0, az1 = math.min(ad.z, ad.z + d[2] * depth), math.max(ad.z, ad.z + d[2] * depth)
+			ax0, ax1 = ad.x - ad.w / 2 - depth, ad.x + ad.w / 2 + depth
+		end
+		local ay0, ay1 = ad.y - ad.h / 2, ad.y + ad.h / 2
+		local function hit(x0, x1, y0, y1, z0, z1)
+			if not (x1 > ax0 and x0 < ax1 and z1 > az0 and z0 < az1 and y1 > ay0 and y0 < ay1) then
+				return false
+			end
+			-- How far out its far side is (the fan is widest there), and its
+			-- sideways extent against the face's, widened by that.
+			local far, s0, s1, f0, f1
+			if d[1] ~= 0 then
+				far = math.min(depth, d[1] > 0 and x1 - ad.x or ad.x - x0)
+				s0, s1, f0, f1 = z0, z1, ad.z - ad.w / 2, ad.z + ad.w / 2
+			else
+				far = math.min(depth, d[2] > 0 and z1 - ad.z or ad.z - z0)
+				s0, s1, f0, f1 = x0, x1, ad.x - ad.w / 2, ad.x + ad.w / 2
+			end
+			return s1 > f0 - far and s0 < f1 + far
+		end
+		for _, b in mall.Blocks or {} do
+			if b.room == ad.room and b.collide ~= false then
+				local hx, hy, hz = halves(b)
+				if hit(b.x - hx, b.x + hx, b.y - hy, b.y + hy, b.z - hz, b.z + hz) then
+					table.insert(found, string.format("%s in front of %s", b.name, ad.slot or "an ad"))
+				end
+			end
+		end
+		for _, g in mall.Galleries or {} do
+			if g.room == ad.room then
+				for _, c in g.columns or {} do
+					if hit(c[1] - 1, c[1] + 1, 0, g.level, c[2] - 1, c[2] + 1) then
+						table.insert(found, string.format("a column in front of %s", ad.slot or "an ad"))
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
+-- Solid blocks a gallery's column stands in (a column is two studs across,
+-- floor to gallery), and columns in front of a shopfront rather than on the
+-- wall between two: a column before a sign hides it. Sentences; none for a
+-- good layout.
+function MallLayout.columnClashes(mall): { string }
+	local found = {}
+	for _, g in mall.Galleries or {} do
+		local room = mall.Rooms[g.room]
+		for _, c in g.columns or {} do
+			local cx, cz = c[1], c[2]
+			for _, b in mall.Blocks or {} do
+				if b.room == g.room and b.collide ~= false then
+					local hx, hy, hz = halves(b)
+					if
+						cx + 1 > b.x - hx
+						and cx - 1 < b.x + hx
+						and cz + 1 > b.z - hz
+						and cz - 1 < b.z + hz
+						and b.y - hy < g.level
+					then
+						table.insert(found, string.format("%s stands in the column at %d, %d", b.name, cx, cz))
+					end
+				end
+			end
+			-- The fronts on the wall behind the gallery edge it stands on.
+			for _, side in room and MallLayout.sides(room.rect) or {} do
+				local edge = side.at + side.inward * (g.depth or 0)
+				local across, along = cz, cx
+				if side.runs == "z" then
+					across, along = cx, cz
+				end
+				if table.find(g.sides or {}, side.side) and math.abs(across - edge) < 1.5 then
+					for _, door in mall.Doors do
+						if
+							door.runs == side.runs
+							and same(door.at, side.at)
+							and (door.a == g.room or door.b == g.room)
+							and door.kind ~= "shutter"
+							and along + 1 > door.from
+							and along - 1 < door.to
+						then
+							table.insert(found, string.format("the column at %d, %d hides a front", cx, cz))
+						end
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- The rooms a door joins to this one.
 function MallLayout.neighbours(mall, roomId: string): { string }
 	local list = {}

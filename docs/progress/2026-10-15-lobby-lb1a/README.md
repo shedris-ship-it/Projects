@@ -124,3 +124,61 @@ The owner picked ideas 1 to 3 of the list after the story pass: "the sounds (I'l
   - the cough: the 1988 pickup's rough start.
 
   The two that changed place (the walkie-talkie, Save Game) were loaded and played in Studio before the build.
+
+## The grandeur pass (build `2026-10-15.205`, screenshots in `grandeur/`)
+
+The owner, after walking .204: the mall "felt a little small for a mall, it doesn't really have that encapsulating grandeur you would usually expect from malls". They settled two of the calls left: the fountain stays in the middle, in front of the video store, and the shutter stays a see-through grille ("I like how that looks with the dark hallway beyond it"). Mid-pass they added: "Make sure that the areas for ads are intact and not messed up looking while still looking good and on theme".
+
+**The choice: grow it up, not out.** The floor plan is unchanged, so every shop is still a few seconds from the fountain (their "not annoying or redundant"). The height and the view do the work.
+
+- **Two storeys round the court** (`Mall.Galleries`, `MallBuilder` `buildGallery`):
+  - The court is now 48 studs to the eaves (was 26).
+  - A gallery 22 studs up runs round the north, south and west sides, with a parapet, a handrail and columns.
+  - The floor above is the dead mall's: out of reach and dark, its shops shuttered or grilled under empty bulkheads, two marked FOR LEASE (`Mall.UpperFronts`, `buildUpperFront`).
+- **A glass barrel vault over the court** (`Mall.Vaults`, `buildVault`): a half-ellipse of glass bands on ribs, with stepped gables, over the old skylight's whole void. The moon comes through it.
+- **The dead mall's own things up high:**
+  - a chandelier, dead, on its cord: a ring and six globes;
+  - the SALE and SAVE banners hanging in the void;
+  - the clock over the diner, stopped at 9:47.
+- **The east end is a two-storey grille, 44 studs high**, taped across. Behind it the dead concourse is two storeys too, and longer (180 studs, was 112), with a gallery on both sides, four more dead fronts, a stopped pair of escalators up to a landing, and the battery EXIT sign far off. It is seen, never walked.
+- **Light:**
+  - The moon couldn't reach the floor from 58 studs up (Roblox lights reach at most 60 studs), and the court came out black.
+  - It now hangs at 46 studs with a wide cone (95 degrees, range 60).
+  - Three soft sky lights glow under the vault (`Config.Mall.Lights.skyglow`). They aren't on the generator, so a brownout leaves them.
+
+**The ad lightboxes, kept intact and on theme:**
+
+- **Nothing stands in front of one, or just beside one.**
+  - The gallery's corner columns stood before the west boxes, so they went.
+  - The new spec then caught two east columns before the east boxes.
+  - Once those moved, a later check caught one of them half hiding the ARCADE sign. Now every column stands on the wall between two shopfronts, never before a sign.
+  - `Logic/MallLayout` has two checks, both in `tests/specs/MallLayout`:
+    - `adBlockers`: any solid block or column in the space out from a box's face, widening to 45 degrees either side, so a column off its corner that hides it from across the court counts;
+    - `columnClashes`: a column in furniture, or before a shopfront.
+  - The spec also holds every box to Roblox's billboard sizes (8 x 4.5 to 32 x 18 studs, near 16:9).
+  - The same check moved the dead concourse's columns onto its walls between fronts, and turned blocks are now measured by their real box (an escalator was a 44-stud cube before).
+- **The west boxes are larger**, 11 x 6.2 studs, the size of a mall's backlit poster case.
+- **The placeholder reads now** (`4a_ad_before.jpg`, `4b_ad_after.jpg`):
+  - The face was Neon, and its bloom burned the whole box to plain white.
+  - It's an unlit panel now, a little bright (`Config.Mall.Lights.ad.face`): a diffuser yellowed with age, brightest where its tubes are, reading "THIS SPACE AVAILABLE · LEASING · ENQUIRE AT THE MALL OFFICE" in dark brown.
+  - A brownout dims it with everything else on the generator (checked: down to 0.34 and back to 1.1).
+  - LB6 puts the AdGui on the same face (`AdSlot` attribute).
+
+**Checked in Studio** (build .205 synced, file lengths matched): no console errors in play.
+
+| Shot | What it shows |
+| --- | --- |
+| `1_spawn.jpg` | From the spawn: the boutique, the video store and the arcade clear between the columns; the gallery and its dead upper fronts; a west lightbox |
+| `2_vault.jpg` | Looking up: the vault's glass and ribs in moonlight, the chandelier, the upper fronts, the grille's top |
+| `3_east_grille.jpg` | East: the two-storey grille over the fountain, two lightboxes either side |
+| `4a_ad_before.jpg`, `4b_ad_after.jpg` | An east lightbox before and after the placeholder fix |
+| `5_west_diner.jpg` | West: the diner and the boutique, both west lightboxes clear |
+| `6_dead_hall.jpg` | Inside the dead concourse: the columns, the stopped escalators, the emergency lamps, the EXIT far off |
+
+**For the owner:**
+
+- Walk it (TC-309).
+- Is the height enough, or does it want the floor plan wider too? A wider court lengthens every walk, so try the height first.
+- The vault is dark at night by design (the moon and the storm light it), and lightning lights it best.
+
+Everything new is grey-box until LB1b's Blender batch. The 50-player measurement is still LB1b's.
