@@ -66,6 +66,11 @@ def _pack_by_share(obj, layer, shares, margin):
         faces = [f for f in bm.faces if f.material_index in indices]
         if not faces:
             continue
+        mat = obj.material_slots[next(iter(indices))].material if len(indices) == 1 else None
+        if mat is not None and mat.get("uv_direct"):
+            _shelve(bm, uv, faces, y0, y1, margin)
+            bmesh.update_edit_mesh(obj.data)
+            continue
         # Stretch the group's islands over its band: the box the packer
         # then fills (udim_source ORIGINAL_AABB), keeping islands' shapes.
         us = [l[uv].uv for f in faces for l in f.loops]
@@ -79,6 +84,50 @@ def _pack_by_share(obj, layer, shares, margin):
         bmesh.update_edit_mesh(obj.data)
         bpy.ops.uv.pack_islands(udim_source="ORIGINAL_AABB", rotate=True, scale=True, margin=margin)
     bpy.ops.mesh.select_all(action="SELECT")
+
+
+def _shelve(bm, uv, faces, y0, y1, margin):
+    """Lays a picture material's flat cards (quads, mat["uv_direct"]) out in
+    its band row by row, every card at one scale, as big as fits, each the
+    right way up as its picture is (the corners in the order the card's own
+    were made: bottom left, bottom right, top right, top left). Blender's
+    packer squeezed a wide card into a sliver at its band's edge (the mall's
+    prize counter and change machine, 2026-10-15)."""
+    cards = []
+    for f in faces:
+        loops = list(f.loops)
+        if len(loops) != 4:
+            continue
+        p = [l.vert.co for l in loops]
+        cards.append((f, (p[1] - p[0]).length, (p[3] - p[0]).length))
+    cards.sort(key=lambda c: -c[2])
+    height = y1 - y0
+
+    def fits(s, place=False):
+        x, y, row = 0.0, 0.0, 0.0
+        for f, w, h in cards:
+            cw, ch = w * s, h * s
+            if cw + margin > 1.0:
+                return False  # (wider than the texture: too big a scale)
+            if x + cw + margin > 1.0 and x > 0.0:
+                x, y, row = 0.0, y + row + margin, 0.0
+            if place:
+                u0, v0 = x + margin / 2, y0 + y + margin / 2
+                corners = [(u0, v0), (u0 + cw, v0), (u0 + cw, v0 + ch), (u0, v0 + ch)]
+                for l, c in zip(f.loops, corners):
+                    l[uv].uv = c
+            x += cw + margin
+            row = max(row, ch)
+        return y + row + margin <= height
+
+    lo, hi = 0.0, 100.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if fits(mid):
+            lo = mid
+        else:
+            hi = mid
+    fits(lo, place=True)
 
 
 def keep_bake_uv(obj):

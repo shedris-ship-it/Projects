@@ -113,3 +113,64 @@ Not judged here, for the owner (TC-310):
 - the dead mall's tipped-over cart, seen only through the grille.
 
 **You can now delete `Workspace.Scene`** (the imported copy); the game builds every piece from its id.
+
+## mall2: the shops, laid out by hand (build `2026-10-15.208`)
+
+The owner started `mall2` and asked: "Be very deliberate with placement in the shops, since this hub isn't procedural like the main game, we can have extra attention to detail for the lobby".
+
+**So the shops were laid out first, in the grey box, and only then modelled to that layout.** The grey box's shops were placeholder blocks. Each was redesigned as the room it is:
+- each shop around its one job (the plan's table);
+- the way in clear;
+- aisles at least 4 studs wide for a busy lobby;
+- every piece facing what it serves.
+
+The layout was checked from above (`mall2/plan_*.jpg`) and at eye level before any modelling. Then each piece was built to its block's exact size.
+
+**The rules, as a spec** (`MallLayout.misplaced`, `tests/specs/MallLayout`). In the five shops:
+- no solid piece goes through a wall or the floor;
+- no two stand in each other (a TV on its counter only touches it);
+- nothing stands in the 3 studs inside a doorway, unless it's a window display put there on purpose (`window`: the boutique's dress forms, the electronics TV wall).
+
+It caught the video counter's TV poking 0.15 studs into the way in.
+
+**The shops:**
+
+- **The diner** (the run records; booths to sit in with your squad):
+  - The back bar along the wall holds the coffee station and its pots, the malt mixer, the pie case, the griddle and a steel backsplash.
+  - The two record boards hang over it: the menu is Normal, the specials Hard. Their frames go round the boards' faces, where the records will be drawn.
+  - In front: the counter, steel with a red band, a formica top, a foot rail, a lift-up flap, napkins, sugar and ketchup along it, the register at one end. Six chrome stools face it with knee room.
+  - Booths in pairs down the court wall, either side of the way in, plus one out from each end wall: six booths, 24 seats. Every seat faces its table, back to back with the next booth.
+  - The jukebox and an investigator's coat on the house's coat rack fill the two far corners.
+  - The middle stays open, about 15 by 40 studs. The floor is black and white check (`floorKit`, panels).
+- **The video store** (pick the case; the straight way to the garage):
+  - The way through stays clear down the middle, 14 studs wide, from the door to the garage.
+  - Tapes face out on shelving down both walls, HORROR on the left and ACTION · COMEDY on the right.
+  - Two islands stand either side of the way: NEW RELEASES on the left (where the case tapes will go, LB2) and FAMILY on the right.
+  - The rental counter is by the door, its TV turned to the way in.
+  - A standee for THE HALFWAY HOUSE ("NOW ON VIDEO") stands by the window.
+  - All 16 covers are invented.
+- **The arcade** (its machines):
+  - Cabinets face into the room down the back wall and the east wall. HOUSE CALL (the first game in the plan) takes the back wall, seen from the court. NIGHT DRIVE comes next, and two dead machines with OUT OF ORDER taped on their screens sit at the end.
+  - The prize counter is shut under its dust sheet on the west wall, its pegboard prize wall behind with most hooks empty, and the CLOSED sign over it, as the owner wanted.
+  - The change machine stands by the door. The floor is black carpet with neon squiggles.
+- **Electronics** (the torch's looks):
+  - The TV wall in the window: three wood-grain sets on a black stand of VCRs and decks, their screens to the court, a way in 6 studs wide either side.
+  - Steel shelving of boxed sets down both walls.
+  - At the back, the glass counter where they charge their torches. Under its glass, the three torch looks from the plan (yellow rubber, brass, chrome) lie on navy felt, marked NEW. The SERVICE · BATTERIES · REPAIRS sign hangs over it.
+- **The boutique** (clothes, its racks by slot):
+  - Two dress forms in the window either side of the way in (the house's dress form; they could wear the paid line at LB3).
+  - A round rack of jackets, rails of tops and of bottoms, the shoe wall of sneakers and loafers, and a slatwall of tops and folded sweaters down the west wall.
+  - The changing booth in the back corner: a curtain, a long mirror inside, FITTING ROOM over it. It's built hollow for LB3, but its block stays solid until then.
+  - The cash wrap at the back, with its till, a jewellery case and THANK YOU bags.
+
+**The kit** (`tools/blender/kitlib/mall2.py`, kit.py `mall2`): 31 new pieces. Two of the house's own pieces are reused, the dress form and the coat rack, and they were in place as soon as this synced, because they're already imported.
+
+**Checked before the import** (`mall2/sheet.jpg`, `mall2/backfaces.jpg`). The first bake's faults are fixed:
+- **The shoe wall was 32,764 triangles**, over Roblox's 20,000 per mesh: 60 shoes modelled as subdivided cushions. They're bevelled boxes now, 3,724 triangles for the whole wall.
+- **Pictures on wide cards were lost:** the prize counter's prizes, the torches under the counter's glass, the change machine's CHANGE header, FITTING ROOM. Blender's island packer had squeezed each into a sliver at its texture's edge.
+  - `kitlib/bake.py` now lays a picture material's cards out itself when the material asks (`uv_direct`, `_shelve`): row by row, every card at one scale, as big as fits, never wider than the texture.
+  - mall2's pictures all ask. The house's batches don't, so nothing already imported changes.
+- **The jukebox didn't read as one:** the coloured bands were sunk in a side-arched cabinet. It's rebuilt as the classic shape, arched at the front, with three tubes (amber, red, blue) up its sides and over the arch, a dark dome inside, the selection strips and the grille.
+- **The changing booth had two hairline holes:** the curtain's open edges, and a wall face sharing a plane with another. The curtain is a closed pleated solid now, and the back wall stands between the sides.
+- **The shelves' backs overlapped their sides** on the same plane (a red strip in the hole render, against the wall, where it would flicker in Roblox). The back, header and plinth of the video shelving, the islands and the electronics shelving now fit between the sides.
+- Left as it is: a speck at one corner of the record boards' frames, where its lengths meet, against the wall.

@@ -281,6 +281,79 @@ function MallLayout.columnClashes(mall): { string }
 	return found
 end
 
+-- What's carelessly placed in `rooms` (the shops, laid out by hand; the
+-- owner, 2026-10-15: "be very deliberate with placement in the shops"): a
+-- solid block through its room's walls or the floor, two solid blocks in
+-- one another (touching is fine: a TV on its counter), or one standing in
+-- the way through a door, 3 studs in from the opening, unless it's a
+-- `window` display put there on purpose. Sentences; none for a good layout.
+function MallLayout.misplaced(mall, rooms: { string }): { string }
+	local found = {}
+	local t = mall.Wall or 1
+	local eps = 0.05
+	local boxes = {}
+	for _, b in mall.Blocks do
+		if table.find(rooms, b.room) and b.collide ~= false then
+			local hx, hy, hz = halves(b)
+			table.insert(boxes, {
+				b = b,
+				lo = { b.x - hx, b.y - hy, b.z - hz },
+				hi = { b.x + hx, b.y + hy, b.z + hz },
+			})
+		end
+	end
+	local function where(b)
+		return string.format("%s's %s at %g, %g", b.room, b.name, b.x, b.z)
+	end
+	for i, a in boxes do
+		local r = mall.Rooms[a.b.room].rect
+		if
+			a.lo[1] < r[1] + t - eps
+			or a.hi[1] > r[3] - t + eps
+			or a.lo[3] < r[2] + t - eps
+			or a.hi[3] > r[4] - t + eps
+			or a.lo[2] < -eps
+		then
+			table.insert(found, where(a.b) .. " goes through a wall or the floor")
+		end
+		for j = i + 1, #boxes do
+			local c = boxes[j]
+			local inside = c.b.room == a.b.room
+			for k = 1, 3 do
+				inside = inside and math.min(a.hi[k], c.hi[k]) - math.max(a.lo[k], c.lo[k]) > eps
+			end
+			if inside then
+				table.insert(found, where(a.b) .. " and " .. where(c.b) .. " stand in each other")
+			end
+		end
+		if not a.b.window then
+			for _, door in mall.Doors do
+				if door.a == a.b.room or door.b == a.b.room then
+					for _, side in MallLayout.sides(r) do
+						if side.runs == door.runs and same(side.at, door.at) then
+							-- The lane: the opening's width, from the wall's
+							-- inner face 3 studs into the room.
+							local near, far = side.at + side.inward * t, side.at + side.inward * (t + 3)
+							local c0, c1 = math.min(near, far), math.max(near, far)
+							local across, along = 3, 1
+							if door.runs == "z" then
+								across, along = 1, 3
+							end
+							if
+								math.min(a.hi[across], c1) - math.max(a.lo[across], c0) > eps
+								and math.min(a.hi[along], door.to) - math.max(a.lo[along], door.from) > eps
+							then
+								table.insert(found, where(a.b) .. " stands in the way through a door")
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return found
+end
+
 -- The rooms a door joins to this one.
 function MallLayout.neighbours(mall, roomId: string): { string }
 	local list = {}

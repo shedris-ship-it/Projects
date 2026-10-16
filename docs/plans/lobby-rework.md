@@ -353,7 +353,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
       - the gallery's column, its parapet with the handrail (laid in lengths along each run), and the dead chandelier.
 
       `World/MallBuilder` dresses each over its grey box once the meshes are in (Data/Mall `kit`, `Mall.KitGroups`; Data/Kit `Parts`).
-    - **`mall2`, the shops:**
+    - **`mall2`, the shops** (started 2026-10-15; the owner: "be very deliberate with placement in the shops": each shop laid out by hand in the grey box first, checked from above and at eye level, kept honest by `MallLayout.misplaced`, then modelled to it; 31 pieces plus the house's dress form and coat rack):
       - the diner's booths, counter, stools and menu boards;
       - the video store's shelves and the NEW RELEASES wall;
       - the arcade's cabinets and the prize counter;

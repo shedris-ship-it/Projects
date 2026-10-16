@@ -663,6 +663,52 @@ return {
 			size = { 13.8, 4.45, 12.4 },
 			at = { 0, -1.325, 0 },
 		},
+		-- kit.py mall2: the shops, laid out by hand (LB1b; the owner, 2026-10-15:
+		-- "be very deliberate with placement in the shops"). Data/Mall has
+		-- where each stands, its front the block's +z.
+		DinerBackbar = { mesh = "DinerBackbar", size = { 30, 5, 2.21 }, at = { 0, 0.9, 0.005 } },
+		DinerCounter = { mesh = "DinerCounter", size = { 30.14, 5.1, 3.15 }, at = { 0, 0.55, 0.075 } },
+		DinerStool = { mesh = "DinerStool", size = { 1.6, 2.5, 1.6 } },
+		DinerBoothSeat = { mesh = "DinerBoothSeat", size = { 5.09, 4.2, 1.73 }, at = { 0, 0, -0.016 } },
+		DinerTable = { mesh = "DinerTable", size = { 4.46, 3.38, 2.96 }, at = { 0, 0.388, 0 } },
+		-- A record board's frame round its felt; the board's face is its
+		-- block's, where the records go (the diner's phase).
+		MenuBoard = { mesh = "MenuBoard", size = { 13.5, 4.5, 0.5 }, at = { 0, 0, 0.05 } },
+		Jukebox = { mesh = "Jukebox", size = { 2.6, 4.6, 1.88 }, at = { 0, 0, 0.04 } },
+		-- Floors in panels, stretched to fill each room (Data/Mall `floorKit`).
+		DinerFloor = { mesh = "DinerFloor", size = { 10, 0.05, 10 }, fit = true },
+		ArcadeCarpet = { mesh = "ArcadeCarpet", size = { 10, 0.04, 10 }, fit = true },
+		VideoShelf = { mesh = "VideoShelf", size = { 7, 7, 2.7 }, at = { 0, 0, -0.15 } },
+		VideoIsland = { mesh = "VideoIsland", size = { 8, 5.2, 2 } },
+		VideoCounter = { mesh = "VideoCounter", size = { 6.1, 5.2, 3 }, at = { 0, 0.6, 0 } },
+		CounterTV = { mesh = "CounterTV", size = { 2.2, 1.62, 1.75 }, at = { 0, 0.011, 0.075 } },
+		Standee = { mesh = "Standee", size = { 2.6, 6, 1.35 }, at = { 0, 0, -0.25 } },
+		-- The arcade's cabinets. Each screen is the mesh's for now; when a
+		-- game runs on one, a screen part goes over it (1.9 x 1.3, 0.9 up
+		-- from the middle and 1.0 out, tilted back 12 degrees).
+		CabinetHouseCall = { mesh = "CabinetHouseCall", size = { 3.17, 6, 3.08 }, at = { 0, 0, 0.04 } },
+		CabinetNightDrive = { mesh = "CabinetNightDrive", size = { 3.17, 6, 3.08 }, at = { 0, 0, 0.04 } },
+		CabinetDead = { mesh = "CabinetDead", size = { 3.17, 6, 3.08 }, at = { 0, 0, 0.04 } },
+		PrizeCounter = { mesh = "PrizeCounter", size = { 12, 4, 3 } },
+		PrizeWall = { mesh = "PrizeWall", size = { 12, 4, 0.65 }, at = { 0, 0, 0.124 } },
+		ChangeMachine = { mesh = "ChangeMachine", size = { 2.2, 5, 2.13 }, at = { 0, 0, 0.165 } },
+		ShowroomTV = { mesh = "ShowroomTV", size = { 4, 3, 1.36 }, at = { 0, 0, 0.08 } },
+		TVStandLong = { mesh = "TVStandLong", size = { 14, 2.6, 2 } },
+		ElectronicsShelf = { mesh = "ElectronicsShelf", size = { 7, 6, 2.4 }, at = { 0, 0, -0.3 } },
+		DisplayCounter = { mesh = "DisplayCounter", size = { 10, 4, 3 } },
+		RoundRack = { mesh = "RoundRack", size = { 5.2, 4.53, 5.2 }, at = { 0, -0.237, 0 } },
+		RackTops = { mesh = "RackTops", size = { 6.9, 4.68, 1.72 }, at = { 0, -0.162, 0 } },
+		RackBottoms = { mesh = "RackBottoms", size = { 6.9, 4.68, 1.5 }, at = { 0, -0.162, 0 } },
+		ShoeWall = { mesh = "ShoeWall", size = { 8, 6, 1.09 }, at = { 0, 0, -0.154 } },
+		Slatwall = { mesh = "Slatwall", size = { 10, 7, 0.8 }, at = { 0, 0, -0.1 } },
+		-- Built hollow, its mirror inside; its block stays solid until the
+		-- boutique's phase opens it.
+		ChangingBooth = { mesh = "ChangingBooth", size = { 6, 8, 6.01 }, at = { 0, 0, 0.003 } },
+		CashWrap = { mesh = "CashWrap", size = { 7.1, 5.1, 3 }, at = { 0, 0.55, 0 } },
+		-- The house's own pieces, in the mall: the boutique's window, the
+		-- diner's corner (already imported; Props.Mannequin, Props.CoatRack).
+		MallDressForm = { mesh = "DressForm", id = 75814638297274, size = { 1.63, 6.49, 1.43 }, at = { 0, 0, -0.208 } },
+		MallCoatRack = { mesh = "CoatRack", id = 90933748796114, size = { 1.32, 7, 1.32 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that

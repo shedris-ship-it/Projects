@@ -995,6 +995,26 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 			buildRoom(rooms, origin, id, built)
 		end
 	end
+	-- A room's floor from the kit (`floorKit`: the diner's check, the
+	-- arcade's carpet), in panels of about 10 studs stretched to fill it.
+	for id, yes in built do
+		local room = Mall.Rooms[id]
+		if yes and room.floorKit then
+			later(function()
+				local t = Mall.Wall
+				local x0, z0, x1, z1 = room.rect[1] + t, room.rect[2] + t, room.rect[3] - t, room.rect[4] - t
+				local nx = math.max(1, math.round((x1 - x0) / 10))
+				local nz = math.max(1, math.round((z1 - z0) / 10))
+				local w, d = (x1 - x0) / nx, (z1 - z0) / nz
+				for i = 0, nx - 1 do
+					for j = 0, nz - 1 do
+						local at = origin + Vector3.new(x0 + (i + 0.5) * w, 0.03, z0 + (j + 0.5) * d)
+						Kit.place(rooms, room.floorKit, CFrame.new(at), Vector3.new(w, 0.05, d))
+					end
+				end
+			end)
+		end
+	end
 	-- The floors above and the vault: the mall's height (the owner, 2026-10-15:
 	-- "it doesn't really have that encapsulating grandeur").
 	for _, g in Mall.Galleries or {} do

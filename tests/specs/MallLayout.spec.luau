@@ -101,6 +101,26 @@ return function(test, check, Shared, require)
 		check.truthy(text:find("Fountain"), "one in the fountain: " .. text)
 	end)
 
+	test("the shops are laid out with care: nothing through a wall, in another, or in a doorway", function()
+		local shops = { "boutique", "video", "arcade", "electronics", "diner" }
+		local problems = MallLayout.misplaced(Mall, shops)
+		check.equal(#problems, 0, table.concat(problems, "; "))
+		-- And it sees each kind of mistake.
+		local bad = table.clone(Mall)
+		bad.Blocks = {
+			{ room = "video", name = "Through", x = 15.5, y = 2, z = -45, size = { 3, 4, 3 } },
+			{ room = "video", name = "A", x = 0, y = 2, z = -50, size = { 3, 4, 3 } },
+			{ room = "video", name = "B", x = 1, y = 2, z = -50, size = { 3, 4, 3 } },
+			{ room = "video", name = "Doorway", x = 0, y = 2, z = -32, size = { 2, 4, 2 } },
+			{ room = "video", name = "Window", window = true, x = -10, y = 2, z = -32.5, size = { 2, 4, 2 } },
+		}
+		local text = table.concat(MallLayout.misplaced(bad, shops), "; ")
+		check.truthy(text:find("Through at 15.5, %-45 goes through"), "through a wall: " .. text)
+		check.truthy(text:find("stand in each other"), "in another: " .. text)
+		check.truthy(text:find("Doorway at 0, %-32 stands in the way"), "in the doorway: " .. text)
+		check.truthy(not text:find("Window"), "a window display is let be: " .. text)
+	end)
+
 	test("a broken layout is caught", function()
 		local broken = {
 			Rooms = {
