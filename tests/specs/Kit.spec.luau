@@ -335,6 +335,28 @@ return function(test, check, Shared, require)
 				ad.slot .. "'s case is its face's height and a bezel"
 			)
 		end
+		for _, v in Mall.Vaults do
+			if v.kit then
+				has(v.kit.rib, "the vault's rib")
+				has(v.kit.gable, "the vault's end")
+				-- (Placed at its own size: it must have been modelled for this vault.)
+				local rib = Kit.Parts[v.kit.rib]
+				check.atMost(math.abs(rib.size[3] - (v.z1 - v.z0)), 0.6, "the rib spans the vault")
+				check.atMost(math.abs(rib.size[2] - v.rise), 0.4, "the rib rises as the vault")
+				check.atMost(math.abs(Kit.Parts[v.kit.gable].size[1] - (v.z1 - v.z0)), 0.6, "the end spans the vault")
+			end
+		end
+		for _, sign in Mall.Signs do
+			if sign.neon then
+				has(sign.neon, sign.text)
+				local neon = Kit.Parts[sign.neon]
+				check.equal(neon.turn, 180, sign.neon .. " faces out of its sign's frame")
+				check.atMost(neon.size[1], sign.w, sign.neon .. " fits its sign's width")
+			end
+		end
+		for _, name in { "RollUpShutter", "StripFixture", "WorkLamp", "SignRaceway" } do
+			has(name, "the builder")
+		end
 		check.truthy(named >= 20, "the court is dressed")
 	end)
 end

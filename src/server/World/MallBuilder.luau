@@ -332,32 +332,61 @@ local function buildVault(folder: Instance, origin: Vector3, v)
 	local ribs = v.ribs or 8
 	for k = 0, ribs - 1 do
 		local x = v.x0 + length * k / (ribs - 1)
+		local segments = {}
 		for i = 1, n do
 			local cf, seg = arcFrame(x, points[i], points[i + 1])
-			decor(
-				model,
-				"VaultRib",
-				Vector3.new(0.5, 0.7, seg + 0.3),
-				cf * CFrame.new(0, -0.3, 0),
-				DARK_STEEL,
-				material("Metal")
+			table.insert(
+				segments,
+				decor(
+					model,
+					"VaultRib",
+					Vector3.new(0.5, 0.7, seg + 0.3),
+					cf * CFrame.new(0, -0.3, 0),
+					DARK_STEEL,
+					material("Metal")
+				)
 			)
+		end
+		-- The kit's lattice rib in place of the grey box's segments.
+		if v.kit then
+			later(function()
+				if Kit.place(model, v.kit.rib, CFrame.new(origin + Vector3.new(x, v.spring, cz))) then
+					for _, p in segments do
+						Kit.hide(p)
+					end
+				end
+			end)
 		end
 	end
 	local wall = rgb(v.gable or { 170, 164, 152 })
-	for _, x in { v.x0, v.x1 } do
+	for e, x in { v.x0, v.x1 } do
 		local steps = 4
+		local gable = {}
 		for j = 1, steps do
 			local low = v.rise * (j - 1) / steps
 			local halfWidth = r * math.sqrt(math.max(0, 1 - (low / v.rise) ^ 2))
-			part(
-				model,
-				"Gable",
-				Vector3.new(1, v.rise / steps, halfWidth * 2),
-				CFrame.new(origin + Vector3.new(x, v.spring + low + v.rise / steps / 2, cz)),
-				wall,
-				material("SmoothPlastic")
+			table.insert(
+				gable,
+				part(
+					model,
+					"Gable",
+					Vector3.new(1, v.rise / steps, halfWidth * 2),
+					CFrame.new(origin + Vector3.new(x, v.spring + low + v.rise / steps / 2, cz)),
+					wall,
+					material("SmoothPlastic")
+				)
 			)
+		end
+		-- The kit's lunette, its front into the vault, for the stepped ends.
+		if v.kit then
+			later(function()
+				local turn = CFrame.Angles(0, math.rad(e == 1 and 90 or -90), 0)
+				if Kit.place(model, v.kit.gable, CFrame.new(origin + Vector3.new(x, v.spring, cz)) * turn) then
+					for _, p in gable do
+						Kit.hide(p)
+					end
+				end
+			end)
 		end
 	end
 end
@@ -409,6 +438,20 @@ local function bars(folder: Instance, cf: CFrame, width: number, height: number,
 		transparency = 1,
 		castShadow = false,
 	})
+end
+
+-- A roll-up shutter's kit piece (mall3), stretched to its opening, in place
+-- of the grey box's sheet and ribs (the sheet stays solid: it's the wall).
+-- `cf` as doorFrame's: its -Z toward whoever looks at it.
+local function dressShutter(parent: Instance, cf: CFrame, width: number, height: number, sheet: BasePart, ribs)
+	later(function()
+		if Kit.place(parent, "RollUpShutter", cf, Vector3.new(width, height, 0.58)) then
+			Kit.hide(sheet)
+			for _, rib in ribs do
+				Kit.hide(rib)
+			end
+		end
+	end)
 end
 
 local function buildDoor(folder: Instance, origin: Vector3, door)
@@ -488,17 +531,23 @@ local function buildDoor(folder: Instance, origin: Vector3, door)
 		)
 	elseif door.fill == "shutter" then
 		local cf = doorFrame(origin, door, 0.5, h / 2)
-		part(model, "Shutter", Vector3.new(width, h, 0.4), cf, Color3.fromRGB(104, 104, 100), material("Metal"))
+		local shutter =
+			part(model, "Shutter", Vector3.new(width, h, 0.4), cf, Color3.fromRGB(104, 104, 100), material("Metal"))
+		local ribs = {}
 		for i = 1, math.floor(h) - 1 do
-			decor(
-				model,
-				"ShutterRib",
-				Vector3.new(width, 0.12, 0.2),
-				cf * CFrame.new(0, -h / 2 + i, -0.25),
-				Color3.fromRGB(80, 80, 78),
-				material("Metal")
+			table.insert(
+				ribs,
+				decor(
+					model,
+					"ShutterRib",
+					Vector3.new(width, 0.12, 0.2),
+					cf * CFrame.new(0, -h / 2 + i, -0.25),
+					Color3.fromRGB(80, 80, 78),
+					material("Metal")
+				)
 			)
 		end
+		dressShutter(model, cf, width, h, shutter, ribs)
 	end
 end
 
@@ -534,17 +583,29 @@ local function buildUpperFront(folder: Instance, origin: Vector3, f)
 		)
 		bars(folder, cf * CFrame.new(0, 0, -0.15), w, f.height, 0.9, 0.16, STEEL)
 	else
-		part(folder, "UpperShutter", Vector3.new(w, f.height, 0.4), cf, Color3.fromRGB(96, 96, 92), material("Metal"))
+		local shutter = part(
+			folder,
+			"UpperShutter",
+			Vector3.new(w, f.height, 0.4),
+			cf,
+			Color3.fromRGB(96, 96, 92),
+			material("Metal")
+		)
+		local ribs = {}
 		for i = 1, math.floor(f.height) - 1 do
-			decor(
-				folder,
-				"ShutterRib",
-				Vector3.new(w, 0.12, 0.2),
-				cf * CFrame.new(0, -f.height / 2 + i, -0.25),
-				Color3.fromRGB(74, 74, 72),
-				material("Metal")
+			table.insert(
+				ribs,
+				decor(
+					folder,
+					"ShutterRib",
+					Vector3.new(w, 0.12, 0.2),
+					cf * CFrame.new(0, -f.height / 2 + i, -0.25),
+					Color3.fromRGB(74, 74, 72),
+					material("Metal")
+				)
 			)
 		end
+		dressShutter(folder, cf, w, f.height, shutter, ribs)
 	end
 	-- The bulkhead over it, where its sign was.
 	decor(
@@ -625,6 +686,29 @@ local function buildSign(folder: Instance, origin: Vector3, sign)
 			CollectionService:AddTag(light, Constants.Tags.MallPower)
 		end
 	end
+	if sign.neon then
+		-- Its tubes from the kit (mall3), drawn Neon in its colour (no maps:
+		-- the glass is the light), on their raceway; then the text goes.
+		later(function()
+			local tubes = Kit.place(folder, sign.neon, cf)
+			if not tubes then
+				return
+			end
+			for _, look in tubes:GetChildren() do
+				if look:IsA("SurfaceAppearance") then
+					look:Destroy()
+				end
+			end
+			tubes.Material = Enum.Material.Neon
+			tubes.Color = color
+			tubes.CastShadow = false
+			if not sign.battery then
+				CollectionService:AddTag(tubes, Constants.Tags.MallPower)
+			end
+			Kit.place(folder, "SignRaceway", cf, Vector3.new(tubes.Size.X * 0.9, 0.7, 0.58))
+			gui.Enabled = false
+		end)
+	end
 end
 
 local function buildLight(folder: Instance, origin: Vector3, l)
@@ -648,14 +732,22 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 			)
 		else
 			local size = l.kind == "strip" and Vector3.new(8, 0.3, 1) or Vector3.new(3, 0.3, 3)
-			decor(folder, "Fixture", size, CFrame.new(at), dead, material("Glass"))
+			local fixture = decor(folder, "Fixture", size, CFrame.new(at), dead, material("Glass"))
+			if l.kind == "strip" then
+				-- The kit's strip light, its tubes grey (mall3).
+				later(function()
+					if Kit.place(folder, "StripFixture", CFrame.new(at)) then
+						Kit.hide(fixture)
+					end
+				end)
+			end
 		end
 		return
 	end
 	local holder
 	if l.stand then
 		-- A work lamp on a pole, its head turned down a little.
-		decor(
+		local pole = decor(
 			folder,
 			"LampStand",
 			Vector3.new(0.25, l.y - 0.5, 0.25),
@@ -671,8 +763,24 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 			color,
 			material("Neon")
 		)
+		-- The kit's tripod and housing round the lit head (mall3, modelled
+		-- with its head 7 up, as the work lamps hang).
+		later(function()
+			if Kit.place(folder, "WorkLamp", CFrame.new(at - Vector3.new(0, l.y, 0))) then
+				Kit.hide(pole)
+			end
+		end)
 	elseif l.kind == "strip" then
 		holder = decor(folder, "Fixture", Vector3.new(8, 0.3, 1), CFrame.new(at), color, material("Neon"))
+		-- The kit's strip light round it; the lit part becomes its two tubes'
+		-- glow, under the channel (mall3).
+		local lit = holder
+		later(function()
+			if Kit.place(folder, "StripFixture", CFrame.new(at)) then
+				lit.Size = Vector3.new(7.3, 0.14, 0.55)
+				lit.CFrame = CFrame.new(at - Vector3.new(0, 0.15, 0))
+			end
+		end)
 	elseif l.fixture then
 		holder = decor(folder, "Fixture", Vector3.new(3, 0.3, 3), CFrame.new(at), color, material("Neon"))
 	elseif l.cord then

@@ -101,8 +101,8 @@ return function(test, check, Shared, require)
 		check.truthy(text:find("Fountain"), "one in the fountain: " .. text)
 	end)
 
-	test("the shops are laid out with care: nothing through a wall, in another, or in a doorway", function()
-		local shops = { "boutique", "video", "arcade", "electronics", "diner" }
+	test("the shops and garage: nothing through a wall, in another, or in a doorway", function()
+		local shops = { "boutique", "video", "arcade", "electronics", "diner", "garage" }
 		local problems = MallLayout.misplaced(Mall, shops)
 		check.equal(#problems, 0, table.concat(problems, "; "))
 		-- And it sees each kind of mistake.

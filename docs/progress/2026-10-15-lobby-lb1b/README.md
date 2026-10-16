@@ -206,3 +206,68 @@ It caught the video counter's TV poking 0.15 studs into the way in.
 - The pieces are Kit meshes like the house's, so they'll be in the published place too once its Rojo is connected.
 
 For the owner: TC-311 by eye, and you can delete `Workspace.Scene` (the imported copy).
+
+## mall3: the garage, the vault's frame, the escalators, the neon (build `2026-10-16.210`)
+
+The owner started `mall3`.
+
+**The garage, laid out by hand as the shops were** (`mall3/plan_garage_before.jpg`, `plan_garage_after.jpg`). Its sense held: the way to the run stays clear down the middle, from the video store's back door to the roll-up door, with the investigators' camp down the west wall and the workshop down the east. Five things changed:
+- **The desk** was 4 studs high and stood 2 studs off the wall. It's a desk's height now (3.2), against the wall under the case board, with a swivel chair at it and the CB radio on it.
+- **The generator** had three cans to run on. Two 55-gallon drums of diesel stand beside it, a hand pump in one.
+- **Two stacks of tyres** stand against the east wall by the last bay.
+- **The cars** stand nose to the roll-up door, as cars leaving through it would (LB2's party cars come later).
+- **The wall pieces** (whiteboard, case board, photos, plan, desk, pegboard, payphone, power box, workbench) are now turned blocks facing into the room, so each modelled front faces the right way.
+
+`MallLayout.misplaced`'s spec now covers the garage too; it passes.
+
+**The kit** (`tools/blender/kitlib/mall3.py`, kit.py `mall3`), 33 pieces:
+- **The workshop:**
+  - the generator, a diesel set on its skid in army olive: radiator grille, control panel (dials, key, breaker, stop), louvres, the muffler where the exhaust goes up through the roof, the fuel line, oil on the skid;
+  - jerry cans, the two diesel drums, a wooden cable reel wound with the orange cable;
+  - the power box (the investigators' wiring back into the mall: its switch thrown, conduit, their cables out of it);
+  - the car bits pegboard (hubcaps, a steering wheel, fuzzy dice, a fan belt, wrenches, an air freshener);
+  - the payphone in its hood, the tyre stacks.
+  - The house's own workbench and car.
+- **The camp:**
+  - a cot with a sleeping bag, a cot with a folded blanket;
+  - the camp table with a percolator on a camp stove, two thermoses, mugs, a road map ringed in red;
+  - the whiteboard (wiped ghosts of old writing; the game's TONIGHT sign is written over it);
+  - the cork case board, two snapshots (the house at dusk; a figure at a window), the house's blueprint, pinned;
+  - the steel desk, the swivel chair, the CB set, banker's boxes of evidence.
+- **The garage's lights:**
+  - the strip light in its channel with a wire guard (a lit one's tubes are the game's Neon part, slimmed to fit under it);
+  - the work lamp on its tripod, its housing round the game's lit head.
+- **The roll-up shutter:** galvanised slats, the bottom bar, handles and lock, the guides. Stretched to every shutter: the garage's door, the dead mall's ten shopfronts, the upper floors' shuttered fronts.
+- **The vault:**
+  - a lattice rib for each of the eight: outer and inner chords with a zig-zag web, on base plates;
+  - a plaster lunette at each end with a fan light of steel bars in dark glass.
+
+  They're modelled for its span (40) and rise (11), which the Kit spec holds them to. The glass between the ribs stays the game's see-through glass, so the moonlight still comes through.
+- **The escalators:** the stopped pair, steps from comb plate to comb plate, cream panelled balustrades and black handrails that follow the steps (flat, up, flat), the truss clad underneath.
+- **The neon:**
+  - each shop's word bent in real tubes from a stroke alphabet drawn in the script (no font files):
+    - BOUTIQUE slanted, with a swoosh;
+    - VIDEO bold, in a border;
+    - ARCADE blocky;
+    - ELECTRONICS wide, underlined;
+    - DINER slanted, with a swoosh;
+  - each on a black raceway with its glass holders and transformer.
+  - The tubes carry no maps. The game draws them Neon in the sign's own colour, so they glow and brown out with the generator, and the old text is hidden once they're in.
+
+**How the game wears them:**
+- the blocks' `kit` and the groups as before;
+- `Data/Mall` Signs `neon`, Vaults `kit`;
+- `MallBuilder` dresses the strip lights, work lamps and shutters itself.
+
+Everything stands as grey box until imported, and a piece not yet imported changes nothing.
+
+**Checked before the import** (`mall3/sheet.jpg`, `mall3/backfaces.jpg`):
+- Every piece builds at the size its block, group or opening expects, and every offset in `Data/Kit` matches kit.py's report. The neon, the shutters and the raceway face out of their frames, so their offsets are mirrored as the ad cases' are.
+- The pieces are light: at most 7,160 triangles (the cot with its sleeping bag), most under 2,000.
+- **The first bake's faults are fixed:**
+  - Hairline seams where boxes met on one plane (the payphone's hood, the work lamp's housing, the whiteboard's, case board's and pegboard's frame corners; the whiteboard's face on its backing, which tinted it). Each now fits between its neighbours.
+  - The evidence boxes' label was cut off at "CASE 88-"; it reads CASE 88.
+- The escalators were rendered from above and below as well, since the preview shows them edge on: steps on both lanes, three balustrades, the handrails, the cladding.
+- **In Studio before the import** (build .210): 189 dressing jobs ran with no warnings and no errors from the game. The house's car and workbench, already imported, went straight in (`mall3/house_car_workbench.jpg`): the cars nose to the door, the bench facing the room. Everything else stays grey box until imported.
+
+**For the owner:** import `build/kit/mall3/mall3.fbx` (Home → Import 3D). It's 33 meshes, but only 28 come with maps: the five neon words have none, since the game draws them glowing in their own colour. Then Claude files the ids and checks TC-312.

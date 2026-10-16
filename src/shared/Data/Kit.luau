@@ -729,6 +729,71 @@ return {
 		-- diner's corner (already imported; Props.Mannequin, Props.CoatRack).
 		MallDressForm = { mesh = "DressForm", id = 75814638297274, size = { 1.63, 6.49, 1.43 }, at = { 0, 0, -0.208 } },
 		MallCoatRack = { mesh = "CoatRack", id = 90933748796114, size = { 1.32, 7, 1.32 } },
+		-- kit.py mall3: the garage (laid out by hand, as the shops), the vault's
+		-- ribs and ends, the escalators, the shops' neon. A group's piece
+		-- (Data/Mall KitGroups) stands on the floor; a block's round its middle.
+		Generator = { mesh = "Generator", size = { 8.31, 5.65, 5.15 }, at = { -0.055, 2.825, 0.077 } },
+		JerryCan = { mesh = "JerryCan", size = { 1.14, 1.62, 0.85 }, at = { 0, 0.011, 0 } },
+		OilDrum = { mesh = "OilDrum", size = { 2, 2.96, 2 }, at = { 0, 0.03, 0 } },
+		OilDrumPump = { mesh = "OilDrumPump", size = { 2, 4.18, 2 }, at = { 0, 0.642, 0 } },
+		CableReel = { mesh = "CableReel", size = { 3.02, 1.66, 3 }, at = { 0.008, 0, 0 } },
+		MallPowerBox = { mesh = "MallPowerBox", size = { 3.2, 4.06, 0.98 }, at = { 0.2, -0.032, -0.01 } },
+		CarPegboard = { mesh = "CarPegboard", size = { 14, 6, 0.43 }, at = { 0, 0, 0.015 } },
+		Payphone = { mesh = "Payphone", size = { 2, 3, 1.2 } },
+		TyreStack = { mesh = "TyreStack", size = { 2.43, 3.12, 2.42 }, at = { -0.004, 0, -0.002 } },
+		CotBag = { mesh = "CotBag", size = { 7, 2.17, 2.74 }, at = { 0, 1.102, 0 } },
+		CotBlanket = { mesh = "CotBlanket", size = { 7, 2.09, 2.74 }, at = { 0, 1.062, 0 } },
+		CampTable = { mesh = "CampTable", size = { 6, 4.41, 3 }, at = { 0, 2.216, 0 } },
+		Whiteboard = { mesh = "Whiteboard", size = { 7, 4.01, 0.47 }, at = { 0, -0.005, 0.087 } },
+		CaseBoard = { mesh = "CaseBoard", size = { 12, 6, 0.4 } },
+		PhotoHouse = { mesh = "PhotoHouse", size = { 1.3, 1, 0.14 }, at = { 0, 0, 0.052 } },
+		PhotoFigure = { mesh = "PhotoFigure", size = { 1.3, 1, 0.14 }, at = { 0, 0, 0.052 } },
+		Blueprint = { mesh = "Blueprint", size = { 2.4, 1.8, 0.14 }, at = { 0, 0, 0.052 } },
+		InvestigatorDesk = { mesh = "InvestigatorDesk", size = { 7, 3.55, 3.06 }, at = { 0, 0.178, 0.03 } },
+		DeskChair = { mesh = "DeskChair", size = { 1.78, 3.71, 1.84 }, at = { 0.06, -0.046, 0.011 } },
+		CBRadio = { mesh = "CBRadio", size = { 1.6, 0.98, 1.22 }, at = { 0, 0.087, 0.01 } },
+		-- (Stretched to each stack's box.)
+		BankersBox = { mesh = "BankersBox", size = { 2.4, 2, 2.4 }, fit = true },
+		-- At its light's point; a lit one's tubes are the game's Neon part.
+		StripFixture = { mesh = "StripFixture", size = { 8, 1.35, 0.94 }, at = { 0, 0.325, 0 } },
+		-- On the floor, its head 7 up round the game's lit head.
+		WorkLamp = { mesh = "WorkLamp", size = { 2.57, 7.9, 2.57 }, at = { 0.132, 3.952, -0.053 } },
+		-- Stretched to each opening (the garage's door, the dead fronts); its
+		-- front toward the frame's -Z, as a door's (`at` mirrored with it).
+		RollUpShutter = {
+			mesh = "RollUpShutter",
+			size = { 20, 12, 0.58 },
+			fit = true,
+			turn = 180,
+			at = { 0, 0, -0.067 },
+		},
+		-- The vault's (Data/Mall Vaults `kit`), at its springing line: modelled
+		-- for a span of 40 and a rise of 11.
+		VaultRib = { mesh = "VaultRib", size = { 0.8, 11.29, 40.4 }, at = { 0, 5.525, 0 } },
+		VaultGable = { mesh = "VaultGable", size = { 40, 11, 0.8 }, at = { 0, 5.5, 0.1 } },
+		EscalatorPair = { mesh = "EscalatorPair", size = { 44.08, 25.19, 8.2 }, at = { 0, 12.544, 0 } },
+		-- The shops' neon (Data/Mall Signs `neon`), on the sign's frame (its
+		-- front the frame's -Z: turned, `at` mirrored); no maps, drawn Neon.
+		NeonBoutique = {
+			mesh = "NeonBoutique",
+			size = { 18.26, 3.21, 0.16 },
+			turn = 180,
+			at = { 0.034, -0.336, -0.45 },
+		},
+		NeonVideo = { mesh = "NeonVideo", size = { 12.92, 4.64, 0.26 }, turn = 180, at = { 0.038, -0.003, -0.45 } },
+		NeonArcade = { mesh = "NeonArcade", size = { 17.6, 3.01, 0.24 }, turn = 180, at = { 0.049, 0, -0.45 } },
+		NeonElectronics = {
+			mesh = "NeonElectronics",
+			size = { 20.31, 2.75, 0.2 },
+			turn = 180,
+			at = { 0.037, -0.298, -0.45 },
+		},
+		NeonDiner = { mesh = "NeonDiner", size = { 11.46, 3.79, 0.24 }, turn = 180, at = { 0.072, -0.392, -0.45 } },
+		SignRaceway = { mesh = "SignRaceway", size = { 10, 0.7, 0.58 }, fit = true, turn = 180, at = { 0, 0, -0.133 } },
+		-- The house's own: its car in the bays (LB2's party cars), its
+		-- workbench (Props.Car, Props.Workbench; already imported).
+		MallCar = { mesh = "Car", id = 87772743662583, size = { 7.45, 4.76, 14.4 }, at = { 0, -0.12, 0 } },
+		MallWorkbench = { mesh = "Workbench", id = 129304846002547, size = { 10, 8.6, 3.5 }, at = { 0, 2.3, 0 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that
