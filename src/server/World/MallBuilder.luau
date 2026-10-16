@@ -5,7 +5,9 @@
 -- stand-in blocks, and the story the investigators left: the generator's
 -- cables over the floor, strings of bulbs, the old ad lightboxes they
 -- powered again. A run server builds only the waiting room (Mall.Waiting),
--- with doors to rooms it doesn't build walled up.
+-- with doors to rooms it doesn't build walled up. Once the kit's meshes are
+-- in (LB1b, kit.py mall1), what has a modelled piece wears it over its
+-- grey box.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
+local Kit = require(Shared.World.Kit)
 local Mall = require(Shared.Data.Mall)
 local MallLayout = require(Shared.Logic.MallLayout)
 local PropFactory = require(Shared.World.PropFactory)
@@ -60,6 +63,15 @@ end
 
 local function decor(folder: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, mat: Enum.Material)
 	return part(folder, name, size, cf, color, mat, { collide = false, query = false, castShadow = false })
+end
+
+-- The kit's look for the mall (LB1b; Data/Kit `Parts`, World/Kit): what to
+-- dress once the meshes are in (MallBuilder.build runs these after
+-- Kit.preload). The grey box stands until then, and wherever a piece isn't
+-- imported yet (Kit.place and Kit.dressPart give nil).
+local jobs: { () -> () } = {}
+local function later(job: () -> ())
+	table.insert(jobs, job)
 end
 
 local function buildRoom(folder: Instance, origin: Vector3, id: string, built)
@@ -204,11 +216,12 @@ local function buildGallery(folder: Instance, origin: Vector3, g)
 			material("SmoothPlastic")
 		)
 	end
-	local function parapet(ax0: number, az0: number, ax1: number, az1: number)
+	-- `void`: which way the open middle is from this edge.
+	local function parapet(ax0: number, az0: number, ax1: number, az1: number, void: Vector3)
 		local centre = origin + Vector3.new((ax0 + ax1) / 2, y + g.parapet / 2, (az0 + az1) / 2)
 		local size = Vector3.new(math.max(ax1 - ax0, 0.6), g.parapet, math.max(az1 - az0, 0.6))
-		part(model, "Parapet", size, CFrame.new(centre), color, material("SmoothPlastic"))
-		decor(
+		local wall = part(model, "Parapet", size, CFrame.new(centre), color, material("SmoothPlastic"))
+		local rail = decor(
 			model,
 			"Handrail",
 			Vector3.new(size.X + 0.1, 0.3, size.Z + 0.1),
@@ -216,33 +229,62 @@ local function buildGallery(folder: Instance, origin: Vector3, g)
 			STEEL,
 			material("Metal")
 		)
+		-- The kit's edge in lengths of about its own (each from the slab's
+		-- underside to the rail's top), stretched to fit the run.
+		later(function()
+			local along = size.X > size.Z and Vector3.xAxis or Vector3.zAxis
+			local length = math.max(size.X, size.Z)
+			local count = math.max(1, math.round(length / 10))
+			local piece = length / count
+			local height = g.parapet + 1.5
+			local mid = Vector3.new(centre.X, y - 1.2 + height / 2, centre.Z)
+			local placed = false
+			for i = 1, count do
+				local at = mid + along * (-length / 2 + (i - 0.5) * piece)
+				if
+					Kit.place(model, "GalleryParapet", CFrame.lookAt(at, at - void), Vector3.new(piece, height, 0.74))
+				then
+					placed = true
+				end
+			end
+			if placed then
+				Kit.hide(wall)
+				Kit.hide(rail)
+			end
+		end)
 	end
 	if has.N then
 		slab(x0 + t, z0 + t, x1 - t, vz0)
-		parapet(vx0, vz0 - 0.6, vx1, vz0)
+		parapet(vx0, vz0 - 0.6, vx1, vz0, Vector3.zAxis)
 	end
 	if has.S then
 		slab(x0 + t, vz1, x1 - t, z1 - t)
-		parapet(vx0, vz1, vx1, vz1 + 0.6)
+		parapet(vx0, vz1, vx1, vz1 + 0.6, -Vector3.zAxis)
 	end
 	if has.W then
 		slab(x0 + t, vz0, vx0, vz1)
-		parapet(vx0 - 0.6, vz0, vx0, vz1)
+		parapet(vx0 - 0.6, vz0, vx0, vz1, Vector3.xAxis)
 	end
 	if has.E then
 		slab(vx1, vz0, x1 - t, vz1)
-		parapet(vx1, vz0, vx1 + 0.6, vz1)
+		parapet(vx1, vz0, vx1 + 0.6, vz1, -Vector3.xAxis)
 	end
 	for _, c in g.columns or {} do
+		local upright = CFrame.new(origin + Vector3.new(c[1], (y - 1.2) / 2, c[2]))
 		local p = part(
 			model,
 			"Column",
 			Vector3.new(y - 1.2, 2, 2),
-			CFrame.new(origin + Vector3.new(c[1], (y - 1.2) / 2, c[2])) * CFrame.Angles(0, 0, math.pi / 2),
+			upright * CFrame.Angles(0, 0, math.pi / 2),
 			color,
 			material("SmoothPlastic")
 		)
 		p.Shape = Enum.PartType.Cylinder
+		later(function()
+			if Kit.place(model, "MallColumn", upright) then
+				Kit.hide(p)
+			end
+		end)
 	end
 end
 
@@ -376,9 +418,12 @@ local function buildDoor(folder: Instance, origin: Vector3, door)
 	local model = Instance.new("Folder")
 	model.Name = "Door_" .. (door.b or door.kind)
 	model.Parent = folder
-	if door.grille == "rolled" then
-		-- Rolled up: its box over the opening, on the front.
-		decor(
+	if door.grille == "rolled" or door.grille == "down" then
+		if door.grille == "down" then
+			bars(model, doorFrame(origin, door, 0.5, h / 2), width, h, 0.9, 0.16, STEEL)
+		end
+		-- Its box over the opening, on the front (rolled up in it, or down).
+		local box = decor(
 			model,
 			"GrilleBox",
 			Vector3.new(width + 1, 1.4, 1.4),
@@ -386,16 +431,9 @@ local function buildDoor(folder: Instance, origin: Vector3, door)
 			STEEL,
 			material("Metal")
 		)
-	elseif door.grille == "down" then
-		bars(model, doorFrame(origin, door, 0.5, h / 2), width, h, 0.9, 0.16, STEEL)
-		decor(
-			model,
-			"GrilleBox",
-			Vector3.new(width + 1, 1.4, 1.4),
-			doorFrame(origin, door, t + 0.7, h + 0.7),
-			STEEL,
-			material("Metal")
-		)
+		later(function()
+			Kit.dressPart(box, "GrilleBox")
+		end)
 	elseif door.grille == "giant" then
 		-- The hall's shutter: tall, heavy, padlocked at the floor.
 		bars(model, doorFrame(origin, door, 0.5, h / 2), width, h, 1.2, 0.32, DARK_STEEL)
@@ -678,8 +716,51 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 	end
 end
 
-local function buildBlock(folder: Instance, origin: Vector3, b)
-	local cf = CFrame.new(origin + Vector3.new(b.x, b.y, b.z)) * turned(b.rot)
+-- A drained basin in the kit (`b.hollow`, the fountain): the block stops
+-- colliding, an unseen floor and a ring of wall stand in for it so you can
+-- step down into it, and the loose bits on its old top (coins, leaves)
+-- settle on the floor.
+local function hollowOut(p: BasePart, frame: CFrame, b)
+	local height, radius = b.size[1], b.size[2] / 2
+	local bottom, floor, wall = -height / 2, b.hollow.floor, b.hollow.wall
+	p.CanCollide = false
+	p.CanQuery = false
+	local hidden = { transparency = 1, castShadow = false }
+	local base = part(
+		p.Parent,
+		b.name .. "Floor",
+		Vector3.new(floor - bottom, radius * 2, radius * 2),
+		frame * CFrame.new(0, (bottom + floor) / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		p.Color,
+		p.Material,
+		hidden
+	)
+	base.Shape = Enum.PartType.Cylinder
+	local n = 16
+	for i = 0, n - 1 do
+		part(
+			p.Parent,
+			b.name .. "Wall",
+			Vector3.new(wall, height, 2 * math.pi * radius / n + 0.3),
+			frame * CFrame.Angles(0, 2 * math.pi * i / n, 0) * CFrame.new(radius - wall / 2, 0, 0),
+			p.Color,
+			p.Material,
+			hidden
+		)
+	end
+	for _, other in p.Parent:GetChildren() do
+		if other:IsA("BasePart") and other ~= p and not other.CanCollide and not other:GetAttribute("Kit") then
+			local at = frame:PointToObjectSpace(other.Position)
+			if Vector2.new(at.X, at.Z).Magnitude < radius - wall and at.Y > floor and at.Y < height / 2 + 0.2 then
+				other.CFrame -= frame.UpVector * (at.Y - floor - 0.03)
+			end
+		end
+	end
+end
+
+local function buildBlock(folder: Instance, origin: Vector3, b): BasePart
+	local frame = CFrame.new(origin + Vector3.new(b.x, b.y, b.z)) * turned(b.rot)
+	local cf = frame
 	if b.shape == "Cylinder" then
 		cf *= CFrame.Angles(0, 0, math.pi / 2) -- a cylinder's axis is its X: stood upright
 	end
@@ -695,6 +776,20 @@ local function buildBlock(folder: Instance, origin: Vector3, b)
 	elseif b.shape == "Ball" then
 		p.Shape = Enum.PartType.Ball
 	end
+	if b.kit then
+		-- Its kit piece stands upright where it stands (a cylinder's own
+		-- turn left out), as big as its block (a stretched one).
+		local size = b.shape == "Cylinder" and Vector3.new(b.size[2], b.size[1], b.size[3]) or v3(b.size)
+		later(function()
+			if p.Parent and Kit.place(p.Parent, b.kit, frame, size) then
+				Kit.hide(p)
+				if b.hollow then
+					hollowOut(p, frame, b)
+				end
+			end
+		end)
+	end
+	return p
 end
 
 -- A run of cable over the floor (and up a wall): a strand between each
@@ -779,7 +874,7 @@ end
 local function buildAd(folder: Instance, origin: Vector3, ad)
 	local cf = facing(origin, ad.x, ad.y, ad.z, ad.face)
 	local look = Config.Mall.Lights.ad
-	decor(
+	local frame = decor(
 		folder,
 		"AdFrame",
 		Vector3.new(ad.w + 0.6, ad.h + 0.6, 0.6),
@@ -787,6 +882,12 @@ local function buildAd(folder: Instance, origin: Vector3, ad)
 		DARK_STEEL,
 		material("Metal")
 	)
+	if ad.kit then
+		-- Its poster case: a bezel round the face, never over it.
+		later(function()
+			Kit.dressPart(frame, ad.kit)
+		end)
+	end
 	-- Not Neon: its bloom washes a face out to plain white. The glow is the
 	-- SurfaceGui's own, unlit and a little bright, so whatever is on the
 	-- face stays readable.
@@ -932,9 +1033,26 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 			buildLight(dressing, origin, l)
 		end
 	end
+	local blocks = {} -- room -> block name -> its parts
 	for _, b in Mall.Blocks do
 		if built[b.room] then
-			buildBlock(dressing, origin, b)
+			blocks[b.room] = blocks[b.room] or {}
+			blocks[b.room][b.name] = blocks[b.room][b.name] or {}
+			table.insert(blocks[b.room][b.name], buildBlock(dressing, origin, b))
+		end
+	end
+	for _, group in Mall.KitGroups or {} do
+		if built[group.room] then
+			later(function()
+				local at = CFrame.new(origin + Vector3.new(group.x, group.y, group.z)) * turned(group.rot)
+				if Kit.place(dressing, group.kit, at) then
+					for _, name in group.hides do
+						for _, p in blocks[group.room][name] or {} do
+							Kit.hide(p)
+						end
+					end
+				end
+			end)
 		end
 	end
 	for _, cable in Mall.Cables or {} do
@@ -957,6 +1075,24 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 			buildSound(dressing, origin, s)
 		end
 	end
+	-- The kit's look, once its meshes are in (they load with the house's,
+	-- World/Kit.preload); until then, and for a piece not imported yet, the
+	-- grey box.
+	local todo = jobs
+	jobs = {}
+	task.spawn(function()
+		Kit.preload()
+		local dressed = 0
+		for _, job in todo do
+			local ok, err = pcall(job)
+			if ok then
+				dressed += 1
+			else
+				warn("[Consensus] mall kit: " .. tostring(err))
+			end
+		end
+		parent:SetAttribute("KitDressed", dressed)
+	end)
 	local spawn = only and Mall.Waiting.spawn or Mall.Spawn
 	local returns = {}
 	if built[Mall.Returns.room] then

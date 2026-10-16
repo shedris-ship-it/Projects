@@ -303,4 +303,38 @@ return function(test, check, Shared, require)
 			"the lamp's height"
 		)
 	end)
+
+	test("the mall's pieces are in the kit, an ad's case made round its face", function()
+		local Mall = require(Shared.Data.Mall)
+		local named = 0
+		local function has(name, what)
+			check.truthy(Kit.Parts[name], what .. " wears " .. name .. ", a kit part")
+			named += 1
+		end
+		for _, b in Mall.Blocks do
+			if b.kit then
+				has(b.kit, b.name)
+			end
+		end
+		for _, group in Mall.KitGroups or {} do
+			has(group.kit, "a group")
+			check.truthy(#group.hides > 0, group.kit .. " hides the blocks it stands for")
+		end
+		for _, ad in Mall.Ads do
+			has(ad.kit, ad.slot)
+			-- (Its bezel's inside edge on the face's: the ad is never covered.)
+			local case = Kit.Parts[ad.kit]
+			check.atMost(
+				math.abs(case.size[1] - (ad.w + 0.6)),
+				0.01,
+				ad.slot .. "'s case is its face's width and a bezel"
+			)
+			check.atMost(
+				math.abs(case.size[2] - (ad.h + 0.6)),
+				0.01,
+				ad.slot .. "'s case is its face's height and a bezel"
+			)
+		end
+		check.truthy(named >= 20, "the court is dressed")
+	end)
 end

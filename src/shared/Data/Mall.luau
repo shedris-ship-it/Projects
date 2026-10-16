@@ -778,12 +778,53 @@ Mall.Strings = {
 -- front of it (the owner, 2026-10-15: keep the ad areas intact). The court's
 -- columns, planters and strings keep clear (tests/specs/MallLayout's "ad"
 -- test, Logic/MallLayout.adBlockers). Until an ad runs each reads THIS SPACE
--- AVAILABLE, as a dead mall's empty lightboxes do.
+-- AVAILABLE, as a dead mall's empty lightboxes do. `kit`: its poster case
+-- (Data/Kit), made for its face's size.
 Mall.Ads = {
-	{ room = "court", slot = "court-west-north", x = -48.4, y = 6.6, z = -21, w = 11, h = 6.2, face = "E" },
-	{ room = "court", slot = "court-west-south", x = -48.4, y = 6.6, z = 21, w = 11, h = 6.2, face = "E" },
-	{ room = "court", slot = "court-east-north", x = 48.4, y = 6, z = -24.6, w = 8.4, h = 5, face = "W" },
-	{ room = "court", slot = "court-east-south", x = 48.4, y = 6, z = 24.6, w = 8.4, h = 5, face = "W" },
+	{
+		room = "court",
+		slot = "court-west-north",
+		x = -48.4,
+		y = 6.6,
+		z = -21,
+		w = 11,
+		h = 6.2,
+		face = "E",
+		kit = "LightboxWide",
+	},
+	{
+		room = "court",
+		slot = "court-west-south",
+		x = -48.4,
+		y = 6.6,
+		z = 21,
+		w = 11,
+		h = 6.2,
+		face = "E",
+		kit = "LightboxWide",
+	},
+	{
+		room = "court",
+		slot = "court-east-north",
+		x = 48.4,
+		y = 6,
+		z = -24.6,
+		w = 8.4,
+		h = 5,
+		face = "W",
+		kit = "LightboxSmall",
+	},
+	{
+		room = "court",
+		slot = "court-east-south",
+		x = 48.4,
+		y = 6,
+		z = 24.6,
+		w = 8.4,
+		h = 5,
+		face = "W",
+		kit = "LightboxSmall",
+	},
 }
 
 local DUST = { 192, 188, 178 } -- a dust sheet
@@ -791,12 +832,17 @@ local DEAD = { 90, 70, 50 } -- a dead plant
 
 -- Grey-box stand-ins for what each place holds: {x, y, z} is a block's
 -- middle; `rot` turns it (degrees about x, y, z); `shape` "Cylinder" stands
--- upright, "Ball" is round.
+-- upright, "Ball" is round. `kit`: the modelled piece it wears once the
+-- kit's meshes are in (Data/Kit `Parts`, LB1b; its front is the block's
+-- +z). `hollow`: a drained basin's floor (from the block's middle) and wall
+-- thickness, so its kit piece can be stepped into (World/MallBuilder).
 Mall.Blocks = {
 	-- the court: the dry fountain with what's been thrown in it
 	{
 		room = "court",
 		name = "FountainBasin",
+		kit = "FountainBasin",
+		hollow = { floor = -0.3, wall = 0.95 },
 		x = 0,
 		y = 0.8,
 		z = 0,
@@ -808,6 +854,7 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "FountainPillar",
+		kit = "FountainCentre",
 		x = 0,
 		y = 2.5,
 		z = 0,
@@ -896,10 +943,20 @@ Mall.Blocks = {
 		color = DUST,
 		material = "Fabric",
 	},
-	{ room = "court", name = "Bench", x = 16, y = 0.9, z = -9, size = { 8, 1.8, 2.4 }, color = { 110, 78, 52 } },
 	{
 		room = "court",
 		name = "Bench",
+		kit = "MallBench",
+		x = 16,
+		y = 0.9,
+		z = -9,
+		size = { 8, 1.8, 2.4 },
+		color = { 110, 78, 52 },
+	},
+	{
+		room = "court",
+		name = "Bench",
+		kit = "MallBench",
 		x = -15,
 		y = 1.2,
 		z = 9.5,
@@ -918,13 +975,50 @@ Mall.Blocks = {
 		material = "Fabric",
 	},
 	-- planters with what's left of their plants
-	{ room = "court", name = "Planter", x = -26, y = 1.5, z = -12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = 26, y = 1.5, z = -12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = -26, y = 1.5, z = 12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
-	{ room = "court", name = "Planter", x = 26, y = 1.5, z = 12, size = { 6, 3, 6 }, color = { 140, 122, 104 } },
+	{
+		room = "court",
+		name = "Planter",
+		kit = "MallPlanter",
+		x = -26,
+		y = 1.5,
+		z = -12,
+		size = { 6, 3, 6 },
+		color = { 140, 122, 104 },
+	},
+	{
+		room = "court",
+		name = "Planter",
+		kit = "MallPlanter",
+		x = 26,
+		y = 1.5,
+		z = -12,
+		size = { 6, 3, 6 },
+		color = { 140, 122, 104 },
+	},
+	{
+		room = "court",
+		name = "Planter",
+		kit = "MallPlanter",
+		x = -26,
+		y = 1.5,
+		z = 12,
+		size = { 6, 3, 6 },
+		color = { 140, 122, 104 },
+	},
+	{
+		room = "court",
+		name = "Planter",
+		kit = "MallPlanter",
+		x = 26,
+		y = 1.5,
+		z = 12,
+		size = { 6, 3, 6 },
+		color = { 140, 122, 104 },
+	},
 	{
 		room = "court",
 		name = "DeadPlant",
+		kit = "DeadFicus",
 		x = -26.5,
 		y = 4.2,
 		z = -12,
@@ -935,6 +1029,7 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
+		kit = "DeadFicus",
 		x = 25.5,
 		y = 4,
 		z = -11.5,
@@ -945,6 +1040,7 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
+		kit = "DeadFicus",
 		x = -25.5,
 		y = 4.1,
 		z = 12.5,
@@ -955,6 +1051,7 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "DeadPlant",
+		kit = "DeadFicus",
 		x = 26,
 		y = 3.9,
 		z = 12,
@@ -1054,6 +1151,7 @@ Mall.Blocks = {
 	{
 		room = "court",
 		name = "Cart",
+		kit = "ShoppingCart",
 		x = 35,
 		y = 2.1,
 		z = 15,
@@ -1087,8 +1185,27 @@ Mall.Blocks = {
 		collide = false,
 	},
 	-- the directory, the photo booth
-	{ room = "court", name = "Directory", x = 6.5, y = 3.5, z = 22, size = { 4, 7, 0.8 }, color = { 60, 60, 66 } },
-	{ room = "court", name = "PhotoBooth", x = 21, y = 4, z = 24, size = { 5, 8, 5 }, color = { 160, 56, 56 } },
+	{
+		room = "court",
+		name = "Directory",
+		kit = "MallDirectory",
+		x = 6.5,
+		y = 3.5,
+		z = 22,
+		size = { 4, 7, 0.8 },
+		color = { 60, 60, 66 },
+	},
+	{
+		room = "court",
+		name = "PhotoBooth",
+		kit = "PhotoBooth",
+		rot = { 0, 180, 0 },
+		x = 21,
+		y = 4,
+		z = 24,
+		size = { 5, 8, 5 },
+		color = { 160, 56, 56 },
+	},
 	-- the main doors: boarded on the outside, and the lot in the rain
 	{
 		room = "court",
@@ -1778,6 +1895,7 @@ Mall.Blocks = {
 	{
 		room = "concourse",
 		name = "Cart",
+		kit = "ShoppingCart",
 		x = 160,
 		y = 1.2,
 		z = 6,
@@ -1836,6 +1954,13 @@ for i = 0, 11 do
 		})
 	end
 end
+
+-- Kit pieces that stand for a group of blocks (LB1b; World/MallBuilder):
+-- `kit` stood at {x, y, z} (turned by `rot`), the blocks named in `hides`
+-- in its room hidden once it's in.
+Mall.KitGroups = {
+	{ room = "court", kit = "MallChandelier", x = 0, y = 36, z = 0, hides = { "ChandelierRing", "ChandelierGlobe" } },
+}
 
 -- The clock high on the west wall, over the diner: stopped at 9:47.
 table.insert(Mall.Blocks, {

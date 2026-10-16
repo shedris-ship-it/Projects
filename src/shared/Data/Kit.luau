@@ -605,6 +605,30 @@ return {
 		},
 		Radiator = { mesh = "Radiator", id = 132998574857921, size = { 4.01, 2.55, 0.6 } },
 		PocketDoor = { mesh = "PocketDoor", id = 70798688994636, size = { 0.43, 7.9, 0.26 } },
+		-- kit.py mall1: the lobby's mall, its court (docs/plans/lobby-rework.md,
+		-- LB1b). World/MallBuilder dresses Data/Mall's blocks that name one
+		-- (`kit`, stood upright where the block stands), the gallery's columns
+		-- and parapet runs, the shopfronts' grille boxes and the ads' frames.
+		-- `at`: the box's middle from the block's or part's.
+		MallBench = { mesh = "MallBench", size = { 8, 1.85, 2.4 }, at = { 0, 0.023, 0 } },
+		MallPlanter = { mesh = "MallPlanter", size = { 6, 3.05, 6 }, at = { 0, 0.023, 0 } },
+		-- (Stretched to each dead stick's height.)
+		DeadFicus = { mesh = "DeadFicus", size = { 1.23, 2.38, 1.21 }, fit = "y", at = { -0.1, -0.115, -0.121 } },
+		FountainBasin = { mesh = "FountainBasin", size = { 14.16, 1.6, 14.16 } },
+		FountainCentre = { mesh = "FountainCentre", size = { 3.96, 5, 3.96 } },
+		MallDirectory = { mesh = "MallDirectory", size = { 4, 7, 0.8 } },
+		PhotoBooth = { mesh = "PhotoBooth", size = { 5.04, 8, 5.35 }, at = { 0, 0, 0.155 } },
+		-- Its wheels reach the floor under the basket the block stands for.
+		ShoppingCart = { mesh = "ShoppingCart", size = { 2.28, 3.32, 3.84 }, at = { -0.002, -0.442, 0.172 } },
+		-- An ad's poster case round its face (the AdFrame part; its front is the
+		-- part's -Z), the bezel's inside edge on the face's.
+		LightboxWide = { mesh = "LightboxWide", size = { 11.6, 6.8, 0.85 }, turn = 180, at = { 0, 0, -0.125 } },
+		LightboxSmall = { mesh = "LightboxSmall", size = { 9, 5.6, 0.85 }, turn = 180, at = { 0, 0, -0.125 } },
+		GrilleBox = { mesh = "GrilleBox", size = { 29, 1.41, 1.4 }, fit = true, turn = 180 },
+		MallColumn = { mesh = "MallColumn", size = { 2.72, 20.8, 2.72 } },
+		-- A gallery's edge in lengths of about 10, stretched to fit its run.
+		GalleryParapet = { mesh = "GalleryParapet", size = { 10, 5.1, 0.74 }, fit = true, at = { 0, 0, 0.03 } },
+		MallChandelier = { mesh = "MallChandelier", size = { 13.8, 4.45, 12.4 }, at = { 0, -1.325, 0 } },
 	},
 	-- Light fixtures (kit.py golden2; World/Kit.dressFixture). `floor`: the
 	-- bottom of its box above where kit.py built it round; `scale`: shown that

@@ -342,7 +342,30 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     - the placeholder is a readable, yellowed "THIS SPACE AVAILABLE" panel instead of a Neon glare.
 
     The report's "grandeur pass" section and its `grandeur/` screenshots; TC-309.
-  - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight, and now the vault, the gallery and its rail, the chandelier, the escalators), imported by the owner as before; the lighting pass; the 50-player measurement.
+  - **LB1b, the real look:** a Blender batch for the mall (shopfronts, grilles, the fountain, benches, the diner's booths and counter, lightboxes, signs, the skylight, and now the vault, the gallery and its rail, the chandelier, the escalators), imported by the owner as before; the lighting pass; the 50-player measurement. The owner walked .205 ("the height works") and started it the same day. In batches, as the house's kit went (kit.py, `kitlib/mall`):
+    - **`mall1`, the court** (started 2026-10-15), what every player sees close up each visit, 14 pieces:
+      - the bench, the planter and its dead ficus;
+      - the fountain's basin (drained, stepped into: `hollow`) and its centrepiece;
+      - the directory, with the mall's map and YOU ARE HERE;
+      - the photo booth and a shopping cart;
+      - the two lightbox cases, each made round its ad's face so the bezel never covers it;
+      - the shopfronts' grille box;
+      - the gallery's column, its parapet with the handrail (laid in lengths along each run), and the dead chandelier.
+
+      `World/MallBuilder` dresses each over its grey box once the meshes are in (Data/Mall `kit`, `Mall.KitGroups`; Data/Kit `Parts`).
+    - **`mall2`, the shops:**
+      - the diner's booths, counter, stools and menu boards;
+      - the video store's shelves and the NEW RELEASES wall;
+      - the arcade's cabinets and the prize counter;
+      - the electronics store's TVs;
+      - the boutique's racks and the changing booth.
+    - **`mall3`, the garage and the dead mall:**
+      - the investigators' generator, cots, desk, case board and tool bench;
+      - the payphone;
+      - the vault's frame;
+      - the escalators and the upper fronts;
+      - the neon signs' letters.
+    - Then the lighting pass with everything in, and the 50-player measurement.
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.

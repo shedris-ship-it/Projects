@@ -20,7 +20,7 @@ import bpy
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from kitlib import architecture, atmosphere, bake, decor, devices, fittings, furniture, house, living, materials, ornament, shapes, swatches, things, trim  # noqa: E402
+from kitlib import architecture, atmosphere, bake, decor, devices, fittings, furniture, house, living, mall, materials, ornament, shapes, swatches, things, trim  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 
@@ -166,6 +166,11 @@ BATCHES = {
     # The last of the architecture (the visual rework V4b): ceiling roses,
     # coffer beams and bosses, radiators, the archways' pocket doors.
     "kit10": ornament.V4B,
+    # The lobby's mall (docs/plans/lobby-rework.md, LB1b), its first batch:
+    # the court's bench, planter, fountain, directory, photo booth, cart,
+    # lightboxes, grille box, gallery column and parapet, chandelier
+    # (kitlib/mall).
+    "mall1": mall.MALL1,
 }
 
 
