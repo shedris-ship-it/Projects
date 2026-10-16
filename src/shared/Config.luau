@@ -2729,6 +2729,9 @@ Config.Mall = {
 		-- An ad lightbox's glow; `face` is its placeholder's brightness.
 		ad = { color = { 214, 210, 196 }, range = 16, brightness = 0.8, face = 1.1 },
 		strip = { color = { 222, 236, 226 }, range = 30, brightness = 0.7 }, -- the garage's fluorescents (the ones still working)
+		-- The caged lamp over the garage's roll-up door, the way out (LB1b's
+		-- lighting pass: the door was a black void at the end of the way).
+		dock = { color = { 255, 176, 96 }, range = 28, brightness = 1.4, angle = 120 },
 		dim = { color = { 255, 120, 80 }, range = 20, brightness = 0.35 }, -- the dead mall's emergency lamps
 		street = { color = { 255, 170, 90 }, range = 34, brightness = 1 }, -- the lot's sodium lamp
 		sign = { range = 14, brightness = 0.8 }, -- a neon sign's glow, in its own colour

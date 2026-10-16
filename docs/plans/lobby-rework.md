@@ -365,7 +365,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
       - the vault's frame;
       - the escalators and the upper fronts;
       - the neon signs' letters.
-    - Then the lighting pass with everything in, and the 50-player measurement.
+    - **The lighting pass and the 50-player measurement** (*done*, build .212): the garage's way out lit (a strip over the bays, a caged lamp over the roll-up door), shadows following the preset, the lamps aimed; F2 `crowd <n>` (dressed stand-ins over `MallLayout.openSpots`), `perf` and the overlay's render line. A full lobby holds 60 fps on the owner's PC (about +2 ms CPU, +1 ms GPU, +12 MB); a phone and live networking are the owner's checks. **LB1b is done.**
 - **LB2, parties and the video rental.** The cars, seats, the dashboard, the windscreen sign, friends-only, the honk, Roblox parties, the payphone, coming back to your car. The tape shelf.
 - **LB3, the boutique and Marks.** Owning and wearing clothes, the changing booth, buying with Marks, gifts, the Marks packs and the starter pack. The first paid line: the six garments (the boutique's table), sketched first for the owner to swap any, then one wardrobe batch. The new Marks: `marksForRun` scaled down to about 150 for a strong escape, set from `botrun` numbers; `xpForRun` at today's pace; double Marks on the first escape of the day.
 - **LB4, electronics and the car bits.** The torch's first three looks (electronics' table), sketched first, then a Blender batch. The car bits on the pegboard.

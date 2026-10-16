@@ -25,6 +25,7 @@ Constants.Tags = {
 	-- (attribute Role).
 	MallPower = "ConsensusMallPower",
 	MallSound = "ConsensusMallSound",
+	MallShadow = "ConsensusMallShadow", -- a mall light that casts shadows: only on presets that allow them
 	Level = "ConsensusLevel",
 	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
 	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)

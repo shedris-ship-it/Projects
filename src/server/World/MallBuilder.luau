@@ -774,6 +774,36 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 				Kit.hide(pole)
 			end
 		end)
+	elseif l.kind == "dock" then
+		-- A caged lamp on a bracket over the door, its bulb looking down.
+		decor(
+			folder,
+			"DockHood",
+			Vector3.new(1.1, 0.35, 0.9),
+			CFrame.new(at + Vector3.new(0, 0.3, 0)),
+			DARK_STEEL,
+			material("Metal")
+		)
+		decor(
+			folder,
+			"DockBracket",
+			Vector3.new(0.2, 0.2, 0.7),
+			CFrame.new(at + Vector3.new(0, 0.3, -0.6)),
+			DARK_STEEL,
+			material("Metal")
+		)
+		for _, a in { 0, 90 } do
+			decor(
+				folder,
+				"DockCage",
+				Vector3.new(0.9, 0.06, 0.06),
+				CFrame.new(at - Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, math.rad(a), 0),
+				DARK_STEEL,
+				material("Metal")
+			)
+		end
+		holder = decor(folder, "DockBulb", Vector3.new(0.5, 0.5, 0.5), CFrame.new(at), color, material("Neon"))
+		holder.Shape = Enum.PartType.Ball
 	elseif l.kind == "strip" then
 		holder = decor(folder, "Fixture", Vector3.new(8, 0.3, 1), CFrame.new(at), color, material("Neon"))
 		-- The kit's strip light round it; the lit part becomes its two tubes'
@@ -804,13 +834,15 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 		holder.Transparency = 1
 	end
 	local light
-	if l.kind == "moon" or l.kind == "storm" then
+	if l.kind == "moon" or l.kind == "storm" or l.kind == "dock" then
 		light = Instance.new("SpotLight")
-		light.Face = l.kind == "moon" and Enum.NormalId.Bottom or Enum.NormalId.Front
+		light.Face = l.kind == "storm" and Enum.NormalId.Front or Enum.NormalId.Bottom
 		light.Angle = look.angle or 60
-		-- Lightning burns these for an instant (Controllers/WeatherController's
-		-- flash, as the house's moon beams).
-		CollectionService:AddTag(holder, "ConsensusMoonLight")
+		-- Lightning burns the moon's and the storm's for an instant
+		-- (Controllers/WeatherController's flash, as the house's moon beams).
+		if l.kind ~= "dock" then
+			CollectionService:AddTag(holder, "ConsensusMoonLight")
+		end
 	else
 		light = Instance.new("PointLight")
 	end
@@ -819,6 +851,9 @@ local function buildLight(folder: Instance, origin: Vector3, l)
 	light.Brightness = look.brightness
 	light.Shadows = l.shadows == true
 	light.Parent = holder
+	if l.shadows then
+		CollectionService:AddTag(light, Constants.Tags.MallShadow) -- (the preset decides, MallController)
+	end
 	if not Config.Mall.Unpowered[l.kind] then
 		-- On the investigators' generator: it browns out with it.
 		CollectionService:AddTag(light, Constants.Tags.MallPower)

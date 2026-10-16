@@ -209,6 +209,20 @@ function MallController:Start()
 			brownout(at)
 		end
 	end)
+
+	-- The mall's few shadow-casting lights follow the graphics preset, as the
+	-- house's lights do (Performance: none; LB1b's lighting pass).
+	local function shadows()
+		local _, preset = self.state:Graphics()
+		for _, light in CollectionService:GetTagged(Tags.MallShadow) do
+			if light:IsA("Light") then
+				light.Shadows = preset.lightShadows ~= false
+			end
+		end
+	end
+	self.state.SettingsChanged:Connect(shadows)
+	CollectionService:GetInstanceAddedSignal(Tags.MallShadow):Connect(shadows)
+	shadows()
 end
 
 return MallController

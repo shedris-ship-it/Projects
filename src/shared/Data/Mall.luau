@@ -814,6 +814,10 @@ Mall.Lights = {
 	{ room = "garage", kind = "strip", x = 0, y = 17, z = -95, fixture = true },
 	{ room = "garage", kind = "strip", x = 25, y = 17, z = -95, fixture = true, off = true },
 	{ room = "garage", kind = "strip", x = 0, y = 17, z = -72, fixture = true },
+	-- (The lighting pass, LB1b: the bays and the way out lit, the cars and the
+	-- roll-up door read from the video store's back door.)
+	{ room = "garage", kind = "strip", x = 0, y = 17, z = -110, fixture = true },
+	{ room = "garage", kind = "dock", x = 0, y = 17.1, z = -120.4 },
 	-- (`aim`: degrees about y from facing north, toward what each lights: the
 	-- case board, the generator.)
 	{ room = "garage", kind = "work", x = -34, y = 7, z = -77, stand = true, shadows = true, aim = 90 },

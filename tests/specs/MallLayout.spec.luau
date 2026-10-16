@@ -121,6 +121,31 @@ return function(test, check, Shared, require)
 		check.truthy(not text:find("Window"), "a window display is let be: " .. text)
 	end)
 
+	test("open floor is found clear of everything, room for a full lobby", function()
+		local total = 0
+		for _, room in { "court", "garage", "diner", "video", "arcade", "boutique", "electronics" } do
+			local spots = MallLayout.openSpots(Mall, room, 4, 1.5)
+			total += #spots
+			for _, p in spots do
+				for _, b in Mall.Blocks do
+					if b.room == room and b.collide ~= false then
+						local hx, hz = b.size[1] / 2, b.size[3] / 2
+						if b.shape == "Cylinder" then
+							hx, hz = b.size[2] / 2, b.size[3] / 2
+						end
+						check.truthy(
+							b.rot ~= nil or math.abs(p[1] - b.x) >= hx or math.abs(p[2] - b.z) >= hz,
+							string.format("%s's spot %g, %g is in its %s", room, p[1], p[2], b.name)
+						)
+					end
+				end
+			end
+		end
+		-- (Fifty players, and then some, can stand in the lit corner.)
+		check.truthy(total >= 80, "spots for a full lobby: " .. total)
+		check.truthy(#MallLayout.openSpots(Mall, "court", 4, 1.5) >= 40, "the court holds most of them")
+	end)
+
 	test("a broken layout is caught", function()
 		local broken = {
 			Rooms = {

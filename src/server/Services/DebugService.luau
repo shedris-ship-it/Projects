@@ -22,6 +22,8 @@ local RoomPurpose = require(Shared.Logic.RoomPurpose)
 local Acts = require(Shared.Logic.Acts)
 local LockPlanner = require(Shared.Logic.LockPlanner)
 local LookSpots = require(Shared.Data.LookSpots)
+local Mall = require(Shared.Data.Mall)
+local MallLayout = require(Shared.Logic.MallLayout)
 local Tools = require(Shared.Data.Tools)
 local Kit = require(Shared.World.Kit)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
@@ -57,6 +59,7 @@ local HELP = table.concat({
 	"act (the run's act, dread, and any woken hunt) · arm [seconds] [false] (wake a hunt, or only its telegraph) · goto <room> | <x> <y> <z> · look <spot> | look save <name> (fixed shots, Data/LookSpots)",
 	"scent (his heirlooms and his errand) · table (he waits at the table) · tidy (lying heirlooms count as left long ago)",
 	"lights on|off · perf · gatea (the builder's part hash) · steps (tests footstep sounds) · clip (lists props that overlap) · down [name] · revive [name]",
+	"crowd <n>|clear (n dressed stand-ins over the mall, for a full lobby's cost with perf)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
 	"chute [here] (down the laundry chute, from its hatch or from where you stand)",
 	"find <name> (a drawer find in front of you: SpareBatteries, PillBottle, Letters, Matchbox, ...)",
@@ -634,6 +637,43 @@ function DebugService:Run(player: Player, text: string)
 			reply(player, "wearing " .. outfits:DebugWear(player, tonumber(args[2]) :: number))
 		else
 			reply(player, "usage: outfit <n> | lineup | clear")
+		end
+	elseif command == "crowd" then
+		-- `crowd <n>`: n dressed stand-ins over the mall's open floor, about
+		-- half in the court, a quarter in the garage, the rest in the shops,
+		-- for LB1b's 50-player measurement (with `perf`); `crowd clear`.
+		local n = math.clamp(math.floor(tonumber(args[2]) or 0), 0, 99)
+		if args[2] == "clear" or n == 0 then
+			services.OutfitService:DebugCrowd(nil)
+			reply(player, "crowd cleared")
+		else
+			local o = Config.Level.LobbyOrigin
+			local origin = Vector3.new(o.x, o.y, o.z)
+			local shares = {
+				court = 0.5,
+				garage = 0.25,
+				diner = 0.07,
+				video = 0.05,
+				arcade = 0.05,
+				boutique = 0.04,
+				electronics = 0.04,
+			}
+			local order = { "court", "garage", "diner", "video", "arcade", "boutique", "electronics" }
+			local spots = {}
+			local left = n
+			for k, room in order do
+				local want = k == #order and left or math.min(left, math.round(n * shares[room]))
+				local open = MallLayout.openSpots(Mall, room, 4, 1.5)
+				-- (Spread through the room: every few spots, not the first few.)
+				local stride = math.max(1, #open / math.max(want, 1))
+				for i = 1, math.min(want, #open) do
+					local p = open[math.floor((i - 1) * stride) + 1]
+					local turn = math.rad((#spots * 137.5) % 360)
+					table.insert(spots, CFrame.new(origin + Vector3.new(p[1], 0, p[2])) * CFrame.Angles(0, turn, 0))
+				end
+				left = n - #spots
+			end
+			reply(player, services.OutfitService:DebugCrowd(spots) .. " stand-ins in the mall")
 		end
 	elseif command == "ui" then
 		-- Open a screen on your client: `ui map|journal|note|dossier|settings|
@@ -1416,13 +1456,31 @@ function DebugService:Run(player: Player, text: string)
 			reply(player, "lightning over the mall")
 		end
 	elseif command == "perf" then
+		-- (The server's side; the F2 overlay adds your client's, Ui/DebugOverlay.)
+		local lights, shadows, meshes, people = 0, 0, 0, #Players:GetPlayers()
+		for _, d in Workspace:GetDescendants() do
+			if d:IsA("Light") and d.Enabled then
+				lights += 1
+				if d.Shadows then
+					shadows += 1
+				end
+			elseif d:IsA("MeshPart") then
+				meshes += 1
+			end
+		end
+		local crowd = Workspace:FindFirstChild("DebugCrowd")
 		reply(
 			player,
 			string.format(
-				"server heartbeat %.1f ms · %d instances · %.0f MB",
+				"server heartbeat %.1f ms · %d instances · %.0f MB · %d lights (%d shadows) · %d meshes · %d players + %d stand-ins",
 				Stats.HeartbeatTimeMs or 0,
 				Stats.InstanceCount,
-				Stats:GetTotalMemoryUsageMb()
+				Stats:GetTotalMemoryUsageMb(),
+				lights,
+				shadows,
+				meshes,
+				people,
+				crowd and #crowd:GetChildren() or 0
 			)
 		)
 	else

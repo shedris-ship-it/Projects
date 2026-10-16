@@ -304,3 +304,60 @@ For the owner:
 - TC-312 by eye.
 - You can delete `Workspace.Scene` (the imported copy).
 - The night keeps the vault's lattice dark until lightning lights it. If you'd like it read more, a faint light on the ribs is a later tweak for the lighting pass.
+
+## The lighting pass and the 50-player measurement (build `2026-10-16.212`)
+
+The owner asked for LB1b's last two steps: the lighting pass, with every piece in, and the 50-player measurement.
+
+### The lighting pass
+
+Each area was walked at the game's own exposure (the hub's lens, no test light). The mall's mood stays as the owner set it: dark but for the shops, the ads and what the investigators hung on their generator. The changes are where that mood hid something a player needs:
+
+- **The garage's way out was a black void** at the end of the walk from the video store's back door (`lighting/garage_way_before.jpg`). Two lights fix it (`garage_way_after.jpg`):
+  - A strip light now hangs over the bays (one of the three there; the other two stay dead), so the cars and their lines read.
+  - A caged lamp on a bracket over the roll-up door (`Config.Mall.Lights.dock`, a warm downward spot) lights the door and the CARS sign: the way out, seen from the far end.
+- **Shadows follow the graphics preset.** The camp's work lamp is the mall's one shadow-caster. It casts its tripod's shadow up the case board on Cinematic and Balanced, and none on Performance, as the house's lights do (`MallShadow` tag, `MallController`).
+- **The work lamps are aimed** at what they light (mall3's import pass): the case board, the generator.
+- **Left as it is, on purpose:**
+  - The vault's lattice is dark against the night until lightning lights it; the owner wanted the dark beyond the lit corner.
+  - The dead concourse stays lit only by its battery emergency lamps and the EXIT sign.
+
+**The light budget**, counted in play:
+- 52 lights in the hub (2 spot, 50 point), at most one casting shadows;
+- the five neon words are Neon parts, so they cost no light beyond their sign's own glow;
+- 297 meshes in the mall, 332 in the kit.
+
+### The 50-player measurement
+
+**How:** F2 `crowd <n>` (Services/OutfitService `DebugCrowd`, Services/DebugService) stands n dressed stand-ins over the mall's open floor. Each is a real classic body in a real outfit (both bodies, every outfit in turn) with Roblox's idle playing.
+- They are spread as a full lobby would stand: about half in the court, a quarter in the garage, the rest in the shops.
+- Their floor comes from `MallLayout.openSpots` (spec'd: clear of every solid piece and column; 80+ spots, 40+ in the court).
+- `crowd clear` takes them away.
+- F2 `perf` now also counts the lights, the shadow-casters, the meshes and the players and stand-ins. The F2 overlay's new "render" line shows the frame's CPU and GPU time and the meshes' and textures' memory.
+
+**The numbers** (Studio's play client on the owner's PC, the Cinematic preset, 8 seconds per view):
+
+| | Frame rate | Render CPU | Render GPU | Mesh memory | Texture memory | Client instances |
+| --- | --- | --- | --- | --- | --- | --- |
+| The court, alone | 60 fps | 3.8 ms | 5.1 ms | 45 MB | 266 MB | 52,400 |
+| The court, 49 stand-ins + you | 60 fps | 6.0 ms | 6.1 ms | 49 MB | 274 MB | 68,700 |
+| The garage, with them | 60 fps | 4.3 ms | 5.4 ms | | | |
+
+- A full lobby costs about 2 ms of CPU and 1 ms of GPU a frame and 12 MB of memory on this machine, well inside a 60 fps frame (16.7 ms).
+- Dressing 49 took 2 seconds on the server, and its heartbeat stayed at 0.1 ms.
+- The worst single frame was 19 to 24 ms, with or without them: Studio's own hitches, not the crowd.
+
+**What this doesn't cover:**
+- A phone. The owner's check: open the place on a phone (or Studio's device emulator) and run `crowd 49` and `perf` there.
+- Real players' networking. Stand-ins are anchored, so their movement isn't replicated; a full server's 50 moving characters also cost bandwidth and the server's physics, which only a live test shows.
+- The shop's future outfits (LB3) are the same kind of welded pieces, so a lobby of them should cost what this one does.
+
+`crowd`, `perf` and the overlay's render line are kept for the next measurement (LB3's shop full of outfits, V9's performance pass).
+
+| Shot | What it shows |
+| --- | --- |
+| `lighting/garage_way_before.jpg`, `garage_way_after.jpg` | The way out from the video store's back door, before and after |
+| `lighting/crowd_court.jpg` | 49 stand-ins over the court and in the shops |
+| `lighting/crowd_garage.jpg` | Those waiting in the garage, by the cars and the lit door |
+
+**LB1b is done.** Next in the plan: LB2, parties and the video rental.

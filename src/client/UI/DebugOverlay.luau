@@ -106,6 +106,15 @@ function DebugOverlay:Update(dt: number)
 			Stats:GetTotalMemoryUsageMb(),
 			Stats.InstanceCount
 		),
+		-- What drawing costs (LB1b's 50-player measurement: F2 `crowd`):
+		-- the frame's CPU and GPU time, the meshes' and textures' memory.
+		string.format(
+			"render  cpu %.1f ms · gpu %.1f ms · meshes %.0f MB · textures %.0f MB",
+			(Stats.RenderCPUFrameTime or 0) * 1000,
+			(Stats.RenderGPUFrameTime or 0) * 1000,
+			Stats:GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.GraphicsMeshParts),
+			Stats:GetMemoryUsageMbForTag(Enum.DeveloperMemoryTag.GraphicsTexture)
+		),
 	}
 	local d = self.data
 	if d then

@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-16.211",
-	note = "mall3 imported: the garage, the vault's frame, the escalators and the neon dressed; the lamps aimed",
+	id = "2026-10-16.212",
+	note = "LB1b's lighting pass (the garage's way out lit, shadows by preset) and the 50-player measurement (F2 crowd)",
 }

@@ -236,6 +236,62 @@ function OutfitService:DebugLineup(at: CFrame?): number
 	return count
 end
 
+-- F2 `crowd <n>`: n stand-ins for a full lobby (LB1b's 50-player
+-- measurement), each a real body in a real outfit, both bodies and every
+-- outfit in turn, standing at `spots` (CFrames on the floor) with Roblox's
+-- idle playing, as other players' characters would be drawn. `crowd clear`
+-- (no spots) takes them away. Returns how many stand.
+function OutfitService:DebugCrowd(spots: { CFrame }?): number
+	local old = workspace:FindFirstChild("DebugCrowd")
+	if old then
+		old:Destroy()
+	end
+	if not spots or #spots == 0 then
+		return 0
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "DebugCrowd"
+	folder.Parent = workspace
+	local idle = Instance.new("Animation")
+	idle.AnimationId = "rbxassetid://507766666" -- (Roblox's R15 idle)
+	local count = 0
+	for i, spot in spots do
+		local bodyName = Wardrobe.BodyOrder[(i - 1) % #Wardrobe.BodyOrder + 1]
+		local desc = Instance.new("HumanoidDescription")
+		for key, id in Wardrobe.Bodies[bodyName].parts do
+			(desc :: any)[key] = id
+		end
+		local ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+		end)
+		if ok and model then
+			model.Name = "Stand-in" .. i
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local hip = humanoid and humanoid.HipHeight or 2
+			local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+			model:PivotTo(spot * CFrame.new(0, hip + (root and root.Size.Y / 2 or 1), 0))
+			if root then
+				root.Anchored = true
+			end
+			model.Parent = folder
+			self:Apply(model, (i - 1) % #Wardrobe.Outfits + 1)
+			local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+			if animator then
+				pcall(function()
+					local track = animator:LoadAnimation(idle)
+					track.Looped = true
+					track:Play()
+				end)
+			end
+			count += 1
+			if i % 10 == 0 then
+				task.wait() -- (a lobby's worth at once would stall the server a moment)
+			end
+		end
+	end
+	return count
+end
+
 function OutfitService:Start()
 	-- (The clothes are kit meshes: the server builds them once from their ids.
 	-- Until they're in, characters are painted; then everyone is dressed.)

@@ -354,6 +354,53 @@ function MallLayout.misplaced(mall, rooms: { string }): { string }
 	return found
 end
 
+-- Open floor in a room, as {x, z} points on a grid `spacing` apart: inside
+-- its walls by `margin`, and at least `margin` from every solid block's box
+-- and every gallery column. Where people can stand (F2 `crowd`, LB1b's
+-- 50-player measurement), west to east, north to south.
+function MallLayout.openSpots(mall, roomId: string, spacing: number, margin: number): { { number } }
+	local rect = mall.Rooms[roomId].rect
+	local t = mall.Wall or 1
+	local boxes = {}
+	for _, b in mall.Blocks do
+		if b.room == roomId and b.collide ~= false then
+			local hx, _, hz = halves(b)
+			table.insert(boxes, { b.x - hx - margin, b.z - hz - margin, b.x + hx + margin, b.z + hz + margin })
+		end
+	end
+	for _, g in mall.Galleries or {} do
+		if g.room == roomId then
+			for _, c in g.columns or {} do
+				table.insert(
+					boxes,
+					{ c[1] - 1.4 - margin, c[2] - 1.4 - margin, c[1] + 1.4 + margin, c[2] + 1.4 + margin }
+				)
+			end
+		end
+	end
+	local spots = {}
+	local x0, z0, x1, z1 = rect[1] + t + margin, rect[2] + t + margin, rect[3] - t - margin, rect[4] - t - margin
+	local x = x0
+	while x <= x1 + 1e-6 do
+		local z = z0
+		while z <= z1 + 1e-6 do
+			local clear = true
+			for _, box in boxes do
+				if x > box[1] and x < box[3] and z > box[2] and z < box[4] then
+					clear = false
+					break
+				end
+			end
+			if clear then
+				table.insert(spots, { x, z })
+			end
+			z += spacing
+		end
+		x += spacing
+	end
+	return spots
+end
+
 -- The rooms a door joins to this one.
 function MallLayout.neighbours(mall, roomId: string): { string }
 	local list = {}
