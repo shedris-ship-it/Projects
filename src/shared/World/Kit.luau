@@ -17,6 +17,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local KitData = require(script.Parent.Parent.Data.Kit)
+local KitHair = require(script.Parent.Parent.Data.KitHair)
 local KitWear = require(script.Parent.Parent.Data.KitWear)
 
 local Kit = {}
@@ -697,6 +698,12 @@ function Kit.placeOutside(parent: Instance, name: string, cf: CFrame, scale: Vec
 	return mesh
 end
 
+-- How a wardrobe piece fits its part: the clothes' (Data/KitWear) or the
+-- hair's (Data/KitHair, on the Head). nil: not built.
+function Kit.fitOf(name: string)
+	return KitWear.Wear[name] or KitHair.Wear[name]
+end
+
 -- Puts a wardrobe piece on a body part (V6; Data/Wardrobe, Data/KitWear):
 -- stretched from the part's size it was built at to this one's, axis by
 -- axis (it was built round both classic bodies, so it fits either), its
@@ -706,7 +713,7 @@ end
 -- for first person takes its sleeve along: Lib/ViewModel). Returns it, or
 -- nil when the piece isn't in.
 function Kit.wear(part: BasePart, name: string): MeshPart?
-	local fit = KitWear.Wear[name]
+	local fit = Kit.fitOf(name)
 	local entry = KitData.Wear and KitData.Wear[name]
 	local template = entry and fit and Kit.template(entry.mesh)
 	if not template then
@@ -737,7 +744,7 @@ end
 function Kit.hasWear(pieces: { [string]: string }): boolean
 	for _, name in pieces do
 		local entry = KitData.Wear and KitData.Wear[name]
-		if not (entry and KitWear.Wear[name] and Kit.template(entry.mesh)) then
+		if not (entry and Kit.fitOf(name) and Kit.template(entry.mesh)) then
 			return false
 		end
 	end

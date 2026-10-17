@@ -40,6 +40,7 @@ R = 0.58  # the head's radius
 HT = 0.592  # its middle to its top (and bottom)
 RHO = 0.30  # the rounding of its top and bottom edges
 GAP = 0.010  # hair over the scalp, at least
+EDGE = 0.007  # a cap's very edge comes this much closer (GAP - EDGE over the scalp)
 BELOW = -(HT - RHO)  # under this the head rounds in; hair keeps falling straight
 
 
@@ -140,10 +141,20 @@ def around(theta, r, y):
 
 
 def on_head(theta, s, h=0.0):
-    """The point at (theta, s) on the outline, h over the guide (and the gap)."""
+    """The point at (theta, s) on the outline, h over the guide (and the gap);
+    below the head, out as far as the guide flares."""
     r, y, nr, ny = profile(s)
     d = GAP + h
+    if y < BELOW:
+        r += flare(y)
     return around(theta, r + nr * d, y + ny * d)
+
+
+def nape(y):
+    """0 above the collars' line, 1 below it: there a cap hugs the scalp,
+    inside every collar's lip (kitlib/wardrobe neck_collar: the head plus
+    half the layers' gap)."""
+    return smooth((-0.29 - y) / 0.07)
 
 
 def theta_of(p):
@@ -164,8 +175,45 @@ def periodic(points, theta):
 
 # The hairline every style's cap ends at (angle from the face, height): up
 # off the forehead, turning straight down at the temple (the classic head
-# has no ears: the hair covers its sides), down to the nape.
-HAIRLINE = [(0.0, 0.37), (0.62, 0.35), (0.86, 0.32), (0.98, 0.12), (1.10, -0.10), (1.60, -0.15), (2.20, -0.24), (2.70, -0.42), (math.pi, -0.50)]
+# has no ears: the hair covers its sides), down to the nape, which stays
+# above the tallest collars' tops (they hug the head under there).
+HAIRLINE = [(0.0, 0.37), (0.62, 0.35), (0.86, 0.32), (0.98, 0.12), (1.10, -0.10), (1.60, -0.15), (2.20, -0.22), (2.70, -0.33), (math.pi, -0.38)]
+
+
+def head_mesh(name, K=72, steps=14):
+    """The classic head itself (for previews and checks; never exported):
+    its outline turned round its axis, in Blender's frame, its middle at the
+    origin."""
+    outline = [(0.0, -HT)]
+    a = R - RHO
+    for i in range(steps + 1):
+        ang = -math.pi / 2 + (math.pi / 2) * i / steps
+        outline.append((a + RHO * math.cos(ang), -(HT - RHO) + RHO * math.sin(ang)))
+    for i in range(steps + 1):
+        ang = (math.pi / 2) * i / steps
+        outline.append((a + RHO * math.cos(ang), (HT - RHO) + RHO * math.sin(ang)))
+    outline.append((0.0, HT))
+    bm = bmesh.new()
+    rings = []
+    for r, y in outline:
+        if r < 1e-6:
+            rings.append([bm.verts.new(G(V(0, y, 0)))])
+            continue
+        rings.append([bm.verts.new(G(around(TAU * k / K, r, y))) for k in range(K)])
+    for i in range(len(rings) - 1):
+        lo, hi = rings[i], rings[i + 1]
+        for k in range(K):
+            if len(lo) == 1:
+                bm.faces.new((lo[0], hi[(k + 1) % K], hi[k]))
+            elif len(hi) == 1:
+                bm.faces.new((lo[k], lo[(k + 1) % K], hi[0]))
+            else:
+                bm.faces.new((lo[k], lo[(k + 1) % K], hi[(k + 1) % K], hi[k]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    obj = shapes._object(name, bm)
+    for p in obj.data.polygons:
+        p.use_smooth = True
+    return obj
 
 
 # Building meshes ------------------------------------------------------------------
@@ -220,11 +268,16 @@ def cap(m, hem, thick, K=72, I=20, tone=0.5, inner=False, bump=None, hem_lip=0.0
             th = TAU * k / K
             s = s_hems[k] * t
             h = thick(th, t)
+            sink = 0.0
             if not inner:
                 h *= smooth((1.0 - t) / 0.12)
-            p = on_head(th, s, h)
+                # (The very edge down onto the scalp: no gap under it for a
+                # glancing look to slip into.)
+                sink = EDGE * (1.0 - smooth((1.0 - t) / 0.06))
+            p = on_head(th, s, h - sink)
             if not inner and p.y < BELOW:
-                p = project(p, GAP + h, head_sdf)
+                k = nape(p.y)
+                p = project(p, GAP + h * (1 - k) - max(0.006 * k, sink), head_sdf)
             if bump is not None:
                 p = p + normal(p) * bump(p, th, t)
             if i == 0:
@@ -261,8 +314,14 @@ def cap(m, hem, thick, K=72, I=20, tone=0.5, inner=False, bump=None, hem_lip=0.0
             if bump is not None:
                 outer = outer + normal(outer) * bump(outer, th, 1.0)
             base = on_head(th, s, 0.0)
-            # A rounded lip: a point below the middle of the edge.
-            mid = (outer + base) * 0.5 + V(0, -min(hem_lip, (outer - base).length * 0.35), 0)
+            # A rounded lip: past the middle of the edge the way the hair
+            # falls there (down the outline: straight down only where the
+            # hairline runs level; by the face it runs steeply).
+            r0, y0, _, _ = profile(max(s - 0.05, 0.0))
+            r1, y1, _, _ = profile(s)
+            fall = around(th, r1, y1) - around(th, r0, y0)
+            fall = fall.normalized() if fall.length > 1e-6 else V(0, -1, 0)
+            mid = (outer + base) * 0.5 + fall * min(hem_lip, (outer - base).length * 0.35)
             lip.append((bm.verts.new(G(mid)), bm.verts.new(G(base))))
         inner_rows = [[v for _, v in lip]]
         steps = max(4, I // 3)
@@ -633,33 +692,43 @@ def shoulder(rng):
     a, b = V(0, HT, -0.34), V(0, HT, 0.16)
     flow = away_from(a, b, down=0.35)
     ends = lambda t: 0.032 + 0.045 * smooth((t - 0.72) / 0.28)
+
+    def bottom(th):
+        # Down to the shoulders at the sides (the classic body's shoulders,
+        # in a jacket, come up to about -0.5 beside the head), past them at
+        # the back.
+        a = abs(((th + math.pi) % TAU) - math.pi)
+        return -0.44 - 0.32 * smooth((a - 2.2) / 0.55)
+
     for side in (-1, 1):
         for i in range(11):
             z = -0.34 + i * 0.05
             root = V(side * 0.015, HT, z)
             front = z < -0.15
             d0 = V(side, 0, -0.2 if front else 0.05)
-            bottom = (-0.50 if i < 2 else -0.60) + rng.uniform(-0.05, 0.04)
-            lock(m, rng, root, d0, reach(root, bottom, 0.12), flow, rng.uniform(0.17, 0.21), 0.06, lift=ends, stiff=0.3, tip=rng.uniform(0.78, 0.9))
+            low = (-0.40 if i < 2 else -0.45) + rng.uniform(-0.03, 0.03)
+            lock(m, rng, root, d0, reach(root, low, 0.12), flow, rng.uniform(0.17, 0.21), 0.06, lift=ends, stiff=0.3, tip=rng.uniform(0.78, 0.9))
         # A layer under, from lower on the side, to fill.
         for i in range(6):
             th = side * (0.95 + i * 0.3)
             root = on_head(th, 0.45)
-            lock(m, rng, root, V(math.sin(th) * 0.3, -1, -math.cos(th) * 0.3), reach(root, -0.58 + rng.uniform(-0.04, 0.04)), falling(), 0.2, 0.05, lift=lambda t: 0.014 + 0.03 * t, stiff=0.4, tip=rng.uniform(0.75, 0.88))
+            lock(m, rng, root, V(math.sin(th) * 0.3, -1, -math.cos(th) * 0.3), reach(root, bottom(th) + rng.uniform(-0.02, 0.03)), falling(), 0.2, 0.05, lift=lambda t: 0.014 + 0.03 * t, stiff=0.4, tip=rng.uniform(0.75, 0.88))
     # The back, from the crown, down past the collar.
     for i in range(13):
         th = math.pi + (i - 6) * 0.18
         root = on_head(th, 0.06 + 0.12 * rng.random())
-        lock(m, rng, root, V(math.sin(th), -0.2, -math.cos(th)), reach(root, -0.76 + rng.uniform(-0.05, 0.05)), falling(), 0.21, 0.06, lift=ends, stiff=0.35, tip=rng.uniform(0.78, 0.9))
+        lock(m, rng, root, V(math.sin(th), -0.2, -math.cos(th)), reach(root, bottom(th) + rng.uniform(-0.04, 0.04)), falling(), 0.21, 0.06, lift=ends, stiff=0.35, tip=rng.uniform(0.78, 0.9))
     return [m.build()]
 
 
-def cap_from(m, pole, hem, thick, K=64, I=18, tone=0.5):
+def cap_from(m, pole, hem, thick, K=64, I=18, tone=0.5, reach=None):
     """A cap whose strands run from the hairline to `pole` (a ponytail's
     tie) rather than down from the crown: walked out from the pole over the
     head in every direction until the hairline (`hem(theta)`, a height),
     `thick(phi, t)` over the scalp (t: 0 at the pole, 1 at the hairline),
-    thinning to nothing at the hairline."""
+    thinning to nothing at the hairline. `reach`: no strand longer (from a
+    tie at the side, the far side's would meet and fold over each other);
+    one stopped short dives under a plain cap laid beneath it."""
     bm = m.bm
     p0 = project(pole, GAP, head_sdf)
     n0 = normal(p0, head_sdf)
@@ -671,20 +740,26 @@ def cap_from(m, pole, hem, thick, K=64, I=18, tone=0.5):
         d = e1 * math.cos(phi) + e2 * math.sin(phi)
         p = p0.copy()
         pts = [p0.copy()]
+        short = False
+        walked = 0.0
         for _ in range(200):
             nrm = normal(p, head_sdf)
             d = (d - nrm * d.dot(nrm)).normalized()
             p = project(p + d * 0.015, GAP, head_sdf)
             pts.append(p)
+            walked += 0.015
             if p.y < hem(theta_of(p)):
+                break
+            if reach and walked >= reach:
+                short = True
                 break
         lengths = [0.0]
         for q0, q1 in zip(pts, pts[1:]):
             lengths.append(lengths[-1] + (q1 - q0).length)
-        paths.append((pts, lengths))
+        paths.append((pts, lengths, short))
 
     def at(k, t):
-        pts, lengths = paths[k % K]
+        pts, lengths, _ = paths[k % K]
         target = lengths[-1] * t
         for j in range(1, len(pts)):
             if lengths[j] >= target:
@@ -700,7 +775,14 @@ def cap_from(m, pole, hem, thick, K=64, I=18, tone=0.5):
         for k in range(K):
             q, _ = at(k, t)
             h = thick(TAU * k / K, t) * smooth((1.0 - t) / 0.12)
-            row.append(bm.verts.new(G(q + normal(q, head_sdf) * h)))
+            if paths[k][2]:
+                # (Stopped short: down under the cap beneath, no edge to see.)
+                h = thick(TAU * k / K, t) * smooth((1.0 - t) / 0.25) - 0.004 * smooth((t - 0.8) / 0.2)
+            low = nape(q.y)
+            sink = 0.0 if paths[k][2] else EDGE * (1.0 - smooth((1.0 - t) / 0.06))
+            # (q is on the scalp the gap out; in the collars' zone, and at the
+            # hairline's very edge, closer.)
+            row.append(bm.verts.new(G(q + normal(q, head_sdf) * (h * (1 - low) - max(0.006 * low, sink)))))
         rows.append(row)
 
     def uv(k, i):
@@ -716,11 +798,13 @@ def cap_from(m, pole, hem, thick, K=64, I=18, tone=0.5):
             m.face([rows[i][k], rows[i + 1][k], rows[i + 1][k1], rows[i][k1]], [uv(k, i + 1), uv(k, i + 2), uv(k + 1, i + 2), uv(k + 1, i + 1)])
 
 
-def _ponytail(m, rng, c, axis, fall_len, spread, tail_locks=11):
+def _ponytail(m, rng, c, axis, fall_len, spread, tail_locks=11, reach=None):
     """Hair pulled from the hairline to the tie at c (a cap whose strands
     run to it, a few locks over it), then the tail out of it: first along
-    `axis`, then falling."""
-    cap_from(m, c, hairline, lambda phi, t: 0.028 * smooth(t / 0.25) + 0.008)
+    `axis`, then falling. (`reach`: cap_from's.)"""
+    if reach:
+        cap(m, hairline, lambda th, t: 0.0, K=48, I=12)
+    cap_from(m, c, hairline, lambda phi, t: 0.028 * smooth(t / 0.25) + 0.008, reach=reach)
     pull = toward(c)
     for i in range(14):
         th = TAU * (i + 0.5) / 14
@@ -756,7 +840,7 @@ def side_ponytail(rng, scrunchie_mat=None):
     m = Mesh("HairSidePony")
     c = V(0.60, 0.30, 0.12)
     axis = V(1, 0.5, 0.25).normalized()
-    _ponytail(m, rng, c, axis, 0.95, 0.10, tail_locks=10)
+    _ponytail(m, rng, c, axis, 0.95, 0.10, tail_locks=10, reach=1.3)
     # The fringe: teased up from the hairline and rolled back.
     for i in range(7):
         th = (i - 3) * 0.17
@@ -837,7 +921,7 @@ def perm(rng):
     m = Mesh("HairPerm")
 
     def hem(th):
-        return periodic([(0.0, 0.40), (0.55, 0.36), (0.80, 0.20), (1.0, -0.40), (math.pi, -0.62)], th)
+        return periodic([(0.0, 0.40), (0.55, 0.36), (0.80, 0.25), (1.05, -0.25), (1.40, -0.40), (math.pi, -0.50)], th)
 
     def thick(th, t):
         a = abs(((th + math.pi) % TAU) - math.pi)
@@ -860,12 +944,14 @@ def perm(rng):
         pts.append((on_head(th, s, thick(th, t)), rng.uniform(0.11, 0.16), rng.uniform(0.7, 1.0)))
 
     def bump(p, th, t):
-        best = 0.0
+        # Clumps blended smoothly where they meet (the larger of two left a
+        # crease that folded), no higher than one clump.
+        total = 0.0
         for c, rc, hgt in pts:
             d = (p - c).length
             if d < rc:
-                best = max(best, hgt * 0.08 * math.sqrt(1 - (d / rc) ** 2))
-        return best - 0.04
+                total += hgt * (1 - (d / rc) ** 2) ** 2
+        return 0.065 * math.tanh(total) - 0.035
 
     cap(m, hem, thick, K=96, I=36, inner=True, bump=bump, hem_lip=0.04)
     return [m.build(80)]

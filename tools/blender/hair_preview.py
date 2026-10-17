@@ -107,43 +107,7 @@ def head_material(name, face_png):
 
 
 def head_mesh(name, mat):
-    """The classic head: its outline turned round its axis (the face +y,
-    Blender's, which is the game's -z)."""
-    outline = [(0.0, -hair.HT)]
-    steps = 14
-    a = hair.R - hair.RHO
-    for i in range(steps + 1):
-        ang = -math.pi / 2 + (math.pi / 2) * i / steps
-        outline.append((a + hair.RHO * math.cos(ang), -(hair.HT - hair.RHO) + hair.RHO * math.sin(ang)))
-    for i in range(steps + 1):
-        ang = (math.pi / 2) * i / steps
-        outline.append((a + hair.RHO * math.cos(ang), (hair.HT - hair.RHO) + hair.RHO * math.sin(ang)))
-    outline.append((0.0, hair.HT))
-    bm = bmesh.new()
-    K = 72
-    rings = []
-    for r, y in outline:
-        if r < 1e-6:
-            rings.append([bm.verts.new((0, 0, y))])
-            continue
-        rings.append([bm.verts.new((r * math.sin(math.tau * k / K), r * math.cos(math.tau * k / K), y)) for k in range(K)])
-    for i in range(len(rings) - 1):
-        lo, hi = rings[i], rings[i + 1]
-        for k in range(K):
-            if len(lo) == 1:
-                bm.faces.new((lo[0], hi[(k + 1) % K], hi[k]))
-            elif len(hi) == 1:
-                bm.faces.new((lo[k], lo[(k + 1) % K], hi[0]))
-            else:
-                bm.faces.new((lo[k], lo[(k + 1) % K], hi[(k + 1) % K], hi[k]))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    mesh = bpy.data.meshes.new(name)
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    for p in mesh.polygons:
-        p.use_smooth = True
+    obj = hair.head_mesh(name)
     obj.data.materials.append(mat)
     return obj
 

@@ -22,6 +22,19 @@
 -- `short`: short sleeves, the forearms bare. `over`: shoes worn in place of
 -- the trousers' shins (high-tops: the shaft rises into the trousers' foot,
 -- so the shins' pieces are left off).
+--
+-- Hair and faces (2026-10-17; docs/progress/2026-10-17-hair-faces/): three
+-- more slots in the same wardrobe, bought and worn the same way. Hair is
+-- eight styles modelled in Blender (tools/blender/hair.py), each a piece on
+-- the Head (Data/KitHair its fit); a ponytail's scrunchie is a piece of its
+-- own (`tie`), so the hair's colour never reaches it. Colour: the hair's,
+-- nine natural shades, all free (`colour`, what it should look like; the
+-- game tints the grey map to it, Logic/Closet.hairTint). Face: six of
+-- Roblox's free dynamic heads (`head`, the head's asset id), all with the
+-- classic head's shape, so every style fits every face; they blink and move
+-- with voice chat by themselves, and react in a run (Controllers/
+-- FaceController). A face changes only the head: the Boy and Girl bodies
+-- stay for every garment (the owner, 2026-10-17).
 
 local function top(prefix, hem, short)
 	local pieces = {
@@ -139,8 +152,64 @@ return {
 			price = 2000,
 			paint = { 30, 28, 30 },
 		},
+
+		-- Hair: four free, four for Marks (the owner, 2026-10-17).
+		Crew = { slot = "Hair", name = "Crew cut", pieces = { Head = "HairCrew" }, free = true },
+		SidePart = { slot = "Hair", name = "Side part", pieces = { Head = "HairSidePart" }, free = true },
+		Shoulder = { slot = "Hair", name = "Shoulder length", pieces = { Head = "HairShoulder" }, free = true },
+		Ponytail = {
+			slot = "Hair",
+			name = "High ponytail",
+			pieces = { Head = "HairPonytail" },
+			tie = "HairPonytailScrunchie",
+			free = true,
+		},
+		Feathered = { slot = "Hair", name = "Feathered flip", pieces = { Head = "HairFeathered" }, price = 800 },
+		SidePony = {
+			slot = "Hair",
+			name = "Side ponytail",
+			pieces = { Head = "HairSidePony" },
+			tie = "HairSidePonyScrunchie",
+			price = 1000,
+		},
+		Mullet = { slot = "Hair", name = "Mullet", pieces = { Head = "HairMullet" }, price = 1500 },
+		Perm = { slot = "Hair", name = "Big perm", pieces = { Head = "HairPerm" }, price = 2000 },
+
+		-- The hair's colour (sRGB): natural 1988 shades, all free.
+		HairBlack = { slot = "Colour", name = "Black", colour = { 30, 26, 24 }, pieces = {}, free = true },
+		HairDarkBrown = { slot = "Colour", name = "Dark brown", colour = { 62, 42, 30 }, pieces = {}, free = true },
+		HairChestnut = { slot = "Colour", name = "Chestnut", colour = { 104, 64, 40 }, pieces = {}, free = true },
+		HairAuburn = { slot = "Colour", name = "Auburn", colour = { 128, 54, 32 }, pieces = {}, free = true },
+		HairGinger = { slot = "Colour", name = "Ginger", colour = { 176, 90, 44 }, pieces = {}, free = true },
+		HairDirtyBlonde = {
+			slot = "Colour",
+			name = "Dirty blonde",
+			colour = { 156, 124, 80 },
+			pieces = {},
+			free = true,
+		},
+		HairGoldenBlonde = {
+			slot = "Colour",
+			name = "Golden blonde",
+			colour = { 212, 170, 104 },
+			pieces = {},
+			free = true,
+		},
+		HairPlatinum = { slot = "Colour", name = "Platinum", colour = { 232, 222, 196 }, pieces = {}, free = true },
+		HairGrey = { slot = "Colour", name = "Grey", colour = { 156, 154, 150 }, pieces = {}, free = true },
+
+		-- Faces: Roblox's free dynamic heads (their head asset ids), all free.
+		Dennis = { slot = "Face", name = "Dennis", head = 11822635053, pieces = {}, free = true },
+		Kenneth = { slot = "Face", name = "Kenneth", head = 15093144795, pieces = {}, free = true },
+		ManFace = { slot = "Face", name = "Man Face", head = 10725826963, pieces = {}, free = true },
+		Lindsey = { slot = "Face", name = "Lindsey", head = 12945228337, pieces = {}, free = true },
+		Cindy = { slot = "Face", name = "Cindy", head = 13253943097, pieces = {}, free = true },
+		WomanFace = { slot = "Face", name = "Woman Face", head = 10725626210, pieces = {}, free = true },
 	},
-	Slots = { "Top", "Bottom", "Shoes" },
+	-- Every slot the fitting room flips through (Logic/Closet); Clothes are the
+	-- ones worn on the body's parts, which the squad's outfits fill.
+	Slots = { "Top", "Bottom", "Shoes", "Hair", "Colour", "Face" },
+	Clothes = { "Top", "Bottom", "Shoes" },
 	-- The order the changing booth flips through each slot (Logic/Closet):
 	-- the free set first, then the paid line, cheapest first.
 	Order = {
@@ -158,6 +227,29 @@ return {
 		"Sneaker",
 		"Loafer",
 		"HighTop",
+		"Crew",
+		"SidePart",
+		"Shoulder",
+		"Ponytail",
+		"Feathered",
+		"SidePony",
+		"Mullet",
+		"Perm",
+		"HairBlack",
+		"HairDarkBrown",
+		"HairChestnut",
+		"HairAuburn",
+		"HairGinger",
+		"HairDirtyBlonde",
+		"HairGoldenBlonde",
+		"HairPlatinum",
+		"HairGrey",
+		"Dennis",
+		"Kenneth",
+		"ManFace",
+		"Lindsey",
+		"Cindy",
+		"WomanFace",
 	},
 
 	-- The squad's looks by the order they arrived (Logic/Outfit.wear): the
@@ -167,5 +259,21 @@ return {
 		{ Top = "Varsity", Bottom = "Jeans", Shoes = "Sneaker" },
 		{ Top = "Windbreaker", Bottom = "Cords", Shoes = "Sneaker" },
 		{ Top = "Cardigan", Bottom = "Cords", Shoes = "Loafer" },
+	},
+	-- Their hair and faces by body (Logic/Outfit.look), in the same turn: the
+	-- free styles, faces and colours, the four all different.
+	Looks = {
+		Boy = {
+			{ Hair = "SidePart", Colour = "HairDarkBrown", Face = "Dennis" },
+			{ Hair = "Crew", Colour = "HairBlack", Face = "Kenneth" },
+			{ Hair = "Shoulder", Colour = "HairDirtyBlonde", Face = "ManFace" },
+			{ Hair = "Crew", Colour = "HairChestnut", Face = "Dennis" },
+		},
+		Girl = {
+			{ Hair = "Shoulder", Colour = "HairGoldenBlonde", Face = "Lindsey" },
+			{ Hair = "Ponytail", Colour = "HairChestnut", Face = "Cindy" },
+			{ Hair = "Shoulder", Colour = "HairBlack", Face = "WomanFace" },
+			{ Hair = "Ponytail", Colour = "HairAuburn", Face = "Lindsey" },
+		},
 	},
 }

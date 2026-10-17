@@ -210,6 +210,7 @@ function HidingService:Leave(player: Player, silent: boolean?)
 	player:SetAttribute(PA.HideEnter, nil)
 	player:SetAttribute("HidePhysical", nil)
 	player:SetAttribute("Breath", nil)
+	player:SetAttribute(PA.HoldingBreath, nil)
 	if spot.physical then
 		-- You were standing there all along: nothing to undo.
 		self.Left:Fire(player, spot, silent == true)
@@ -431,6 +432,7 @@ function HidingService:_tick(dt: number)
 			end
 		end
 		player:SetAttribute("Breath", state.breath / Config.Player.BreathMax)
+		player:SetAttribute(PA.HoldingBreath, state.holding or nil)
 		player:SetAttribute("HideDanger", near)
 		if state.peekSince and not state.noticed and stalker then
 			self:_peekSeen(player, state, stalker, now)

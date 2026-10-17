@@ -6,7 +6,9 @@
 -- here (a wrapped gift). The starter pack's slip, once, after your first
 -- run. Gifts: a note when one's waiting at your feet, and what it was.
 -- In the fitting room everyone else is hidden on your screen, so nobody
--- stands in your mirror (the owner, 2026-10-16).
+-- stands in your mirror (the owner, 2026-10-16). Hair, its colour and your
+-- face (2026-10-17) are rows on the same card; flipping them brings the
+-- mirror in close to your head.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -29,12 +31,17 @@ local player = Players.LocalPlayer
 local Boutique = {}
 Boutique.__index = Boutique
 
+-- (The colour and the face are everyone's: a short row, no price.)
 local SLOTS = {
 	{ slot = "Top", label = "TOP" },
 	{ slot = "Bottom", label = "BOTTOMS" },
 	{ slot = "Shoes", label = "SHOES" },
+	{ slot = "Hair", label = "HAIR", close = true },
+	{ slot = "Colour", label = "HAIR COLOUR", close = true, short = true },
+	{ slot = "Face", label = "FACE", close = true, short = true },
 }
-local CARD_W, CARD_H = 360, 500
+local ROW, SHORT_ROW = 96, 62
+local CARD_W, CARD_H = 360, 672
 local TILL_W, TILL_H = 380, 420
 
 -- 1500 -> "1,500".
@@ -113,8 +120,8 @@ function Boutique:_buildCard(gui: ScreenGui)
 		Parent = pad,
 	})
 	self.rows = {}
-	for i, spec in SLOTS do
-		local y = 64 + (i - 1) * 112
+	local y = 64
+	for _, spec in SLOTS do
 		Ui.typed(spec.label, {
 			Position = UDim2.fromOffset(0, y),
 			Size = UDim2.new(1, 0, 0, 18),
@@ -151,6 +158,22 @@ function Boutique:_buildCard(gui: ScreenGui)
 			ZIndex = 3,
 			Parent = pad,
 		})
+		if spec.slot == "Colour" then
+			-- A swatch of the colour beside its name.
+			row.swatch = Ui.new("Frame", {
+				Position = UDim2.fromOffset(46, y + 27),
+				Size = UDim2.fromOffset(18, 18),
+				BorderSizePixel = 0,
+				ZIndex = 4,
+				Parent = pad,
+			})
+			Ui.new("UIStroke", { Color = Ui.Theme.pen, Thickness = 1, Transparency = 0.4, Parent = row.swatch })
+		end
+		if spec.short then
+			self.rows[spec.slot] = row
+			y += SHORT_ROW
+			continue
+		end
 		row.status = Ui.hand("", {
 			Position = UDim2.fromOffset(0, y + 58),
 			Size = UDim2.new(1, -120, 0, 30),
@@ -177,6 +200,7 @@ function Boutique:_buildCard(gui: ScreenGui)
 			Parent = row.buy,
 		})
 		self.rows[spec.slot] = row
+		y += ROW
 	end
 	self.getMarks = Ui.paperButton("Get Marks", {
 		Position = UDim2.new(0, 0, 1, -40),
@@ -205,6 +229,12 @@ function Boutique:_flip(slot: string, step: number)
 		return
 	end
 	local id = Closet.step(slot, state.outfit[slot], step)
+	-- (The hair, its colour and the face: the mirror comes in to your head.)
+	for _, spec in SLOTS do
+		if spec.slot == slot then
+			self.close = spec.close == true
+		end
+	end
 	if id then
 		state.outfit[slot] = id -- (shown at once; the server dresses you)
 		self:_render()
@@ -250,6 +280,14 @@ function Boutique:_render()
 		local id = state.outfit[spec.slot]
 		local garment = id and Wardrobe.Garments[id]
 		row.name.Text = garment and garment.name or "--"
+		if row.swatch then
+			local c = garment and garment.colour or { 0, 0, 0 }
+			row.swatch.BackgroundColor3 = Color3.fromRGB(c[1], c[2], c[3])
+			row.swatch.Visible = garment ~= nil
+		end
+		if not row.status then
+			continue
+		end
 		local owned = id and state.ownedSet[id]
 		local price = id and Closet.price(id)
 		if not garment then
@@ -274,18 +312,28 @@ function Boutique:_enter()
 	camera.CameraType = Enum.CameraType.Scriptable
 	local F = Config.Fitting
 	local hiddenAt = 0
+	self.close = false
+	local near = 0 -- 0 the whole of you, 1 your head and shoulders
+	local last = os.clock()
 	RunService:BindToRenderStep("ConsensusFitting", Enum.RenderPriority.Camera.Value + 1, function()
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not root then
 			return
 		end
+		local now = os.clock()
+		local dt = math.min(now - last, 0.1)
+		last = now
+		near += ((self.close and 1 or 0) - near) * math.min(1, dt * F.CloseSpeed)
 		-- (A mirror's view: in front of you, a little above, looking back,
 		-- you on the left of the screen so the card on the right doesn't
 		-- cover you; from your left, clear of the booth's wall. At a rack the
 		-- server turned you to where it has room: Config.Fitting.)
-		local eye = root.CFrame * CFrame.new(F.Eye[1], F.Eye[2], F.Eye[3])
-		camera.CFrame = CFrame.lookAt(eye.Position, (root.CFrame * CFrame.new(F.At[1], F.At[2], F.At[3])).Position)
+		local function blend(a, b)
+			return Vector3.new(a[1] + (b[1] - a[1]) * near, a[2] + (b[2] - a[2]) * near, a[3] + (b[3] - a[3]) * near)
+		end
+		local eye = root.CFrame * blend(F.Eye, F.CloseEye)
+		camera.CFrame = CFrame.lookAt(eye, root.CFrame * blend(F.At, F.CloseAt))
 		-- (Again now and then: someone's new clothes, someone who just came.)
 		if os.clock() - hiddenAt > 0.25 then
 			hiddenAt = os.clock()

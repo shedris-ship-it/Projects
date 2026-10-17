@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-17.236",
-	note = "The video store standee imported: its strut behind the board",
+	id = "2026-10-17.237",
+	note = "Hair and faces: eight styles, nine colours, six Roblox heads that react",
 }

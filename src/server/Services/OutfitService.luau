@@ -18,12 +18,18 @@
 -- and chose to wear (Logic/Closet.outfit), their squad slot's in any slot
 -- they haven't chosen; in the changing booth, what they're trying on
 -- (Services/ShopService, SetTrying).
+--
+-- Hair and faces (2026-10-17): the face is the body's head (one of Roblox's
+-- dynamic heads, in the description; changing it swaps only the head), the
+-- hair a piece welded on it (World/Kit.wear) and tinted to the hair's
+-- colour (Logic/Closet.hairTint; a scrunchie keeps its own).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Closet = require(Shared.Logic.Closet)
+local KitHair = require(Shared.Data.KitHair)
 local Kit = require(Shared.World.Kit)
 local Outfit = require(Shared.Logic.Outfit)
 local Wardrobe = require(Shared.Data.Wardrobe)
@@ -38,6 +44,8 @@ local STRAY = { "Accessory", "Shirt", "Pants", "ShirtGraphic", "BodyColors", "Ch
 
 local joined = {} -- player -> squad slot, in the order they arrived
 local bodyOf = {} -- player -> the body their character was dressed in
+local headOf = {} -- player -> the head (a face's asset id) their character was given
+local swapping = {} -- player -> true while their head is being swapped
 local trying = {} -- player -> the outfit they're trying on in the changing booth
 local watched = setmetatable({}, { __mode = "k" }) -- character -> its look, once its new parts are dressed as they come
 
@@ -56,13 +64,20 @@ function OutfitService:BodyOf(player: Player): string
 	return Wardrobe.Bodies[body] and body or Wardrobe.DefaultBody
 end
 
--- A description of the player's body, in their skin tone.
+-- The head a player's face is (its asset id; 0, Roblox's default).
+function OutfitService:HeadOf(player: Player): number
+	local face = Wardrobe.Garments[self:OutfitOf(player).Face]
+	return face and face.head or 0
+end
+
+-- A description of the player's body, in their skin tone, with their face.
 function OutfitService:Description(player: Player): HumanoidDescription
 	local body = Wardrobe.Bodies[self:BodyOf(player)]
 	local desc = Instance.new("HumanoidDescription")
 	for key, id in body.parts do
 		(desc :: any)[key] = id
 	end
+	desc.Head = self:HeadOf(player)
 	local skin = colour(Outfit.palette(joined[player] or 1).skin)
 	for _, key in { "HeadColor", "TorsoColor", "LeftArmColor", "RightArmColor", "LeftLegColor", "RightLegColor" } do
 		(desc :: any)[key] = skin
@@ -73,6 +88,7 @@ end
 -- Spawn a player in their body (LobbyService, in place of LoadCharacter).
 function OutfitService:LoadCharacter(player: Player)
 	bodyOf[player] = self:BodyOf(player)
+	headOf[player] = self:HeadOf(player)
 	local ok, err = pcall(function()
 		player:LoadCharacterWithHumanoidDescription(self:Description(player))
 	end)
@@ -89,15 +105,16 @@ function OutfitService:OutfitOf(player: Player)
 	if trying[player] then
 		return trying[player]
 	end
-	return Closet.outfit(self.Data and self.Data:Get(player), joined[player] or 1)
+	return Closet.outfit(self.Data and self.Data:Get(player), joined[player] or 1, self:BodyOf(player))
 end
 
--- What a character wears (`outfit`, { Top, Bottom, Shoes }; squad slot
--- `index` for its skin and the painted colours): for each body part, its
--- colour and the wardrobe pieces on it (those whose garment is wholly in).
+-- What a character wears (`outfit`, Logic/Closet.outfit's slots; squad
+-- slot `index` for its skin and the painted colours): for each body part,
+-- its colour and the wardrobe pieces on it (those whose garment is wholly
+-- in), and the hair's tint by piece.
 function OutfitService:Look(outfit, index: number)
 	local palette = Outfit.palette(index)
-	local look = { colours = {}, pieces = {} }
+	local look = { colours = {}, pieces = {}, tints = {} }
 	local dressed = {}
 	local shoes = Wardrobe.Garments[outfit.Shoes]
 	-- (High-tops are worn in place of the trousers' shins, once they're in.)
@@ -113,6 +130,21 @@ function OutfitService:Look(outfit, index: number)
 				end
 			end
 			dressed[slot] = true
+		end
+	end
+	-- The hair: its colour a tint on its grey map; a ponytail's scrunchie on
+	-- the head too, in its own colours.
+	local hair = Wardrobe.Garments[outfit.Hair]
+	local shade = Wardrobe.Garments[outfit.Colour]
+	if hair and dressed.Hair then
+		for _, mesh in hair.pieces do
+			local fit = KitHair.Wear[mesh]
+			if fit and fit.mean and shade and shade.colour then
+				look.tints[mesh] = colour(Closet.hairTint(shade.colour, fit.mean))
+			end
+		end
+		if hair.tie and Kit.hasWear({ Head = hair.tie }) then
+			table.insert(look.pieces.Head, hair.tie)
 		end
 	end
 	-- Under clothes, skin (a gap at a wrist shows a wrist); where a garment
@@ -153,7 +185,11 @@ local function dressPart(part: BasePart, look)
 		end
 	end
 	for _, mesh in look.pieces[part.Name] or {} do
-		Kit.wear(part, mesh)
+		local made = Kit.wear(part, mesh)
+		local tint = look.tints[mesh]
+		if made and tint then
+			Kit.tint(made, tint)
+		end
 	end
 end
 
@@ -203,6 +239,7 @@ function OutfitService:_redress(player: Player)
 		return
 	end
 	bodyOf[player] = body
+	headOf[player] = self:HeadOf(player)
 	local ok, err = pcall(function()
 		humanoid:ApplyDescription(self:Description(player))
 	end)
@@ -214,12 +251,46 @@ function OutfitService:_redress(player: Player)
 	end
 end
 
--- Dresses a player again in what they wear now (bought, chosen, tried on).
+-- Dresses a player again in what they wear now (bought, chosen, tried on);
+-- a new face swaps their head first.
 function OutfitService:Redress(player: Player)
 	local character = player.Character
-	if character and character.Parent then
-		self:Apply(character, joined[player] or 1, self:OutfitOf(player))
+	if not (character and character.Parent) then
+		return
 	end
+	if headOf[player] ~= self:HeadOf(player) then
+		task.spawn(self._swapHead, self, player)
+	end
+	self:Apply(character, joined[player] or 1, self:OutfitOf(player))
+end
+
+-- Gives a player's character the head of the face they have on now: only
+-- the head changes (ApplyDescription leaves the parts it already has). One
+-- swap at a time; flipping faces quickly lands on the last one.
+function OutfitService:_swapHead(player: Player)
+	if swapping[player] then
+		return
+	end
+	swapping[player] = true
+	while player.Parent and headOf[player] ~= self:HeadOf(player) do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not humanoid then
+			break
+		end
+		headOf[player] = self:HeadOf(player)
+		local ok, err = pcall(function()
+			humanoid:ApplyDescription(self:Description(player))
+		end)
+		if not ok then
+			warn("[Consensus] face for " .. player.Name .. " failed: " .. tostring(err))
+			break
+		end
+		if character.Parent then
+			self:Apply(character, joined[player] or 1, self:OutfitOf(player))
+		end
+	end
+	swapping[player] = nil
 end
 
 -- The changing booth (Services/ShopService): `outfit` tried on, or nil to
@@ -235,7 +306,7 @@ function OutfitService:DebugWear(player: Player, index: number): string
 	joined[player] = math.max(1, math.floor(index))
 	self:Redress(player)
 	local outfit = self:OutfitOf(player)
-	return table.concat({ outfit.Top, outfit.Bottom, outfit.Shoes }, ", ")
+	return table.concat({ outfit.Top, outfit.Bottom, outfit.Shoes, outfit.Hair, outfit.Colour, outfit.Face }, ", ")
 end
 
 -- F2 `outfit lineup`: both bodies in every outfit, standing in one row in
@@ -255,10 +326,12 @@ function OutfitService:DebugLineup(at: CFrame?): number
 	local count = 0
 	for row, bodyName in Wardrobe.BodyOrder do
 		for index = 1, #Wardrobe.Outfits do
+			local outfit = Closet.outfit(nil, index, bodyName)
 			local desc = Instance.new("HumanoidDescription")
 			for key, id in Wardrobe.Bodies[bodyName].parts do
 				(desc :: any)[key] = id
 			end
+			desc.Head = Wardrobe.Garments[outfit.Face].head
 			local ok, model = pcall(function()
 				return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 			end)
@@ -273,7 +346,7 @@ function OutfitService:DebugLineup(at: CFrame?): number
 					root.Anchored = true
 				end
 				model.Parent = folder
-				self:Apply(model, index)
+				self:Apply(model, index, outfit)
 				count += 1
 			end
 		end
@@ -302,10 +375,13 @@ function OutfitService:DebugCrowd(spots: { CFrame }?): number
 	local count = 0
 	for i, spot in spots do
 		local bodyName = Wardrobe.BodyOrder[(i - 1) % #Wardrobe.BodyOrder + 1]
+		local index = (i - 1) % #Wardrobe.Outfits + 1
+		local outfit = Closet.outfit(nil, index, bodyName)
 		local desc = Instance.new("HumanoidDescription")
 		for key, id in Wardrobe.Bodies[bodyName].parts do
 			(desc :: any)[key] = id
 		end
+		desc.Head = Wardrobe.Garments[outfit.Face].head
 		local ok, model = pcall(function()
 			return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
 		end)
@@ -319,7 +395,7 @@ function OutfitService:DebugCrowd(spots: { CFrame }?): number
 				root.Anchored = true
 			end
 			model.Parent = folder
-			self:Apply(model, (i - 1) % #Wardrobe.Outfits + 1)
+			self:Apply(model, index, outfit)
 			local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 			if animator then
 				pcall(function()
@@ -378,6 +454,8 @@ function OutfitService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		joined[player] = nil
 		bodyOf[player] = nil
+		headOf[player] = nil
+		swapping[player] = nil
 		trying[player] = nil
 	end)
 	if self.Data then

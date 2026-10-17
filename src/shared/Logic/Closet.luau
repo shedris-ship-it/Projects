@@ -5,8 +5,9 @@
 -- The free starter set (Data/Wardrobe `free`) is everyone's; the rest is
 -- bought once and kept (a profile's `Owned.garment`). What you choose to wear
 -- (`Wearing[slot]`) goes into the run with you, in first person and to your
--- squad. A slot you haven't chosen is your squad slot's (Logic/Outfit.wear),
--- so a new squad still reads as different people at a glance.
+-- squad. A slot you haven't chosen is your squad slot's (Logic/Outfit.wear,
+-- and for the hair, its colour and the face Logic/Outfit.look, by body), so
+-- a new squad still reads as different people at a glance.
 
 local Wardrobe = require(script.Parent.Parent.Data.Wardrobe)
 local Outfit = require(script.Parent.Outfit)
@@ -94,10 +95,15 @@ function Closet.wear(data, id: string): (boolean, string?)
 	return true, nil
 end
 
--- What a player wears: { Top, Bottom, Shoes } garment ids, each slot their
--- choice while it's still theirs, else their squad slot's (`index`).
-function Closet.outfit(data, index: number)
-	local default = Outfit.wear(index)
+-- What a player wears: { Top, Bottom, Shoes, Hair, Colour, Face } garment
+-- ids, each slot their choice while it's still theirs, else their squad
+-- slot's (`index`; the hair and face by `body`, else the one they chose).
+function Closet.outfit(data, index: number, body: string?)
+	local settings = type(data) == "table" and type(data.Settings) == "table" and data.Settings or {}
+	local default = table.clone(Outfit.wear(index))
+	for slot, id in Outfit.look(index, body or settings.body) do
+		default[slot] = id
+	end
 	local wearing = type(data) == "table" and type(data.Wearing) == "table" and data.Wearing or {}
 	local out = {}
 	for _, slot in Wardrobe.Slots do
@@ -154,6 +160,19 @@ function Closet.step(slot: string, id: string?, step: number): string?
 	end
 	local at = id and table.find(list, id) or 1
 	return list[(at - 1 + step) % #list + 1]
+end
+
+-- The tint that makes a hair piece's grey map look `colour` (both sRGB 0 to
+-- 255; `mean`, how light the map reads, 0 to 1: Data/KitHair): the colour
+-- over the map, a channel at a time, no brighter than white (a
+-- SurfaceAppearance's Color multiplies its map, World/Kit.tint).
+function Closet.hairTint(colour: { number }, mean: number): { number }
+	local out = {}
+	for i = 1, 3 do
+		local c = math.clamp(colour[i] or 0, 0, 255)
+		out[i] = math.floor(math.min(255, c / math.max(mean, 0.05)) + 0.5)
+	end
+	return out
 end
 
 -- Which way to face in the fitting room (Config.Fitting): the first of

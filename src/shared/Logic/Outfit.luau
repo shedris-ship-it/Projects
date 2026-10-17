@@ -46,6 +46,15 @@ function Outfit.wear(index: number)
 	return looks[i % #looks + 1]
 end
 
+-- The hair, its colour and the face squad member `index` has on `body`
+-- (Data/Wardrobe.Looks, in turn; the default body's when it's unknown):
+-- { Hair, Colour, Face } garment ids.
+function Outfit.look(index: number, body: string?)
+	local looks = Wardrobe.Looks[body or ""] or Wardrobe.Looks[Wardrobe.DefaultBody]
+	local i = math.max(math.floor(index), 1) - 1
+	return looks[i % #looks + 1]
+end
+
 -- index is 1 for the first player, 2 for the next.
 -- Colours are { r, g, b } in 0..255.
 function Outfit.palette(index: number)

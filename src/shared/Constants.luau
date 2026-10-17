@@ -123,6 +123,9 @@ Constants.PlayerAttributes = {
 	Matches = "Matches",
 	HideEnter = "HideEnter", -- ducking into a hiding place (a moment's crouch)
 	Peeking = "Peeking", -- peeking out of a hiding place (Logic/HideRules)
+	-- Holding your breath in a hiding place (Services/HidingService): your
+	-- face screws its eyes shut for everyone (Controllers/FaceController).
+	HoldingBreath = "HoldingBreath",
 	Crouched = "Crouched", -- crouching (Controllers/ActionController asks, PlayerStateService decides)
 	-- The party car you're in (Services/CarService): its id, nil when you're
 	-- on foot.

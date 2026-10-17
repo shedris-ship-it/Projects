@@ -5,7 +5,7 @@ inside out, and only Studio showed it).
 
 Run from the repository root (Blender 5.2, headless):
 
-    blender.exe -b --factory-startup -P tools/blender/wardrobe_visibility.py [-- --lb3]
+    blender.exe -b --factory-startup -P tools/blender/wardrobe_visibility.py [-- --lb3 | --hair]
 
 Builds every garment (kitlib/wardrobe), dresses both measured bodies in every
 outfit (as the game stretches them), and looks at each from all round, from
@@ -13,6 +13,9 @@ level to overhead and a little from below: parallel rays from many
 directions; the first thing each ray meets is what you'd see. A garment's
 face met from behind counts against its piece. Prints each piece's count
 (want 0) and where the worst ones are (in the part's frame).
+
+`--hair` looks at the hair instead (kitlib/hair, 2026-10-17): every style
+on both bodies, on the classic head itself (the measured shape).
 """
 
 import math
@@ -134,7 +137,69 @@ def look(objs, garment_objs):
     return seen, bad
 
 
+def hair_main():
+    from kitlib import hair
+
+    only = [a[len("--styles="):].split(",") for a in sys.argv if a.startswith("--styles=")]
+    names = only[0] if only else list(hair.STYLES)
+    styles = {name: hair.build(name, tint=(255, 255, 255)) for name in names}
+    for objs in styles.values():
+        for obj in objs:
+            obj.hide_render = True
+    lines = []
+    totals = {}
+    for body in wardrobe.BODY_NAMES:
+        at = wardrobe.BODIES[body]["Head"]["at"]
+        for name, objs in styles.items():
+            body_objs = [o for o in wardrobe._proxy(body) if "Head" not in o.name]
+            head = hair.head_mesh("VisHead")
+            head.location = wardrobe.G(at[0], at[1], at[2])
+            body_objs.append(head)
+            worn = []
+            for obj in objs:
+                copy = obj.copy()
+                copy.data = obj.data
+                copy.name = obj.name + "@"
+                bpy.context.scene.collection.objects.link(copy)
+                copy.location = wardrobe.G(at[0], at[1], at[2])
+                # (As exported: in triangles. A curly cap's quads aren't flat,
+                # and a ray can slip between a quad's two halves.)
+                copy.modifiers.new("Tri", "TRIANGULATE")
+                worn.append(copy)
+            bpy.context.view_layer.update()
+            seen, bad = look(body_objs + worn, worn)
+            for obj in worn:
+                key = obj.name[:-1]
+                n = len(bad[obj.name])
+                t = totals.setdefault(key, [0, 0, []])
+                t[0] += n
+                t[1] += seen[obj.name]
+                t[2] += bad[obj.name]
+                if n:
+                    lines.append("  %s %s: %d of %d seen from behind" % (body, key, n, seen[obj.name]))
+            for obj in body_objs + worn:
+                bpy.data.objects.remove(obj, do_unlink=True)
+    print("VISIBILITY")
+    for key in sorted(totals):
+        n, s_, pts = totals[key]
+        where = ""
+        if pts:
+            # (In the head's frame: x, up, z; the face is -z.)
+            c = sum(pts, Vector()) / len(pts)
+            where = "  around (%.2f, %.2f, %.2f)" % (c.x, c.z, -c.y)
+            ys = sorted(p.z for p in pts)
+            where += " up %.2f..%.2f" % (ys[0], ys[-1])
+            if "--points" in sys.argv:
+                step = max(1, len(pts) // 20)
+                where += "\n    " + " ".join("(%.2f %.2f %.2f)" % (q.x, q.z, -q.y) for q in pts[::step])
+        print("%-26s %5d of %6d from behind (%.2f%%)%s" % (key, n, s_, 100.0 * n / max(s_, 1), where))
+    print("\n".join(lines))
+
+
 def main():
+    if "--hair" in sys.argv:
+        hair_main()
+        return
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
     garments, built, log = wardrobe.wardrobe()

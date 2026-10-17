@@ -2882,9 +2882,62 @@ Config.Mall = {
 -- to the first of `Turns` (degrees from where you faced) whose line to the
 -- camera is clear (Services/ShopService, Logic/Closet.mirrorTurn), its line
 -- `Width` studs wide.
+-- Faces that react in a run (hair and faces, 2026-10-17; Logic/FacePose,
+-- Controllers/FaceController): each pose a set of the dynamic head's
+-- FaceControls (0 to 1), eased in at `Ease` a second. Scared: a hunt, or
+-- The Guest within `ScaredRange` studs; hold: holding your breath; wince:
+-- downed. (Tried on Roblox's free heads in Studio: every one shuts its
+-- eyes and drops its jaw; brows and lids move on those that have them.)
+Config.Face = {
+	Ease = 6,
+	ScaredRange = 24,
+	Poses = {
+		scared = {
+			LeftEyeUpperLidRaiser = 1,
+			RightEyeUpperLidRaiser = 1,
+			LeftInnerBrowRaiser = 1,
+			RightInnerBrowRaiser = 1,
+			LeftOuterBrowRaiser = 0.6,
+			RightOuterBrowRaiser = 0.6,
+			JawDrop = 0.4,
+			LeftLipStretcher = 0.6,
+			RightLipStretcher = 0.6,
+		},
+		hold = {
+			LeftEyeClosed = 1,
+			RightEyeClosed = 1,
+			LeftCheekPuff = 1,
+			RightCheekPuff = 1,
+			LipsTogether = 1,
+			LeftBrowLowerer = 0.4,
+			RightBrowLowerer = 0.4,
+		},
+		wince = {
+			LeftEyeClosed = 1,
+			RightEyeClosed = 1,
+			LeftBrowLowerer = 1,
+			RightBrowLowerer = 1,
+			LeftNoseWrinkler = 0.7,
+			RightNoseWrinkler = 0.7,
+			LeftCheekRaiser = 1,
+			RightCheekRaiser = 1,
+			LeftLipStretcher = 1,
+			RightLipStretcher = 1,
+			LeftUpperLipRaiser = 0.6,
+			RightUpperLipRaiser = 0.6,
+			JawDrop = 0.15,
+		},
+	},
+}
+
 Config.Fitting = {
 	Eye = { -1.8, 1.4, -8.5 },
 	At = { -1.6, 0.2, 0 },
+	-- Flipping the hair, its colour or the face (2026-10-17): the mirror comes
+	-- in to your head and shoulders, your head left of the card; this fast.
+	CloseEye = { -0.9, 2.0, -4.2 },
+	CloseAt = { -0.75, 1.45, 0 },
+	CloseSpeed = 5,
 	Turns = { 0, 180, 150, -150, 120, -120, 90, -90, 60, -60, 30, -30 },
 	Width = 1.2,
 }

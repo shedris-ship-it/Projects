@@ -784,10 +784,17 @@ function DebugService:Run(player: Player, text: string)
 			services.ShopService:Done(player)
 			reply(player, "out of the fitting room")
 		else
-			local slot = args[3] == "bottom" and "Bottom" or args[3] == "shoes" and "Shoes" or "Top"
+			local slots = { bottom = "Bottom", shoes = "Shoes", hair = "Hair", colour = "Colour", face = "Face" }
+			local slot = slots[args[3] or ""] or "Top"
 			services.ShopService:Open(player, args[2] == "rack" and "rack" or "booth", slot)
 			reply(player, "fitting room: " .. tostring(player:GetAttribute(Constants.PlayerAttributes.Trying)))
 		end
+	elseif command == "face" then
+		-- `face <scared|hold|wince|off>`: your face holds a pose for everyone
+		-- (Controllers/FaceController), to check the faces without a hunt.
+		local pose = args[2] ~= "off" and args[2] or nil
+		player:SetAttribute("DebugFace", pose)
+		reply(player, "face: " .. tostring(pose or "its own"))
 	elseif command == "own" then
 		-- `own <garment>` puts it in your wardrobe; `own none` empties it
 		-- (the free set stays everyone's); `own` lists what you have.
