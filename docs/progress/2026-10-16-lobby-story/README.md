@@ -96,3 +96,4 @@ Behind the shutter's grille the chairs and the banner were lost in the dark, so 
 
 The whitewalls still render as black rings, even plain white with no texture. Their faces point the right way in the export, so the likely cause is the ring's thinness (0.012 studs): the importer seems to weld its two faces' vertices, which cancels their normals. A 0.05-thick ring is exported for one more import.
 
+**Fixed (build .222):** the owner imported the 0.05 ring (`story_CarWhitewalls.fbx`, id in `Data/Kit` Parts, size 7.01 x 1.8 x 10.8). It shows as a white band on both wheels.

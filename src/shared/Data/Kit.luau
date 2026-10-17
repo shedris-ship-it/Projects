@@ -886,8 +886,8 @@ return {
 		},
 		CarWhitewalls = {
 			mesh = "CarWhitewalls",
-			id = 90963539125529,
-			size = { 6.93, 1.8, 10.8 },
+			id = 121903215026707,
+			size = { 7.01, 1.8, 10.8 },
 			at = { 0, -1.5, 0 },
 		},
 		CarRoofRack = { mesh = "CarRoofRack", id = 132756873862799, size = { 6, 1.06, 5.62 }, at = { 0, 2.71, -2.93 } },
