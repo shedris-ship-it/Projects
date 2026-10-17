@@ -77,7 +77,10 @@ function ArcadeService:Build(parent: Instance, origin: Vector3)
 		local frame = CFrame.new(origin + Vector3.new(b.x, b.y, b.z))
 			* CFrame.Angles(math.rad(rot[1]), math.rad(rot[2]), math.rad(rot[3]))
 		-- The screen: over the mesh's own (its front is the cabinet's +Z,
-		-- sunk 12 degrees back in its bezel: kitlib/mall2 _cabinet).
+		-- sunk 12 degrees back in its bezel: kitlib/mall2 _cabinet). The
+		-- mesh's joystick ball reaches 0.14 studs out of the screen's plane at
+		-- its lower left, so the game is drawn just in front of it (0.17 out),
+		-- or the ball sat on the maze's corner.
 		local screen = Instance.new("Part")
 		screen.Name = "ArcadeScreen"
 		screen.Anchored = true
@@ -87,7 +90,7 @@ function ArcadeService:Build(parent: Instance, origin: Vector3)
 		screen.CastShadow = false
 		screen.Transparency = 1
 		screen.Size = Vector3.new(C.Screen[1], C.Screen[2], 0.02)
-		screen.CFrame = frame * CFrame.new(0, 0.9, 1.0) * CFrame.Angles(math.rad(-12), 0, 0) * CFrame.new(0, 0, 0.075)
+		screen.CFrame = frame * CFrame.new(0, 0.9, 1.0) * CFrame.Angles(math.rad(-12), 0, 0) * CFrame.new(0, 0, 0.16)
 		screen:SetAttribute("Cabinet", index)
 		screen:SetAttribute("Game", GAME)
 		CollectionService:AddTag(screen, "ArcadeScreen")

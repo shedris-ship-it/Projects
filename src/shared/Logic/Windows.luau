@@ -4,7 +4,8 @@
 -- another room, and World/MansionBuilder used to leave such a window out (a
 -- house of 16 rooms had two windows). Here a window on an inner wall moves to
 -- an outer one of the same room, and long outer walls get more, so the
--- house's outside walls have windows the way a real one does.
+-- house's outside walls have windows the way a real one does. A curtain
+-- against an outer wall gets a window behind it (2026-10-17).
 --
 -- Builder only: the planners never read windows (they read RoomFit, which
 -- this leaves alone). Every coordinate is in the template's own frame, as in
@@ -16,6 +17,8 @@ local RoomFit = require(script.Parent.RoomFit)
 local Windows = {}
 
 local SIDES = { "N", "E", "S", "W" }
+-- How far off its wall a curtain may stand and still have a window behind it.
+local CURTAIN_GAP = 1
 
 local function halfOf(item): number
 	local decor = Props.WallDecor[item.kind or ""]
@@ -65,7 +68,8 @@ function Windows.arrange(fit, inner, doors, outer, cfg, extras: boolean?)
 		local acrossX = side == "N" or side == "S"
 		return (acrossX and inner.x or inner.z) - math.max(3, half + 0.5)
 	end
-	local function free(side: string, along: number): boolean
+	-- (`except`: a prop's own box, left out: a curtain's, for its window.)
+	local function free(side: string, along: number, except: number?): boolean
 		if math.abs(along) > limitOf(side) then
 			return false
 		end
@@ -80,7 +84,10 @@ function Windows.arrange(fit, inner, doors, outer, cfg, extras: boolean?)
 			end
 		end
 		local acrossX = side == "N" or side == "S"
-		for _, k in boxes do
+		for i, k in boxes do
+			if i == except then
+				continue
+			end
 			local near
 			if side == "N" then
 				near = k.z0 <= -inner.z + 3
@@ -124,10 +131,35 @@ function Windows.arrange(fit, inner, doors, outer, cfg, extras: boolean?)
 		table.insert(decor, copy)
 	end
 
+	-- A curtain (a place to hide, Data/Props Curtain) against a wall that
+	-- faces outside hangs in front of a window: one behind each, centred (the
+	-- owner, 2026-10-13: curtains on bare wall looked odd). The curtain is its
+	-- covering, so the builder gives it no radiator, moonlight or face at the
+	-- glass (World/LevelBuilder); these don't count against Max.
+	local behind = 0
+	for i, prop in fit.props or {} do
+		if prop.kind ~= "Curtain" then
+			continue
+		end
+		local k = boxes[i]
+		local gaps = { N = k.z0 + inner.z, S = inner.z - k.z1, W = k.x0 + inner.x, E = inner.x - k.x1 }
+		local side, gap = "N", math.huge
+		for _, s in SIDES do
+			if gaps[s] < gap then
+				side, gap = s, gaps[s]
+			end
+		end
+		local along = (side == "N" or side == "S") and prop.x or prop.z
+		if gap <= CURTAIN_GAP and free(side, along, i) then
+			put({ id = "window_curtain_" .. tostring(prop.id or i), kind = "Window", curtained = true }, side, along)
+			behind += 1
+		end
+	end
+
 	-- The template's own windows: where they are if that's an outer wall,
 	-- else the nearest spot on its own wall, else another wall.
 	for _, item in wanted do
-		if #placed >= cfg.Max then
+		if #placed - behind >= cfg.Max then
 			break
 		end
 		local along = item.side and search(item.side, item.along)
@@ -169,7 +201,7 @@ function Windows.arrange(fit, inner, doors, outer, cfg, extras: boolean?)
 				return a < b
 			end)
 			for _, along in candidates do
-				if count >= want or #placed >= cfg.Max then
+				if count >= want or #placed - behind >= cfg.Max then
 					break
 				end
 				local spaced = true

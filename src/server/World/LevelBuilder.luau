@@ -555,6 +555,7 @@ function LevelBuilder.furnish(world, ctx)
 					radiatorFloor = if ctx.openWindows == true
 							and (room.floor or 0) <= 1
 							and not template.rafters
+							and not decor.curtained
 						then center.Y
 						else nil,
 					moonDir = world.moon and Vector3.new(WindowView.direction(world.moon)),
@@ -565,6 +566,12 @@ function LevelBuilder.furnish(world, ctx)
 						Config.Window
 					),
 				}
+				-- Behind a curtain (Logic/Windows): the curtain is its covering,
+				-- and no moonlight comes through the cloth; a radiator would stand
+				-- where you hide.
+				if decor.curtained then
+					decorOptions.view = { cover = "bare", moonVisible = false }
+				end
 			end
 			local decorModel, lightPart =
 				PropFactory.buildDecor(decor.kind, cf, model, room.id * 100 + #decor.id, decorOptions)
@@ -578,8 +585,9 @@ function LevelBuilder.furnish(world, ctx)
 			end
 			-- Panes The Guest can show in: his reflection behind you, or a
 			-- face at the glass (Lib/GuestReflection).
+			-- (Not one behind a curtain: nobody would see him there.)
 			local glass = decorModel:FindFirstChild("Glass")
-			if (decor.kind == "Window" or decor.kind == "Mirror") and glass then
+			if (decor.kind == "Window" or decor.kind == "Mirror") and glass and not decor.curtained then
 				decorModel:SetAttribute("Kind", decor.kind)
 				CollectionService:AddTag(decorModel, Tags.Window)
 				record.windows = record.windows or {}

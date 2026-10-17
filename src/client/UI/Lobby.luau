@@ -3,8 +3,10 @@
 -- player's progress. In the 1988 interface (V7): a manila case folder,
 -- typed on, its label taped on.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Build = require(Shared.Build)
@@ -31,7 +33,15 @@ function Lobby.new(ctx)
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
-	Ui.fit(root, WIDTH + 40, HEIGHT + 40)
+	-- Below Roblox's own buttons at the top left (its topbar, once it's up: it
+	-- reads 0 this early): at 22 down, its menu and chat buttons sat on the
+	-- folder and the chat hint over its title. (The fit leaves it room.)
+	local function clearTopbar()
+		root.Position = UDim2.fromOffset(28, math.max(22, GuiService.TopbarInset.Max.Y + 10))
+	end
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(clearTopbar)
+	clearTopbar()
+	Ui.fit(root, WIDTH + 40, HEIGHT + 100)
 	-- A manila case folder, stood on end (its paper is drawn landscape).
 	Ui.paper("Folder", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -168,6 +178,16 @@ function Lobby:Render()
 	local lobby = state.lobby
 	local tape = player:GetAttribute(Constants.PlayerAttributes.Tape)
 	local inCar = player:GetAttribute(Constants.PlayerAttributes.Car) ~= nil
+	-- The shelf's prompt says what E does for you: with its tape in your hand
+	-- it puts it back (Services/RentalService). Set here, so only for you.
+	local mall = Workspace:FindFirstChild("ConsensusLobby")
+	local tapes = mall and mall:FindFirstChild("Tapes")
+	for _, part in tapes and tapes:GetChildren() or {} do
+		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
+		if prompt and prompt.ActionText ~= "Look" then
+			prompt.ActionText = part.Name == "Tape_" .. tostring(tape) and "Put back" or "Rent"
+		end
+	end
 	if lobby then
 		self.contract.Text = string.format("Case: %s\n%s", lobby.location.name, lobby.location.blurb)
 		self.caseLabel.Text =

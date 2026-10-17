@@ -6,6 +6,7 @@
 -- crosshair. Drift is never a bar: you read it from the world, and from one
 -- word on the slip. The meters come back with "Show meters" in Settings.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local TextService = game:GetService("TextService")
 local Workspace = game:GetService("Workspace")
@@ -173,20 +174,28 @@ function Hud.new(ctx)
 	self.slip = slip
 	self.slipPaper = holder
 
-	-- Squad (top left), when there is one.
+	-- Squad (top left), when there is one: below Roblox's own buttons there
+	-- (its topbar, once it's up).
 	self.squad = Ui.new("Frame", {
 		Position = UDim2.fromOffset(20, 18),
 		Size = UDim2.fromOffset(240, 120),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, { Ui.list(2) })
+	local function clearTopbar()
+		self.squad.Position = UDim2.fromOffset(20, math.max(18, GuiService.TopbarInset.Max.Y + 8))
+	end
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(clearTopbar)
+	clearTopbar()
 	self.squadRows = {}
 
 	-- Hiding: what to do, your held breath and the warning.
 	local hide = Ui.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -64),
-		Size = UDim2.fromOffset(420, 56),
+		-- (Wide enough for the curtain's line: at 420 its "E: leave" wrapped
+		-- out of sight, leaving "E:".)
+		Size = UDim2.fromOffset(560, 56),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,

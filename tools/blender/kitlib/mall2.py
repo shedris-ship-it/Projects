@@ -837,7 +837,10 @@ def standee():
         materials.assign(_box("Board", (W, H - 0.3, 0.06), (0, 0.15, 0.0), 0.0, 1), card),
         _card("Poster", picture, W - 0.04, H - 0.34, (0, 0.15, 0.035), 1, rect),
         materials.assign(_box("Foot", (W, 0.3, 0.5), (0, b + 0.15, 0.0), 0.02, 1), card),
-        materials.assign(_place(shapes.box("Strut", S(0.06, H * 0.7, 0.06), (0, 0, 0), 0.0, 1), (-18, 0, 0), (0, -0.6, -0.25)), card),
+        # The easel's strut, from the board's back at 1.4 up to the floor 1.3
+        # behind it (it was tilted the other way, through the poster: the
+        # owner, 2026-10-17).
+        materials.assign(_place(shapes.box("Strut", S(0.06, 4.58, 0.06), (0, 0, 0), 0.0, 1), (16, 0, 0), (0, -0.8, -0.67)), card),
     ]
     return shapes.join(parts, "Standee")
 

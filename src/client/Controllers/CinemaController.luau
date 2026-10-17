@@ -44,6 +44,7 @@ function CinemaController:Init(controllers)
 	self.want = nil
 	self.black = 0
 	self.bars = 0
+	self.took = false -- a shot moved the camera (End gives it back level)
 	self.faded = {} -- part -> true (hidden for the shot)
 	self.hidden = {} -- ScreenGui -> true (the HUD, put away)
 	self.keep = {} -- ScreenGui name -> true (left up for this one: the night's title card)
@@ -133,6 +134,18 @@ function CinemaController:End(owner: string)
 	end
 	table.clear(self.hidden)
 	local camera = Workspace.CurrentCamera
+	-- Back level, facing where the last shot looked: the camera keeps the tilt
+	-- it's handed, and the arrival's last shot, high over the hall, left every
+	-- run starting with its eyes on the floor.
+	if self.took then
+		local look = camera.CFrame.LookVector
+		local flat = Vector3.new(look.X, 0, look.Z)
+		if flat.Magnitude > 1e-3 then
+			local at = camera.CFrame.Position
+			camera.CFrame = CFrame.lookAt(at, at + flat.Unit)
+		end
+	end
+	self.took = false
 	camera.CameraType = Enum.CameraType.Custom
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -183,6 +196,7 @@ function CinemaController:_frame(dt: number)
 		end
 		camera.CFrame = want.cframe
 		camera.FieldOfView = want.fov
+		self.took = true
 	end
 end
 

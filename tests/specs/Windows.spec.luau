@@ -107,4 +107,44 @@ return function(test, check, Shared, require)
 		end, cfg, true)
 		check.equal(#south, 0, "nothing behind the wardrobes")
 	end)
+
+	test("a curtain against an outer wall hangs in front of a window; on an inner wall it doesn't", function()
+		local _, ez = RoomFit.footprint("Curtain", 0)
+		local props = {
+			-- against the south wall (outside), and against the north (another room)
+			{ id = "curtainS", kind = "Curtain", x = -6, z = inner.z - ez, ry = 0 },
+			{ id = "curtainN", kind = "Curtain", x = 6, z = -inner.z + ez, ry = 180 },
+		}
+		-- The template's own windows fill the room's Max elsewhere.
+		local decor = {}
+		for k = 1, cfg.Max do
+			table.insert(decor, { id = "w" .. k, kind = "Window", side = "E", along = -6 + (k - 1) * 6 })
+		end
+		local _, placed = Windows.arrange(
+			{ props = props, decor = decor, wallSlots = {} },
+			inner,
+			{},
+			outerSE,
+			cfg,
+			false
+		)
+		local behind = {}
+		for _, w in placed do
+			if w.curtained then
+				table.insert(behind, w)
+			end
+		end
+		check.equal(#behind, 1, "one window behind a curtain")
+		check.equal(behind[1].side, "S", "on the outer wall")
+		check.near(behind[1].along, -6, 1e-9, "centred behind it")
+		local others = 0
+		for _, w in placed do
+			if not w.curtained then
+				others += 1
+				-- (and no other window ends up behind a curtain)
+				check.truthy(not (w.side == "S" and math.abs(w.along + 6) < 2 * half), w.id .. " not behind it")
+			end
+		end
+		check.equal(others, math.min(cfg.Max, #decor), "it doesn't take one of the room's windows")
+	end)
 end
