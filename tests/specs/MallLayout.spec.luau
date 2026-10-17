@@ -192,4 +192,56 @@ return function(test, check, Shared, require)
 		check.truthy(text:find("front is"), "a far front: " .. text)
 		check.truthy(text:find("spawn"), "the spawn outside: " .. text)
 	end)
+
+	test("a point on the floor plan is in one room, or none in a doorway", function()
+		check.equal(MallLayout.roomAt(Mall, Mall.Spawn.x, Mall.Spawn.z), "court", "the spawn is in the court")
+		check.equal(MallLayout.roomAt(Mall, 0, -90), "garage", "the garage")
+		check.equal(MallLayout.roomAt(Mall, 0, -46), "video", "the video store")
+		check.equal(MallLayout.roomAt(Mall, 0, -30), nil, "the line the court shares with the video store")
+		check.equal(MallLayout.roomAt(Mall, 0, 500), nil, "outside the mall")
+	end)
+
+	test("every room echoes as a kind with a shortlist of real reverbs", function()
+		-- (Enum.ReverbType's names, which Lune doesn't have.)
+		local reverbs = {}
+		for _, name in
+			{
+				"NoReverb",
+				"GenericReverb",
+				"PaddedCell",
+				"Room",
+				"Bathroom",
+				"LivingRoom",
+				"StoneRoom",
+				"Auditorium",
+				"ConcertHall",
+				"Cave",
+				"Arena",
+				"Hangar",
+				"CarpettedHallway",
+				"Hallway",
+				"StoneCorridor",
+				"Alley",
+				"Forest",
+				"City",
+				"Mountains",
+				"Quarry",
+				"Plain",
+				"ParkingLot",
+				"SewerPipe",
+				"UnderWater",
+			}
+		do
+			reverbs[name] = true
+		end
+		for id, room in Mall.Rooms do
+			check.truthy(room.echo and Mall.Echoes[room.echo], id .. " has an echo kind with a shortlist")
+		end
+		for kind, list in Mall.Echoes do
+			check.truthy(#list > 0, kind .. " has candidates")
+			for _, name in list do
+				check.truthy(reverbs[name], kind .. ": " .. tostring(name) .. " is a ReverbType")
+			end
+		end
+	end)
 end

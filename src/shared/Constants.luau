@@ -56,6 +56,7 @@ Constants.RunState = {
 	Storm = "Storm", -- the storm's stage, 0 still, 1 rain, 2 thunder (Logic/Storm, Services/WeatherService)
 	MallBrownout = "MallBrownout", -- server time the mall's generator last browned out (Services/MallService)
 	MallSound = "MallSound", -- + a role ("MallSoundHum"): which of Assets.Mall's candidates plays (F2 `mallsound`)
+	MallEcho = "MallEcho", -- + a kind ("MallEchoCourt"): which of Data/Mall Echoes' reverbs plays (F2 `mallecho`)
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",

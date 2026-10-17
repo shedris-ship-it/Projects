@@ -234,6 +234,9 @@ end
 
 function FootstepController:Start()
 	-- Warm every sample so the first steps in a room aren't silent while they load.
+	-- Through Sounds, never bare id strings: PreloadAsync fetches a string as an
+	-- image, so every audio id failed ("Asset type does not match requested
+	-- type", 2026-10-16) and was marked Failure, which `judge` reads as dead.
 	task.spawn(function()
 		local all = { Assets.StockFootstep }
 		for _, surface in SURFACES do
@@ -241,9 +244,18 @@ function FootstepController:Start()
 				table.insert(all, id)
 			end
 		end
+		local sounds = {}
+		for _, id in all do
+			local sound = Instance.new("Sound")
+			sound.SoundId = id
+			table.insert(sounds, sound)
+		end
 		pcall(function()
-			ContentProvider:PreloadAsync(all)
+			ContentProvider:PreloadAsync(sounds)
 		end)
+		for _, sound in sounds do
+			sound:Destroy()
+		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		tracks[player] = nil

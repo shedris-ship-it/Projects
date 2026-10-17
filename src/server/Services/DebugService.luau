@@ -88,7 +88,7 @@ local HELP = table.concat({
 	"botrun [fast] [flee|hide] (the bot plays the run with your character; again stops it) · botrun plan (the steps, to Output)",
 	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
 	"role (this server's job: lobby, run or both; Services/PlaceService)",
-	"mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n] (hear the n-th candidate, Assets.Mall) · brownout · mallstrike (the lobby mall's)",
+	"mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n] (hear the n-th candidate, Assets.Mall) · mallecho <Court|Shop|Diner|Garage> [n] (its rooms' reverb, Data/Mall Echoes) · brownout · mallstrike (the lobby mall's)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -1806,6 +1806,24 @@ function DebugService:Run(player: Player, text: string)
 				services.CarService:Sound(nil, character:GetPivot().Position)
 			end
 			reply(player, string.format("%s: candidate %d of %d (%s)", role, n, #list, list[n]))
+		end
+	elseif command == "mallecho" then
+		-- Audition how the lobby mall's rooms echo (Data/Mall Echoes): the
+		-- kind's n-th reverb, for everyone, at once in a room of that kind
+		-- (Controllers/AudioController).
+		local kind
+		for name in Mall.Echoes do
+			if string.lower(name) == args[2] then
+				kind = name
+			end
+		end
+		if not kind then
+			reply(player, "mallecho <Court|Shop|Diner|Garage> [n]")
+		else
+			local list = Mall.Echoes[kind]
+			local n = math.clamp(tonumber(args[3]) or 1, 1, #list)
+			ReplicatedStorage.RunState:SetAttribute(Constants.RunState.MallEcho .. kind, n)
+			reply(player, string.format("%s echo: candidate %d of %d (%s)", kind, n, #list, list[n]))
 		end
 	elseif command == "brownout" then
 		if services.MallService then

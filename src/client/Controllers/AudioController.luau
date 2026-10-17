@@ -16,6 +16,8 @@ local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Feel = require(Shared.Logic.Feel)
+local Mall = require(Shared.Data.Mall)
+local MallLayout = require(Shared.Logic.MallLayout)
 local Net = require(Shared.Net)
 
 local player = Players.LocalPlayer
@@ -190,7 +192,15 @@ function AudioController:Start()
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			local room = self.state:RoomAt(root.Position)
-			local name = room and room.reverb or (self.state:InRun() and "Room" or "LivingRoom")
+			local name = room and room.reverb
+			if not name then
+				if self.state:InRun() then
+					name = "Room"
+				else
+					-- (In a doorway, or outside the mall: the last room's.)
+					name = self:_mallReverb(root.Position) or lastRoom or "LivingRoom"
+				end
+			end
 			if name ~= lastRoom then
 				lastRoom = name
 				pcall(function()
@@ -199,6 +209,21 @@ function AudioController:Start()
 			end
 		end
 	end)
+end
+
+-- The lobby mall's echo where you stand (Data/Mall Echoes): the room's kind,
+-- then the candidate RunState MallEcho<Kind> picks (F2 `mallecho`), or nil
+-- outside the mall's rooms.
+function AudioController:_mallReverb(position: Vector3): string?
+	local o = Config.Level.LobbyOrigin
+	local id = MallLayout.roomAt(Mall, position.X - o.x, position.Z - o.z)
+	local kind = id and Mall.Rooms[id].echo
+	local list = kind and Mall.Echoes[kind]
+	if not list then
+		return nil
+	end
+	local pick = self.state:Run(Constants.RunState.MallEcho .. kind)
+	return list[type(pick) == "number" and pick or 1] or list[1]
 end
 
 function AudioController:_applyVolumes(settings)
