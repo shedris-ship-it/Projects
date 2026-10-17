@@ -76,7 +76,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (735 in 110 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
+lune run tests/run        # unit tests (733 in 110 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o Consensus.rbxlx
@@ -185,7 +185,7 @@ These constrain every pass; the reasons and dates are in the plan docs and `docs
 
 ## Where we are (2026-10-16)
 
-Build `2026-10-16.223` on `claude/overnight-foundation`, 735 tests.
+Build `2026-10-16.224` on `claude/overnight-foundation`, 733 tests.
 
 - **Built:** the escape loop (rework R0 to R2c); the mansion generator and its navigation (M1 to M3); the level design L1 to L3 except its last item; the foundation and loop passes (Dread, stuck-assist, the bot, the Reckoning, the short night); the Guest rework (moods, temperaments, the mask, his animations); the fixes from three squad playtests; the readable Guest (his three rules, pestering, the family's valuables); the torch on F with your own arms and legs. The visual pass's steps 1 to 6, the polish pass and visual audit round 1.
 - **The full visual rework, V0 to V8 done, V9 paused** (the owner, 2026-10-12: "the gameplay is in a good spot"; P.T. on 35mm film, models made in Blender, a diegetic 1988 UI, PC-first presets, a building storm, a few cutscenes, standard bodies in modular 80s clothing for a later shop). The plan, V0 to V9, is `docs/plans/visual-rework.md`, which opens with a table of each phase's state; each phase's report (what was built, the owner's picks, the F2 commands it added) is in `docs/progress/<date>-visual-v<n>/`.
@@ -214,7 +214,7 @@ Build `2026-10-16.223` on `claude/overnight-foundation`, 735 tests.
      - **The story clutter (build .220):** laid out in the grey box (`Data/Mall` blocks, `Data/Kit` Parts without ids; the camp, the court's drip, behind the grille), checked from above and at eye level, nothing overlapping; `build/kit/story/story.fbx` baked and checked for holes (14 pieces and the widened whitewalls), waiting on the owner's import.
      - **Imported and filed (build .221):** all 14 pieces seen in place (384 kit meshes); the chairs and the SALE banner moved from behind the shutter's grille (lost in the dark) to the empty shop's front. The whitewalls still shade black at 0.012 thick (the importer welds the ring's faces); a 0.05 ring is exported for one more import (`build/kit/story_CarWhitewalls/`).
      - **The whitewalls fixed (build .222):** the 0.05 ring imported and filed; seen white on both wheels.
-     - **Footsteps and the mall's echo (build .223):** the footstep warnings were the warm-up preloading the ids as images (the samples are fine; it preloads Sounds now). The lobby echoes by room kind (`Data/Mall` Echoes: Court, Shop, Diner, Garage), shortlists the owner picks by ear with F2 `mallecho` (TC-342); the diner's steps are tile now. Report: `docs/progress/2026-10-16-footsteps-echo/`.
+     - **Footsteps (builds .223 and .224):** the footstep warnings were the warm-up preloading the ids as images (the samples are fine; it preloads Sounds now); the diner's steps are tile. The owner's "echoing footsteps in the lobby" means steps that seem to follow you: not reproduced solo (one sound a step), so likely Studio's multi-client test (every client window plays audio); asked. A lobby reverb shortlist built on a misreading went back out at .224. Report: `docs/progress/2026-10-16-footsteps-echo/`.
      - **Next:** the owner plays HOUSE CALL by hand and settles the story's voices and names (questions 5 and 6), then 7B's unlocking pages. Then LB6, ads and the rest (most of it needs the owner's account: images, ad eligibility, products). The Robux side waits on the owner's products in Creator Hub (ids into `Data/Products`). A dressed player is about 40k triangles, unmeasured on a phone: measure a shop full of outfits (F2 `perf`, `crowd`). V9's hub polish (ART.md's Hub; the menu clear of Roblox's chat hint) still to do.
   3. **The rest of the visual rework:** V9 without the hub (above).
   4. **The last of L3:** furniture laid out for play (the old M4; `Logic/RoomFurnish` doesn't exist yet; `docs/plans/level-design.md` section 3, part 4, and section 11.2).

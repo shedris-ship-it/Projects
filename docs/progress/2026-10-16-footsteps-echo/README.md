@@ -1,9 +1,9 @@
-# Footsteps without warnings, and the mall's echo (build .223, 2026-10-16)
+# Footsteps without warnings, and the lobby's "echoing footsteps" (builds .223 and .224, 2026-10-16)
 
 Two things, in Studio play on the local `Consensus.rbxlx`:
 
 1. Studio's Output showed "ContentId: rbxassetid://... failed due to: Asset type does not match requested type" for the footsteps (reported by the lobby session).
-2. The owner: "also look into echoing footsteps in the lobby".
+2. The owner: "also look into echoing footsteps in the lobby", then: "I meant weird echos that are there and shouldnt be, like following footsteps".
 
 ## 1. The footstep warnings: the warm-up, not the sounds
 
@@ -22,23 +22,20 @@ Other warnings seen, not this task's:
 - `rbxassetid://203785492`, "Pop Close Sound" by Zyleak: no Sound, image or attribute in the place uses it, and it comes with Roblox's core interface warnings (UIBlox), so it's Roblox's own.
 - `127810179737709` and `72889849302079`: texture packs the owner imported today (created 12:57 on 2026-10-16), "pending moderation". They should clear on their own once Roblox reviews them.
 
-## 2. The lobby's echo
+## 2. Footsteps that seem to follow you in the lobby
 
-Before: the whole lobby used one reverb, `LivingRoom` (a small furnished room), because `AudioController` only knew the house's rooms. Steps in a two-storey marble court under a glass vault sounded like a lounge.
+**A misreading first (build .223, taken out at .224).** The first message read as a wish for the mall to echo, so .223 gave each mall room a reverb kind with a shortlist (Court Hangar, Shop Room, Diner Room, Garage ParkingLot) and F2 `mallecho`. The owner then said they meant unwanted echoes, so .224 takes all of that out: the lobby is `LivingRoom` everywhere again, as before .223 (a fairly dry preset). No `mallecho`, no `Mall.Echoes`, no `MallLayout.roomAt`.
 
-Now each mall room has a kind (`Data/Mall` rooms' `echo`): Court (the court and the dead concourse), Shop (the boutique, video store, arcade, electronics, the dead shop), Diner, Garage. Each kind has a shortlist of Roblox reverb presets (`Mall.Echoes`), Claude's suggestion first, the old `LivingRoom` last to compare:
+**What was looked for, solo in Studio play, in the court (build .223 code, the character walking):**
+- Every sound that started anywhere in the game while walking: only your own steps (one sound per stride, on the tile set over the court's marble), the drip into the tin bucket (7 to 16 studs off, every 1.4 to 4 s, `Config.Mall.Sounds.Drip`) and a thunderclap. No second step, nothing behind you.
+- The footstep samples' own shape (loudness every 0.05 s): each is one hit that's quiet within about 0.25 s, so there's no echo baked into them. Two have a heel and toe 0.1 s apart (concrete 3, carpet 1).
+- Roblox's own character sounds: still replaced by the empty `RbxCharacterSounds` (no looping step of theirs).
+- The always-on loops (the Drift layers, the heartbeat, the breath, radio static): all at volume 0 in the lobby.
+- SoundService: no acoustic simulation, no echo or reverb effects on the groups, Doppler at the default.
+- The house's "footsteps behind you" phantom (`PerceptionController`, a Drift rule) only fires within 35 studs of its spot in the house, 1,400 studs from the mall, and shows a caption.
+- Walking (speed 12) is under the sprint threshold (15), so no thud is layered under each lobby step unless you sprint.
 
-| Kind | Candidates (1 plays) |
-|---|---|
-| Court | Hangar, Arena, Auditorium, ConcertHall, LivingRoom |
-| Shop | Room, CarpettedHallway, Hallway, LivingRoom |
-| Diner | Room, StoneRoom, Bathroom, LivingRoom |
-| Garage | ParkingLot, StoneRoom, Hangar, LivingRoom |
-
-- `Logic/MallLayout.roomAt` finds the room you're in (spec'd); on a doorway's line it returns none and the last room's echo stays, so it doesn't flicker.
-- It's still the one global `SoundService.AmbientReverb`, so it colours every sound where you stand (the hum, the radio, the arcade, voices), not just the steps, and never adds a second reverb on the steps (the owner on 2026-10-03: two stacked reverbs were "weird in the bathroom").
-- F2 `mallecho <Court|Shop|Diner|Garage> <n>` switches a kind's echo for everyone at once (RunState `MallEcho<Kind>`), like `mallsound`. Checked: the court went Hangar → Arena on `mallecho court 2`, the video store read Room, the garage ParkingLot.
-- **Not yet heard by the owner.** The picks are theirs, by ear (TC-342).
+**Likely cause: Studio's multi-client test.** With Test → Clients and Servers, every client window plays its own audio through the same speakers. Your character's steps play in your window, then again a moment later in each other window (where you're a remote player, its position a beat behind), from a different place. That sounds like an echo trailing your steps, or someone following. In the live game each player hears only their own client, so it wouldn't happen there. Asked the owner how they heard it (solo or several clients in Studio, or live); if it was solo or live, that's a lead this pass didn't find, and the next step is to listen for it together.
 
 ### The diner's steps (a gameplay fix under the standing OK)
 
@@ -48,4 +45,4 @@ Left as they are, for the owner: the electronics store and the dead shop are pla
 
 ## Checks
 
-`stylua`, `lune run tests/run` (735 tests), `lune run tests/compile`, `selene`, `rojo build`; Studio play solo, as above. Not checked: with two clients (the echo is per client, from where you stand, so nothing to sync but the picks), or on the live game.
+`stylua`, `lune run tests/run` (733 tests at .224; 735 with .223's two echo specs), `lune run tests/compile`, `selene`, `rojo build`; Studio play solo, as above. Not checked: with two or more clients, or on the live game.

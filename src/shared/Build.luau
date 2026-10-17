@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-16.223",
-	note = "Footsteps warm without warnings; the lobby mall echoes (F2 mallecho)",
+	id = "2026-10-16.224",
+	note = "Footsteps warm without warnings; the lobby's reverb as before",
 }

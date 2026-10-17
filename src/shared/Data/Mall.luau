@@ -41,7 +41,6 @@ Mall.Rooms = {
 		-- really have that encapsulating grandeur"): the same floor, so the
 		-- walks stay short, and the height instead (Mall.Galleries, Mall.Vaults).
 		height = 48,
-		echo = "Court", -- how it echoes (Mall.Echoes)
 		floor = { color = { 200, 192, 176 }, material = "Marble" },
 		wall = { color = { 206, 196, 176 }, material = "SmoothPlastic" },
 		ceiling = { color = { 170, 164, 152 } },
@@ -51,21 +50,18 @@ Mall.Rooms = {
 	boutique = {
 		rect = { -50, -62, -17, -30 },
 		height = 14,
-		echo = "Shop",
 		floor = { color = { 150, 96, 112 }, material = "Fabric" },
 		wall = { color = { 232, 200, 206 } },
 	},
 	video = {
 		rect = { -17, -62, 17, -30 },
 		height = 14,
-		echo = "Shop",
 		floor = { color = { 52, 62, 104 }, material = "Fabric" },
 		wall = { color = { 190, 200, 230 } },
 	},
 	arcade = {
 		rect = { 17, -62, 50, -30 },
 		height = 14,
-		echo = "Shop",
 		floor = { color = { 40, 30, 60 }, material = "Fabric" },
 		floorKit = "ArcadeCarpet", -- (the 80s arcade's carpet, in panels: World/MallBuilder)
 		wall = { color = { 70, 52, 96 } },
@@ -73,21 +69,18 @@ Mall.Rooms = {
 	electronics = {
 		rect = { -50, 30, -17, 62 },
 		height = 14,
-		echo = "Shop",
 		floor = { color = { 150, 150, 146 } },
 		wall = { color = { 200, 206, 210 } },
 	},
 	deadshop = { -- closed; a slot for a shop later
 		rect = { 17, 30, 50, 62 },
 		height = 14,
-		echo = "Shop",
 		floor = { color = { 90, 86, 80 } },
 		wall = { color = { 120, 114, 106 } },
 	},
 	diner = {
 		rect = { -82, -26, -50, 26 },
 		height = 14,
-		echo = "Diner",
 		-- (Marble under the kit's check, unseen, so steps sound like tile:
 		-- Data/Footsteps goes by the material underfoot.)
 		floor = { color = { 170, 44, 48 }, material = "Marble" },
@@ -97,32 +90,16 @@ Mall.Rooms = {
 	garage = {
 		rect = { -50, -122, 50, -62 },
 		height = 18,
-		echo = "Garage",
 		floor = { color = { 120, 120, 116 }, material = "Concrete" },
 		wall = { color = { 150, 148, 140 }, material = "Concrete" },
 	},
 	concourse = { -- behind the shutter: the dead mall, dark
 		rect = { 50, -20, 230, 20 },
 		height = 44, -- two storeys, like the court: seen whole through the shutter
-		echo = "Court",
 		floor = { color = { 120, 114, 104 }, material = "Marble" },
 		wall = { color = { 110, 104, 96 } },
 		ceiling = { color = { 70, 66, 62 } },
 	},
-}
-
--- How each kind of room echoes (the owner, 2026-10-16: "echoing footsteps in
--- the lobby"): Enum.ReverbType names, a shortlist per kind; the first plays.
--- Controllers/AudioController sets it as SoundService.AmbientReverb where you
--- stand, so it colours every sound there, steps and all, and never stacks a
--- second reverb on the steps (Data/Footsteps). Not yet heard: the owner picks
--- by ear with F2 `mallecho <kind> <n>`. Before this the whole lobby was
--- LivingRoom, a small furnished room; it stays last in each list to compare.
-Mall.Echoes = {
-	Court = { "Hangar", "Arena", "Auditorium", "ConcertHall", "LivingRoom" }, -- marble under a glass vault
-	Shop = { "Room", "CarpettedHallway", "Hallway", "LivingRoom" }, -- carpet, shelves, a low ceiling
-	Diner = { "Room", "StoneRoom", "Bathroom", "LivingRoom" }, -- check tiles, chrome and glass
-	Garage = { "ParkingLot", "StoneRoom", "Hangar", "LivingRoom" }, -- the concrete loading dock
 }
 
 -- kind: "front" (a shopfront: the fountain's reach is checked), "dead",

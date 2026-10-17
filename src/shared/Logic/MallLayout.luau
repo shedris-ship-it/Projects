@@ -88,17 +88,6 @@ local function inside(rect, x: number, z: number): boolean
 	return x > rect[1] and x < rect[3] and z > rect[2] and z < rect[4]
 end
 
--- The room a point on the floor plan is in, or nil: outside the mall, or on
--- the line two rooms share (a doorway), where the caller keeps the last one.
-function MallLayout.roomAt(mall, x: number, z: number): string?
-	for id, room in mall.Rooms do
-		if inside(room.rect, x, z) then
-			return id
-		end
-	end
-	return nil
-end
-
 -- What's wrong with a layout, as sentences (none for a good one):
 -- rooms that overlap, a door off its rooms' walls, a shopfront out of reach
 -- of the fountain (`reach`, in studs), the spawn outside the court, a room
