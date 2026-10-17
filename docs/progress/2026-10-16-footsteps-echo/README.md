@@ -1,4 +1,4 @@
-# Footsteps without warnings, and the lobby's "echoing footsteps" (builds .223 and .224, 2026-10-16)
+# Footsteps without warnings, and the lobby's "echoing footsteps" (builds .223 to .225, 2026-10-16)
 
 Two things, in Studio play on the local `Consensus.rbxlx`:
 
@@ -35,7 +35,21 @@ Other warnings seen, not this task's:
 - The house's "footsteps behind you" phantom (`PerceptionController`, a Drift rule) only fires within 35 studs of its spot in the house, 1,400 studs from the mall, and shows a caption.
 - Walking (speed 12) is under the sprint threshold (15), so no thud is layered under each lobby step unless you sprint.
 
-**Likely cause: Studio's multi-client test.** With Test → Clients and Servers, every client window plays its own audio through the same speakers. Your character's steps play in your window, then again a moment later in each other window (where you're a remote player, its position a beat behind), from a different place. That sounds like an echo trailing your steps, or someone following. In the live game each player hears only their own client, so it wouldn't happen there. Asked the owner how they heard it (solo or several clients in Studio, or live); if it was solo or live, that's a lead this pass didn't find, and the next step is to listen for it together.
+**Not the multi-client test.** A first guess was Studio's Clients and Servers test (every client window plays audio, so your steps would come again from the other window). The owner heard it solo in Studio and in the live game, so that wasn't it.
+
+**The cause (build .225): the steps didn't keep time with the feet you see.** The walks above were short, because the scripted walk kept hitting the court's planters and stalled after half a stud. A proper walk along the clear lane (z −25) showed it. Step sounds were paced by distance, one every `Config.Feel` stride (4.6 studs at a walk, 6.8 at a sprint), the rhythm the owner tuned for first person, in time with the camera's bob. Roblox's walk animation lands a foot far more often:
+
+| Speed | Feet you see land | Step sounds (before) |
+|---|---|---|
+| 8 (the house's walk) | every 0.31 s | every 0.57 s |
+| 12 (the lobby's walk) | every 0.31 s | every 0.45 s |
+| 19 (sprint) | every 0.24 s | every 0.36 s |
+
+So most sounds fell between footfalls and drifted in and out of time with them, about two sounds for every three footfalls at the lobby's walk. In the house you're in first person and don't watch your feet. In the lobby's third person you do, so the steps read as somebody else's, trailing you. The same was true of every teammate's steps in the house.
+
+The fix: a body seen from outside (yours in the lobby's third person, everyone else's always) steps when a foot touches down. `Logic/Feel.footDown` (spec'd) watches each foot's height under the body: once it has lifted 0.3 studs above its lowest (a walk lifts 0.57, a sprint 1.06), coming back within 0.1 of it is a landing, heard from that foot's sole. Your own steps in first person keep the stride, so the house's feel and the bob are unchanged. If a moving body's feet don't lift for 0.6 s (no walk playing on it), its steps fall back to the stride (`Feel.stepsFromFeet`). The feet keep animating with the body off screen (checked: 143 of 150 frames with the camera turned away), so teammates behind you are still heard. A seated body (in a car) has still feet, so it no longer plays steps while it rides.
+
+Checked in Studio play, solo, in the lobby (third person): at 12 studs/s the feet landed at 0.50 0.83 1.11 1.46 1.75 2.08 2.36 2.71 3.00 s and the sounds came at 0.50 0.81 1.10 1.43 1.71 2.06 2.35 2.68 2.96; at a sprint, 0.28 0.48 0.75 0.95 1.22 1.42 1.68 1.88 against 0.27 0.47 0.72 0.93 1.18 1.38 1.65 1.85. In the house, first person, the stride as before (every 0.57 s at 8). Not heard by ear here: the owner's ear is the check (TC-342).
 
 ### The diner's steps (a gameplay fix under the standing OK)
 
@@ -45,4 +59,4 @@ Left as they are, for the owner: the electronics store and the dead shop are pla
 
 ## Checks
 
-`stylua`, `lune run tests/run` (733 tests at .224; 735 with .223's two echo specs), `lune run tests/compile`, `selene`, `rojo build`; Studio play solo, as above. Not checked: with two or more clients, or on the live game.
+`stylua`, `lune run tests/run` (736 tests at .225: three new feet specs; 733 at .224), `lune run tests/compile`, `selene`, `rojo build` (into `build/scratch`, since the owner had the repo's `Consensus.rbxlx` open in Studio; .223 and .224's checks overwrote that file on disk); Studio play solo, as above. Not checked: with two or more clients, or on the live game.

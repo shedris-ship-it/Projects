@@ -226,4 +226,41 @@ return function(test, check, Shared, require)
 			"at 60 degrees down, ahead of your belly"
 		)
 	end)
+
+	-- A foot through Roblox's walk, as measured in the lobby (2026-10-16): it
+	-- rests 2.83 under the root and lifts `lift` for half of each `cycle`.
+	local function gait(lift: number, cycle: number, seconds: number, jitter: number)
+		local foot, downs, dt = {}, {}, 1 / 60
+		local rng = Rng.new(7)
+		for i = 0, math.floor(seconds / dt) do
+			local t = i * dt
+			local h = -2.83 + lift * math.max(0, math.sin(2 * math.pi * t / cycle)) + (rng:NextNumber() - 0.5) * jitter
+			if Feel.footDown(foot, h, dt, F) then
+				table.insert(downs, { t = t, above = h - foot.low })
+			end
+		end
+		return downs
+	end
+
+	test("a foot is heard once each time it lands, at a walk and a sprint", function()
+		local walk = gait(0.57, 0.62, 6.2, 0.03)
+		check.equal(#walk, 10, "ten strides of the walk, ten landings")
+		for _, down in walk do
+			check.truthy(down.above < F.FootPlant, "heard as it reaches the floor")
+		end
+		check.near(walk[2].t - walk[1].t, 0.62, 0.05, "one a stride")
+		check.equal(#gait(1.06, 0.48, 4.8, 0.03), 10, "and at a sprint")
+	end)
+
+	test("a foot standing still, or shuffling less than a lift, is never heard", function()
+		check.equal(#gait(0, 1, 5, 0.08), 0, "at rest, with jitter")
+		check.equal(#gait(F.FootLift * 0.8, 0.6, 5, 0), 0, "a shuffle under the lift")
+	end)
+
+	test("steps follow the feet, except your own in first person or a body with no walk playing", function()
+		check.truthy(not Feel.stepsFromFeet(true, 5, 0.1, F), "your own in first person: the stride, with the bob")
+		check.truthy(Feel.stepsFromFeet(false, 0.2, 99, F), "just set off: the feet, before they've lifted")
+		check.truthy(Feel.stepsFromFeet(false, 5, 0.3, F), "walking: the feet")
+		check.truthy(not Feel.stepsFromFeet(false, 5, 2, F), "moving with feet that never lift: the stride")
+	end)
 end

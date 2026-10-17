@@ -2567,6 +2567,17 @@ Config.Feel = {
 	FootstepPitchSpread = 0.07,
 	FootstepVolumeSpread = 0.1,
 	FootstepRange = 70, -- other players' steps are only played within this
+	-- A body seen from outside (yours in the lobby's third person, everyone
+	-- else's always) steps when a foot touches down (Logic/Feel footDown):
+	-- Roblox's walk lands a foot every 0.31 s at 8 and 12 studs/s and 0.24 s
+	-- at a sprint, about 1.5 to 1.8 times as often as the stride above, so a
+	-- stride-paced step drifted against the feet you watch (the owner,
+	-- 2026-10-16: "weird echos ... like following footsteps"). Your own steps
+	-- in first person keep the stride, in time with the camera's bob.
+	FootLift = 0.3, -- studs above its lowest: the foot has lifted (a walk lifts 0.57, a sprint 1.06)
+	FootPlant = 0.1, -- back within this of its lowest: it has touched down, and is heard
+	FootRelearn = 0.25, -- studs a second a foot's lowest creeps up to it, so a new pose re-learns it
+	FootQuiet = 0.6, -- seconds moving with no foot lifting (no walk playing): back to the stride
 	-- Breathing: your own breath follows stamina.
 	BreathStartStamina = 0.7, -- below this share of stamina it becomes audible
 	BreathSpeedMin = 0.9, -- tempo of the loop when fresh ...

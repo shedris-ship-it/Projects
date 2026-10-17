@@ -1,7 +1,11 @@
 -- Footsteps for everyone (owner, 2026-10-03): yours and your teammates', from
 -- their real feet, replacing Roblox's default character sounds (see
--- client_overrides/RbxCharacterSounds). Steps are paced by distance, so a slow
--- walk is slow and a sprint is a rush; each floor has its own sample set,
+-- client_overrides/RbxCharacterSounds). A body seen from outside (yours in the
+-- lobby's third person, everyone else's always) steps when a foot touches
+-- down, so you hear the feet you watch land (2026-10-16: paced by distance,
+-- they drifted against the walk and sounded like someone following you). Your
+-- own steps in first person are paced by distance, in time with the camera's
+-- bob, so a slow walk is slow and a sprint is a rush. Each floor has its own sample set,
 -- played from a shuffled bag so nothing repeats back to back, with pitch and
 -- volume varied every step. Rooms colour them through the global reverb and
 -- walls muffle other people's (the room's own reverb comes from the global
@@ -46,7 +50,9 @@ end
 local function trackFor(player: Player)
 	local track = tracks[player]
 	if not track then
-		track = { dist = 0, foot = 1, bags = {} }
+		-- (feet: each foot's memory for Feel.footDown; movingFor: seconds on
+		-- the move; lastLift: when a foot was last up.)
+		track = { dist = 0, foot = 1, bags = {}, feet = { {}, {} }, movingFor = 0, lastLift = -math.huge }
 		tracks[player] = track
 	end
 	return track
@@ -132,9 +138,39 @@ function FootstepController:_surface(humanoid: Humanoid): string
 	return Footsteps.Materials[humanoid.FloorMaterial.Name] or Footsteps.Default
 end
 
--- One step from `character`. `local` steps are never muffled; teammates' are
--- when a wall is in the way.
-function FootstepController:_step(player: Player, character: Model, humanoid: Humanoid, root: BasePart, speed: number)
+-- Which foot of a body seen from outside touched down this frame (1 left,
+-- 2 right) and where its sole is, or nil (Logic/Feel footDown). Keeps when a
+-- foot last lifted, so a body with no walk playing falls back to the stride.
+local FEET = { "LeftFoot", "RightFoot" }
+function FootstepController:_feet(track, character: Model, root: BasePart, dt: number, now: number): (number?, Vector3?)
+	local side, sole = nil, nil
+	for i, name in FEET do
+		local foot = character:FindFirstChild(name)
+		if foot and foot:IsA("BasePart") then
+			local memory = track.feet[i]
+			if Feel.footDown(memory, foot.Position.Y - root.Position.Y, dt, F) and not side then
+				side, sole = i, foot.Position - Vector3.new(0, foot.Size.Y / 2, 0)
+			end
+			if memory.up then
+				track.lastLift = now
+			end
+		end
+	end
+	return side, sole
+end
+
+-- One step from `character`: on `side`'s foot where it landed (`position`),
+-- or the next foot of the stride where it would be. `local` steps are never
+-- muffled; teammates' are when a wall is in the way.
+function FootstepController:_step(
+	player: Player,
+	character: Model,
+	humanoid: Humanoid,
+	root: BasePart,
+	speed: number,
+	side: number?,
+	position: Vector3?
+)
 	local track = trackFor(player)
 	local audio = self.controllers.AudioController
 	local surface = self:_surface(humanoid)
@@ -146,10 +182,10 @@ function FootstepController:_step(player: Player, character: Model, humanoid: Hu
 		track.bags[surface] = entry
 	end
 	local key = ids[Feel.draw(entry.bag, rng)]
-	track.foot = 3 - track.foot
+	track.foot = side or 3 - track.foot
 	local volume = Feel.stepVolume(speed, P, F) * set.volume * Feel.jitter(rng, F.FootstepVolumeSpread)
 	local pitch = set.pitch * Feel.jitter(rng, F.FootstepPitchSpread) * (track.foot == 1 and 1 or 0.97)
-	local position = footPosition(humanoid, root, track.foot)
+	position = position or footPosition(humanoid, root, track.foot)
 	local muffled = false
 	local camera = Workspace.CurrentCamera
 	if player ~= localPlayer and camera then
@@ -260,11 +296,18 @@ function FootstepController:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		tracks[player] = nil
 	end)
+	local function play(player, character, humanoid, root, speed, side, position)
+		local ok, err = pcall(self._step, self, player, character, humanoid, root, speed, side, position)
+		if not ok then
+			warn("[Consensus] footstep failed: " .. tostring(err))
+		end
+	end
 	RunService.Heartbeat:Connect(function(dt)
 		local camera = Workspace.CurrentCamera
 		if not camera then
 			return
 		end
+		local now = os.clock()
 		for _, player in Players:GetPlayers() do
 			local character = player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -274,20 +317,34 @@ function FootstepController:Start()
 				local velocity = root.AssemblyLinearVelocity
 				local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
 				local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+				-- (Read every frame, so each foot's lowest is known before it moves.)
+				local side, sole = self:_feet(track, character, root, dt, now)
+				-- Only worth playing if it can be heard.
+				local heard = (root.Position - camera.CFrame.Position).Magnitude <= F.FootstepRange
 				if grounded and speed >= F.FootstepMinSpeed and not root.Anchored then
-					local stride = Feel.stride(speed, P, F)
-					track.dist += speed * dt
-					if track.dist >= stride then
-						track.dist -= stride
-						-- Only worth playing if it can be heard.
-						if (root.Position - camera.CFrame.Position).Magnitude <= F.FootstepRange then
-							local ok, err = pcall(self._step, self, player, character, humanoid, root, speed)
-							if not ok then
-								warn("[Consensus] footstep failed: " .. tostring(err))
+					track.movingFor += dt
+					local own = player == localPlayer and localPlayer.CameraMode == Enum.CameraMode.LockFirstPerson
+					if Feel.stepsFromFeet(own, track.movingFor, now - track.lastLift, F) then
+						-- What you see land is what you hear (Config.Feel FootLift).
+						if side and heard then
+							play(player, character, humanoid, root, speed, side, sole)
+						end
+						track.dist = Feel.stride(P.WalkSpeed, P, F) * 0.6
+					else
+						local stride = Feel.stride(speed, P, F)
+						track.dist += speed * dt
+						if track.dist >= stride then
+							track.dist -= stride
+							if heard then
+								play(player, character, humanoid, root, speed)
 							end
 						end
 					end
 				else
+					track.movingFor = 0
+					-- A foot settling after you stop isn't a step.
+					track.feet[1].up = false
+					track.feet[2].up = false
 					-- Prime it so the first step comes soon after setting off.
 					track.dist = Feel.stride(P.WalkSpeed, P, F) * 0.6
 				end

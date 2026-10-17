@@ -78,6 +78,38 @@ function Feel.stepVolume(speed: number, P, F): number
 	return lerp(F.FootstepVolumeWalk, F.FootstepVolumeSprint, sprintShare(speed, P))
 end
 
+-- A foot touching down, from its height under the body (studs, foot minus
+-- root) each frame: true on the frame it lands. `foot` is its memory: `low`,
+-- the lowest it has been (creeping up to it at F.FootRelearn a second, so a
+-- crouch or another body re-learns it), and `up`, whether it has lifted
+-- F.FootLift above that since it last landed. Landing is coming back within
+-- F.FootPlant of the lowest, so one step a stride, whatever the walk's speed.
+function Feel.footDown(foot, height: number, dt: number, F): boolean
+	if foot.low == nil then
+		foot.low = height
+	else
+		foot.low = math.min(foot.low + F.FootRelearn * dt, height)
+	end
+	local above = height - foot.low
+	if above > F.FootLift then
+		foot.up = true
+	elseif foot.up and above < F.FootPlant then
+		foot.up = false
+		return true
+	end
+	return false
+end
+
+-- Where a body's steps come from: its feet (what you see land) unless it's
+-- your own in first person (the stride, in time with the camera's bob), or it
+-- has moved F.FootQuiet seconds with no foot lifting (no walk playing on it).
+function Feel.stepsFromFeet(ownFirstPerson: boolean, movingFor: number, sinceLift: number, F): boolean
+	if ownFirstPerson then
+		return false
+	end
+	return movingFor < F.FootQuiet or sinceLift < F.FootQuiet
+end
+
 -- Peak bob in studs (vertical, sideways) and degrees of roll for a speed.
 -- Zero in the air, at a standstill and with the setting at 0; light at a
 -- walk, intense at a sprint.
