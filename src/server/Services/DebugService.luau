@@ -75,6 +75,7 @@ local HELP = table.concat({
 	"marks <n> · shop [booth|rack] [top|bottom|shoes] | shop done (the fitting room) · own [garment|none] · gift <product> · starter [again] (the boutique)",
 	"ware [<torch|paint|carbit|radio> <id>|none|open counter|pegboard] (LB4's torch looks and car bits, yours and on)",
 	"arcade [play [n]|free|credits <n>|score <n> [name]|bot [cheat]|clear] (HOUSE CALL: play at cabinet n, today's free play back, plays bought, a high score, a scripted game through the replay check, empty the boards)",
+	"buy <product|pass> (a test purchase through the game's own receipt handling, no Robux)",
 	"lore [<id>] (the lobby's things to read: list them, or read one where you stand)",
 	"record [count|add <normal|hard> <fast|long> <solo|squad> <seconds> [names]|clear] (the diner's boards: the next run counts in Studio, an entry, empty them)",
 	"beat [behind|dark|hand] (a scare he sets up, on you) · disguise [name|self] (him as a friend, for you)",
@@ -1010,9 +1011,31 @@ function DebugService:Run(player: Player, text: string)
 			end
 			reply(player, table.concat(lines, " · ") .. (records.forceNext and " (the next run counts)" or ""))
 		end
+	elseif command == "buy" then
+		-- `buy <product|pass>`: a purchase as Roblox sends it after "Buy" (a
+		-- test receipt through the game's own handler, no Robux), or a pass as
+		-- if just bought: to test what each grants.
+		local found
+		for name in Products.Products do
+			if string.lower(name) == (args[2] or "") then
+				found = name
+			end
+		end
+		for name in Products.Passes do
+			if string.lower(name) == (args[2] or "") then
+				found = name
+			end
+		end
+		if found then
+			task.spawn(function()
+				reply(player, services.MonetizationService:TestBuy(player, found))
+			end)
+		else
+			reply(player, "buy <MarksSmall|MarksMedium|MarksLarge|ArcadePlay|ArcadeTen|StarterPack|ArcadeUnlimited>")
+		end
 	elseif command == "gift" then
 		-- `gift <product>`: a gift to yourself as if a friend had bought it
-		-- (MarksSmall, StarterPack...): granted, its wrapped box at your feet.
+		-- (MarksSmall, ArcadeTen...): granted, its wrapped box at your feet.
 		local found = "MarksSmall"
 		for name in Products.Products do
 			if string.lower(name) == (args[2] or "") then

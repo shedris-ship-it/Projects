@@ -68,7 +68,7 @@ end
 
 -- A product's name on a card or a toast.
 local function labelOf(name: string): string
-	local product = Products.Products[name]
+	local product = Products.Products[name] or Products.Passes[name]
 	return product and product.label or name
 end
 
@@ -429,15 +429,21 @@ function ShopService:TillBuy(player: Player, name: string, forUserId: number)
 		return
 	end
 	local money_ = self.services.MonetizationService
-	local ok
+	local ok, why
 	if forUserId ~= 0 then
 		local friend = Players:GetPlayerByUserId(forUserId)
-		ok = friend ~= nil and money_:PromptGift(player, name, friend)
+		if friend then
+			ok, why = money_:PromptGift(player, name, friend)
+		end
 	else
 		ok = money_:Prompt(player, name)
 	end
 	if not ok then
-		tell(player, "The till can't take that yet.")
+		local say = {
+			region = "Roblox prices change by country, so a gift can only go to someone whose prices are the same as yours or lower.",
+			unknown = "The till can't check that gift just now: try again in a moment.",
+		}
+		tell(player, say[why] or "The till can't take that yet.")
 	end
 end
 
@@ -445,7 +451,7 @@ end
 -- run"): when you're back in the hub with a run behind you.
 function ShopService:CheckOffer(player: Player)
 	local data = self.services.DataService:Get(player)
-	local product = Products.Products.StarterPack
+	local product = Products.Passes.StarterPack
 	if not data or data.StarterPack or data.StarterOffered or data.RunsPlayed < 1 then
 		return
 	end
@@ -459,6 +465,16 @@ function ShopService:CheckOffer(player: Player)
 		garment = product.grant.garment and Wardrobe.Garments[product.grant.garment].name,
 		marks = product.grant.marks,
 	})
+end
+
+-- A pass's grant given (Services/MonetizationService): said.
+function ShopService:PassGranted(player: Player, name: string)
+	local pass = Products.Passes[name]
+	local garment = pass and pass.grant and pass.grant.garment
+	tell(
+		player,
+		string.format("Thank you! %s.%s", labelOf(name), garment and " Try the jacket on at the boutique." or "")
+	)
 end
 
 -- Gifts -------------------------------------------------------------------------------
@@ -577,7 +593,7 @@ function ShopService:DebugGift(player: Player, name: string): string
 	local product = Products.Products[name]
 	local data = self.services.DataService:Get(player)
 	if not product or not data then
-		return "gift <" .. table.concat({ "MarksSmall", "MarksMedium", "MarksLarge", "StarterPack" }, "|") .. ">"
+		return "gift <" .. table.concat({ "MarksSmall", "MarksMedium", "MarksLarge", "ArcadePlay" }, "|") .. ">"
 	end
 	local id = "debug-gift-" .. tostring(os.clock())
 	Profile.applyPurchase(data, id, product.grant or {}, { product = name, from = player.UserId })

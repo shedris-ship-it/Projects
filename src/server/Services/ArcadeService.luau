@@ -224,7 +224,7 @@ function ArcadeService:_coin(player: Player, cab)
 	local pass = Products.Passes.ArcadeUnlimited
 	table.insert(
 		robux,
-		{ name = "ArcadeUnlimited", label = "Unlimited plays", robux = 250, can = type(pass.id) == "number" }
+		{ name = "ArcadeUnlimited", label = pass.label, robux = pass.robux, can = type(pass.id) == "number" }
 	)
 	Net.get("ArcadeCoin"):FireClient(player, {
 		index = cab.index,

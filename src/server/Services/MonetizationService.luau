@@ -12,12 +12,19 @@
 -- told, a wrapped box waiting for them to open (Services/ShopService). If
 -- they've left by then, the buyer has it instead, so nothing paid for is
 -- lost.
+--
+-- Regional pricing (2026-10-16, the owner's products in Creator Hub): a gift
+-- goes only from a player whose price level is at least the friend's
+-- (Logic/PriceLevels; levels asked for at join, as Roblox's docs advise), so
+-- nothing bought cheaply in one country is given where it costs more.
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local PriceLevels = require(Shared.Logic.PriceLevels)
 local Products = require(Shared.Data.Products)
 local Profile = require(Shared.Logic.Profile)
 
@@ -31,6 +38,42 @@ function MonetizationService:Init(services)
 	self.passIds = {} -- pass name -> id
 	self.owned = {} -- player -> { [pass name] = true }, once seen owned
 	self.gifting = {} -- buyer -> { product, to (userId), at }: the gift being bought
+	self.levels = {} -- player -> their price level (1 to 1000), once Roblox says
+end
+
+-- Asks Roblox for players' price levels (yields). In Studio, where the call
+-- can fail, an unanswered player counts as full price, so gifts can be tried.
+function MonetizationService:_askLevels(players: { Player })
+	local ids = {}
+	for _, player in players do
+		table.insert(ids, player.UserId)
+	end
+	local ok, infos = pcall(MarketplaceService.GetUsersPriceLevelsAsync, MarketplaceService, ids)
+	local levels = ok and PriceLevels.read(infos) or {}
+	for _, player in players do
+		local level = levels[player.UserId]
+		if not level and RunService:IsStudio() then
+			level = PriceLevels.Full
+		end
+		if level and player.Parent then
+			self.levels[player] = level
+		end
+	end
+end
+
+-- Whether `buyer` may give `friend` a gift, and why not ("region", or
+-- "unknown" when Roblox hasn't said). Yields to ask for a level not known.
+function MonetizationService:GiftAllowed(buyer: Player, friend: Player): (boolean, string?)
+	local missing = {}
+	for _, player in { buyer, friend } do
+		if not self.levels[player] then
+			table.insert(missing, player)
+		end
+	end
+	if #missing > 0 then
+		self:_askLevels(missing)
+	end
+	return PriceLevels.canGift(self.levels[buyer], self.levels[friend])
 end
 
 function MonetizationService:Start()
@@ -60,12 +103,26 @@ function MonetizationService:Start()
 					self.owned[player][name] = true
 				end
 			end
+			self:GrantPasses(player)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		self.owned[player] = nil
 		self.gifting[player] = nil
+		self.levels[player] = nil
 	end)
+	-- Each player's price level (for gifts), and what their passes give.
+	Players.PlayerAdded:Connect(function(player)
+		task.spawn(self.GrantPasses, self, player)
+		self:_askLevels({ player })
+	end)
+	local here = Players:GetPlayers()
+	if #here > 0 then
+		task.spawn(self._askLevels, self, here)
+		for _, player in here do
+			task.spawn(self.GrantPasses, self, player)
+		end
+	end
 end
 
 -- Who a purchase of `name` by `buyer` goes to now: a friend they're buying
@@ -74,7 +131,10 @@ function MonetizationService:_recipient(buyer: Player, name: string): (Player, b
 	local gift = self.gifting[buyer]
 	if gift and gift.product == name and os.clock() - gift.at < 600 then
 		local friend = Players:GetPlayerByUserId(gift.to)
-		if friend and friend ~= buyer and self.Data:Get(friend) then
+		-- (Checked again here, from the levels already known: no waiting in a
+		-- receipt.)
+		local allowed = friend ~= nil and PriceLevels.canGift(self.levels[buyer], self.levels[friend])
+		if friend and friend ~= buyer and allowed and self.Data:Get(friend) then
 			return friend, true
 		end
 	end
@@ -133,16 +193,21 @@ function MonetizationService:_process(receipt)
 end
 
 -- Opens Roblox's purchase prompt for a product, for a friend in this lobby
--- (a gift). False when it can't be: no id yet, the friend isn't here, or a
--- once-only product they already have.
-function MonetizationService:PromptGift(buyer: Player, name: string, friend: Player): boolean
+-- (a gift). False when it can't be (and why: "region" when their prices are
+-- higher than the buyer's): no id yet, the friend isn't here, or a once-only
+-- product they already have.
+function MonetizationService:PromptGift(buyer: Player, name: string, friend: Player): (boolean, string?)
 	local product = Products.Products[name]
 	if not product or type(product.id) ~= "number" or friend == buyer or friend.Parent ~= Players then
 		return false
 	end
 	local data = self.Data:Get(friend)
-	if not data or (product.once and name == "StarterPack" and data.StarterPack) then
+	if not data then
 		return false
+	end
+	local allowed, why = self:GiftAllowed(buyer, friend)
+	if not allowed then
+		return false, why
 	end
 	self.gifting[buyer] = { product = name, to = friend.UserId, at = os.clock() }
 	MarketplaceService:PromptProductPurchase(buyer, product.id)
@@ -174,20 +239,73 @@ end
 function MonetizationService:Prompt(player: Player, name: string): boolean
 	local product = Products.Products[name]
 	if product and type(product.id) == "number" then
-		local data = self.Data:Get(player)
-		if product.once and name == "StarterPack" and data and data.StarterPack then
-			return false
-		end
 		self.gifting[player] = nil
 		MarketplaceService:PromptProductPurchase(player, product.id)
 		return true
 	end
 	local pass = self.passIds[name]
-	if pass then
+	if pass and not self:OwnsPass(player, name) then
 		MarketplaceService:PromptGamePassPurchase(player, pass)
 		return true
 	end
 	return false
+end
+
+-- For tests (F2 `buy`): a product's receipt as Roblox sends one after "Buy",
+-- through the same handler (no Robux); a pass as if just bought.
+function MonetizationService:TestBuy(player: Player, name: string): string
+	local product = Products.Products[name]
+	if product and type(product.id) == "number" then
+		local decision = self:_process({
+			PlayerId = player.UserId,
+			ProductId = product.id,
+			PurchaseId = "test-" .. game:GetService("HttpService"):GenerateGUID(false),
+			CurrencySpent = product.robux or 0,
+		})
+		return name .. ": " .. decision.Name
+	end
+	if self.passIds[name] then
+		self.owned[player] = self.owned[player] or {}
+		self.owned[player][name] = true
+		self:GrantPasses(player)
+		return name .. ": owned"
+	end
+	return "no such product or pass (or no id)"
+end
+
+-- A pass that gives something (Data/Products Passes' `grant`: the starter
+-- pack) gives it once, the first time the game sees it's yours: at join, or
+-- as you buy it (perhaps from the game's page, out of the game). Marked in
+-- the profile (Owned.pass), so it never comes twice.
+function MonetizationService:GrantPasses(player: Player)
+	local data = self.Data:WaitForProfile(player, 15)
+	if not data or not player.Parent then
+		return
+	end
+	for name, pass in Products.Passes do
+		local given = data.Owned.pass and data.Owned.pass[name]
+		if pass.grant and not given and self.passIds[name] and self:OwnsPass(player, name) then
+			local applied, undo = Profile.applyPurchase(data, "pass:" .. name, pass.grant)
+			data.Owned.pass = data.Owned.pass or {}
+			data.Owned.pass[name] = true
+			if not self.Data:SaveNow(player) then
+				-- (Taken back, to be given at the next join instead.)
+				undo()
+				if data.Owned.pass then
+					data.Owned.pass[name] = nil
+				end
+			elseif applied then
+				self.Data:Send(player)
+				local shop = self.services and self.services.ShopService
+				if shop then
+					shop:PassGranted(player, name)
+				end
+				if self.Telemetry then
+					self.Telemetry:Log("PassGranted", { pass = name }, player)
+				end
+			end
+		end
+	end
 end
 
 return MonetizationService

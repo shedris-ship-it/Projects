@@ -213,10 +213,10 @@ Starting prices to test, not settled: the owner sets the final ones.
 | Marks, small | Developer product | 100 R for 1,000 Marks | 10 Marks a Robux (the owner): a baseline clothing piece |
 | Marks, medium | Developer product | 400 R for 4,400 Marks | 10% bonus |
 | Marks, large | Developer product | 1,000 R for 12,000 Marks | 20% bonus |
-| Starter pack | Developer product, once per player | 99 R: a jacket and 1,000 Marks | About 250 R of value; shown once, after your first run; the jacket is from the first paid line |
+| Starter pack | Game pass (the owner, 2026-10-16: Roblox sells it once, and it's in the Store tab) | 99 R: a jacket and 1,000 Marks | About 250 R of value; shown once, after your first run; the jacket is from the first paid line |
 | Arcade play | Developer product, or Marks | **5 R**, or **100 Marks** | The owner's prices; one free play a day |
 | Arcade, 10 plays | Developer product | 40 R | |
-| Arcade unlimited | Game pass | **250 R** | The owner's price |
+| Arcade unlimited | Game pass | **300 R** | The owner's price (made in Creator Hub at 300, 2026-10-16); every arcade game, not only HOUSE CALL |
 | Clothes | Marks | Shoes 500-700, bottoms 800-1,000, tops 1,000, jackets 1,500-2,000 | Round the owner's baseline of about 1,000 (about 100 R); shoes are the cheap first rung |
 | Torch looks | Marks | 1,000-2,000 | |
 | Car bits | Marks | 300-1,000 | |
@@ -284,6 +284,7 @@ This is CLAUDE.md's Next item 7 (the hub, reserved servers), brought forward. Me
 ### Purchases
 
 - `Services/MonetizationService` (named in design doc section 7) owns `MarketplaceService.ProcessReceipt`: it grants and saves before it reports the purchase granted, and grants each receipt once. It also checks game passes (`UserOwnsGamePassAsync`, and the purchase-finished signal).
+- **On sale (2026-10-16):** the owner made the products and passes in Creator Hub (ids in `Data/Products`; report `docs/progress/2026-10-16-monetization/`). Regional pricing is on, so a gift goes only from a player whose price level is at least the friend's (`Logic/PriceLevels`, Roblox's rule). A pass that gives something (the starter pack) gives it once, the first time the game sees you own it.
 - A `ShopService` spends Marks, with prices only on the server.
 - Product and pass ids, created by the owner in Creator Hub, go in one data module (`Data/Products`).
 - Purchases can be tested in Studio without spending Robux, once Studio's API access is on.

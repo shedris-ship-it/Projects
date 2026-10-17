@@ -135,6 +135,12 @@ end
 -- Saves now, keeping the lock; for a purchase that must be kept before
 -- Roblox is told it's granted (Services/MonetizationService).
 function DataService:SaveNow(player: Player): boolean
+	-- (A Studio session without DataStores keeps profiles in memory: there's
+	-- nothing to save, so a test purchase counts as saved there. Live, a
+	-- server that can't save holds a purchase back for one that can.)
+	if not self.store and profiles[player] and RunService:IsStudio() then
+		return true
+	end
 	return self:_save(player, false)
 end
 
