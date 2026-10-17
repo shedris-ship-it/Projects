@@ -732,6 +732,33 @@ Mall.Signs = {
 		panel = { 30, 70, 50 },
 		font = "SourceSansBold",
 	},
+	-- the header strips over the video store's COMING SOON frames (Mall.Ads)
+	{
+		room = "video",
+		text = "COMING SOON",
+		x = -15.9,
+		y = 13.5,
+		z = -38.5,
+		w = 8,
+		h = 0.8,
+		face = "E",
+		color = { 236, 204, 92 },
+		panel = { 20, 20, 22 },
+		font = "SourceSansBold",
+	},
+	{
+		room = "video",
+		text = "COMING SOON",
+		x = 15.9,
+		y = 13.5,
+		z = -38.5,
+		w = 8,
+		h = 0.8,
+		face = "W",
+		color = { 236, 204, 92 },
+		panel = { 20, 20, 22 },
+		font = "SourceSansBold",
+	},
 	{
 		room = "electronics",
 		text = "SERVICE · BATTERIES · REPAIRS",
@@ -1047,18 +1074,32 @@ Mall.Strings = {
 	{ room = "garage", from = { -48.5, 12, -63.5 }, to = { -20, 12, -90 }, sag = 2, bulbs = 12, lit = 4 },
 }
 
--- The mall's old backlit lightboxes, powered again: the immersive ads' slots
--- (docs/plans/lobby-rework.md; LB6 fills them). {x, y, z} is the box's front.
--- Roblox's rules: a face 8 x 4.5 to 32 x 18 studs, near 16:9, and nothing in
--- front of it (the owner, 2026-10-15: keep the ad areas intact). The court's
--- columns, planters and strings keep clear (tests/specs/MallLayout's "ad"
--- test, Logic/MallLayout.adBlockers). Until an ad runs each reads THIS SPACE
--- AVAILABLE, as a dead mall's empty lightboxes do. `kit`: its poster case
--- (Data/Kit), made for its face's size.
+-- The immersive ads' frames (docs/plans/lobby-rework.md, "Immersive ads";
+-- LB6), only where a mall really had ads: the mall's old backlit lightboxes
+-- on the court's walls, powered again; the video store's COMING SOON frames
+-- over its tapes; the big screen over the TV wall in the electronics window.
+-- {x, y, z} is the face's front. Roblox's rules: a face 8 x 4.5 to 32 x 18
+-- studs, near 16:9, and nothing in front of it (the owner, 2026-10-15: keep
+-- the ad areas intact): the columns, blocks and signs keep clear
+-- (Logic/MallLayout.adBlockers; Logic/Ads.problems, both spec'd). `kind`:
+-- "lightbox", "film" or "screen" (Logic/Ads); `poster`: ours (Data/Posters),
+-- shown to a player who can't be shown ads, and by the AdGui while no ad
+-- runs; until it's uploaded the frame shows its lit blank (THIS SPACE
+-- AVAILABLE, as a dead mall's empty lightboxes do). `video`: video ads too
+-- (a screen only). `kit`: its poster case (Data/Kit), made for its face's
+-- size. `through`: the room it's seen from across a shopfront. `fan`: how
+-- far off its face it's kept clear, in degrees (45 unless said).
+--
+-- The video store's frames hang on its side walls by the way in, not in its
+-- front: the court's string of bulbs and the cardboard CASES & CARS sign
+-- hang across the opening, and a frame low enough to clear them would hang
+-- at head height in the doorway.
 Mall.Ads = {
 	{
 		room = "court",
 		slot = "court-west-north",
+		kind = "lightbox",
+		poster = "Mayfields",
 		x = -48.4,
 		y = 6.6,
 		z = -21,
@@ -1070,6 +1111,8 @@ Mall.Ads = {
 	{
 		room = "court",
 		slot = "court-west-south",
+		kind = "lightbox",
+		poster = "PineHollow",
 		x = -48.4,
 		y = 6.6,
 		z = 21,
@@ -1081,6 +1124,8 @@ Mall.Ads = {
 	{
 		room = "court",
 		slot = "court-east-north",
+		kind = "lightbox",
+		poster = "Portraits",
 		x = 48.4,
 		y = 6,
 		z = -24.6,
@@ -1092,6 +1137,8 @@ Mall.Ads = {
 	{
 		room = "court",
 		slot = "court-east-south",
+		kind = "lightbox",
+		poster = "SparkleCola",
 		x = 48.4,
 		y = 6,
 		z = 24.6,
@@ -1099,6 +1146,54 @@ Mall.Ads = {
 		h = 5,
 		face = "W",
 		kit = "LightboxSmall",
+	},
+	-- the video store's COMING SOON, over the first tapes either side of the
+	-- way in (horror on the left), under their header strips (Mall.Signs)
+	{
+		room = "video",
+		slot = "video-coming-west",
+		kind = "film",
+		poster = "DontLookAway",
+		x = -15.4,
+		y = 10.2,
+		z = -38.5,
+		w = 8.4,
+		h = 5,
+		face = "E",
+		kit = "LightboxSmall",
+	},
+	{
+		room = "video",
+		slot = "video-coming-east",
+		kind = "film",
+		poster = "Suppertime",
+		x = 15.4,
+		y = 10.2,
+		z = -38.5,
+		w = 8.4,
+		h = 5,
+		face = "W",
+		kit = "LightboxSmall",
+	},
+	-- the electronics window: a big projection screen on its frame behind the
+	-- three sets on their stand, its foot hidden behind them, seen from the
+	-- court under the BATTERIES · GEAR card. Clear to 35 degrees off: past
+	-- about 38, from the court's far corner, the gallery's column at the
+	-- shop's corner cuts its edge (a projection set's picture fades that far off anyway).
+	{
+		room = "electronics",
+		slot = "electronics-screen",
+		kind = "screen",
+		poster = "StandBy",
+		video = true,
+		through = "court",
+		fan = 35,
+		x = -33.5,
+		y = 8.15,
+		z = 34.6,
+		w = 8.8,
+		h = 4.95,
+		face = "N",
 	},
 }
 

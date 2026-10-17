@@ -234,14 +234,14 @@ For scale: the developer keeps 70% of the Robux spent, and DevEx pays about $0.0
 
 Roblox's immersive ads, put where a mall really had ads:
 - **Backlit poster lightboxes** on the court's walls and down the concourse towards the shutter (image ads).
-- **Film poster frames** on the video store's front, "coming soon" (image ads).
-- **The TV wall** in the electronics window (video ads; autoplay or click-to-play decided in a test).
+- **Film poster frames,** "coming soon" (image ads). Built (LB6) on the store's side walls by the way in, over the first tapes: the court's string of bulbs and a cardboard sign hang across its front, so a frame there would hang at head height in the doorway.
+- **The TV wall** in the electronics window (video ads). Built (LB6): its sets are smaller than Roblox's smallest face, so a big projection screen stands behind them. Autoplay or click-to-play isn't ours to choose: it's how the advertiser bids (autoplay is muted while looked at; click-to-play goes full screen with sound). Ours is which frames take video: the screen only.
 - **Never in** the garage, on the arcade machines, in the boutique's booth, or anywhere in the run.
 - **No portal ads** (they send players to another game, out of your lobby) and **no rewarded full-screen video** (not immersive).
 - **Roblox's rules** (Creator Docs, Immersive ads): a billboard is an `AdGui` on the face of a part between 8 x 4.5 and 32 x 18 studs, with nothing in front of it and no other SurfaceGui on that face.
   - To be paid, the game must be public, the owner ID-verified with 2-step verification, the maturity questionnaire approved, and the game at 2,000 unique monthly visitors.
   - Players who can't be shown ads see a fallback. For them (`PolicyService:GetPolicyInfoForPlayerAsync`, `AreAdsAllowed`), each frame shows our own 1988 poster instead, so the mall looks the same to everyone.
-  - Our posters need images uploaded to the owner's account, so ask first.
+  - Our posters need images uploaded to the owner's account, so ask first. Until they are, no AdGui goes up: an AdGui with no ad and no fallback image shows Roblox's grey card with its logo (seen in Studio), so each frame keeps its lit blank (`Logic/Ads.serving`).
 
 ### Never sold
 
@@ -399,6 +399,12 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     - The prize counter stays as it was: shut under its dust sheet with PRIZES · CLOSED.
   - *The story's foundation* (2026-10-16; the owner: "Lets do 1 and 2, atleast build the foundation for it, I want input on the story"): things to read in the lobby (`Data/Lore`, `Services/LoreService`), five drafts in the garage shown only in Studio; the owner's questions in `docs/plans/lobby-story.md`; the story clutter sketched for the owner's picks (`kitlib/clutter`, `docs/progress/2026-10-16-lobby-story/`); `docs/NEW-MAP.md`, everything in the lobby a new map changes.
 - **LB6, ads and the rest.** The ad lightboxes, posters and TV wall with our own posters as their fallback, the photo booth and its frames, the supporter pack.
+  - *The ads, built* (build .230, 2026-10-16; report `docs/progress/2026-10-16-lobby-lb6/`):
+    - seven frames (`Data/Mall` `Ads`): the court's four lightboxes, two COMING SOON frames in the video store, the big screen in the electronics window (the only one taking video);
+    - the rules (`Logic/Ads`, spec'd: Roblox's sizes, only the court, video store and electronics, never a run server, video only on a screen; `MallLayout.adBlockers` now counts signs and the court seen through a shopfront);
+    - each frame's AdGui goes up only once its own poster is uploaded (its fallback image), and a player who can't be shown ads gets our poster in its place on their own screen (`Controllers/AdController`, `World/AdPoster`);
+    - our seven 1988 posters drawn from code (`tools/posters.py`, `assets/posters/`; drafts), not uploaded: the owner's step, with F2 `ads` to see every state in Studio.
+  - *Still to do:* the photo booth and its frames, the supporter pack.
 - **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
 
 LB0 comes first because purchases and teleports both depend on it, and they can only be checked in the live game.

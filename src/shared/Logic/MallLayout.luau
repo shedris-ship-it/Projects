@@ -173,24 +173,26 @@ local function halves(b)
 	return out[1], out[2], out[3]
 end
 
--- What stands in front of an ad lightbox (Roblox serves an ad only to a face
--- nothing covers): every column, and every solid block whose box reaches
--- into the space `depth` studs out from the ad's face, as tall as it and
--- widening as it goes out (seen from up to 45 degrees off its face). Names,
--- for a test to show; none for a good layout.
+-- What stands in front of an ad's face (Roblox serves an ad only to a face
+-- nothing covers): every column, and every solid block or sign whose box
+-- reaches into the space `depth` studs out from the face, as tall as it and
+-- widening as it goes out (seen from up to 45 degrees off its face, or the
+-- ad's own `fan`), in its own room and the one it's seen from (`through`).
+-- Names, for a test to show; none for a good layout.
 function MallLayout.adBlockers(mall, depth: number): { string }
 	local found = {}
 	local out = { E = { 1, 0 }, W = { -1, 0 }, N = { 0, -1 }, S = { 0, 1 } }
 	for _, ad in mall.Ads or {} do
 		local d = out[ad.face]
+		local spread = math.tan(math.rad(ad.fan or 45)) -- sideways per stud out
 		-- The box round the fan in front of the face, on the floor plan.
 		local ax0, ax1, az0, az1
 		if d[1] ~= 0 then
 			ax0, ax1 = math.min(ad.x, ad.x + d[1] * depth), math.max(ad.x, ad.x + d[1] * depth)
-			az0, az1 = ad.z - ad.w / 2 - depth, ad.z + ad.w / 2 + depth
+			az0, az1 = ad.z - ad.w / 2 - depth * spread, ad.z + ad.w / 2 + depth * spread
 		else
 			az0, az1 = math.min(ad.z, ad.z + d[2] * depth), math.max(ad.z, ad.z + d[2] * depth)
-			ax0, ax1 = ad.x - ad.w / 2 - depth, ad.x + ad.w / 2 + depth
+			ax0, ax1 = ad.x - ad.w / 2 - depth * spread, ad.x + ad.w / 2 + depth * spread
 		end
 		local ay0, ay1 = ad.y - ad.h / 2, ad.y + ad.h / 2
 		local function hit(x0, x1, y0, y1, z0, z1)
@@ -207,18 +209,34 @@ function MallLayout.adBlockers(mall, depth: number): { string }
 				far = math.min(depth, d[2] > 0 and z1 - ad.z or ad.z - z0)
 				s0, s1, f0, f1 = x0, x1, ad.x - ad.w / 2, ad.x + ad.w / 2
 			end
-			return s1 > f0 - far and s0 < f1 + far
+			return s1 > f0 - far * spread and s0 < f1 + far * spread
+		end
+		local function near(room: string): boolean
+			return room == ad.room or room == ad.through
 		end
 		for _, b in mall.Blocks or {} do
-			if b.room == ad.room and b.collide ~= false then
+			if near(b.room) and b.collide ~= false then
 				local hx, hy, hz = halves(b)
 				if hit(b.x - hx, b.x + hx, b.y - hy, b.y + hy, b.z - hz, b.z + hz) then
 					table.insert(found, string.format("%s in front of %s", b.name, ad.slot or "an ad"))
 				end
 			end
 		end
+		-- A sign's panel, flat against the way it faces (one on the floor is
+		-- walked over, never in the way).
+		for _, sign in mall.Signs or {} do
+			if near(sign.room) and sign.face ~= "UP" then
+				local across = (sign.face == "N" or sign.face == "S")
+				local hx = across and sign.w / 2 or 0.1
+				local hz = across and 0.1 or sign.w / 2
+				local hy = sign.h / 2
+				if hit(sign.x - hx, sign.x + hx, sign.y - hy, sign.y + hy, sign.z - hz, sign.z + hz) then
+					table.insert(found, string.format("the sign %q in front of %s", sign.text, ad.slot or "an ad"))
+				end
+			end
+		end
 		for _, g in mall.Galleries or {} do
-			if g.room == ad.room then
+			if near(g.room) then
 				for _, c in g.columns or {} do
 					if hit(c[1] - 1, c[1] + 1, 0, g.level, c[2] - 1, c[2] + 1) then
 						table.insert(found, string.format("a column in front of %s", ad.slot or "an ad"))

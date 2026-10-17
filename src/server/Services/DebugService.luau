@@ -3,6 +3,7 @@
 -- commands to force states). Available in Studio, or to user ids listed in
 -- Config.Debug.AllowedUserIds on live servers.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -38,6 +39,7 @@ local MallLayout = require(Shared.Logic.MallLayout)
 local Tools = require(Shared.Data.Tools)
 local Kit = require(Shared.World.Kit)
 local ClipScan = require(script.Parent.Parent.World.ClipScan)
+local MallBuilder = require(script.Parent.Parent.World.MallBuilder)
 local PartDump = require(script.Parent.Parent.World.PartDump)
 
 local DebugService = {}
@@ -90,6 +92,7 @@ local HELP = table.concat({
 	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
 	"role (this server's job: lobby, run or both; Services/PlaceService)",
 	"mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n] (hear the n-th candidate, Assets.Mall) · brownout · mallstrike (the lobby mall's)",
+	"ads [ad|poster|live|deny|allow|policy] (the mall's ad frames: their state; every AdGui up; our posters; back to the rule; you as a player who can't, or can, be shown ads; back to PolicyService)",
 	"stepvolume [share] (steps seen from outside, yours in the lobby and everyone else's: a share of full volume for everyone; none: back to Config.Feel FootstepVolumeSeen)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
@@ -1841,6 +1844,58 @@ function DebugService:Run(player: Player, text: string)
 			share and string.format("steps seen from outside at %.2f of full volume", share)
 				or string.format("steps seen from outside back to %.2f (Config)", Config.Feel.FootstepVolumeSeen)
 		)
+	elseif command == "ads" then
+		-- The lobby mall's ad frames (LB6; Logic/Ads): their state, or every
+		-- frame's AdGui up (Studio shows its grey card where no poster of ours
+		-- is uploaded), ours on every frame, or back to the rule; `deny` and
+		-- `allow` answer for you as PolicyService would (Controllers/AdController).
+		local mode = args[2]
+		if mode == "deny" or mode == "allow" or mode == "policy" then
+			local answer = nil
+			if mode ~= "policy" then
+				answer = mode == "allow"
+			end
+			player:SetAttribute("DebugAdsAllowed", answer)
+		elseif mode == "ad" or mode == "poster" or mode == "live" then
+			local slots = {}
+			for _, slot in Mall.Ads do
+				slots[slot.slot] = slot
+			end
+			for _, face in CollectionService:GetTagged(Constants.Tags.AdFace) do
+				local slot = slots[face:GetAttribute("AdSlot")]
+				if slot then
+					MallBuilder.dressAd(face, slot, mode ~= "live" and mode or nil)
+				end
+			end
+		elseif mode ~= nil then
+			reply(player, "ads [ad|poster|live|deny|allow|policy]")
+			return
+		end
+		local lines = {}
+		for _, face in CollectionService:GetTagged(Constants.Tags.AdFace) do
+			local gui = face:FindFirstChildOfClass("AdGui")
+			table.insert(
+				lines,
+				string.format(
+					"%s: %s%s",
+					tostring(face:GetAttribute("AdSlot")),
+					gui and "AdGui up" or "our poster",
+					gui and (" (" .. gui.Status.Name .. ")") or ""
+				)
+			)
+		end
+		table.sort(lines)
+		local forced = player:GetAttribute("DebugAdsAllowed")
+		table.insert(
+			lines,
+			"you: "
+				.. (
+					type(forced) == "boolean" and (forced and "allowed (forced)" or "denied (forced)")
+					or "as PolicyService says"
+				)
+		)
+		print("[debug] ads\n" .. table.concat(lines, "\n"))
+		reply(player, table.concat(lines, " · "))
 	elseif command == "brownout" then
 		if services.MallService then
 			services.MallService:BrownoutNow()

@@ -13,10 +13,13 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Ads = require(Shared.Logic.Ads)
+local AdPoster = require(Shared.World.AdPoster)
 local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Kit = require(Shared.World.Kit)
 local Mall = require(Shared.Data.Mall)
+local Posters = require(Shared.Data.Posters)
 local MallLayout = require(Shared.Logic.MallLayout)
 local PropFactory = require(Shared.World.PropFactory)
 
@@ -1014,100 +1017,119 @@ local function buildString(folder: Instance, origin: Vector3, s)
 	end
 end
 
--- One of the mall's old backlit lightboxes, back on the generator: where
--- Roblox's immersive ads go (docs/plans/lobby-rework.md, "Immersive ads";
--- a billboard is 8 x 4.5 to 32 x 18 studs, nothing in front of it). LB6
--- puts the AdGui on its face; until then it shows a plain placeholder.
-local function buildAd(folder: Instance, origin: Vector3, ad)
-	local cf = facing(origin, ad.x, ad.y, ad.z, ad.face)
-	local look = Config.Mall.Lights.ad
-	local frame = decor(
-		folder,
-		"AdFrame",
-		Vector3.new(ad.w + 0.6, ad.h + 0.6, 0.6),
-		cf * CFrame.new(0, 0, 0.3),
-		DARK_STEEL,
-		material("Metal")
-	)
-	if ad.kit then
-		-- Its poster case: a bezel round the face, never over it.
-		later(function()
-			Kit.dressPart(frame, ad.kit)
-		end)
+-- Our poster or the frame's AdGui on an ad's face (Logic/Ads): `mode` nil
+-- follows the rule (its AdGui up once its poster is uploaded, Ads.serving),
+-- "ad" puts its AdGui up regardless (F2 `ads ad`: Studio shows its grey
+-- card), "poster" ours. A client whose player can't be shown ads puts ours
+-- back for them (Controllers/AdController).
+function MallBuilder.dressAd(face: BasePart, slot, mode: string?)
+	local up
+	if mode == nil then
+		up = Ads.serving(slot, Posters, Config.Ads)
+	else
+		up = mode == "ad"
 	end
-	-- Not Neon: its bloom washes a face out to plain white. The glow is the
-	-- SurfaceGui's own, unlit and a little bright, so whatever is on the
-	-- face stays readable.
+	local old = face:FindFirstChildOfClass("AdGui")
+	if old then
+		old:Destroy()
+	end
+	if up then
+		-- Nothing else on its face (Roblox's rule): ours comes off.
+		AdPoster.clear(face)
+		local gui = Instance.new("AdGui")
+		gui.Face = Enum.NormalId.Front
+		gui.EnableVideoAds = slot.video == true
+		gui.FallbackImage = Ads.image(slot, Posters) or ""
+		gui.Parent = face
+	else
+		AdPoster.build(face, slot)
+	end
+	face:SetAttribute("AdUp", up)
+end
+
+-- One of the immersive ads' frames (Data/Mall `Ads`; docs/plans/lobby-
+-- rework.md, "Immersive ads"; a billboard is 8 x 4.5 to 32 x 18 studs,
+-- nothing in front of it): the mall's old backlit lightboxes, back on the
+-- generator, the video store's COMING SOON frames (the same case), and the
+-- big screen in the electronics window on its frame. Its face carries the
+-- AdGui, or our poster (MallBuilder.dressAd).
+local function buildAd(folder: Instance, origin: Vector3, slot)
+	local cf = facing(origin, slot.x, slot.y, slot.z, slot.face)
+	local kind = Ads.kind(slot)
+	local glow = Config.Ads.Glow[kind] or Config.Ads.Glow.lightbox
+	if kind == "screen" then
+		-- A projection set's screen in its dark case, on two posts from the
+		-- floor (hidden behind the sets in front of it).
+		local case = Color3.fromRGB(26, 26, 28)
+		decor(
+			folder,
+			"ScreenCase",
+			Vector3.new(slot.w + 0.8, slot.h + 0.8, 1.2),
+			cf * CFrame.new(0, 0, 0.6),
+			case,
+			material("SmoothPlastic")
+		)
+		local foot = slot.h / 2 + 0.4
+		local length = slot.y - foot
+		if length > 0.1 then
+			for _, side in { -1, 1 } do
+				decor(
+					folder,
+					"ScreenPost",
+					Vector3.new(0.5, length, 0.5),
+					cf * CFrame.new(side * (slot.w / 2 - 0.8), -foot - length / 2, 0.6),
+					DARK_STEEL,
+					material("Metal")
+				)
+			end
+		end
+	else
+		local frame = decor(
+			folder,
+			"AdFrame",
+			Vector3.new(slot.w + 0.6, slot.h + 0.6, 0.6),
+			cf * CFrame.new(0, 0, 0.3),
+			DARK_STEEL,
+			material("Metal")
+		)
+		if slot.kit then
+			-- Its poster case: a bezel round the face, never over it.
+			later(function()
+				Kit.dressPart(frame, slot.kit)
+			end)
+		end
+	end
+	-- Not Neon: its bloom washes a face out to plain white. Our poster's glow
+	-- is its SurfaceGui's own, unlit and a little bright (AdPoster).
 	local face = part(
 		folder,
 		"AdFace",
-		Vector3.new(ad.w, ad.h, 0.1),
+		Vector3.new(slot.w, slot.h, 0.1),
 		cf * CFrame.new(0, 0, -0.05),
-		rgb(look.color),
+		kind == "screen" and Color3.fromRGB(20, 22, 26) or rgb(glow.color),
 		material("SmoothPlastic"),
 		{
 			collide = false,
 			castShadow = false,
 		}
 	)
-	face:SetAttribute("AdSlot", ad.slot or true)
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Placeholder"
-	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = 0
-	gui.Brightness = look.face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 30
-	gui.Parent = face
-	-- Until an ad runs, what an empty lightbox in a dead mall says: the
-	-- diffuser yellowed with age, brightest where its tubes are.
-	local panel = Instance.new("Frame")
-	panel.Size = UDim2.fromScale(1, 1)
-	panel.BackgroundColor3 = Color3.new(1, 1, 1)
-	panel.BorderSizePixel = 0
-	panel.Parent = gui
-	local tubes = Instance.new("UIGradient")
-	tubes.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(196, 182, 150)),
-		ColorSequenceKeypoint.new(0.3, Color3.fromRGB(236, 226, 200)),
-		ColorSequenceKeypoint.new(0.7, Color3.fromRGB(236, 226, 200)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(196, 182, 150)),
-	})
-	tubes.Parent = panel
-	local ink = Color3.fromRGB(74, 58, 42)
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(0.84, 0.44)
-	label.Position = UDim2.fromScale(0.08, 0.12)
-	label.BackgroundTransparency = 1
-	label.Text = "THIS SPACE\nAVAILABLE"
-	label.TextScaled = true
-	label.TextColor3 = ink
-	label.Font = Enum.Font.Bodoni
-	label.Parent = panel
-	local rule = Instance.new("Frame")
-	rule.Size = UDim2.new(0.36, 0, 0, 3)
-	rule.Position = UDim2.fromScale(0.32, 0.64)
-	rule.BackgroundColor3 = ink
-	rule.BorderSizePixel = 0
-	rule.Parent = panel
-	local small = Instance.new("TextLabel")
-	small.Size = UDim2.fromScale(0.8, 0.1)
-	small.Position = UDim2.fromScale(0.1, 0.72)
-	small.BackgroundTransparency = 1
-	small.Text = "LEASING · ENQUIRE AT THE MALL OFFICE"
-	small.TextScaled = true
-	small.TextColor3 = ink
-	small.Font = Enum.Font.SourceSansSemibold
-	small.Parent = panel
-	CollectionService:AddTag(gui, Constants.Tags.MallPower)
+	face:SetAttribute("AdSlot", slot.slot)
+	MallBuilder.dressAd(face, slot)
+	-- Its light, out in front: an AdGui is lit by the scene, and the face's
+	-- surroundings glow with it.
+	local at = Instance.new("Attachment")
+	at.Name = "AdGlow"
+	at.CFrame = CFrame.new(0, 0, -glow.out)
+	at.Parent = face
 	local light = Instance.new("PointLight")
-	light.Color = rgb(look.color)
-	light.Range = look.range
-	light.Brightness = look.brightness
+	light.Color = rgb(glow.color)
+	light.Range = glow.range
+	light.Brightness = glow.brightness
 	light.Shadows = false
-	light.Parent = face
+	light.Parent = at
 	CollectionService:AddTag(face, Constants.Tags.MallPower)
 	CollectionService:AddTag(light, Constants.Tags.MallPower)
+	CollectionService:AddTag(face, Constants.Tags.AdFace)
 end
 
 -- Where one of the mall's sounds comes from (Controllers/MallController
@@ -1238,9 +1260,9 @@ function MallBuilder.build(parent: Instance, origin: Vector3, only: { string }?)
 			buildString(dressing, origin, s)
 		end
 	end
-	for _, ad in Mall.Ads or {} do
-		if built[ad.room] then
-			buildAd(dressing, origin, ad)
+	for _, slot in Mall.Ads or {} do
+		if built[slot.room] then
+			buildAd(dressing, origin, slot)
 		end
 	end
 	for _, s in Mall.Sounds or {} do

@@ -20,7 +20,7 @@ Data-driven already, so nothing to edit once the entry is right: the car's rear-
 | The tape on the NEW RELEASES island | `Data/Mall.luau` `Mall.Tapes` (one per location: St. Odile's is there, COMING SOON) | Its spot stays; once `available`, the COMING SOON sticker goes by itself. A third map needs a third spot on the island's top shelf | |
 | The tape's cover | `Services/RentalService.luau` `COVERS` (box colour, ink, accent band) | A cover for the new map (its colours) | |
 | The standee in the window | `tools/blender/kitlib/mall2.py` `standee_poster` ("THE HALFWAY HOUSE · NOW ON VIDEO": the house at night, the masked figure) and `standee`; `Data/Mall` block `Standee` | A new poster for the new map: a second standee beside it, or this one swapped. Sketch, bake, export | **Owner:** import |
-| The "coming soon" film posters on the store's front | the plan's LB6 (`docs/plans/lobby-rework.md`, "Immersive ads": film poster frames) | Once built: the new map's poster from "coming soon" to "now on video", and the next map's teaser | **Owner:** image upload |
+| The COMING SOON frames over the first tapes, either side of the way in | `Data/Mall.luau` `Mall.Ads` (`video-coming-west`, `video-coming-east`: their `poster`), `Data/Posters.luau`, `tools/posters.py` (LB6; today two made-up films) | One can tease the next map before it's out: draw its poster in `tools/posters.py`, add it to `Data/Posters`, name it in the frame's `poster`. Players allowed ads may see an ad there instead; everyone else sees ours | **Owner:** image upload |
 
 ## 3. The garage (the investigators' room)
 

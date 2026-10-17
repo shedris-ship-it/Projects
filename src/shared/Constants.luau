@@ -26,6 +26,9 @@ Constants.Tags = {
 	MallPower = "ConsensusMallPower",
 	MallSound = "ConsensusMallSound",
 	MallShadow = "ConsensusMallShadow", -- a mall light that casts shadows: only on presets that allow them
+	-- An ad frame's face (attribute AdSlot: its Data/Mall `Ads` slot): its AdGui, or our poster
+	-- for a player who can't be shown ads (World/MallBuilder, Controllers/AdController).
+	AdFace = "ConsensusAdFace",
 	Level = "ConsensusLevel",
 	Railing = "ConsensusRailing", -- an invisible railing collider (no queries: sight passes between balusters)
 	Grabbable = "ConsensusGrabbable", -- a small thing your hands can carry and throw (attribute Grab = its id)

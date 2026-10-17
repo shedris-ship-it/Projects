@@ -2834,8 +2834,6 @@ Config.Mall = {
 		spillCool = { color = { 190, 220, 255 }, range = 28, brightness = 1 }, -- the TV wall's
 		bulb = { color = { 255, 196, 130 }, range = 12, brightness = 0.7 }, -- a string of bulbs, every few lit
 		work = { color = { 255, 214, 160 }, range = 30, brightness = 1.3 }, -- a work lamp on a stand
-		-- An ad lightbox's glow; `face` is its placeholder's brightness.
-		ad = { color = { 214, 210, 196 }, range = 16, brightness = 0.8, face = 1.1 },
 		strip = { color = { 222, 236, 226 }, range = 30, brightness = 0.7 }, -- the garage's fluorescents (the ones still working)
 		-- The caged lamp over the garage's roll-up door, the way out (LB1b's
 		-- lighting pass: the door was a black void at the end of the way).
@@ -2871,6 +2869,36 @@ Config.Mall = {
 	-- Rain drums on the skylight in the hub too (WeatherController), at this
 	-- share of the house's first stage.
 	Rain = 0.6,
+}
+
+-- Roblox's immersive ads in the lobby mall (LB6; docs/plans/lobby-rework.md,
+-- "Immersive ads"; Logic/Ads, Data/Mall `Ads`, Data/Posters).
+Config.Ads = {
+	-- The owner's switch: false takes every AdGui down, leaving our posters.
+	-- On, a frame's AdGui goes up once its poster is uploaded (Logic/Ads.serving).
+	Serve = true,
+	-- A billboard's face, in studs (Creator Docs, Immersive ads), and how far
+	-- from 16:9 it may be, since the ad scales to it.
+	MinSize = { 8, 4.5 },
+	MaxSize = { 32, 18 },
+	Aspect = { 1.55, 2 },
+	-- Where a mall really had ads: the court's walls, the video store's
+	-- COMING SOON, the electronics window. Never the garage, the arcade's
+	-- machines, the boutique's booth, or the run.
+	Rooms = { court = true, video = true, electronics = true },
+	-- How far out in front of a face nothing may stand (studs, seen from up to
+	-- 45 degrees off it; Logic/MallLayout.adBlockers).
+	Clear = 14,
+	-- The light on a frame, `out` studs in front of its face: an AdGui is lit
+	-- by the scene, not by itself, and the mall is dark. It browns out with
+	-- the generator. `face`: our poster's or blank's own brightness (unlit).
+	Glow = {
+		lightbox = { color = { 214, 210, 196 }, out = 2, range = 16, brightness = 0.8 },
+		film = { color = { 214, 210, 196 }, out = 2, range = 11, brightness = 0.6 },
+		screen = { color = { 170, 196, 255 }, out = 2, range = 12, brightness = 0.6 },
+	},
+	Face = 1.1,
+	PixelsPerStud = 30, -- our poster's and blank's
 }
 
 -- Saved data (Services/DataService).

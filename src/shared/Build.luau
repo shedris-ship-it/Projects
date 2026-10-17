@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-16.229",
-	note = "Robux labels show what Roblox will charge you (regional, after your discount), not the listed price",
+	id = "2026-10-16.230",
+	note = "Immersive ads in the mall: seven frames, our own posters for anyone not shown ads (LB6)",
 }

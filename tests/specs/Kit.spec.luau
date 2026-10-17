@@ -321,6 +321,12 @@ return function(test, check, Shared, require)
 			check.truthy(#group.hides > 0, group.kit .. " hides the blocks it stands for")
 		end
 		for _, ad in Mall.Ads do
+			-- (A lightbox or film frame wears a poster case; the big screen is
+			-- its own grey-box case until it's modelled.)
+			if ad.kind == "screen" then
+				check.truthy(ad.kit == nil, ad.slot .. " has no case to wear yet")
+				continue
+			end
 			has(ad.kit, ad.slot)
 			-- (Its bezel's inside edge on the face's: the ad is never covered.)
 			local case = Kit.Parts[ad.kit]
