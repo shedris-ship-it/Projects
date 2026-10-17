@@ -589,8 +589,17 @@ function RunOrchestrator:EndRun(won: boolean, reason: string)
 				stalker = run.location.stalker,
 			})
 			run.receipts[player] = marks
+			-- THE NIGHT IN NUMBERS is the playtest read-out: in Studio and for
+			-- the debug allowlist only (the owner, 2026-10-17); Output and
+			-- Telemetry keep it for every run.
+			local seen = summary
+			local debugger = services.DebugService
+			if summary.stats and not (debugger and debugger:IsAllowed(player)) then
+				seen = table.clone(summary)
+				seen.stats = nil
+			end
 			Net.get("Dossier"):FireClient(player, {
-				summary = summary,
+				summary = seen,
 				dossier = dossier,
 				marks = marks,
 				doubled = doubled,

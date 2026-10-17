@@ -58,7 +58,7 @@ The owner, after publishing build .231 and the playtest fixes (.232): "Theres st
 ### For the owner
 
 - **Import the standee** (Home → Import 3D): `build\kit\mall2_Standee\mall2_Standee.fbx`. Then Claude files its id in `Data/Kit` Parts `Standee` with its new measures (`size = { 2.6, 6.01, 1.58 }, at = { 0, -0.005, -0.54 }`, from the build's report).
-- **THE NIGHT IN NUMBERS on the incident report** (`report-numbers.jpg`): tier scores, time by tier, his moves, "F2 used 7". It's the playtest read-out (2026-10-06), shown to every player. For the public: keep it, fold it away behind a "more" line, or show it only in Studio and to `Config.Debug.AllowedUserIds`? Your call.
+- **THE NIGHT IN NUMBERS on the incident report** (`report-numbers.jpg`): tier scores, time by tier, his moves, "F2 used 7". It's the playtest read-out (2026-10-06), shown to every player. **Decided** (the owner: "Show THE NIGHT IN NUMBERS only in Studio and to the debug allowlist, not to public players"): done in build .235, below.
 - **The cabinets' joystick** sits on the screen in the mesh itself; the game is drawn in front of it now, so it doesn't show in play. Moving the stick forward in the mesh means three cabinet imports; not worth it before the release.
 - **The camp's work lamp** (`camp-work-lamp.jpg`) throws its cage's shadows in big bars across the case board. Real, and moody; say if you'd rather it lit the board evenly.
 - Still open from before: the kitchen's lone vanity sink (`kitchen-lone-sink.jpg`, seed 2), the kettle on the stove, the attic's water tank sometimes dropped, touch controls for phones (whether to launch PC-only).
@@ -76,3 +76,11 @@ The owner, after publishing build .231 and the playtest fixes (.232): "Theres st
 - `lune run tools/completable`: 1,152 houses, none that can't be finished (the same counts as at .233: the planners never read windows).
 - Gate A (F2 `layout cells`, `seed 1800820264`, `gatea`): parts 2456, hash 116728396, unchanged.
 - Seen in Studio: every fix above but the standee (not imported yet).
+
+## The night in numbers for the debugger only (build .235)
+
+**The owner, 2026-10-17:** "Show THE NIGHT IN NUMBERS only in Studio and to the debug allowlist, not to public players."
+
+- `RunOrchestrator` sends each player their incident report with the numbers only when `DebugService:IsAllowed` (Studio, or a user id in `Config.Debug.AllowedUserIds`); everyone else's copy leaves `stats` out, and the report goes from THE FAMILY'S VALUABLES to WHAT IT LEARNED ABOUT YOU. His moods are still taught (they're `summary.moods`, not the numbers). The server's Output (`[Consensus:summary]`), F2 `summary`, the F2 overlay and the `RunSummary` telemetry keep them for every run, so a playtest can still be read back.
+- `Config.Debug.AllowedUserIds` is empty: live, nobody sees the block. To see it in your own live runs, add your user id there (10608525 is your Studio test profile's).
+- **Checked in Studio:** with `AllowInStudio` switched off for one play session (a local edit, not committed), a run's report had no numbers block; switched back on, it had. stylua, selene, `tests/compile`, `rojo build`, and `lune run tests/run` (754 passed). TC-363.
