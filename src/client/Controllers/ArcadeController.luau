@@ -160,13 +160,15 @@ function ArcadeController:_build(screen: BasePart)
 	local attract = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 2 }, gui)
 	view.attract = attract
 	text(attract, "HOUSE CALL", 0, 18, CW, 40, 34, YOU)
-	view.page = text(attract, "", 0, 66, CW, 20, 13, LINE)
+	-- (Read from a few steps away: the attract text as big as its longest
+	-- line allows, the rules' 350 pixels at 18.)
+	view.page = text(attract, "", 0, 64, CW, 20, 16, LINE)
 	local lines = {}
 	for i = 1, 7 do
-		lines[i] = text(attract, "", 20, 86 + (i - 1) * 24, CW - 40, 22, 13, TEXT)
+		lines[i] = text(attract, "", 20, 88 + (i - 1) * 25, CW - 40, 22, 18, TEXT)
 	end
 	view.lines = lines
-	view.footer = text(attract, "", 0, CH - 34, CW, 24, 14, TEXT)
+	view.footer = text(attract, "", 0, CH - 32, CW, 24, 18, TEXT)
 
 	-- The game: the house's walls once, its silver and lanterns, him and you.
 	local game =

@@ -13,6 +13,22 @@ These come from what's built, so the story should fit them:
 - **The Guest:** a tall figure in a porcelain mask that cracks. He comes to dinner. The table is laid for him, and setting the family's heirlooms at it opens the front door.
 - **The tone:** P.T. as the mood, "extremely scary" within the Moderate rating. Nothing gory in what's read.
 
+## The owner's answers (2026-10-16)
+
+| Question | Answer |
+| --- | --- |
+| 1. Who are the investigators? | **A**, people the house touched, found each other on channel 19 |
+| 2. Why the dead mall? | **A**, off the map and on a generator; one of them was its night guard |
+| 3. What is the Halfway House? | **A**, a house that moves: one night, a different street, a different family's name each time |
+| 4. Who is the Guest? | **A**, never explained, only glimpsed |
+| 5. Who are the voices? | Not decided yet: Dot and Ray stay as drafts |
+| 6. The group's and the mall's names | Not decided yet |
+| 7. How much to read? | **B**, more unlocks as you play (a new page after your first escape, at each Clearance level; the Dossier could keep them) |
+
+So the drafts already follow the story. The texts stay `draft` (Studio only) until the owner has read them in play (F2 `lore`, or E in the garage) and the voices are settled. The ones that name nobody (the case file, the evidence box) could go live first.
+
+**What 7B needs, to build next:** the pages that unlock are written per stage (after the first escape, Clearance 2, 3, ...), each a `Data/Lore` entry with an `unlock` rule. They're read from one place, the case binder on the investigators' desk: the pages you've earned, and the next one's lock ("after your first escape") so you know there's more. The Dossier could keep the ones you've read. The pages themselves wait on question 5, since they're the voices' writing.
+
 ## The questions
 
 ### 1. Who are the investigators?

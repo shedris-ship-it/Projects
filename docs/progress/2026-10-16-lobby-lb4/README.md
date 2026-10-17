@@ -64,3 +64,13 @@ Two files, both checked for holes (rendered with every face seen from behind in 
 - The spotlight moved to the driver's side (the sketch had it on the passenger's: Blender's front is -y, so the driver's side is +x), and up over the wing mirror.
 
 `batch.jpg` is the hole check's renders.
+
+## Imported (build .219)
+
+The owner, home the same day: "Imported all 3 files you sent", and "Lb4 looks good enough to start too". All 38 pieces (LB3's 29 garment pieces, the 3 torches, mall4's 6) are filed: ids in `Data/Kit` (Wear, Tools, Parts), looks in `assets/kit` (a right side wears its left side's maps). 370 kit meshes load. Seen in play:
+- the six garments in the fitting room (biker, ringer, sweatshirt, denim jacket; parachute pants, high-tops), nothing poking through;
+- the chrome torch in first person, held behind its switch;
+- car 3 in cream with every bit (woodgrain, roof rack, spotlight on the driver's pillar, sticker, aerial), the other cars plain maroon.
+
+The whitewalls read as part of the hubcap in the garage's light, so they're widened, with black tyre either side, in the next batch (`story`).
+
