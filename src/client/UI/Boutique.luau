@@ -5,6 +5,8 @@
 -- keeps on what's yours. The till: Marks for Robux, for you or a friend
 -- here (a wrapped gift). The starter pack's slip, once, after your first
 -- run. Gifts: a note when one's waiting at your feet, and what it was.
+-- In the fitting room everyone else is hidden on your screen, so nobody
+-- stands in your mirror (the owner, 2026-10-16).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -14,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Closet = require(Shared.Logic.Closet)
+local Config = require(Shared.Config)
 local Net = require(Shared.Net)
 local Products = require(Shared.Data.Products)
 local Wardrobe = require(Shared.Data.Wardrobe)
@@ -269,6 +272,8 @@ end
 function Boutique:_enter()
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
+	local F = Config.Fitting
+	local hiddenAt = 0
 	RunService:BindToRenderStep("ConsensusFitting", Enum.RenderPriority.Camera.Value + 1, function()
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -277,9 +282,15 @@ function Boutique:_enter()
 		end
 		-- (A mirror's view: in front of you, a little above, looking back,
 		-- you on the left of the screen so the card on the right doesn't
-		-- cover you; from your left, clear of the booth's wall.)
-		local eye = root.CFrame * CFrame.new(-1.8, 1.4, -8.5)
-		camera.CFrame = CFrame.lookAt(eye.Position, (root.CFrame * CFrame.new(-1.6, 0.2, 0)).Position)
+		-- cover you; from your left, clear of the booth's wall. At a rack the
+		-- server turned you to where it has room: Config.Fitting.)
+		local eye = root.CFrame * CFrame.new(F.Eye[1], F.Eye[2], F.Eye[3])
+		camera.CFrame = CFrame.lookAt(eye.Position, (root.CFrame * CFrame.new(F.At[1], F.At[2], F.At[3])).Position)
+		-- (Again now and then: someone's new clothes, someone who just came.)
+		if os.clock() - hiddenAt > 0.25 then
+			hiddenAt = os.clock()
+			self:_hideOthers()
+		end
 	end)
 	ContextActionService:BindActionAtPriority("ConsensusFittingDone", function(_, inputState)
 		if inputState == Enum.UserInputState.Begin then
@@ -289,10 +300,49 @@ function Boutique:_enter()
 	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Space, Enum.KeyCode.ButtonB)
 end
 
+-- Everyone else hidden on your screen while you're in the fitting room, and
+-- their names; only on yours (they still see you), and back when you leave.
+function Boutique:_hideOthers()
+	self.hidden = self.hidden or {}
+	self.names = self.names or {}
+	for _, other in Players:GetPlayers() do
+		local character = other ~= player and other.Character
+		if not character then
+			continue
+		end
+		for _, d in character:GetDescendants() do
+			if d:IsA("BasePart") and d.LocalTransparencyModifier ~= 1 then
+				d.LocalTransparencyModifier = 1
+				self.hidden[d] = true
+			end
+		end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid and not self.names[humanoid] then
+			self.names[humanoid] = humanoid.DisplayDistanceType
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		end
+	end
+end
+
+function Boutique:_showOthers()
+	for part in self.hidden or {} do
+		if part.Parent then
+			part.LocalTransparencyModifier = 0
+		end
+	end
+	for humanoid, shown in self.names or {} do
+		if humanoid.Parent then
+			humanoid.DisplayDistanceType = shown
+		end
+	end
+	self.hidden, self.names = {}, {}
+end
+
 function Boutique:_leave()
 	pcall(function()
 		RunService:UnbindFromRenderStep("ConsensusFitting")
 	end)
+	self:_showOthers()
 	ContextActionService:UnbindAction("ConsensusFittingDone")
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom

@@ -156,4 +156,22 @@ function Closet.step(slot: string, id: string?, step: number): string?
 	return list[(at - 1 + step) % #list + 1]
 end
 
+-- Which way to face in the fitting room (Config.Fitting): the first of
+-- `turns` whose line to the mirror's camera runs clear for `need` studs, or
+-- else the one that runs clear furthest. `clear[i]` is how far turn i's
+-- line gets before it meets something.
+function Closet.mirrorTurn(turns: { number }, clear: { number }, need: number): number
+	local best, far = turns[1], -math.huge
+	for i, turn in turns do
+		local reach = clear[i] or 0
+		if reach >= need then
+			return turn
+		end
+		if reach > far then
+			best, far = turn, reach
+		end
+	end
+	return best
+end
+
 return Closet

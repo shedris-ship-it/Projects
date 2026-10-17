@@ -34,6 +34,7 @@ local unshadowed = setmetatable({}, { __mode = "k" }) -- parts low-end mode stop
 local photoState = "normal"
 local hunt = { state = nil, started = 0, duration = 0 }
 local huntMix = 0 -- 0 normal lamps, 1 hunt red
+local seeCursor = nil -- the last light checked for sight (round and round, a few a frame)
 local HUNT_RED = Color3.fromRGB(table.unpack(Config.Lighting.HuntRed))
 
 function EffectsController:Init(controllers)
@@ -309,6 +310,11 @@ local function trackLight(part: Instance)
 		shadows = light.Shadows,
 		dim = 1,
 		color = light.Color,
+		-- Far off and out of sight it's out (Config.ShadowRadius): whether it's
+		-- near you, whether you can see it or its floor, and how lit it is.
+		near = nil,
+		seen = false,
+		reach = nil,
 		-- A ceiling fixture's key light is a downward SpotLight (Config.Lighting.CeilingSpot).
 		lamp = (light:IsA("PointLight") or light:IsA("SpotLight")) and light.Name == "KeyLight",
 		utility = fixture ~= nil and fixture:FindFirstChild("Housing") ~= nil, -- a fluorescent
@@ -340,6 +346,46 @@ local function trackLight(part: Instance)
 		lights[light].up = up
 	end
 	task.spawn(addDust, part)
+end
+
+-- Can you see a far light, or the floor it lights? A wall or a floor hides
+-- it; glass, a lamp's own shade and the hidden blocks under the kit's
+-- models (props, doors) don't, nor do players. (Seen when it isn't costs a
+-- few shadows; unseen when it is would leave a room dark.)
+local seeParams = RaycastParams.new()
+seeParams.FilterType = Enum.RaycastFilterType.Exclude
+seeParams.RespectCanCollide = true
+local function blocked(from: Vector3, ray: Vector3): RaycastResult?
+	for _ = 1, 6 do
+		local hit = Workspace:Raycast(from, ray, seeParams)
+		if not hit or (hit.Material ~= Enum.Material.Glass and hit.Instance.Transparency < 0.99) then
+			return hit
+		end
+		seeParams:AddToFilter(hit.Instance)
+	end
+	return nil
+end
+local function canSee(from: Vector3, info): boolean
+	local fixture = info.part.Parent
+	local skip: { Instance } = { if fixture and fixture:IsA("Model") then fixture else info.part }
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(skip, other.Character)
+		end
+	end
+	seeParams.FilterDescendantsInstances = skip
+	if info.below == nil then
+		local down = blocked(info.part.Position, Vector3.new(0, -40, 0))
+		info.below = if down then down.Position + Vector3.new(0, 0.5, 0) else info.part.Position - Vector3.new(0, 6, 0)
+	end
+	for _, target in { info.part.Position, info.below } do
+		local ray = target - from
+		local hit = blocked(from, ray)
+		if not hit or hit.Distance >= ray.Magnitude - 1.5 then
+			return true
+		end
+	end
+	return false
 end
 
 -- Family photos age with Drift (docs/ART.md, the run's arc): shared decay,
@@ -676,6 +722,23 @@ function EffectsController:_update(dt: number)
 	local now = os.clock()
 	local huntTarget = (inRun and hunt.state == "hunt") and 1 or 0
 	huntMix += (huntTarget - huntMix) * math.clamp(dt * Config.Lighting.HuntEase, 0, 1)
+	-- Which far lights you can see: a few a frame, round and round.
+	local radius = Config.ShadowRadius
+	if camera then
+		local from = camera.CFrame.Position
+		local key = if seeCursor ~= nil and lights[seeCursor] ~= nil then seeCursor else nil
+		for _ = 1, radius.checks do
+			key = next(lights, key)
+			if key == nil then
+				break
+			end
+			local info = lights[key]
+			if info.near == false and key.Parent then
+				info.seen = canSee(from, info)
+			end
+		end
+		seeCursor = key
+	end
 	for light, info in lights do
 		if light.Parent then
 			local target = 1
@@ -690,16 +753,27 @@ function EffectsController:_update(dt: number)
 				target *= lerp(1, arc.LampDimTo, sag)
 			end
 			info.dim += (target - info.dim) * ease
-			local base = info.base * info.dim
-			-- Only the lights near you cast shadows (hysteresis stops flicker at the edge).
-			if info.shadows and preset.lightShadows and camera then
+			-- Near you a light casts its shadows (hysteresis stops flicker at the
+			-- edge). Far off it kept none, the dear part, and its light came
+			-- through the walls into the rooms beyond (the owner, 2026-10-16:
+			-- light poured into the grand hall from a room past it until you
+			-- walked near). So far off it stays lit, shadows and all, only while
+			-- you can see it or its floor; out of sight it fades out.
+			if camera then
 				local away = (info.part.Position - camera.CFrame.Position).Magnitude
-				local want = light.Shadows
-				if away < Config.ShadowRadius.on then
-					want = true
-				elseif away > Config.ShadowRadius.off then
-					want = false
+				if away < radius.on then
+					info.near = true
+				elseif away > radius.off or info.near == nil then
+					info.near = false
 				end
+			end
+			local lit = info.near ~= false or info.seen
+			info.reach = info.reach or (lit and 1 or 0)
+			info.reach += ((lit and 1 or 0) - info.reach) * math.clamp(dt * radius.fade, 0, 1)
+			local base = info.base * info.dim * info.reach
+			if info.shadows and preset.lightShadows then
+				-- (Kept while it fades out, or it would leak as it goes.)
+				local want = lit or info.reach > 0.02
 				if light.Shadows ~= want then
 					light.Shadows = want
 				end

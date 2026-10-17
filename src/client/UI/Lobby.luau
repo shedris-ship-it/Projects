@@ -214,8 +214,10 @@ end
 function Lobby:Update()
 	local state = self.ctx.state
 	local inLobby = state:Phase() == Constants.Phases.Lobby and state:PlayerState() == Constants.PlayerStates.Lobby
-	-- (Put away in the boutique's fitting room: its card is the one to read.)
+	-- (Put away in the boutique's fitting room, whose card is the one to read,
+	-- and at an arcade cabinet, whose screen is.)
 	local trying = player:GetAttribute(Constants.PlayerAttributes.Trying) ~= nil
+		or player:GetAttribute(Constants.PlayerAttributes.Arcade) ~= nil
 	self.gui.Enabled = inLobby and not trying
 end
 

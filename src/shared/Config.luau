@@ -2508,8 +2508,12 @@ Config.Cinema = {
 }
 
 -- Shadow-casting is the expensive part of a dark house of many lamps, so a
--- room's lights only cast shadows while you're this close (EffectsController).
-Config.ShadowRadius = { on = 62, off = 74 } -- studs from the camera, with hysteresis
+-- room's lights cast shadows only while you're this close (EffectsController),
+-- studs from the camera with hysteresis. Further off, a light without its
+-- shadows shone through the walls (the owner, 2026-10-16), so one you can't
+-- see there, nor the floor it lights, fades out (`fade` a second); one you
+-- can see keeps its shadows. `checks`: far lights looked for a frame.
+Config.ShadowRadius = { on = 62, off = 74, fade = 3, checks = 6 }
 Config.DriftArc = {
 	UtilityFlickerAt = 40, -- Fraying: the fluorescents go first
 	AllFlickerAt = 60, -- Breaking: everything else follows
@@ -2869,6 +2873,20 @@ Config.Mall = {
 	-- Rain drums on the skylight in the hub too (WeatherController), at this
 	-- share of the house's first stage.
 	Rain = 0.6,
+}
+
+-- The boutique's fitting room (LB3): a mirror's view of you (UI/Boutique),
+-- from in front of you, a little above and from your left (`Eye`, from your
+-- root), looking at `At`. At a rack you face the rack, so the camera stood
+-- in it and looked at you through it (the owner, 2026-10-16): you're turned
+-- to the first of `Turns` (degrees from where you faced) whose line to the
+-- camera is clear (Services/ShopService, Logic/Closet.mirrorTurn), its line
+-- `Width` studs wide.
+Config.Fitting = {
+	Eye = { -1.8, 1.4, -8.5 },
+	At = { -1.6, 0.2, 0 },
+	Turns = { 0, 180, 150, -150, 120, -120, 90, -90, 60, -60, 30, -30 },
+	Width = 1.2,
 }
 
 -- Roblox's immersive ads in the lobby mall (LB6; docs/plans/lobby-rework.md,

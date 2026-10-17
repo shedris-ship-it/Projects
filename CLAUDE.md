@@ -11,7 +11,7 @@ Read these before starting real work:
 - `docs/plans/gameplay-rework.md`: the rework. Where it disagrees with the design doc, it wins. Sections 15 to 20 are the passes since 2026-10-06, newest last.
 - `docs/plans/level-design.md`: the level design (2026-10-05): the adventure planned first, houses that follow the squad, every room with a reason, the best of many houses. Where it disagrees with the mansion plan about level design, it wins.
 - `docs/ARCHITECTURE.md`: how the code implements it (every service and controller, run flow, divergence model, remote protocol, security).
-- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-350 as of 2026-10-16; new cases go at the end).
+- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-354 as of 2026-10-16; new cases go at the end).
 - `docs/NEW-MAP.md`: everything in the lobby that names a map (the tapes, the standee, the case board's photos and plan, TONIGHT, the readables, the diner's boards), to update when a new map comes out; add a row for anything new that names one.
 - `docs/ART.md`: the approved visual guide; its "How the visual pass will run" list is the work order.
 - `docs/progress/<date>-<pass>/`: each pass's report and before/after screenshots. `docs/progress/ROADMAP-LOG.md` is the whole history, pass by pass.
@@ -76,7 +76,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (751 in 112 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
+lune run tests/run        # unit tests (752 in 112 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o build/scratch/Consensus.rbxlx   # not the repo's Consensus.rbxlx: the owner may have it open in Studio
@@ -185,7 +185,7 @@ These constrain every pass; the reasons and dates are in the plan docs and `docs
 
 ## Where we are (2026-10-16)
 
-Build `2026-10-16.231` on `claude/overnight-foundation`, 751 tests.
+Build `2026-10-16.232` on `claude/overnight-foundation`, 752 tests.
 
 - **Built:** the escape loop (rework R0 to R2c); the mansion generator and its navigation (M1 to M3); the level design L1 to L3 except its last item; the foundation and loop passes (Dread, stuck-assist, the bot, the Reckoning, the short night); the Guest rework (moods, temperaments, the mask, his animations); the fixes from three squad playtests; the readable Guest (his three rules, pestering, the family's valuables); the torch on F with your own arms and legs. The visual pass's steps 1 to 6, the polish pass and visual audit round 1.
 - **The full visual rework, V0 to V8 done, V9 paused** (the owner, 2026-10-12: "the gameplay is in a good spot"; P.T. on 35mm film, models made in Blender, a diegetic 1988 UI, PC-first presets, a building storm, a few cutscenes, standard bodies in modular 80s clothing for a later shop). The plan, V0 to V9, is `docs/plans/visual-rework.md`, which opens with a table of each phase's state; each phase's report (what was built, the owner's picks, the F2 commands it added) is in `docs/progress/<date>-visual-v<n>/`.
@@ -218,6 +218,7 @@ Build `2026-10-16.231` on `claude/overnight-foundation`, 751 tests.
      - **Monetization on sale (build .226):** the owner made 5 products and 2 passes in Creator Hub (ids in `Data/Products`; the starter pack a pass, the arcade's named for the arcade, the unlimited pass 300 R); gifts checked against regional price levels (`Logic/PriceLevels`); every grant tested with F2 `buy`. Since build .229 every Robux label shows what Roblox's prompt will charge that player (client `Lib/Prices`); the owner's 90 R for 1,000 Marks is their Roblox Plus 10% off. Report: `docs/progress/2026-10-16-monetization/`. Live once published.
      - **LB6's immersive ads (build .230):** seven frames only where a mall had ads (`Data/Mall` `Ads`): the court's four lightboxes (not moved; their light now in front, since an AdGui is lit by the scene), two COMING SOON frames on the video store's side walls by the way in (its front has the bulb string and a sign across it), and a big projection screen behind the electronics window's sets (the sets are under Roblox's 8 x 4.5 minimum; the only frame taking video, and autoplay or click-to-play is the advertiser's bid, not ours). `Logic/Ads` (spec'd) and `MallLayout.adBlockers` (now signs too). An AdGui goes up only once the frame's own poster is uploaded (`Data/Posters` `image`): without a fallback image it shows Roblox's grey card with its logo (seen in Studio). A player PolicyService won't show ads gets our poster on their own copy (`Controllers/AdController`, `World/AdPoster`). Our seven 1988 posters are drawn from code (`tools/posters.py`, `assets/posters/`). F2 `ads`. Report: `docs/progress/2026-10-16-lobby-lb6/`, TC-347 to TC-350.
      - **The ad frames on (build .231):** the owner kept the seven posters as drawn, and they were uploaded with their OK (ids in `Data/Posters`). Seen in Studio: every frame's AdGui up with our poster as its fallback, and a denied player's own copy of each.
+     - **Published and playtested (build .232):** the owner published .231. Their four notes are fixed: HOUSE CALL's camera no longer sits behind your head (your body hidden while you play, a slip with the controls and Leave); a rack's mirror camera no longer stands in the rack (`Config.Fitting`, `Logic/Closet.mirrorTurn`); everyone else hidden in the fitting room (their ask); and no lamp light through walls from far rooms (a far lamp you can't see fades out, `EffectsController` `canSee`). Report: `docs/progress/2026-10-16-playtest-fixes/`, TC-351 to TC-354.
      - **Next:** the owner plays HOUSE CALL by hand and settles the story's voices and names (questions 5 and 6), then 7B's unlocking pages. LB6's ads are on and wait only on ad eligibility (public, ID and 2-step verified, the questionnaire, 2,000 visitors a month); LB6's photo booth and supporter pack are still to build. The Robux side waits on the owner's products in Creator Hub (ids into `Data/Products`). A dressed player is about 40k triangles, unmeasured on a phone: measure a shop full of outfits (F2 `perf`, `crowd`). V9's hub polish (ART.md's Hub; the menu clear of Roblox's chat hint) still to do.
   3. **The rest of the visual rework:** V9 without the hub (above).
   4. **The last of L3:** furniture laid out for play (the old M4; `Logic/RoomFurnish` doesn't exist yet; `docs/plans/level-design.md` section 3, part 4, and section 11.2).

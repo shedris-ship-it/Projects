@@ -21,10 +21,12 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Catalog = require(Shared.Logic.Catalog)
 local Closet = require(Shared.Logic.Closet)
+local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Mall = require(Shared.Data.Mall)
 local Net = require(Shared.Net)
@@ -192,12 +194,53 @@ function ShopService:Open(player: Player, where: string, slot: string?)
 			character:PivotTo(CFrame.lookAt(at, at + FACES[b.face]))
 		end
 	end
+	if session.where ~= "booth" then
+		-- At a rack you face the rack, and the mirror's camera would stand in
+		-- it: turned to where it has room (Config.Fitting).
+		local turn = self:_mirrorTurn(root)
+		if turn ~= 0 then
+			self.services.PlayerStateService:MarkTeleport(player)
+			character:PivotTo(root.CFrame * CFrame.Angles(0, math.rad(turn), 0))
+		end
+	end
 	-- (Standing still while you change: you leave by Done.)
 	root.Anchored = true
 	self.sessions[player] = session
 	player:SetAttribute(PA.Trying, session.where)
 	self.services.OutfitService:SetTrying(player, session.outfit)
 	self:_send(player, slot)
+end
+
+-- How far each of Config.Fitting's turns leaves the mirror's camera a clear
+-- line to you (three rays a line, from inside you, where nothing else is),
+-- and the turn to take (Logic/Closet.mirrorTurn).
+function ShopService:_mirrorTurn(root: BasePart): number
+	local F = Config.Fitting
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local everyone = {}
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(everyone, other.Character)
+		end
+	end
+	params.FilterDescendantsInstances = everyone
+	local eye = CFrame.new(F.Eye[1], F.Eye[2], F.Eye[3])
+	local clear, need = {}, 0
+	for i, turn in F.Turns do
+		local frame = root.CFrame * CFrame.Angles(0, math.rad(turn), 0)
+		local reach = math.huge
+		for _, side in { -F.Width / 2, 0, F.Width / 2 } do
+			-- (From your own middle, where no rack can be, towards the eye.)
+			local from = (frame * CFrame.new(side, F.At[2], 0)).Position
+			local to = (frame * eye * CFrame.new(side, 0, 0)).Position
+			need = (to - from).Magnitude
+			local hit = Workspace:Raycast(from, to - from, params)
+			reach = math.min(reach, hit and hit.Distance or need)
+		end
+		clear[i] = reach
+	end
+	return Closet.mirrorTurn(F.Turns, clear, need)
 end
 
 -- What the fitting room shows: what you have on, what's yours, your Marks.

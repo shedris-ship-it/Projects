@@ -8,7 +8,9 @@
 -- someone else plays, their game a moment behind, run from the presses the
 -- server passes on (watching over a shoulder). Playing, the camera settles
 -- on the screen: arrows or WASD move, hold Space to stand still and look,
--- Backspace walks away (your score so far counts).
+-- Backspace or the slip's Leave walks away (your score so far counts). The
+-- camera stands where your head is, so your body is hidden while you play
+-- (the owner, 2026-10-16: "my head blocks everything").
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -24,6 +26,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local HouseCall = require(Shared.Logic.Arcade.HouseCall)
 local Net = require(Shared.Net)
+local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local C = Config.Arcade
 local PA = Constants.PlayerAttributes
@@ -491,6 +494,66 @@ function ArcadeController:_play(info)
 	-- (Square on the screen, a little above it, as you'd stand at a cabinet.)
 	local eye = screen.Position - screen.CFrame.LookVector * 2.6 + screen.CFrame.UpVector * 0.2
 	camera.CFrame = CFrame.lookAt(eye, screen.Position)
+	-- (After the camera scripts, which fade you by their own rule.)
+	RunService:BindToRenderStep("ConsensusArcadeSelf", Enum.RenderPriority.Camera.Value + 2, function()
+		self:_showSelf(false)
+	end)
+	self:_hint().Enabled = true
+end
+
+-- Your body hidden (the camera is in your head) or shown again.
+function ArcadeController:_showSelf(shown: boolean)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local want = shown and 0 or 1
+	for _, d in character:GetDescendants() do
+		if d:IsA("BasePart") and d.LocalTransparencyModifier ~= want then
+			d.LocalTransparencyModifier = want
+		end
+	end
+end
+
+-- Under the screen while you play: the controls, and a way out you can see
+-- (the owner didn't know how to get out).
+function ArcadeController:_hint(): ScreenGui
+	if self.hintGui then
+		return self.hintGui
+	end
+	local gui = Ui.screen("ConsensusArcadeHint", 12, player:WaitForChild("PlayerGui"))
+	gui.Enabled = false
+	local holderRoot = Ui.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -20),
+		Size = UDim2.fromOffset(640, 72),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+	Ui.fit(holderRoot, 680, 120)
+	Ui.modal(holderRoot)
+	local _, slip = Ui.paper("Slip", { Size = UDim2.fromScale(1, 1), Rotation = -0.5, Parent = holderRoot })
+	Ui.typed("ARROWS OR WASD: MOVE  ·  HOLD SPACE: LOOK", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 30, 0.5, 0),
+		Size = UDim2.new(1, -230, 0, 24),
+		TextSize = 16,
+		ZIndex = 3,
+		Parent = slip,
+	})
+	Ui.paperButton("LEAVE (BACKSPACE)", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -26, 0.5, 0),
+		Size = UDim2.fromOffset(180, 32),
+		TextSize = 15,
+		TextColor3 = Ui.Theme.red,
+		ZIndex = 3,
+		Parent = slip,
+	}, function()
+		self:_walkAway()
+	end)
+	self.hintGui = gui
+	return gui
 end
 
 function ArcadeController:_flush()
@@ -531,6 +594,12 @@ function ArcadeController:_release()
 	end
 	self.mine = nil
 	self:_unbind()
+	pcall(function()
+		RunService:UnbindFromRenderStep("ConsensusArcadeSelf")
+	end)
+	self:_showSelf(true)
+	self:_hint().Enabled = false
+	Ui.dismissed()
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Custom
 	camera.FieldOfView = self.fov or 70

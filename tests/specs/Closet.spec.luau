@@ -97,4 +97,13 @@ return function(test, check, Shared, require)
 		end
 		check.equal(#Wardrobe.Order, counted, "the booth's order lists every garment")
 	end)
+
+	test("in the fitting room you face where the mirror's camera has room, the way you faced if it can", function()
+		local turns = { 0, 180, 90, -90 }
+		check.equal(Closet.mirrorTurn(turns, { 9, 9, 9, 9 }, 8.5), 0, "an open floor: as you stood")
+		check.equal(Closet.mirrorTurn(turns, { 1.2, 9, 9, 9 }, 8.5), 180, "facing a rack: turned round")
+		check.equal(Closet.mirrorTurn(turns, { 1.2, 3, 8.6, 9 }, 8.5), 90, "the first clear way in order")
+		check.equal(Closet.mirrorTurn(turns, { 1.2, 3, 6, 4 }, 8.5), 90, "nowhere clear: the most room")
+		check.equal(Closet.mirrorTurn(turns, {}, 8.5), 0, "nothing measured: as you stood")
+	end)
 end

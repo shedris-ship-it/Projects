@@ -253,6 +253,10 @@ function ActionController:Start()
 	player:GetAttributeChangedSignal(PA.Trying):Connect(function()
 		self:_applyCamera()
 	end)
+	-- (Nor at an arcade cabinet: Controllers/ArcadeController has the camera.)
+	player:GetAttributeChangedSignal(PA.Arcade):Connect(function()
+		self:_applyCamera()
+	end)
 	player.CharacterAdded:Connect(function(character)
 		task.defer(function()
 			self:_applyCamera()
@@ -388,8 +392,11 @@ function ActionController:_applyCamera()
 	end
 	-- Prompts are for active Witnesses only (shut in a wardrobe, its door's),
 	-- and not from inside a party car (its dashboard does it all, LB2) nor
-	-- the fitting room (LB3).
-	local inCar = player:GetAttribute(PA.Car) ~= nil or player:GetAttribute(PA.Trying) ~= nil
+	-- the fitting room (LB3) nor at an arcade cabinet (its own prompt hid the
+	-- screen, 2026-10-16).
+	local inCar = player:GetAttribute(PA.Car) ~= nil
+		or player:GetAttribute(PA.Trying) ~= nil
+		or player:GetAttribute(PA.Arcade) ~= nil
 	ProximityPromptService.Enabled = (not inRun and not inCar)
 		or (inRun and state == PS.Active and not self.state:IsTucked())
 end
