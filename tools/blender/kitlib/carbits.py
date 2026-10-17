@@ -37,9 +37,10 @@ def whitewalls(name="Whitewalls"):
     for wy in WHEELS:
         for sx in (-1, 1):
             # (Closed round its inner rim too: open, its inside showed through.
-            # Black tyre left either side of it, or in the game's dim light it
-            # read as the hubcap's edge: seen 2026-10-16.)
-            ring = shapes.lathe("Whitewall", [(0.72, 0.0), (0.9, 0.0), (0.9, 0.012), (0.72, 0.012), (0.72, 0.0)], steps=32)
+            # Black tyre left either side of it. 0.05 thick: at 0.012 Roblox's
+            # importer welded its two faces together and it shaded black, both
+            # imports, 2026-10-16.)
+            ring = shapes.lathe("Whitewall", [(0.72, 0.0), (0.9, 0.0), (0.9, 0.05), (0.72, 0.05), (0.72, 0.0)], steps=32)
             shapes.turn(ring, (0, sx * 90, 0), (sx * (W / 2 - 0.045), wy, HUB))
             parts.append(materials.assign(ring, white))
     return shapes.join(parts, name)

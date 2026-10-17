@@ -1992,8 +1992,9 @@ Mall.Blocks = {
 	-- the TV cart they watch the crews' tapes on facing the cots, raincoats on
 	-- the north wall, three clippings on the case board, the map of sightings
 	-- over the evidence boxes); the dead mall left behind (a wet-floor sign and
-	-- a mop bucket by the court's drip, food-court chairs stacked and a SALE
-	-- banner fallen behind the grille). Grey boxes until the batch is in.
+	-- a mop bucket by the court's drip, food-court chairs stacked inside the
+	-- empty shop's grille and its SALE banner fallen in front of it; behind
+	-- the shutter's grille they were lost in the dark).
 	{
 		room = "garage",
 		name = "TinCrate",
@@ -2135,25 +2136,25 @@ Mall.Blocks = {
 		color = { 232, 190, 40 },
 	},
 	{
-		room = "concourse",
+		room = "deadshop",
 		name = "StackedChairs",
 		kit = "StackedChairs",
-		x = 57,
-		y = 2.1,
-		z = -14,
+		x = 26.5,
+		y = 2.13,
+		z = 32.5,
 		size = { 1.62, 4.26, 1.53 },
-		rot = { 0, 8, 0 },
+		rot = { 0, -10, 0 },
 		color = { 212, 110, 40 },
 	},
 	{
-		room = "concourse",
+		room = "court",
 		name = "SaleBanner",
 		kit = "SaleBanner",
-		x = 63.5,
+		x = 34,
 		y = 0.68,
-		z = 6,
+		z = 27.6,
 		size = { 7, 1.36, 2.6 },
-		rot = { 0, -12, 0 },
+		rot = { 0, 3, 0 },
 		color = { 238, 236, 228 },
 		collide = false,
 	},

@@ -85,3 +85,14 @@ The owner, home: "I approve the clutter". So:
   - the chairs' bent leg tubes turned inside out at the bends (now straight square tubes);
   - the banner's lifted corner had no underside.
 
+## Imported (build .221)
+
+The owner imported `story.fbx`. All 15 pieces are filed (ids in `Data/Kit` Parts, looks in `assets/kit`), 384 kit meshes load, and every piece wears its mesh. Seen in play:
+- the camp lived in: the TV cart facing the cots, the boombox, the pizza boxes and coffee cups, the raincoats;
+- the map of sightings over the evidence boxes and the clippings among the photos;
+- the wet-floor sign by the drip.
+
+Behind the shutter's grille the chairs and the banner were lost in the dark, so they moved to the empty shop's front in the court. The fallen SALE banner now lies under the shop's own CLOSING DOWN banner, and the chairs are stacked just inside its grille.
+
+The whitewalls still render as black rings, even plain white with no texture. Their faces point the right way in the export, so the likely cause is the ring's thinness (0.012 studs): the importer seems to weld its two faces' vertices, which cancels their normals. A 0.05-thick ring is exported for one more import.
+
