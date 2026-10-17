@@ -49,10 +49,30 @@ Seven 1988 posters, drawn from code and seeded (Pillow and numpy), 1024 x 576. T
 
 They're not uploaded: that's the owner's account, so it's their step. Until they're in, each frame shows its lit blank (`Data/Posters` `Blank`): the lightboxes THIS SPACE AVAILABLE as before, the film frames NEW TITLES EVERY FRIDAY, the screen its colour bars, drawn in the interface (no image).
 
+## The posters uploaded (build .231)
+
+The owner, after looking at `posters.jpg`: "The posters look good. Go ahead and upload all seven to my account and switch the ad frames on." They were uploaded as drawn, from a local server through Studio (`upload_image`), and their ids filed in `Data/Posters`:
+
+| Poster | Id | Frame |
+| --- | --- | --- |
+| Mayfield's | 117963762996495 | court-west-north |
+| Pine Hollow Estates | 74633721390556 | court-west-south |
+| Portraits by Lorraine | 72845488951023 | court-east-north |
+| Sparkle Cola | 132174375950759 | court-east-south |
+| DON'T LOOK AWAY | 94939229828620 | video-coming-west |
+| SUPPERTIME | 114130845497556 | video-coming-east |
+| Colour bars | 104424610100210 | electronics-screen |
+
+Checked in Studio, solo:
+- F2 `ads`: all seven "AdGui up (Inactive)", each with its poster as the AdGui's fallback image. Studio serves no ads, so each shows our poster, never Roblox's grey card (`posters-pine-hollow.jpg`, `posters-portraits.jpg`, `posters-sparkle-cola.jpg`, `posters-video-west.jpg`, `posters-video-east.jpg`, `posters-screen.jpg`). They're lit, readable and not stretched.
+- `ads deny`: on that player's copy, each AdGui comes off and our poster goes on with the same image (`posters-denied-mayfields.jpg`). `ads policy` and `ads live` put it back.
+- No red errors. The only warnings are Roblox's own, as before.
+
+The screenshots show the hub panel on the left: it stays on screen in play.
+
 ## The owner's steps
 
-1. **Look at the posters** (`posters.jpg`) and change any: text, ideas, which frame gets which (`Data/Mall` `poster`).
-2. **Upload them** (ask Claude to, or use Creator Hub → Development Items → Decals): the seven files in `assets/posters/`. The ids go in `Data/Posters` `image` as `rbxassetid://<id>`. Each frame then shows its poster, and its AdGui goes up with the poster as its fallback.
+1. ~~Look at the posters~~ and 2. ~~upload them~~: done (above).
 3. **For ads to earn:** the game public, ID verification with 2-step verification, the maturity questionnaire approved in Creator Hub, and 2,000 unique visitors a month. Then Creator Dashboard → Monetization → Ads shows impressions about 48 hours after ads start.
 4. `Config.Ads.Serve = false` takes every AdGui down (our posters stay) if an ad ever looks wrong in the mall.
 

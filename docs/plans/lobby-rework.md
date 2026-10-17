@@ -241,7 +241,7 @@ Roblox's immersive ads, put where a mall really had ads:
 - **Roblox's rules** (Creator Docs, Immersive ads): a billboard is an `AdGui` on the face of a part between 8 x 4.5 and 32 x 18 studs, with nothing in front of it and no other SurfaceGui on that face.
   - To be paid, the game must be public, the owner ID-verified with 2-step verification, the maturity questionnaire approved, and the game at 2,000 unique monthly visitors.
   - Players who can't be shown ads see a fallback. For them (`PolicyService:GetPolicyInfoForPlayerAsync`, `AreAdsAllowed`), each frame shows our own 1988 poster instead, so the mall looks the same to everyone.
-  - Our posters need images uploaded to the owner's account, so ask first. Until they are, no AdGui goes up: an AdGui with no ad and no fallback image shows Roblox's grey card with its logo (seen in Studio), so each frame keeps its lit blank (`Logic/Ads.serving`).
+  - Our posters need images uploaded to the owner's account, so ask first (uploaded with their OK at build .231). Until they are, no AdGui goes up: an AdGui with no ad and no fallback image shows Roblox's grey card with its logo (seen in Studio), so each frame keeps its lit blank (`Logic/Ads.serving`).
 
 ### Never sold
 
@@ -403,7 +403,7 @@ Each phase ends as the others do: a report in `docs/progress/<date>-lobby-lb<n>/
     - seven frames (`Data/Mall` `Ads`): the court's four lightboxes, two COMING SOON frames in the video store, the big screen in the electronics window (the only one taking video);
     - the rules (`Logic/Ads`, spec'd: Roblox's sizes, only the court, video store and electronics, never a run server, video only on a screen; `MallLayout.adBlockers` now counts signs and the court seen through a shopfront);
     - each frame's AdGui goes up only once its own poster is uploaded (its fallback image), and a player who can't be shown ads gets our poster in its place on their own screen (`Controllers/AdController`, `World/AdPoster`);
-    - our seven 1988 posters drawn from code (`tools/posters.py`, `assets/posters/`; drafts), not uploaded: the owner's step, with F2 `ads` to see every state in Studio.
+    - our seven 1988 posters drawn from code (`tools/posters.py`, `assets/posters/`; drafts), uploaded with the owner's OK at build .231, with F2 `ads` to see every state in Studio.
   - *Still to do:* the photo booth and its frames, the supporter pack.
 - **After launch:** more clothes, opening the prize counter and the weekly arcade prize, NIGHT DRIVE, seasonal items, whatever the shutter becomes, real avatar items, the season pass, joining a party member in another lobby (`SocialService:GetPartyAsync` sees members across servers).
 
