@@ -56,6 +56,7 @@ Constants.RunState = {
 	Storm = "Storm", -- the storm's stage, 0 still, 1 rain, 2 thunder (Logic/Storm, Services/WeatherService)
 	MallBrownout = "MallBrownout", -- server time the mall's generator last browned out (Services/MallService)
 	MallSound = "MallSound", -- + a role ("MallSoundHum"): which of Assets.Mall's candidates plays (F2 `mallsound`)
+	StepVolume = "StepVolume", -- a share of volume for steps seen from outside, in place of Config.Feel FootstepVolumeSeen (F2 `stepvolume`)
 	Phase = "Phase",
 	Drift = "Drift",
 	DriftState = "DriftState",

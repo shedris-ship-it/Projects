@@ -2574,10 +2574,20 @@ Config.Feel = {
 	-- stride-paced step drifted against the feet you watch (the owner,
 	-- 2026-10-16: "weird echos ... like following footsteps"). Your own steps
 	-- in first person keep the stride, in time with the camera's bob.
-	FootLift = 0.3, -- studs above its lowest: the foot has lifted (a walk lifts 0.57, a sprint 1.06)
-	FootPlant = 0.1, -- back within this of its lowest: it has touched down, and is heard
-	FootRelearn = 0.25, -- studs a second a foot's lowest creeps up to it, so a new pose re-learns it
+	-- Measured 2026-10-16, above the body's floor: a foot's lowest point rests
+	-- 0.08 up when flat, swings 0.21 to 0.43 up at a walk and to 0.76 at a
+	-- sprint, and dips 0.15 under as it rolls; its middle stands 0.39 up and
+	-- is 0.67 to 0.78 up when the slow walk's toe tips to the floor mid-swing.
+	FootLift = 0.15, -- studs: the foot's lowest point this far up, it has lifted
+	FootPlant = 0.12, -- back under this (at the floor), it has landed and is heard ...
+	FootDown = 0.25, -- ... if its middle is within this of where it stands too
+	FootRelearn = 0.1, -- studs a second a foot's lowest creeps up, so a new pose re-learns it (slowly: not in one swing)
 	FootQuiet = 0.6, -- seconds moving with no foot lifting (no walk playing): back to the stride
+	-- The owner, 2026-10-16: "the footsteps feel really loud" once they came
+	-- from the feet (half as many again a second, and the lobby's brisk walk
+	-- already counts a third of the way to a sprint's volume). Steps seen from
+	-- outside are this share of the volume; F2 `stepvolume <share>` tries others.
+	FootstepVolumeSeen = 0.5,
 	-- Breathing: your own breath follows stamina.
 	BreathStartStamina = 0.7, -- below this share of stamina it becomes audible
 	BreathSpeedMin = 0.9, -- tempo of the loop when fresh ...

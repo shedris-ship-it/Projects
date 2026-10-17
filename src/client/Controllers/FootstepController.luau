@@ -22,6 +22,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Assets)
 local Config = require(Shared.Config)
+local Constants = require(Shared.Constants)
 local Feel = require(Shared.Logic.Feel)
 local Footsteps = require(Shared.Data.Footsteps)
 local Rng = require(Shared.Lib.Rng)
@@ -45,6 +46,12 @@ local SURFACES = { "Wood", "Carpet", "Tile", "Concrete" }
 function FootstepController:Init(controllers)
 	self.controllers = controllers
 	self.state = controllers.StateController
+end
+
+-- Your own body in first person: its steps keep the stride, in time with the
+-- camera's bob, at full volume. Every other body is seen from outside.
+local function ownFirstPerson(player: Player): boolean
+	return player == localPlayer and localPlayer.CameraMode == Enum.CameraMode.LockFirstPerson
 end
 
 local function trackFor(player: Player)
@@ -142,14 +149,45 @@ end
 -- 2 right) and where its sole is, or nil (Logic/Feel footDown). Keeps when a
 -- foot last lifted, so a body with no walk playing falls back to the stride.
 local FEET = { "LeftFoot", "RightFoot" }
-function FootstepController:_feet(track, character: Model, root: BasePart, dt: number, now: number): (number?, Vector3?)
+local CORNERS = {}
+for _, x in { -0.5, 0.5 } do
+	for _, y in { -0.5, 0.5 } do
+		for _, z in { -0.5, 0.5 } do
+			table.insert(CORNERS, Vector3.new(x, y, z))
+		end
+	end
+end
+
+-- The lowest point of a foot's box, as it rolls heel to toe.
+local function lowestPoint(foot: BasePart): Vector3
+	local best = nil
+	for _, corner in CORNERS do
+		local at = foot.CFrame:PointToWorldSpace(corner * foot.Size)
+		if not best or at.Y < best.Y then
+			best = at
+		end
+	end
+	return best
+end
+
+function FootstepController:_feet(
+	track,
+	character: Model,
+	humanoid: Humanoid,
+	root: BasePart,
+	dt: number,
+	now: number
+): (number?, Vector3?)
 	local side, sole = nil, nil
+	-- (The floor the body stands on: Roblox holds the root HipHeight above it.)
+	local floor = root.Position.Y - root.Size.Y / 2 - humanoid.HipHeight
 	for i, name in FEET do
 		local foot = character:FindFirstChild(name)
 		if foot and foot:IsA("BasePart") then
 			local memory = track.feet[i]
-			if Feel.footDown(memory, foot.Position.Y - root.Position.Y, dt, F) and not side then
-				side, sole = i, foot.Position - Vector3.new(0, foot.Size.Y / 2, 0)
+			local low = lowestPoint(foot)
+			if Feel.footDown(memory, low.Y - floor, foot.Position.Y - floor, dt, F) and not side then
+				side, sole = i, low
 			end
 			if memory.up then
 				track.lastLift = now
@@ -184,6 +222,11 @@ function FootstepController:_step(
 	local key = ids[Feel.draw(entry.bag, rng)]
 	track.foot = side or 3 - track.foot
 	local volume = Feel.stepVolume(speed, P, F) * set.volume * Feel.jitter(rng, F.FootstepVolumeSpread)
+	if not ownFirstPerson(player) then
+		-- Seen from outside: softer (Config.Feel FootstepVolumeSeen; F2 `stepvolume`).
+		local share = self.state:Run(Constants.RunState.StepVolume)
+		volume *= type(share) == "number" and share or F.FootstepVolumeSeen
+	end
 	local pitch = set.pitch * Feel.jitter(rng, F.FootstepPitchSpread) * (track.foot == 1 and 1 or 0.97)
 	position = position or footPosition(humanoid, root, track.foot)
 	local muffled = false
@@ -318,13 +361,12 @@ function FootstepController:Start()
 				local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
 				local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 				-- (Read every frame, so each foot's lowest is known before it moves.)
-				local side, sole = self:_feet(track, character, root, dt, now)
+				local side, sole = self:_feet(track, character, humanoid, root, dt, now)
 				-- Only worth playing if it can be heard.
 				local heard = (root.Position - camera.CFrame.Position).Magnitude <= F.FootstepRange
 				if grounded and speed >= F.FootstepMinSpeed and not root.Anchored then
 					track.movingFor += dt
-					local own = player == localPlayer and localPlayer.CameraMode == Enum.CameraMode.LockFirstPerson
-					if Feel.stepsFromFeet(own, track.movingFor, now - track.lastLift, F) then
+					if Feel.stepsFromFeet(ownFirstPerson(player), track.movingFor, now - track.lastLift, F) then
 						-- What you see land is what you hear (Config.Feel FootLift).
 						if side and heard then
 							play(player, character, humanoid, root, speed, side, sole)

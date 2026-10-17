@@ -227,34 +227,64 @@ return function(test, check, Shared, require)
 		)
 	end)
 
-	-- A foot through Roblox's walk, as measured in the lobby (2026-10-16): it
-	-- rests 2.83 under the root and lifts `lift` for half of each `cycle`.
-	local function gait(lift: number, cycle: number, seconds: number, jitter: number)
+	-- A foot through Roblox's walk, as measured in the lobby (2026-10-16), above
+	-- the floor: each `cycle` it swings for half (its lowest point from 0.08, a
+	-- flat foot's rest, up by `lift`, its middle from 0.39 by twice that) and
+	-- stands for half (the lowest point dipping 0.15 under as it rolls).
+	-- `toeDip`: the slow walk's toe tips to the floor mid-swing. `rest` lifts
+	-- the whole foot (a body whose feet never reach the floor).
+	local function gait(lift: number, cycle: number, seconds: number, opts)
+		opts = opts or {}
 		local foot, downs, dt = {}, {}, 1 / 60
 		local rng = Rng.new(7)
 		for i = 0, math.floor(seconds / dt) do
 			local t = i * dt
-			local h = -2.83 + lift * math.max(0, math.sin(2 * math.pi * t / cycle)) + (rng:NextNumber() - 0.5) * jitter
-			if Feel.footDown(foot, h, dt, F) then
-				table.insert(downs, { t = t, above = h - foot.low })
+			local p = (t / cycle) % 1
+			local lowest, middle
+			if p < 0.5 then
+				local swing = math.sin(math.pi * p / 0.5)
+				middle = 0.39 + 2 * lift * swing
+				lowest = opts.toeDip and 0.06 + lift * math.abs(math.sin(2 * math.pi * p / 0.5)) or 0.08 + lift * swing
+			else
+				middle = 0.39
+				lowest = 0.08 - 0.23 * math.sin(math.pi * (p - 0.5) / 0.5)
+			end
+			local wobble = (rng:NextNumber() - 0.5) * (opts.jitter or 0.02)
+			local rest = opts.rest or 0
+			if Feel.footDown(foot, lowest + rest + wobble, middle + rest + wobble, dt, F) then
+				table.insert(downs, { t = t, phase = p })
 			end
 		end
 		return downs
 	end
 
-	test("a foot is heard once each time it lands, at a walk and a sprint", function()
-		local walk = gait(0.57, 0.62, 6.2, 0.03)
+	test("a foot is heard once each time it meets the floor, at a walk and a sprint", function()
+		local walk = gait(0.3, 0.62, 6.2)
 		check.equal(#walk, 10, "ten strides of the walk, ten landings")
 		for _, down in walk do
-			check.truthy(down.above < F.FootPlant, "heard as it reaches the floor")
+			-- (The swing ends at half the cycle: the heel meets the floor.)
+			check.near(down.phase, 0.5, 0.06, "heard as it meets the floor")
 		end
 		check.near(walk[2].t - walk[1].t, 0.62, 0.05, "one a stride")
-		check.equal(#gait(1.06, 0.48, 4.8, 0.03), 10, "and at a sprint")
+		check.equal(#gait(0.76, 0.48, 4.8), 10, "and at a sprint")
+		check.equal(#gait(0.21, 0.62, 6.2), 10, "even the walk's lowest swing")
+	end)
+
+	test("the slow walk's toe tipping to the floor mid-swing isn't a step", function()
+		local walk = gait(0.3, 0.62, 6.2, { toeDip = true })
+		check.equal(#walk, 10, "one landing a stride, not two")
+		for _, down in walk do
+			check.near(down.phase, 0.5, 0.06, "the landing, not the dip")
+		end
 	end)
 
 	test("a foot standing still, or shuffling less than a lift, is never heard", function()
-		check.equal(#gait(0, 1, 5, 0.08), 0, "at rest, with jitter")
-		check.equal(#gait(F.FootLift * 0.8, 0.6, 5, 0), 0, "a shuffle under the lift")
+		check.equal(#gait(0, 1, 5, { jitter = 0.04 }), 0, "at rest, with jitter")
+		check.equal(#gait((F.FootLift - 0.08) * 0.6, 0.6, 5, { jitter = 0 }), 0, "a shuffle under the lift")
+	end)
+
+	test("a body whose feet never reach the floor still steps", function()
+		check.atLeast(#gait(0.4, 0.62, 6.2, { rest = 0.5 }), 9, "it learns where its feet rest")
 	end)
 
 	test("steps follow the feet, except your own in first person or a body with no walk playing", function()

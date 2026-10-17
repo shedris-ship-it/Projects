@@ -11,7 +11,7 @@ Read these before starting real work:
 - `docs/plans/gameplay-rework.md`: the rework. Where it disagrees with the design doc, it wins. Sections 15 to 20 are the passes since 2026-10-06, newest last.
 - `docs/plans/level-design.md`: the level design (2026-10-05): the adventure planned first, houses that follow the squad, every room with a reason, the best of many houses. Where it disagrees with the mansion plan about level design, it wins.
 - `docs/ARCHITECTURE.md`: how the code implements it (every service and controller, run flow, divergence model, remote protocol, security).
-- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-342 as of 2026-10-16; new cases go at the end).
+- `docs/TESTING.md`: automated checks and the manual multi-client checklist (TC-01 to TC-346 as of 2026-10-16; new cases go at the end).
 - `docs/NEW-MAP.md`: everything in the lobby that names a map (the tapes, the standee, the case board's photos and plan, TONIGHT, the readables, the diner's boards), to update when a new map comes out; add a row for anything new that names one.
 - `docs/ART.md`: the approved visual guide; its "How the visual pass will run" list is the work order.
 - `docs/progress/<date>-<pass>/`: each pass's report and before/after screenshots. `docs/progress/ROADMAP-LOG.md` is the whole history, pass by pass.
@@ -76,7 +76,7 @@ From the repo root (`rokit install` sets up rojo, lune, selene and stylua):
 
 ```sh
 stylua src tests          # format (tabs, 120 columns)
-lune run tests/run        # unit tests (739 in 111 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
+lune run tests/run        # unit tests (741 in 111 specs as of 2026-10-16; about 90-150 s, 2-4 minutes while Studio runs, 10-15 minutes while Studio is playing)
 lune run tests/compile    # every .luau file compiles
 selene src tests          # lint, must be 0 errors and 0 warnings
 rojo build default.project.json -o build/scratch/Consensus.rbxlx   # not the repo's Consensus.rbxlx: the owner may have it open in Studio
@@ -185,7 +185,7 @@ These constrain every pass; the reasons and dates are in the plan docs and `docs
 
 ## Where we are (2026-10-16)
 
-Build `2026-10-16.226` on `claude/overnight-foundation`, 739 tests.
+Build `2026-10-16.228` on `claude/overnight-foundation`, 741 tests.
 
 - **Built:** the escape loop (rework R0 to R2c); the mansion generator and its navigation (M1 to M3); the level design L1 to L3 except its last item; the foundation and loop passes (Dread, stuck-assist, the bot, the Reckoning, the short night); the Guest rework (moods, temperaments, the mask, his animations); the fixes from three squad playtests; the readable Guest (his three rules, pestering, the family's valuables); the torch on F with your own arms and legs. The visual pass's steps 1 to 6, the polish pass and visual audit round 1.
 - **The full visual rework, V0 to V8 done, V9 paused** (the owner, 2026-10-12: "the gameplay is in a good spot"; P.T. on 35mm film, models made in Blender, a diegetic 1988 UI, PC-first presets, a building storm, a few cutscenes, standard bodies in modular 80s clothing for a later shop). The plan, V0 to V9, is `docs/plans/visual-rework.md`, which opens with a table of each phase's state; each phase's report (what was built, the owner's picks, the F2 commands it added) is in `docs/progress/<date>-visual-v<n>/`.
@@ -214,7 +214,7 @@ Build `2026-10-16.226` on `claude/overnight-foundation`, 739 tests.
      - **The story clutter (build .220):** laid out in the grey box (`Data/Mall` blocks, `Data/Kit` Parts without ids; the camp, the court's drip, behind the grille), checked from above and at eye level, nothing overlapping; `build/kit/story/story.fbx` baked and checked for holes (14 pieces and the widened whitewalls), waiting on the owner's import.
      - **Imported and filed (build .221):** all 14 pieces seen in place (384 kit meshes); the chairs and the SALE banner moved from behind the shutter's grille (lost in the dark) to the empty shop's front. The whitewalls still shade black at 0.012 thick (the importer welds the ring's faces); a 0.05 ring is exported for one more import (`build/kit/story_CarWhitewalls/`).
      - **The whitewalls fixed (build .222):** the 0.05 ring imported and filed; seen white on both wheels.
-     - **Footsteps (builds .223 to .225):** the footstep warnings were the warm-up preloading the ids as images (the samples are fine; it preloads Sounds now); the diner's steps are tile. The owner's "echoing footsteps ... like following footsteps" in the lobby: steps paced by distance drifted against Roblox's walk, which lands a foot 1.5 to 1.8 times as often, so in third person they sounded like someone else's. A body seen from outside now steps when a foot touches down (`Logic/Feel.footDown`); your own in first person keep the stride and the bob. (A lobby reverb shortlist built on a misreading went back out at .224.) Report: `docs/progress/2026-10-16-footsteps-echo/`, TC-342.
+     - **Footsteps (builds .223 to .228):** the footstep warnings were the warm-up preloading the ids as images (it preloads Sounds now); the diner's steps are tile. The owner's "following footsteps" in the lobby: steps paced by distance drifted against Roblox's walk (a foot lands 1.5 to 1.8 times as often), so in third person they sounded like someone else's. A body seen from outside now steps at the heel strike (`Logic/Feel.footDown`: its lowest point at the floor, its middle down), at half volume (`Config.Feel.FootstepVolumeSeen`; the owner picks by ear with F2 `stepvolume`); your own in first person keep the stride and the bob. Time it in a focused Studio window (unfocused it draws 15 fps). Report: `docs/progress/2026-10-16-footsteps-echo/`, TC-346.
      - **Monetization on sale (build .226):** the owner made 5 products and 2 passes in Creator Hub (ids in `Data/Products`; the starter pack a pass, the arcade's named for the arcade, the unlimited pass 300 R); gifts checked against regional price levels (`Logic/PriceLevels`); every grant tested with F2 `buy`. Report: `docs/progress/2026-10-16-monetization/`. Live once published.
      - **Next:** the owner plays HOUSE CALL by hand and settles the story's voices and names (questions 5 and 6), then 7B's unlocking pages. Then LB6, ads and the rest (most of it needs the owner's account: images, ad eligibility, products). The Robux side waits on the owner's products in Creator Hub (ids into `Data/Products`). A dressed player is about 40k triangles, unmeasured on a phone: measure a shop full of outfits (F2 `perf`, `crowd`). V9's hub polish (ART.md's Hub; the menu clear of Roblox's chat hint) still to do.
   3. **The rest of the visual rework:** V9 without the hub (above).

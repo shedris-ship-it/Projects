@@ -78,22 +78,26 @@ function Feel.stepVolume(speed: number, P, F): number
 	return lerp(F.FootstepVolumeWalk, F.FootstepVolumeSprint, sprintShare(speed, P))
 end
 
--- A foot touching down, from its height under the body (studs, foot minus
--- root) each frame: true on the frame it lands. `foot` is its memory: `low`,
--- the lowest it has been (creeping up to it at F.FootRelearn a second, so a
--- crouch or another body re-learns it), and `up`, whether it has lifted
--- F.FootLift above that since it last landed. Landing is coming back within
--- F.FootPlant of the lowest, so one step a stride, whatever the walk's speed.
-function Feel.footDown(foot, height: number, dt: number, F): boolean
-	if foot.low == nil then
-		foot.low = height
-	else
-		foot.low = math.min(foot.low + F.FootRelearn * dt, height)
-	end
-	local above = height - foot.low
-	if above > F.FootLift then
+-- A foot touching down, each frame, from how high its lowest point and its
+-- middle are above the floor the body stands on (studs): true on the frame
+-- it lands, when you see its heel (or sole) meet the floor. Its lowest point
+-- has to be back at the floor (a flat foot rests 0.08 above it) with its
+-- middle near where it stands, because in Roblox's slow walk the toe tips
+-- down to the floor mid-swing while the foot is still high. (The middle
+-- alone was a poor guide: it reached the bottom on time on one foot and late
+-- on the other, so the steps limped.) `foot` is its memory: `up`, whether it
+-- has lifted since it last landed, and the lowest each has been (`low`,
+-- `lowMiddle`), creeping up at F.FootRelearn a second so a new pose
+-- re-learns them. A body whose feet stay more than a lift and a landing above
+-- the floor rests on its lowest.
+function Feel.footDown(foot, lowest: number, middle: number, dt: number, F): boolean
+	local creep = F.FootRelearn * dt
+	foot.low = foot.low and math.min(foot.low + creep, lowest) or lowest
+	foot.lowMiddle = foot.lowMiddle and math.min(foot.lowMiddle + creep, middle) or middle
+	local rest = foot.low > F.FootLift + F.FootPlant and foot.low or 0
+	if lowest > rest + F.FootLift then
 		foot.up = true
-	elseif foot.up and above < F.FootPlant then
+	elseif foot.up and lowest < rest + F.FootPlant and middle < foot.lowMiddle + F.FootDown then
 		foot.up = false
 		return true
 	end

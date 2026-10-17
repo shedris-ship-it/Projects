@@ -90,6 +90,7 @@ local HELP = table.concat({
 	"night full|short (the next run's length: the squad's house, or one wing and two heirlooms)",
 	"role (this server's job: lobby, run or both; Services/PlaceService)",
 	"mallsound <Hum|Buzz|Drip|Radio|Arcade|Sputter> [n] (hear the n-th candidate, Assets.Mall) · brownout · mallstrike (the lobby mall's)",
+	"stepvolume [share] (steps seen from outside, yours in the lobby and everyone else's: a share of full volume for everyone; none: back to Config.Feel FootstepVolumeSeen)",
 	"inspect <Service.field.key...> (a live server table, to Output: inspect LockService.reach · inspect WorldService.World.seams.seam:2-3)",
 	"drag <right> <away> (studs: your hand on the door you're looking at, as if with the mouse)",
 	"stun [seconds] (as if hit by a throw) · throwat (throw what you carry at him) · lure [radius] (a noise where you look)",
@@ -1830,6 +1831,16 @@ function DebugService:Run(player: Player, text: string)
 			end
 			reply(player, string.format("%s: candidate %d of %d (%s)", role, n, #list, list[n]))
 		end
+	elseif command == "stepvolume" then
+		-- Tune the steps seen from outside by ear (Controllers/FootstepController).
+		local share = tonumber(args[2])
+		share = share and math.clamp(share, 0, 2)
+		ReplicatedStorage.RunState:SetAttribute(Constants.RunState.StepVolume, share)
+		reply(
+			player,
+			share and string.format("steps seen from outside at %.2f of full volume", share)
+				or string.format("steps seen from outside back to %.2f (Config)", Config.Feel.FootstepVolumeSeen)
+		)
 	elseif command == "brownout" then
 		if services.MallService then
 			services.MallService:BrownoutNow()
