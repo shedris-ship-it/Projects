@@ -7,8 +7,10 @@
 -- `marks`, `arcadeCredits`, `starterPack`, `garment` (Data/Wardrobe). A pass
 -- with a grant gives it once, the first time the game sees you own it (at
 -- join, or as you buy it: Services/MonetizationService).
--- `robux` is the starting price the owner sets in Creator Hub, shown on the
--- till's card (Roblox's own prompt shows the real one); `label` names it
+-- `robux` is the base price the owner sets in Creator Hub (keep the two the
+-- same). The labels show what Roblox will charge each player, regional and
+-- after any discount of theirs (client Lib/Prices asks Roblox), and this
+-- figure only until Roblox answers or if it can't; `label` names it
 -- there; `till` puts it on the boutique's till (LB3), in that order. A
 -- product can be bought for a friend in the same lobby, a wrapped gift
 -- (Services/MonetizationService), except a once-only one they already have.

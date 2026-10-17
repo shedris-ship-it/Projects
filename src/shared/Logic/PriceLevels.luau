@@ -20,6 +20,42 @@ function PriceLevels.canGift(sender: number?, recipient: number?): (boolean, str
 	return true, nil
 end
 
+-- The price a player is shown (client Lib/Prices): what Roblox's prompt will
+-- charge them. GetProductInfoAsync answers a client with its own player's
+-- price in PriceInRobux (regional, and after any discount of theirs: Roblox
+-- Plus takes 10% off, the owner's account, 2026-10-16); nil when it gives none.
+function PriceLevels.shown(info): number?
+	local price = type(info) == "table" and info.PriceInRobux
+	if type(price) ~= "number" or not (price >= 1 and price < 1e9) then
+		return nil
+	end
+	return math.floor(price)
+end
+
+-- Everything on sale in Data/Products (an id filed), to ask Roblox the price
+-- of: { name, id, pass }, by name.
+function PriceLevels.onSale(products)
+	local out = {}
+	for _, kind in { "Products", "Passes" } do
+		for name, entry in products[kind] or {} do
+			if type(entry.id) == "number" then
+				table.insert(out, { name = name, id = entry.id, pass = kind == "Passes" })
+			end
+		end
+	end
+	table.sort(out, function(a, b)
+		return a.name < b.name
+	end)
+	return out
+end
+
+-- Data/Products' own figure for a product or pass, by name: shown until
+-- Roblox answers, or if it can't.
+function PriceLevels.listed(products, name: string): number?
+	local entry = (products.Products or {})[name] or (products.Passes or {})[name]
+	return entry and entry.robux
+end
+
 -- MarketplaceService:GetUsersPriceLevelsAsync's answer ({ { UserId,
 -- PriceLevel } }) as { [userId] = level }, anything malformed left out.
 function PriceLevels.read(infos)

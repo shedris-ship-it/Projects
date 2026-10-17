@@ -8,6 +8,6 @@
 -- to reach Studio. `note` says what is new in a few words.
 
 return {
-	id = "2026-10-16.228",
-	note = "Steps land at the heel strike, at half volume (F2 stepvolume)",
+	id = "2026-10-16.229",
+	note = "Robux labels show what Roblox will charge you (regional, after your discount), not the listed price",
 }

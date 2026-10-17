@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
 
+local Prices = require(script.Parent.Parent.Lib.Prices)
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local player = Players.LocalPlayer
@@ -97,22 +98,41 @@ function Arcade.new(ctx)
 	Net.get("ArcadeStart").OnClientEvent:Connect(function()
 		self:Close()
 	end)
+	-- (What Roblox will charge you, not the listed price: Lib/Prices.)
+	Prices.ask()
+	Prices.Changed:Connect(function()
+		if self.state then
+			self:_render()
+		end
+	end)
 	return self
 end
 
-function Arcade:_row(y: number, label: string, button: string?, enabled: boolean, onClick: (() -> ())?)
+-- A row: what it is, its price pencilled under it (as on the boutique's till:
+-- a long label and its price never fit one line), and its button.
+function Arcade:_row(y: number, label: string, price: string?, button: string?, enabled: boolean, onClick: (() -> ())?)
 	Ui.typed(label, {
-		Position = UDim2.fromOffset(0, y + 6),
-		Size = UDim2.new(1, -130, 0, 22),
+		Position = UDim2.fromOffset(0, price and y - 6 or y + 6),
+		Size = UDim2.new(1, -110, 0, 22),
 		TextSize = 15,
 		ZIndex = 3,
 		Parent = self.rows,
 	})
+	if price then
+		Ui.hand(price, {
+			Position = UDim2.fromOffset(0, y + 14),
+			Size = UDim2.new(1, -110, 0, 26),
+			TextSize = 20,
+			TextColor3 = Ui.Theme.pen,
+			ZIndex = 3,
+			Parent = self.rows,
+		})
+	end
 	if button then
 		Ui.paperButton(button, {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, 0, 0, y),
-			Size = UDim2.fromOffset(120, 32),
+			Size = UDim2.fromOffset(100, 32),
 			TextSize = 14,
 			TextColor3 = enabled and Ui.Theme.red or Ui.Theme.typeDim,
 			ZIndex = 3,
@@ -125,6 +145,12 @@ function Arcade:_open(state)
 	self.state = state
 	local r = root()
 	self.at = r and r.Position
+	self:_render()
+	self.gui.Enabled = true
+end
+
+function Arcade:_render()
+	local state = self.state
 	for _, child in self.rows:GetChildren() do
 		child:Destroy()
 	end
@@ -134,22 +160,22 @@ function Arcade:_open(state)
 	self:_row(
 		0,
 		string.format("One play: %s Marks", money(state.price)),
+		nil,
 		short and "NOT ENOUGH" or "PLAY",
 		not short,
 		function()
 			Net.get("ArcadePay"):FireServer(state.index, "marks")
 		end
 	)
-	local y = 50
+	local y = 54
 	for _, item in state.robux do
-		local label = string.format("%s: %d Robux", item.label, item.robux)
-		self:_row(y, label, item.can and "BUY" or "SOON", item.can, function()
+		local price = string.format("%s Robux", money(Prices.robux(item.name) or item.robux or 0))
+		self:_row(y, item.label, price, item.can and "BUY" or "SOON", item.can, function()
 			Net.get("ArcadePay"):FireServer(state.index, item.name)
 			self:Close()
 		end)
-		y += 44
+		y += 48
 	end
-	self.gui.Enabled = true
 end
 
 function Arcade:Close()

@@ -18,6 +18,7 @@ local Net = require(Shared.Net)
 local Products = require(Shared.Data.Products)
 local Wardrobe = require(Shared.Data.Wardrobe)
 
+local Prices = require(script.Parent.Parent.Lib.Prices)
 local Ui = require(script.Parent.Parent.Lib.Ui)
 
 local player = Players.LocalPlayer
@@ -49,6 +50,14 @@ function Boutique.new(ctx)
 	self:_buildTill(gui)
 	self:_buildStarter(gui)
 
+	-- (What Roblox will charge you, not the listed price: Lib/Prices.)
+	Prices.ask()
+	Prices.Changed:Connect(function()
+		self:_renderTill()
+		if self.starter.Visible then
+			self:_renderOffer()
+		end
+	end)
 	Net.get("ShopState").OnClientEvent:Connect(function(state)
 		self:_state(state)
 	end)
@@ -447,7 +456,8 @@ function Boutique:_renderTill()
 		row.label.Text = entry and (entry.product.label or entry.name) or ""
 		local open = entry ~= nil and type(entry.product.id) == "number"
 		anyOpen = anyOpen or open
-		row.price.Text = entry and (open and string.format("%d Robux", entry.product.robux or 0) or "Coming soon") or ""
+		local robux = entry and Prices.robux(entry.name) or 0
+		row.price.Text = entry and (open and string.format("%s Robux", money(robux)) or "Coming soon") or ""
 		row.buy.Visible = open
 	end
 	self.tillNote.Text = anyOpen and "Bought Marks never add Clearance: that's earned in the house."
@@ -505,14 +515,20 @@ function Boutique:_buildStarter(gui: ScreenGui)
 end
 
 function Boutique:_offer(offer)
+	self.offer = offer
+	self:_renderOffer()
+	self.starter.Visible = true
+	self:_visibility()
+end
+
+function Boutique:_renderOffer()
+	local offer = self.offer or {}
 	self.starterText.Text = string.format(
-		"STARTER PACK  ·  %d Robux\n%s and %s Marks, once.\nThe boutique's racks are in the mall, by the fountain.",
-		offer.robux or 99,
+		"STARTER PACK  ·  %s Robux\n%s and %s Marks, once.\nThe boutique's racks are in the mall, by the fountain.",
+		money(Prices.robux("StarterPack") or offer.robux or 99),
 		offer.garment or "A jacket",
 		money(offer.marks or 1000)
 	)
-	self.starter.Visible = true
-	self:_visibility()
 end
 
 function Boutique:_visibility()
