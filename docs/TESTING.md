@@ -382,6 +382,7 @@ Use **Test → Clients and Servers** with 2–4 players. A debug command is note
 | TC-352 | The boutique's racks: the mirror shows you (playtest fixes) | Walk up to each rack (Tops, Jackets, Bottoms, the shoe wall) and try something on: you're turned to face the shop's floor and the camera shows you whole, nothing between it and you; Done: you walk off as before. The changing booth is as it was |
 | TC-353 | Everyone else hidden in the fitting room (playtest fixes, two players) | A in the fitting room (booth or rack): B, their clothes, torch and name are gone from A's screen; B still sees A. A presses Done: B's back. B arriving or changing clothes while A's in there stays hidden |
 | TC-354 | No light through the walls (playtest fixes) | A big house (a squad of 3 or 4, or several seeds): stand at the far end of the grand entrance and look around: no light on its walls or floor from a room beyond them; walking towards a far room, its lamps don't pop or flood. A long view to a far lit room (down a corridor) still shows it lit |
+| TC-355 | Every piano plays (polish, build .233) | A house with a Music Room but no music box puzzle (most; seed 2, squad of 4): look at the piano: E says Play; tap it: a run down the keys in the music box's note, and the Guest comes to listen (a lure); again within 10 s: nothing; hold E: it pushes. A house with the music box (seed 11, squad of 4; or seed 18, squad of 1): the piano's Play is the puzzle's (its screen), never the lure's |
 
 ### Multiplayer robustness
 

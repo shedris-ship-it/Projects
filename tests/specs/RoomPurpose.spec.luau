@@ -176,4 +176,14 @@ return function(test, check, Shared, require)
 		end
 		check.truthy(records > houses / 2, records .. " of " .. houses .. " houses have one")
 	end)
+
+	test("the music box's piano is the puzzle's; any other piano is a lure of its own", function()
+		local RoomPurpose = require(Shared.Logic.RoomPurpose)
+		local plan = { puzzles = { box = { kind = "musicbox", room = 3 }, safe = { kind = "safe", room = 5 } } }
+		check.truthy(RoomPurpose.puzzleTakes(plan, "Piano", 3), "the puzzle's room: its Play")
+		check.truthy(not RoomPurpose.puzzleTakes(plan, "Piano", 4), "another room's piano: a lure")
+		check.truthy(not RoomPurpose.puzzleTakes({ puzzles = {} }, "Piano", 3), "no music box: a lure")
+		check.truthy(not RoomPurpose.puzzleTakes(plan, "Toilet", 3), "a fixture no puzzle takes")
+		check.truthy(not RoomPurpose.puzzleTakes(nil, "Piano", 3), "no plan: a lure")
+	end)
 end

@@ -20,6 +20,7 @@ local Config = require(Shared.Config)
 local Constants = require(Shared.Constants)
 local Interactables = require(Shared.Data.Interactables)
 local Kit = require(Shared.World.Kit)
+local MusicBox = require(Shared.Logic.Puzzles.MusicBox)
 local PropFactory = require(Shared.World.PropFactory)
 local Rooms = require(Shared.Data.Rooms)
 local RoomPurpose = require(Shared.Logic.RoomPurpose)
@@ -64,7 +65,7 @@ function InteractService:Start()
 	end)
 end
 
-function InteractService:Begin()
+function InteractService:Begin(plan)
 	local world = self.World.World
 	if not world then
 		return
@@ -75,7 +76,8 @@ function InteractService:Begin()
 	self.folder = folder
 	for _, prop in world.props or {} do
 		local info = Interactables[prop.kind]
-		if info and prop.model.Parent then
+		-- (Not the music box's piano: its Play is the puzzle's.)
+		if info and prop.model.Parent and not RoomPurpose.puzzleTakes(plan, prop.kind, prop.roomId) then
 			self:_fixture(prop.model, info)
 		end
 	end
@@ -375,6 +377,13 @@ function InteractService:Use(fixture, _player: Player?, byGuest: boolean?)
 					loop(fixture, nil)
 				end
 			end)
+		elseif info.notes then
+			-- (A hand run down a piano's keys, each pitched as the puzzle's.)
+			for i, key in info.notes do
+				task.delay((i - 1) * (info.gap or 0.15), function()
+					Sfx.play(info.sound, fixture.position, info.volume, MusicBox.pitch(key, Config.MusicBox.PianoPitch))
+				end)
+			end
 		else
 			Sfx.play(info.sound, fixture.position, info.volume, info.pitch or 1)
 		end

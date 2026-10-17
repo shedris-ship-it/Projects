@@ -272,8 +272,9 @@ function RunOrchestrator:StartRun(players: { Player }, difficultyName: string, l
 		services.PuzzleService:Reserve(plan)
 		services.ToolService:BeginRun(players, rng:Fork("tools"))
 		services.DriftService:Begin(difficulty)
-		-- Toilets, taps, TVs, radios and every room's light switch.
-		services.InteractService:Begin()
+		-- Toilets, taps, TVs, radios, a piano that isn't the music box's, and
+		-- every room's light switch.
+		services.InteractService:Begin(plan)
 		-- Wind-up toys in the children's rooms (docs/plans/level-design.md 4).
 		services.ToyService:Begin(rng:Fork("toys"))
 		-- A landmark in every corridor, then the servants' bell board.

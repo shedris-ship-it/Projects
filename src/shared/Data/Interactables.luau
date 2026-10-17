@@ -17,6 +17,10 @@
 --   uses          how many times a run (the car horn: once)
 --   masks         while it runs, footsteps within `radius` carry only
 --                 `factor` as far (the washing machine; Services/NoiseService)
+--   notes, gap    a one-shot played as these keys of the piano's (Logic/
+--                 Puzzles/MusicBox), `gap` seconds apart, in `sound`
+--   puzzle        not on the one in a room this puzzle kind takes it for
+--                 itself (Logic/RoomPurpose.puzzleTakes)
 --   placed        not furniture of its own: put there each run (Services/
 --                 InteractService) `on` a prop kind (else on a top in `room`),
 --                 or on a top in the first of `rooms` (template ids, in order)
@@ -101,6 +105,22 @@ return {
 		lure = 70,
 		once = { 0, 1.2 },
 		uses = 1,
+	},
+	-- A piano that isn't the music box's (the owner, 2026-10-17: a piano that
+	-- only pushed read as broken, and most music rooms have no music box):
+	-- run a hand down its keys, out of tune like the puzzle's, loud enough to
+	-- carry. The music box's own piano keeps its Play (Puzzles/MusicBox).
+	Piano = {
+		action = "Play",
+		object = "Piano",
+		sound = "MusicBoxNote",
+		volume = 0.85,
+		notes = { 8, 7, 5, 4, 2, 1 },
+		gap = 0.13,
+		lure = 36,
+		once = { 0, 1 },
+		cooldown = 10,
+		puzzle = "musicbox",
 	},
 	-- The kitchen's: set it on the stove and get away; it shrieks 20 s later.
 	Kettle = {

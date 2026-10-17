@@ -65,6 +65,22 @@ function RoomPurpose.placedRooms(layout, templatesById, name: string): { number 
 	return out
 end
 
+-- Whether a puzzle in this room takes its furniture of this kind for itself
+-- (Data/Interactables `puzzle`: the music box takes its room's piano), so it
+-- isn't a fixture of its own there (Services/InteractService).
+function RoomPurpose.puzzleTakes(plan, kind: string, roomId: number): boolean
+	local info = Interactables[kind]
+	if not info or not info.puzzle then
+		return false
+	end
+	for _, puzzle in plan and plan.puzzles or {} do
+		if puzzle.kind == info.puzzle and puzzle.room == roomId then
+			return true
+		end
+	end
+	return false
+end
+
 -- Whether a room is a way between others (a corridor or a stair).
 function RoomPurpose.connector(room, template): boolean
 	return room.corridor == true or room.kind == "stair" or (template ~= nil and template.family == "corridor")
