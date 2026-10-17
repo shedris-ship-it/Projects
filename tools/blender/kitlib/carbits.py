@@ -32,12 +32,14 @@ def _chrome(name):
 def whitewalls(name="Whitewalls"):
     """A white band round each tyre's outer wall, between the hubcap and the
     tread: the 1950s-to-80s family car's dress-up."""
-    white = materials.paint("Whitewall", color=(232, 230, 222), roughness=0.6, grime=0.25)
+    white = materials.paint("Whitewall", color=(242, 240, 234), roughness=0.6, grime=0.15)
     parts = []
     for wy in WHEELS:
         for sx in (-1, 1):
-            # (Closed round its inner rim too: open, its inside showed through.)
-            ring = shapes.lathe("Whitewall", [(0.63, 0.0), (0.86, 0.0), (0.86, 0.012), (0.63, 0.012), (0.63, 0.0)], steps=32)
+            # (Closed round its inner rim too: open, its inside showed through.
+            # Black tyre left either side of it, or in the game's dim light it
+            # read as the hubcap's edge: seen 2026-10-16.)
+            ring = shapes.lathe("Whitewall", [(0.72, 0.0), (0.9, 0.0), (0.9, 0.012), (0.72, 0.012), (0.72, 0.0)], steps=32)
             shapes.turn(ring, (0, sx * 90, 0), (sx * (W / 2 - 0.045), wy, HUB))
             parts.append(materials.assign(ring, white))
     return shapes.join(parts, name)

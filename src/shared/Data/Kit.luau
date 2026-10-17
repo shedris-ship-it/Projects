@@ -857,6 +857,22 @@ return {
 		-- workbench (Props.Car, Props.Workbench; already imported).
 		MallCar = { mesh = "Car", id = 87772743662583, size = { 7.45, 4.76, 14.4 }, at = { 0, -0.12, 0 } },
 		MallWorkbench = { mesh = "Workbench", id = 129304846002547, size = { 10, 8.6, 3.5 }, at = { 0, 2.3, 0 } },
+		-- The story clutter (kit.py `story`, kitlib/clutter; Data/Mall's blocks of
+		-- the same names), each round its block's middle.
+		TinCrate = { mesh = "TinCrate", size = { 2, 1.12, 1.4 } },
+		CampStove = { mesh = "CampStove", size = { 2, 1.39, 1.1 } },
+		PizzaBoxes = { mesh = "PizzaBoxes", size = { 1.86, 0.96, 1.83 } },
+		Boombox = { mesh = "Boombox", size = { 3.02, 2.4, 0.78 } },
+		TvCart = { mesh = "TvCart", size = { 2.67, 4.14, 1.85 } },
+		Raincoats = { mesh = "Raincoats", size = { 4.21, 2.65, 0.43 } },
+		SightingsMap = { mesh = "SightingsMap", size = { 3.6, 2.6, 0.14 } },
+		ClippingA = { mesh = "ClippingA", size = { 1, 1.3, 0.14 } },
+		ClippingB = { mesh = "ClippingB", size = { 1, 1.3, 0.14 } },
+		ClippingC = { mesh = "ClippingC", size = { 1, 1.3, 0.14 } },
+		WetFloorSign = { mesh = "WetFloorSign", size = { 1.1, 2.17, 0.92 } },
+		MopBucket = { mesh = "MopBucket", size = { 1.28, 3.4, 1.16 } },
+		StackedChairs = { mesh = "StackedChairs", size = { 1.62, 4.26, 1.53 } },
+		SaleBanner = { mesh = "SaleBanner", size = { 7, 1.36, 2.6 } },
 		-- LB4's party car in its pieces (kit.py mall4, kitlib/carbits; World/CarDress,
 		-- Services/CarService): its paint (tinted), the rest, the woodgrain bit, the
 		-- pegboard's bits. Each in the car's frame: `at` from its body's middle.

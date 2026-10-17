@@ -180,9 +180,10 @@ BATCHES = {
     # The fourth (LB4): the party cars' paintable body, its trim and
     # woodgrain, and the pegboard's bits (kitlib/carbits).
     "mall4": carbits.MALL4,
-    # The story clutter (2026-10-16, sketched for the owner first): the
-    # investigators' camp lived in, the dead mall left behind (kitlib/clutter).
-    "story": clutter.CLUTTER,
+    # The story clutter (2026-10-16, kept by the owner): the investigators'
+    # camp lived in, the dead mall left behind (kitlib/clutter); and the car's
+    # whitewalls again, a black gap either side (kitlib/carbits).
+    "story": clutter.CLUTTER + [carbits.car_whitewalls],
 }
 
 

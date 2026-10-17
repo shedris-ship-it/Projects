@@ -69,3 +69,19 @@ Two small changes so fewer of its rows need editing later:
 - **Other checks:** compile, lint and the build all clean.
 - **In Studio:** the readables, their text and the case label, with no errors.
 - **Not seen in Studio:** how the prompts look in the camp. The display was asleep. TC-339 and TC-340.
+
+## Kept, placed and baked (build .220)
+
+The owner, home: "I approve the clutter". So:
+- **Placed in the grey box** (`Data/Mall` blocks; `Data/Kit` Parts, ids to come):
+  - in the camp: the stove on its crate of tins by the camp table, the boombox and the pizza boxes at the cots' feet, the TV cart facing the cots, the raincoats on the north wall over the bagged cot;
+  - on the walls: the three clippings on the case board between the photos, the map of sightings over the evidence boxes;
+  - in the court and the dead mall: the wet-floor sign and the mop bucket either side of the court's drip and its puddle, the chairs and the banner behind the grille.
+
+  Checked from above and at eye level in Studio. Every piece is clear of everything else (a bounds check on each), and the mall's layout rules pass.
+- **Baked:** `build/kit/story/story.fbx`, the 14 pieces and the car's whitewalls again (widened to 0.72 to 0.9 of the wheel, black tyre either side: in the garage's light the first ones read as the hubcap's edge).
+- **The hole check** found three things, all fixed and checked again clean:
+  - the crate's slats overlapped at the corners;
+  - the chairs' bent leg tubes turned inside out at the bends (now straight square tubes);
+  - the banner's lifted corner had no underside.
+

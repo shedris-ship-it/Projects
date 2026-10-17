@@ -177,12 +177,15 @@ def camp_stove():
     parts.append(materials.assign(_tube("Handle", [(-0.68, 0.72, 0.1), (-0.5, 0.92, 0.1), (-0.32, 0.72, 0.1)], 0.02, 6), black))
     pot = _lathe("Pot", [(0.0, 0.38), (0.26, 0.38), (0.27, 0.62), (0.25, 0.62), (0.24, 0.42), (0.0, 0.42)], (0.5, 0, 0.1), 22)
     parts.append(materials.assign(pot, tin))
-    return shapes.join(parts, "CampStove")
+    obj = shapes.join(parts, "CampStove")
+    obj["bake_size"] = 512
+    return obj
 
 
 def tin_crate():
     """A slatted produce crate (2 x 1.2 x 1.4) full of tins, their labels
-    faded, a few out on top."""
+    faded. (The camp stove stands on it in the garage, so nothing sits on
+    its top.)"""
     crate = _oak("CrateWood", axis="X")
     rng = random.Random(4)
     labels = [_plastic("TinLabel%d" % i, c, 0.5) for i, c in enumerate([(170, 40, 34), (220, 190, 70), (60, 90, 140), (60, 110, 60)])]
@@ -193,17 +196,16 @@ def tin_crate():
         for sz in (-1, 1):
             parts.append(materials.assign(_box("Slat", (W, 0.25, 0.06), (0, y, sz * (D / 2 - 0.03)), 0.01, 1), crate))
         for sx in (-1, 1):
-            parts.append(materials.assign(_box("Slat", (0.06, 0.25, D), (sx * (W / 2 - 0.03), y, 0), 0.01, 1), crate))
+            # (Between the front and back slats: overlapping them at the
+            # corners, faces fought and showed through.)
+            parts.append(materials.assign(_box("Slat", (0.06, 0.25, D - 0.12), (sx * (W / 2 - 0.03), y, 0), 0.01, 1), crate))
     parts.append(materials.assign(_box("Bottom", (W, 0.06, D), (0, 0.03, 0), 0.0, 1), crate))
     for i in range(4):
         for j in range(3):
             x, z = -0.7 + i * 0.47, -0.45 + j * 0.45
-            top = H - 0.1 + rng.uniform(-0.05, 0.02)
+            top = H - 0.14 + rng.uniform(-0.05, 0.0)
             parts.append(materials.assign(_lathe("Tin", [(0.0, top - 0.5), (0.19, top - 0.5), (0.19, top), (0.0, top)], (x, 0, z), 14), tin))
             parts.append(materials.assign(_lathe("Label", [(0.195, top - 0.44), (0.195, top - 0.08)], (x, 0, z), 14), rng.choice(labels)))
-    for x, z in ((0.3, 0.2), (-0.4, -0.1)):
-        parts.append(materials.assign(_lathe("Tin", [(0.0, H), (0.19, H), (0.19, H + 0.5), (0.0, H + 0.5)], (x, 0, z), 14), tin))
-        parts.append(materials.assign(_lathe("Label", [(0.195, H + 0.06), (0.195, H + 0.42)], (x, 0, z), 14), labels[0]))
     return shapes.join(parts, "TinCrate")
 
 
@@ -224,7 +226,9 @@ def pizza_boxes():
     for x, z in ((0.35, 0.3), (-0.25, 0.4)):
         parts.append(materials.assign(_lathe("Cup", [(0.0, top), (0.12, top), (0.16, top + 0.42), (0.0, top + 0.42)], (x, 0, z), 14), cup))
         parts.append(materials.assign(_lathe("Band", [(0.135, top + 0.15), (0.15, top + 0.28)], (x, 0, z), 14), band))
-    return shapes.join(parts, "PizzaBoxes")
+    obj = shapes.join(parts, "PizzaBoxes")
+    obj["bake_size"] = 512
+    return obj
 
 
 def boombox():
@@ -250,7 +254,9 @@ def boombox():
     for k in range(3):
         t = materials.assign(_box("Tape", (0.5, 0.08, 0.32), (0, 0, 0), 0.01, 1), _plastic("TapeShell%d" % k, (30, 30, 30)))
         parts.append(_place(t, (0, 0, rng.uniform(-30, 30)), (1.55 + rng.uniform(-0.1, 0.1), 0.04 + 0.08 * k, rng.uniform(-0.1, 0.1))))
-    return shapes.join(parts, "Boombox")
+    obj = shapes.join(parts, "Boombox")
+    obj["bake_size"] = 512
+    return obj
 
 
 def tv_cart():
@@ -317,7 +323,9 @@ def sightings_map():
 
 def _clipping(i):
     headline, seed, photo = CLIPPINGS[i]
-    return _pinned("Clipping%s" % "ABC"[i], clipping_art(headline, seed, photo), 1.0, 1.3, (220, 200, 40))
+    obj = _pinned("Clipping%s" % "ABC"[i], clipping_art(headline, seed, photo), 1.0, 1.3, (220, 200, 40))
+    obj["bake_size"] = 512
+    return obj
 
 
 def clipping_a():
@@ -352,7 +360,9 @@ def wet_floor_sign():
         # (Each leans in at the top, toward the other.)
         parts.append(_place(panel, (-12, 0, 90 - 90 * side), (0, 0, side * 0.44)))
     parts.append(materials.assign(_tube("Handle", [(-0.3, 2.0, 0), (0, 2.14, 0), (0.3, 2.0, 0)], 0.04, 6), yellow))
-    return shapes.join(parts, "WetFloorSign")
+    obj = shapes.join(parts, "WetFloorSign")
+    obj["bake_size"] = 512
+    return obj
 
 
 def mop_bucket():
@@ -374,7 +384,9 @@ def mop_bucket():
             parts.append(materials.assign(_sphere("Caster", 0.08, (sx * 0.5, 0.08, sz * 0.5), 8, 4), black))
     parts.append(materials.assign(_tube("Mop", [(-0.25, 0.55, 0.0), (-0.45, 3.4, -0.15)], 0.045, 8), wood))
     parts.append(materials.assign(shapes.cushion("Head", (0.5, 0.5, 0.4), (-0.25, 0.0, 0.5), puff=0.2, levels=2, roundness=0.8), strands))
-    return shapes.join(parts, "MopBucket")
+    obj = shapes.join(parts, "MopBucket")
+    obj["bake_size"] = 512
+    return obj
 
 
 def stacked_chairs():
@@ -390,8 +402,12 @@ def stacked_chairs():
         back = materials.assign(_box("Back", (1.5, 1.0, 0.08), (0, 0, 0), 0.06, 3), orange)
         parts.append(_place(back, (-8, 0, 0), (dx, y + 0.55, -0.68)))
         for sx in (-1, 1):
-            leg = [(dx + sx * 0.7, y - 0.02, 0.62), (dx + sx * 0.75, y - 1.5 + 0.0, 0.7), (dx + sx * 0.75, y - 1.5, -0.6), (dx + sx * 0.7, y - 0.02, -0.55)]
-            parts.append(materials.assign(_tube("Leg", leg, 0.035, 6, caps=False), chrome))
+            # Square tube, a straight length each (a bent tube turned inside
+            # out at its corners): two legs down and the runner along the floor.
+            x = dx + sx * 0.72
+            for z in (0.62, -0.56):
+                parts.append(materials.assign(_box("Leg", (0.06, 1.48, 0.06), (x, y - 0.76, z), 0.01, 1), chrome))
+            parts.append(materials.assign(_box("Runner", (0.06, 0.06, 1.24), (x, y - 1.5, 0.03), 0.01, 1), chrome))
     return shapes.join(parts, "StackedChairs")
 
 
@@ -423,7 +439,11 @@ def sale_banner():
             a = j * (nx + 1) + i
             faces.append((a, a + 1, a + nx + 2, a + nx + 1))
     cloth = _surface("Banner", verts, faces, uvs, (0, 1, 0))
-    return shapes.join([materials.assign(cloth, picture)], "SaleBanner")
+    # Its back, a hair under it: the lifted corner shows it (one face alone
+    # is a hole from below in the game).
+    under = _surface("BannerBack", [(x, y - 0.006, z) for x, y, z in verts], faces, None, (0, -1, 0))
+    back = materials.paint("BannerBack", color=(220, 218, 210), roughness=0.6, grime=0.2)
+    return shapes.join([materials.assign(cloth, picture), materials.assign(under, back)], "SaleBanner")
 
 
 CAMP = [camp_stove, tin_crate, pizza_boxes, boombox, tv_cart, raincoats, sightings_map, clipping_a, clipping_b, clipping_c]
