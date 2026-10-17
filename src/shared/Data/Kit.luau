@@ -692,7 +692,8 @@ return {
 		VideoIsland = { mesh = "VideoIsland", id = 73982242912374, size = { 8, 5.2, 2 } },
 		VideoCounter = { mesh = "VideoCounter", id = 135977298277871, size = { 6.1, 5.2, 3 }, at = { 0, 0.6, 0 } },
 		CounterTV = { mesh = "CounterTV", id = 132542377202646, size = { 2.2, 1.62, 1.75 }, at = { 0, 0.011, 0.075 } },
-		Standee = { mesh = "Standee", id = 125174088561632, size = { 2.6, 6, 1.35 }, at = { 0, 0, -0.25 } },
+		-- (Its easel's strut behind the board since 2026-10-17: it went through the poster.)
+		Standee = { mesh = "Standee", id = 118671606670787, size = { 2.6, 6.01, 1.58 }, at = { 0, -0.005, -0.54 } },
 		-- The arcade's cabinets. Each screen is the mesh's for now; when a
 		-- game runs on one, a screen part goes over it (1.9 x 1.3, 0.9 up
 		-- from the middle and 1.0 out, tilted back 12 degrees).

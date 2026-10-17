@@ -45,7 +45,7 @@ The owner, after publishing build .231 and the playtest fixes (.232): "Theres st
 4. **The hiding line read "... · E:".** "Right click: peek · Space: hold your breath · E: leave" was 435 pixels in a 420 box, so its end wrapped out of sight. The box is 560 (`UI/Hud`). `before-hide-hint.jpg`, `after-hide-hint.jpg`. TC-359.
 5. **The shelf kept saying Rent.** With the tape in your hand, E on the shelf puts it back (`RentalService`), but the prompt still said Rent. It says Put back now, for you only (`UI/Lobby`). TC-360.
 6. **Roblox's buttons on the case folder.** The hub's folder started 22 pixels down, under Roblox's menu and chat buttons (the topbar is 58), and the chat hint covered its title. It starts below the topbar now, and the run's squad list (top left, with friends) too. `before-hub.jpg`, `after-hub.jpg`. TC-361. (CLAUDE.md's known limitation "Roblox's chat hint still overlaps the hub's case folder title" is gone.)
-7. **The video store's standee** (the owner, during the walk: "the stand is facing the wrong way and goes through the promotional image"). The easel's strut was tilted forward, through the poster, and its foot stuck out in front. Rebuilt in Blender (`kitlib/mall2` `standee`): the strut leans from the board's back, 1.4 up, to the floor 1.3 behind it. Previews: `before-standee.jpg` (in Studio), `after-standee-front.png`, `after-standee-behind.png` (Blender, no holes). **Waits on the owner's import**, below. TC-362.
+7. **The video store's standee** (the owner, during the walk: "the stand is facing the wrong way and goes through the promotional image"). The easel's strut was tilted forward, through the poster, and its foot stuck out in front. Rebuilt in Blender (`kitlib/mall2` `standee`): the strut leans from the board's back, 1.4 up, to the floor 1.3 behind it. Previews: `after-standee-front.png`, `after-standee-behind.png` (Blender, no holes). Imported by the owner and filed at build .236, below. TC-362.
 
 ### Checked and fine
 
@@ -57,7 +57,7 @@ The owner, after publishing build .231 and the playtest fixes (.232): "Theres st
 
 ### For the owner
 
-- **Import the standee** (Home → Import 3D): `build\kit\mall2_Standee\mall2_Standee.fbx`. Then Claude files its id in `Data/Kit` Parts `Standee` with its new measures (`size = { 2.6, 6.01, 1.58 }, at = { 0, -0.005, -0.54 }`, from the build's report).
+- **Import the standee:** done (the owner: "I imported the fixed movie stand"); filed at build .236, below.
 - **THE NIGHT IN NUMBERS on the incident report** (`report-numbers.jpg`): tier scores, time by tier, his moves, "F2 used 7". It's the playtest read-out (2026-10-06), shown to every player. **Decided** (the owner: "Show THE NIGHT IN NUMBERS only in Studio and to the debug allowlist, not to public players"): done in build .235, below.
 - **The cabinets' joystick** sits on the screen in the mesh itself; the game is drawn in front of it now, so it doesn't show in play. Moving the stick forward in the mesh means three cabinet imports; not worth it before the release.
 - **The camp's work lamp** (`camp-work-lamp.jpg`) throws its cage's shadows in big bars across the case board. Real, and moody; say if you'd rather it lit the board evenly.
@@ -84,3 +84,12 @@ The owner, after publishing build .231 and the playtest fixes (.232): "Theres st
 - `RunOrchestrator` sends each player their incident report with the numbers only when `DebugService:IsAllowed` (Studio, or a user id in `Config.Debug.AllowedUserIds`); everyone else's copy leaves `stats` out, and the report goes from THE FAMILY'S VALUABLES to WHAT IT LEARNED ABOUT YOU. His moods are still taught (they're `summary.moods`, not the numbers). The server's Output (`[Consensus:summary]`), F2 `summary`, the F2 overlay and the `RunSummary` telemetry keep them for every run, so a playtest can still be read back.
 - `Config.Debug.AllowedUserIds` is empty: live, nobody sees the block. To see it in your own live runs, add your user id there (10608525 is your Studio test profile's).
 - **Checked in Studio:** with `AllowInStudio` switched off for one play session (a local edit, not committed), a run's report had no numbers block; switched back on, it had. stylua, selene, `tests/compile`, `rojo build`, and `lune run tests/run` (754 passed). TC-363.
+
+## The standee imported (build .236)
+
+**The owner:** "I imported the fixed movie stand".
+
+- Filed: `Data/Kit` Parts `Standee` (mesh 118671606670787, `size = { 2.6, 6.01, 1.58 }`, `at = { 0, -0.005, -0.54 }`, the build's measures, which the import matched), and its four maps in `assets/kit/Standee.model.json`.
+- **Seen in Studio**, the same two angles: from the front, nothing crosses THE HALFWAY HOUSE poster any more (`before-standee.jpg`, `after-standee.jpg`); from the side, the strut leans from the board's back down to the floor behind it, where it used to cross the board and hang in the air (`before-standee-side.jpg`, `after-standee-side.jpg`). Its foot is on the floor (the mesh's bottom 0.01 below it).
+- The import's own copy is still in Workspace (`Scene.Standee_Node`): the game builds the standee from its id, so it can go (with the owner's OK).
+- Checks: stylua, selene, `tests/compile`, `rojo build`, `lune run tests/run` (754 passed).
